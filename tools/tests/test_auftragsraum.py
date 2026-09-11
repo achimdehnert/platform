@@ -2,10 +2,9 @@
 
 Alles offline über `--eingabe DATEI` und `--journal tmp_path`. Kein Test ruft
 `chat_lotse.py` oder `gh` auf; `offen` wird ausschliesslich mit `--ohne-gh`
-geprueft. `anwenden` (ohne `--trocken`) wird nur mit einem `erledigt`-Vorschlag
-real ausgefuehrt — `board.py --erledigt` existiert noch nicht (#3049) und
-scheitert VOR jedem Schreibzugriff, ein `frist`-Vorschlag wird deshalb nie
-ohne `--trocken` real ausgefuehrt (koennte das echte Ledger beruehren).
+geprueft. `anwenden` (ohne `--trocken`) laeuft ausschliesslich mit
+`--ledger tmp_path/...` gegen einen synthetischen Ledger — das echte Ledger
+unter ~/.claude enthaelt Personendaten und wird von keinem Test beruehrt.
 """
 
 from __future__ import annotations
@@ -189,17 +188,60 @@ def test_should_anwenden_trocken_kommandos_zeigen_ohne_journal_zu_aendern(tmp_pa
     assert journal.read_text(encoding="utf-8") == vorher
 
 
-def test_should_anwenden_ohne_erledigt_argument_nicht_anwenden_und_exit_0(tmp_path):
-    """#3049 baut `board.py --erledigt` noch nicht — bis dahin bleibt der
-    Vorschlag unbearbeitet und `anwenden` bricht trotzdem nicht ab."""
+def _synthetischer_ledger(tmp_path: Path, nr: int = 12) -> Path:
+    ledger = tmp_path / "ledger.json"
+    ledger.write_text(
+        json.dumps(
+            {
+                "naechste_nr": nr + 1,
+                "vorgaenge": [
+                    {
+                        "nr": nr,
+                        "kurz": "Testvorgang Gutachten",
+                        "bucket": "warten",
+                        "zustand": "wartet auf Rueckmeldung",
+                        "verlauf": [],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    return ledger
+
+
+def test_should_anwenden_erledigt_vorgang_im_ledger_schliessen(tmp_path):
+    """`#12 erledigt` schliesst #12 ueber `board.py --erledigt` (#3049) und
+    markiert den Vorschlag als bearbeitet — nur im uebergebenen Ledger."""
+    ledger = _synthetischer_ledger(tmp_path)
     journal = _sortieren(
         tmp_path, [_zeile(OWNER, "2026-09-01T08:00:00Z", "$e1", "#12 erledigt")]
     )
-    ergebnis = _lauf("anwenden", "--journal", str(journal))
+    ergebnis = _lauf("anwenden", "--journal", str(journal), "--ledger", str(ledger))
+    assert ergebnis.returncode == 0, ergebnis.stderr
+    assert "angewendet" in ergebnis.stdout
+    vorgang = json.loads(ledger.read_text(encoding="utf-8"))["vorgaenge"][0]
+    assert vorgang["bucket"] == "erledigt"
+    assert vorgang["erledigt_am"]
+    assert _journal_lesen(journal)[0]["bearbeitet_am"] is not None
+
+
+def test_should_anwenden_unbekannte_nummer_abweisen_und_exit_0(tmp_path):
+    """Weist `board.py` das Kommando ab (Nummer gibt es nicht), bleibt der
+    Vorschlag offen, der Grund steht im Protokoll, `anwenden` bricht nicht ab."""
+    ledger = _synthetischer_ledger(tmp_path, nr=7)
+    journal = _sortieren(
+        tmp_path, [_zeile(OWNER, "2026-09-01T08:00:00Z", "$e1", "#12 erledigt")]
+    )
+    ergebnis = _lauf("anwenden", "--journal", str(journal), "--ledger", str(ledger))
     assert ergebnis.returncode == 0
-    assert "nicht angewendet" in ergebnis.stdout
-    eintrag = _journal_lesen(journal)[0]
-    assert eintrag["bearbeitet_am"] is None
+    assert "abgewiesen" in ergebnis.stdout
+    assert "#12" in ergebnis.stdout
+    assert _journal_lesen(journal)[0]["bearbeitet_am"] is None
+    assert (
+        json.loads(ledger.read_text(encoding="utf-8"))["vorgaenge"][0]["bucket"]
+        == "warten"
+    )
 
 
 def test_should_journalzeile_kein_at_und_keinen_nachrichtentext_enthalten(tmp_path):

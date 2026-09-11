@@ -28,7 +28,7 @@ Der Raum selbst (`chat_lotse.py room-create`) und die Morgen-Meldung (`digest_ta
 | Raumnachrichten | `chat_lotse.py sync` (iilgmbh/chat-hub), JSON-Zeilen: `room_id, room_name, sender, ts, event_id, body[, undecryptable, audio]` | führt nichts aus (Charta Art. 1) |
 | Owner-Konto | `~/.claude/auftragsraum.env`, Zeile `OWNER_MXID=@…` | Owner-gepflegt, nicht im Repo; fehlt sie, gilt jede Nachricht als `fremd` |
 | Journal | `~/.claude/auftragsraum-journal.jsonl` | eine Zeile je Nachricht: `zeit, klasse, konto_hash, nachricht_id, vorschlag, artefakt, korrektur, bearbeitet_am, tokens` — nie `sender` oder `body` |
-| Kurzbefehl-Übernahme | `board.py --frist` (existiert) bzw. `board.py --erledigt` (folgt mit [#3049](https://github.com/achimdehnert/platform/issues/3049)) | `anwenden` protokolliert einen unbekannten Aufruf als „nicht angewendet", bricht nicht ab |
+| Kurzbefehl-Übernahme | `board.py --frist` bzw. `board.py --erledigt` (seit [#3049](https://github.com/achimdehnert/platform/issues/3049)) | `anwenden` protokolliert einen abgewiesenen Aufruf (unbekannte Nummer) als „abgewiesen", lässt den Vorschlag offen, bricht nicht ab |
 | Auftrag-Zustand | GitHub-Issue, live per `gh issue view --json state` gelesen | Journal spiegelt den Zustand nie (D8) |
 | Regel-Artefakt | `~/.claude/auftragsraum-regeln/<datum>-<id>.md` | lokal, NICHT im Repo — Nachrichtentext darf dort stehen |
 
@@ -61,7 +61,7 @@ Ein leeres Journal (Datei fehlt oder ohne Zeilen) macht alle drei Signale `nicht
 
 ## Bekannte Fallen
 
-- `board.py --erledigt` existiert erst mit [#3049](https://github.com/achimdehnert/platform/issues/3049) — bis dahin bleiben `erledigt`-Kurzbefehle nach `anwenden` unbearbeitet (`bearbeitet_am` bleibt `null`), das ist erwartetes Verhalten, kein Fehler.
+- Ein „abgewiesen" nach `anwenden` heißt: `board.py` kennt die Nummer nicht (`bearbeitet_am` bleibt `null`). Nummer im Chat prüfen, nicht das Werkzeug. Tests und Proben laufen immer mit `--ledger` gegen eine Kopie — das echte Ledger enthält Personendaten.
 - `regel` kennt den Nachrichtentext nicht aus dem Journal (das Journal speichert ihn nie, D7) — ohne `--zitat` bleibt ein TODO-Platzhalter im Regel-Artefakt stehen; die Kapitäns-Sitzung, die die Sync-Zeile gesehen hat, muss ihn nachtragen.
 - `offen` fragt den Issue-Zustand live per `gh` ab; ohne Netz oder in Tests immer mit `--ohne-gh` aufrufen, sonst hängt der Lauf am Netzwerk-Timeout.
 - Ein Owner-Konto ohne `~/.claude/auftragsraum.env` heißt: JEDE Nachricht (auch die eigene) wird als `fremd` protokolliert — kein Fehler, aber leicht zu übersehen, wenn der Raum scheinbar nichts tut.
@@ -72,7 +72,7 @@ Prüfung: `make betrieb-check` — ein Vorschlag ohne Gegenrede und Alternative 
 
 | # | Vorschlag | Advocatus Diaboli | Out of the Box | Anker |
 |---|---|---|---|---|
-| 1 | `board.py --erledigt` bauen, damit Kurzbefehle wirklich schließen | Ein zweiter Schreibpfad neben `--frist` verdoppelt die Angriffsfläche für Ledger-Korruption, wenn beide gleichzeitig laufen | Kurzbefehl `erledigt` auf eine Reaktion (Emoji) statt Text umstellen — `chat_lotse.py react` existiert schon, kein Grammatik-Gate nötig | [#3049](https://github.com/achimdehnert/platform/issues/3049) |
+| 1 | Kurzbefehl `erledigt` zusätzlich als Reaktion (Emoji) statt Text annehmen | Ein zweiter Eingabeweg neben dem Text verdoppelt die Sortierregeln und macht die Positivkontrolle doppelt so groß | `chat_lotse.py react` existiert schon — eine Reaktion des Owners auf die Morgen-Zeitung-Zeile könnte den Vorgang ohne Grammatik schließen | [#3079](https://github.com/achimdehnert/platform/issues/3079) |
 | 2 | K4-Prüfwerkzeug: nacktes „offen" nicht mehr als Anker zulassen | Strenger heißt mehr Fehlalarme bei ehrlich offenen Punkten; eine Datumsangabe wäre reine Pflege ohne Erkenntnisgewinn | Anker-Prüfung ins bestehende Aufschub-Anker-Gate verlagern, das Prosa schon prüft, statt ein zweites Werkzeug zu pflegen | [#3080](https://github.com/achimdehnert/platform/issues/3080) |
 | 3 | Raum, Sortierer, Journal ohne Modell als Stufe 1 | Ohne Live-Antwort fühlt sich der Raum nicht wie Chat an — nur eine teurere Notiz-App, die der Owner am Ende doch nicht nutzt | Statt eines neuen Raums eine Mail an sich selbst, die `/mailcheck` ohnehin schon abholt — dieselbe Lernschleife ohne neuen Kanal | [#3079](https://github.com/achimdehnert/platform/issues/3079) |
 | 4 | Kennzahlen und Verfallsignale wöchentlich als Nachricht in den Raum zurückspiegeln | Ein Melder, der niemand liest, weil der Owner nur schreibt, nicht das Journal öffnet | Wochenzahlen als Teil der Morgen-Meldung (`digest_taeglich`) mitschicken statt eines eigenen Laufs | offen (Stufe 2, nach Kill-Gate-Auswertung 2026-10-08) |

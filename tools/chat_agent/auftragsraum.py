@@ -43,10 +43,12 @@ gleichbedeutend mit stdin. `--eingabe DATEI` deckt jeden Befehl fuer Tests,
 ganz ohne Chat-Lotse oder Netz.
 
 `anwenden` uebernimmt offene Kurzbefehl-Vorschlaege ueber `board.py`:
-`#N erledigt` -> `board.py --erledigt N` (wird erst mit #3049 gebaut — bis
-dahin protokolliert `anwenden` das Kommando als "nicht angewendet" und
-bricht nicht ab, Exit 0); `#N Frist D` -> `board.py --frist N --datum D
---grund 'Owner im Auftragsraum'` (existiert bereits).
+`#N erledigt` -> `board.py --erledigt N` (seit #3049); `#N Frist D` ->
+`board.py --frist N --datum D --grund 'Owner im Auftragsraum'`. Weist
+`board.py` ein Kommando ab (unbekannte Nummer, Exit 2), protokolliert
+`anwenden` das als "abgewiesen", laesst den Vorschlag offen und bricht nicht
+ab (Exit 0). `--ledger DATEI` reicht einen anderen Ledger-Pfad an `board.py`
+durch — fuer Tests und Trockenlaeufe, damit nie das echte Ledger beruehrt wird.
 
 `regel <nachricht_id>` legt den Memory-Kandidaten selbst an
 (`~/.claude/auftragsraum-regeln/<datum>-<id>.md`, lokal, NICHT im Repo) und
@@ -421,13 +423,24 @@ def offen(journal_pfad: Path, *, block: bool, ohne_gh: bool) -> tuple[str, int]:
 # --- anwenden -------------------------------------------------------------
 
 
-def _kommando_fuer_vorschlag(vorschlag: dict[str, Any]) -> list[str] | None:
+def _kommando_fuer_vorschlag(
+    vorschlag: dict[str, Any], ledger: Path | None = None
+) -> list[str] | None:
     aktion = vorschlag.get("aktion")
     nummer = vorschlag.get("nummer")
     if nummer is None:
         return None
+    ledger_arg = ["--ledger", str(ledger)] if ledger else []
     if aktion == "erledigt":
-        return [sys.executable, str(BOARD_SKRIPT), "--erledigt", str(nummer)]
+        return [
+            sys.executable,
+            str(BOARD_SKRIPT),
+            "--erledigt",
+            str(nummer),
+            "--grund",
+            "Owner im Auftragsraum",
+            *ledger_arg,
+        ]
     if aktion == "frist":
         return [
             sys.executable,
@@ -438,11 +451,14 @@ def _kommando_fuer_vorschlag(vorschlag: dict[str, Any]) -> list[str] | None:
             str(vorschlag.get("datum") or ""),
             "--grund",
             "Owner im Auftragsraum",
+            *ledger_arg,
         ]
     return None
 
 
-def anwenden(journal_pfad: Path, *, trocken: bool) -> list[dict[str, str]]:
+def anwenden(
+    journal_pfad: Path, *, trocken: bool, ledger: Path | None = None
+) -> list[dict[str, str]]:
     eintraege = _journal_lesen(journal_pfad)
     ergebnisse: list[dict[str, str]] = []
     geaendert = False
@@ -451,7 +467,7 @@ def anwenden(journal_pfad: Path, *, trocken: bool) -> list[dict[str, str]]:
         if eintrag.get("klasse") != "kurzbefehl" or eintrag.get("bearbeitet_am"):
             continue
         vorschlag = eintrag.get("vorschlag") or {}
-        kommando = _kommando_fuer_vorschlag(vorschlag)
+        kommando = _kommando_fuer_vorschlag(vorschlag, ledger)
         if kommando is None:
             ergebnisse.append(
                 {
@@ -474,17 +490,15 @@ def anwenden(journal_pfad: Path, *, trocken: bool) -> list[dict[str, str]]:
             continue
 
         out, err, rc = _run(kommando)
-        text = f"{out}\n{err}".lower()
         if rc == 0:
             eintrag["bearbeitet_am"] = _jetzt_iso()
             geaendert = True
             status = "angewendet"
-        elif (
-            rc == 2 or "unrecognized argument" in text or "unbekanntes argument" in text
-        ):
-            status = (
-                "nicht angewendet (board.py kennt dieses Argument noch nicht — #3049)"
-            )
+        elif rc == 2:
+            # board.py weist das Kommando ab (unbekannte Nummer, kaputtes Datum):
+            # der Vorschlag bleibt offen, der Grund steht im Protokoll.
+            grund = (err.strip().splitlines() or ["ohne Meldung"])[-1]
+            status = f"abgewiesen (board.py: {grund})"
         else:
             status = f"fehlgeschlagen (rc={rc})"
         ergebnisse.append(
@@ -599,6 +613,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_anwenden.add_argument("--journal", default=str(JOURNAL_DEFAULT))
     p_anwenden.add_argument(
+        "--ledger",
+        metavar="DATEI",
+        help="anderen Ledger-Pfad an board.py durchreichen (Tests, Trockenlauf)",
+    )
+    p_anwenden.add_argument(
         "--trocken", action="store_true", help="nur zeigen, nichts ausfuehren/schreiben"
     )
 
@@ -642,7 +661,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.befehl == "anwenden":
         journal_pfad = Path(args.journal).expanduser()
-        ergebnisse = anwenden(journal_pfad, trocken=args.trocken)
+        ledger = Path(args.ledger).expanduser() if args.ledger else None
+        ergebnisse = anwenden(journal_pfad, trocken=args.trocken, ledger=ledger)
         if not ergebnisse:
             print("keine offenen Kurzbefehl-Vorschlaege")
         for r in ergebnisse:
