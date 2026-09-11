@@ -43,6 +43,8 @@ Kommandos:
   --vergib-nummern    fehlende Nummern vergeben (schreibt den Ledger)
   --render            Board erzeugen (stdout, mit --nach in die Board-Datei)
   --aktionen [TYP]    Aktionskatalog zeigen
+  --erledigt NR       Vorgang schliessen (#3049; --am, --grund optional)
+  --wiedereroeffnen NR  geschlossenen Vorgang wieder oeffnen
 """
 
 from __future__ import annotations
@@ -411,6 +413,20 @@ def pruefe(ledger: dict) -> list[str]:
                 f"({vorgang.get('erledigt_am')!r})"
             )
 
+    # Die Umkehrung derselben Zusage: ein gesetztes erledigt_am an einem
+    # offenen Vorgang waere ein Karteileichen-Feld aus einer Wiedereroeffnung
+    # ohne Aufraeumen und wuerde eine spaetere Nachlogik (Anzeigefenster,
+    # Mail-Aufraeumen) in die Irre fuehren.
+    for vorgang in posten:
+        if vorgang.get("bucket") == "erledigt":
+            continue
+        if vorgang.get("erledigt_am"):
+            befunde.append(
+                f"#{vorgang.get('nr', '?')} '{vorgang.get('kurz')}': erledigt_am="
+                f"{vorgang.get('erledigt_am')!r} gesetzt, aber bucket="
+                f"{vorgang.get('bucket')!r} != 'erledigt'"
+            )
+
     for vorgang in posten:
         nr = vorgang.get("nr")
         if not isinstance(nr, int) or vorgang.get("bucket") not in {"owner", "agent"}:
@@ -490,6 +506,67 @@ def setze_frist(ledger: dict, nr: int, datum: str, grund: str) -> dict:
                 vorgang.pop("frist_grund", None)
         return vorgang
     raise SystemExit(f"FEHLER: Vorgang #{nr} gibt es nicht.")
+
+
+def _verlaufseintrag(vorgang: dict, eintrag: str) -> None:
+    """Einen Verlaufseintrag an `notiz` anhaengen — Regel 0 des Mailcheck-Skills:
+    Inhalt, kein Arbeitsprotokoll. Selbes Trennmuster wie `sendeabgleich.py`."""
+    bisher = vorgang.get("notiz") or ""
+    vorgang["notiz"] = f"{bisher} | {eintrag}" if bisher else eintrag
+
+
+def schliesse_vorgang(
+    ledger: dict, nr: int, am: str, grund: str, heute: str
+) -> tuple[dict, str]:
+    """Vorgang #nr schliessen (#3049 — bis hierher ging das nur per Hand im JSON).
+
+    `am` ist das Abschlussdatum (`erledigt_am`, i.d.R. `heute`, aber fuer eine
+    Nacherfassung ueberschreibbar). `heute` ist der tatsaechliche Lauftag und
+    steht in `letzte_pruefung` sowie im Verlaufseintrag — dieselbe Trennung wie
+    bei `--frist`/`--datum` vs. dem Zeitpunkt des Kommandos.
+
+    Rueckgabe `(vorgang, status)`: `status` ist `"geschlossen"` beim ersten
+    Schliessen, `"bereits"` wenn der Vorgang es schon war (dann unveraendert —
+    ein zweiter Lauf darf nichts kaputt machen). Unbekannte Nummer wirft
+    `ValueError`; `main()` macht daraus Exit 2.
+    """
+    for vorgang in vorgaenge_von(ledger):
+        if vorgang.get("nr") != nr:
+            continue
+        if vorgang.get("bucket") == "erledigt":
+            return vorgang, "bereits"
+        vorgang["bucket"] = "erledigt"
+        vorgang["erledigt_am"] = am
+        grund_text = grund.strip()
+        zustand = f"erledigt: {grund_text}" if grund_text else "erledigt"
+        vorgang["zustand"] = zustand[:60]
+        vorgang["letzte_pruefung"] = heute
+        _verlaufseintrag(
+            vorgang,
+            f"{heute} ERLEDIGT (Owner): {grund_text or 'Owner meldet erledigt'}",
+        )
+        return vorgang, "geschlossen"
+    raise ValueError(f"Vorgang #{nr} gibt es nicht.")
+
+
+def wiedereroeffne_vorgang(ledger: dict, nr: int, heute: str) -> tuple[dict, str]:
+    """Gegenstueck zu `schliesse_vorgang`: Bucket zuruecksetzen, erledigt_am weg.
+
+    Rueckgabe `(vorgang, status)`: `"geoeffnet"` beim Wiedereroeffnen, `"bereits"`
+    wenn der Vorgang gar nicht geschlossen war (unveraendert). Unbekannte Nummer
+    wirft `ValueError`; `main()` macht daraus Exit 2.
+    """
+    for vorgang in vorgaenge_von(ledger):
+        if vorgang.get("nr") != nr:
+            continue
+        if vorgang.get("bucket") != "erledigt":
+            return vorgang, "bereits"
+        vorgang["bucket"] = "owner"
+        vorgang.pop("erledigt_am", None)
+        vorgang["letzte_pruefung"] = heute
+        _verlaufseintrag(vorgang, f"{heute} WIEDER GEOEFFNET (Owner)")
+        return vorgang, "geoeffnet"
+    raise ValueError(f"Vorgang #{nr} gibt es nicht.")
 
 
 def _posten_zeile(vorgang: dict, anker: dict, links: dict) -> list[str]:
@@ -709,7 +786,24 @@ def main(argv: list[str] | None = None) -> int:
         "--datum", metavar="YYYY-MM-DD|keine", help="zu --frist: das Datum oder 'keine'"
     )
     parser.add_argument(
-        "--grund", default="", metavar="TEXT", help="zu --frist: warum keine / Kontext"
+        "--grund",
+        default="",
+        metavar="TEXT",
+        help="zu --frist: warum keine / Kontext; zu --erledigt: Abschlussgrund",
+    )
+    parser.add_argument(
+        "--erledigt", type=int, metavar="NR", help="Vorgang schliessen (#3049)"
+    )
+    parser.add_argument(
+        "--am",
+        metavar="YYYY-MM-DD",
+        help="zu --erledigt: Abschlussdatum (Default heute)",
+    )
+    parser.add_argument(
+        "--wiedereroeffnen",
+        type=int,
+        metavar="NR",
+        help="geschlossenen Vorgang wieder oeffnen (#3049)",
     )
     parser.add_argument(
         "--kategorie",
@@ -747,6 +841,55 @@ def main(argv: list[str] | None = None) -> int:
                 if vorgang.get("frist_grund")
                 else ""
             )
+        )
+        return 0
+
+    if args.erledigt is not None:
+        heute = date.today().isoformat()
+        am = args.am or heute
+        try:
+            date.fromisoformat(am)
+        except ValueError:
+            parser.error(f"--am {am!r} ist kein ISO-Datum.")
+        try:
+            vorgang, status = schliesse_vorgang(
+                ledger, args.erledigt, am, args.grund, heute
+            )
+        except ValueError as fehler:
+            parser.error(str(fehler))
+        if status == "bereits":
+            print(
+                f"#{args.erledigt} '{vorgang.get('kurz')}': bereits erledigt am "
+                f"{vorgang.get('erledigt_am')} — keine Aenderung."
+            )
+            return 0
+        ledger_pfad.write_text(
+            json.dumps(ledger, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+        print(
+            f"#{args.erledigt} '{vorgang.get('kurz')}': "
+            f"erledigt_am={vorgang.get('erledigt_am')!r}, zustand={vorgang.get('zustand')!r}"
+        )
+        return 0
+
+    if args.wiedereroeffnen is not None:
+        heute = date.today().isoformat()
+        try:
+            vorgang, status = wiedereroeffne_vorgang(
+                ledger, args.wiedereroeffnen, heute
+            )
+        except ValueError as fehler:
+            parser.error(str(fehler))
+        if status == "bereits":
+            print(
+                f"#{args.wiedereroeffnen} '{vorgang.get('kurz')}': war nicht geschlossen — keine Aenderung."
+            )
+            return 0
+        ledger_pfad.write_text(
+            json.dumps(ledger, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+        print(
+            f"#{args.wiedereroeffnen} '{vorgang.get('kurz')}': bucket={vorgang.get('bucket')!r}"
         )
         return 0
 

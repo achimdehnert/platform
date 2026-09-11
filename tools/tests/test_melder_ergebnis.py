@@ -70,3 +70,28 @@ def test_should_create_missing_parent_directories(tmp_path):
     p = tmp_path / "tief" / "drin" / "x.json"
     me.schreibe(p, "melder_x", [], gemessen_am=JETZT)
     assert p.exists()
+
+
+# --- Der Fehler, den erst die erste echte Verwendung zeigte (platform#2944) ---
+
+
+def test_should_pfad_als_zeichenkette_annehmen(tmp_path):
+    """Bis zur Verdrahtung der Melder reichten alle Tests `Path`-Objekte herein.
+
+    Der erste Aufruf aus einem Shell-Skript uebergab eine Zeichenkette, und
+    ``lies()`` brach mit ``AttributeError: 'str' object has no attribute
+    'read_text'`` ab — eine Funktion, die gebaut, getestet und gruen war, und beim
+    ersten realistischen Gebrauch scheiterte. Genau die Klasse, gegen die das Gate
+    `built-but-never-called` gebaut ist.
+    """
+    ziel = tmp_path / "unterordner" / "ergebnis.json"
+    me.schreibe(str(ziel), "probe", {"a": 1})
+    assert ziel.exists()
+    assert me.lies(str(ziel))["ergebnis"] == {"a": 1}
+    assert me.lies(ziel)["ergebnis"] == {"a": 1}
+
+
+def test_should_bei_unsinnigem_pfad_none_liefern(tmp_path):
+    """Gegenprobe: ein Wert, der gar kein Pfad ist, gibt `None` statt zu werfen."""
+    assert me.lies(None) is None
+    assert me.lies(12345) is None
