@@ -3560,3 +3560,10 @@ nicht gemountet. Die Tests hatten den Transport gemockt. Entscheidungsvorlage mi
 Zwei Werkzeugbefunde: `repo-session.sh start` gibt den Pfad nicht als letzte Zeile aus
 (`tail -1` traf eine PR-Zeile); beide Worktrees der Sitzung waren am Morgen entfernt, obwohl
 ein PR offen und Commits ungepusht waren — Branches blieben, Ursache offen.
+
+**Fremder Blick (0h):** Abnahme-Agent — fünf von fünf Kriterien erfuellt, je mit Beleg aus
+mcp-hub#264, #3011 und #3071; Grauton D2-Status behoben. Clear-Haerte-Agent — drei Luecken
+(0h-Ergebnis nur angekuendigt, Sitzungs-ID ohne dauerhaften Anker, Faeden 22/24 ohne Link),
+alle im selben Zug geschlossen. Anker: pgvector `session:platform:20260911:577a8b8c`,
+Outline-Lesson `…-ZqOAZ2fog7`, Konzept `…-spbZ8iixmq`, Worktree-Befund platform#3089.
+

@@ -27,7 +27,7 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 
 **Befund Werkzeug:** beide Session-Worktrees dieser Sitzung wurden ueber Nacht entfernt (Leases `.closed`), obwohl ein PR offen (#3071) bzw. Commits ungepusht waren; Branches blieben erhalten, kein Verlust. Ursache nicht ermittelt — Reaper-Log ohne Eintrag.
 
-**Zielzustand:** Sitzungsziel „weiter mit Chat- und App-Funktionen" — **nicht erreicht** (Chat-Rundlauf negativ), **verschoben mit Tracking** (#3011 Entscheidung, mcp-hub#264 Befund). Go-Punkte: erreicht bis auf 39/40/41/28 (Owner-Zug). **SA-4:** 0 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen. **SA-M:** 3 eigene Merges (#3068 M1 mit Owner-Zitat, #2984 M2, alle W1). **Scope-Checkpoint:** in #3011 festgehalten. **0h fremder Blick:** zwei Subagenten (0d/0e), Ergebnis im Log-Block.
+**Zielzustand:** Sitzungsziel „weiter mit Chat- und App-Funktionen" — **nicht erreicht** (Chat-Rundlauf negativ), **verschoben mit Tracking** (#3011 Entscheidung, mcp-hub#264 Befund). Go-Punkte: erreicht bis auf 39/40/41/28 (Owner-Zug). **SA-4:** 0 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen. **SA-M:** 3 eigene Merges (#3068 M1 mit Owner-Zitat, #2984 M2, alle W1). **Scope-Checkpoint:** in #3011 festgehalten. **0h fremder Blick:** 0d — alle fünf Kriterien ERFÜLLT mit Beleg (Grauton: D2 stand formal noch auf „entschieden“, jetzt „revision offen“); 0e — drei JA (0h-Ergebnis fehlte im Log, Sitzungs-ID ohne Anker, Fäden 22/24 ohne Link), alle drei im selben Zug behoben ([#3090](https://github.com/achimdehnert/platform/issues/3090)). **Dauerhafte Anker der Sitzung:** pgvector `session:platform:20260911:577a8b8c`, Outline-Lesson `2026-09-10-gateway-galt-als-deployt-…-ZqOAZ2fog7`, Konzept `…-058-spbZ8iixmq` (Stand 2026-09-11).
 
 ## ⚡ Stand (2026-09-11 frueh — Auftrag #3015 K1–K5 fertig, Auftragsraum Stufe 1 in Bau)
 
@@ -88,9 +88,9 @@ Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Histor
 20. GX10-Training: 4090 bleibt fuehrend bis 16.384 Umgebungen, darueber traegt nur der GX10: https://github.com/achimdehnert/robo-lab/issues/58
 53. Kaufberatung zweites Geraet — Empfehlung abgelegt, Kenntnisnahme offen: https://github.com/achimdehnert/platform/issues/2978
 21. Mail-Ansicht: leerer Körper braucht „Inhalt im Anhang": https://github.com/achimdehnert/platform/issues/2597
-22. Owner: die 20 mechanisch gesetzten `frist_grund`-Texte auf `todo.iil.pet` sichten (Spalte Frist) — mechanisch je Bucket gesetzt, nicht redigiert.
+22. Owner: die 20 mechanisch gesetzten `frist_grund`-Texte auf `todo.iil.pet` sichten (Spalte Frist) — mechanisch je Bucket gesetzt, nicht redigiert: https://github.com/achimdehnert/platform/issues/3015
 23. Megatest-Erstlauf, 15 Befunde unbearbeitet und ohne Tracking-Issue ([Lauf 30619024656](https://github.com/achimdehnert/platform/actions/runs/30619024656), 2026-08-02) — vor Wiederaufnahme neu messen.
-24. Gegenprobe Wochenlauf `ttz-hub`: beim nächsten Lauf, der ttz-hub wirklich ändert, müssen Checks am erzeugten PR erscheinen (kein Issue).
+24. Gegenprobe Wochenlauf `ttz-hub`: beim nächsten Lauf, der ttz-hub wirklich ändert, müssen Checks am erzeugten PR erscheinen: https://github.com/achimdehnert/platform/issues/3090
 25. Session-Skills modellfest (#2690): Drill-Vorlage #2719, Backfill Positivkontrolle #2703, Ruleset-Entscheid bis 2026-10-02: https://github.com/achimdehnert/platform/issues/2690
 26. #2750 K4/K5-Bilanz, sobald das Ledger 5 Fable-Sessions nach 2026-09-03 trägt (Stand 2); K5-Basisdefinition = Owner-Wort: https://github.com/achimdehnert/platform/issues/2750
 27. Orchestrator-MCP-Schlüssel rotiert 2026-09-03: andere Maschinen prüfen, toter Block in settings.json: https://github.com/achimdehnert/platform/issues/2769
