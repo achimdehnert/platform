@@ -23,7 +23,7 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 
 **Owner-Go-Liste ausgefuehrt:** #3068 (Handover, 4 Faeden auf Erledigtes) und #2984 (Gate-Registry) gemergt; `mail-links.service`/`todo-board.service` neu gestartet; risk-hub Prod per Owner-Dispatch + Owner-Klick auf `e8c64cd7` = main ([risk-hub#729](https://github.com/iilgmbh/risk-hub/issues/729)); fuenf Journal-Befunde verankert (#2908, #2990, #2950). Freigabe-Filter blockte Prod-Dispatch und Gate-Freigabe zweimal trotz Go — Kommando per `!` an den Owner, nicht umgangen; die vom Owner eingetragene autoMode-Regel traegt ein Doppel-Leerzeichen und greift nicht.
 
-**netcup gekuendigt (Owner-Wort):** drei tote Runner-Registrierungen in mcp-hub geloescht; `hosts.yaml` mit netcup unter `ehemalige_hosts:` und Test liegt committed auf `session/2026-09-10/achim-dehnert/handover-prio-2291-2977` (2 Commits, **nicht gepusht**: Push-Hook blockt, weil `hosts_audit` den vorbestehenden Befund `todo-board auf dev-desktop` meldet — Ausnahme wie mail-links braucht Owner-Wort, [#2507](https://github.com/achimdehnert/platform/issues/2507)). Offsite-Cron zielt weiter auf netcup → [#2968](https://github.com/achimdehnert/platform/pull/2968). Stand in [#2950](https://github.com/achimdehnert/platform/issues/2950).
+**netcup gekuendigt (Owner-Wort):** drei tote Runner-Registrierungen in mcp-hub geloescht; `hosts.yaml` mit netcup unter `ehemalige_hosts:` und Test liegt als [#3093](https://github.com/achimdehnert/platform/pull/3093) vor (Push ging am 2026-09-11 durch); `hosts_audit` meldet dort nur den vorbestehenden Befund `todo-board auf dev-desktop` ([#2507](https://github.com/achimdehnert/platform/issues/2507)), der nicht Teil der Aenderung ist. Offsite-Cron zielt weiter auf netcup → [#2968](https://github.com/achimdehnert/platform/pull/2968). Stand in [#2950](https://github.com/achimdehnert/platform/issues/2950).
 
 **Befund Werkzeug:** beide Session-Worktrees dieser Sitzung wurden ueber Nacht entfernt (Leases `.closed`), obwohl ein PR offen (#3071) bzw. Commits ungepusht waren; Branches blieben erhalten, kein Verlust. Ursache nicht ermittelt — Reaper-Log ohne Eintrag.
 
@@ -45,7 +45,7 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 
 0. Auftrag #3015 (Mailcheck, To-do, Morgen-Zeitung selbstmessend) laeuft, Stand im Archiv vom 2026-09-10: https://github.com/achimdehnert/platform/issues/3015
 0. iil-assist (KONZ-058): O5 gemessen (negativ); Transport-Entscheidung Weg 1–3 = Owner-Wort, dann MVP 2 Dokument-Suche; Nebenissues #3019 PyPI, #3020 Regelkreis, #3021 Routing, #3022 ADR-036: https://github.com/achimdehnert/platform/issues/3011
-0. netcup gekuendigt (Owner 2026-09-10): hosts.yaml-Branch `handover-prio-2291-2977` ungepusht bis Ausnahme-Wort todo-board (#2507); Offsite-Cron via #2968: https://github.com/achimdehnert/platform/issues/2950
+0. netcup gekuendigt (Owner 2026-09-10): hosts.yaml-PR #3093 offen; Offsite-Cron via #2968: https://github.com/achimdehnert/platform/issues/2950
 0. dev-hub Staging-Deploy vorbestehend kaputt (Kein Compose-File): https://github.com/achimdehnert/dev-hub/issues/348
 0. Paperless `PAPERLESS_FILENAME_DATE_ORDER` setzen: https://github.com/achimdehnert/doc-hub/issues/15
 0. Stapel-Zerleger im Betrieb, Zielzustand-Issue noch offen: https://github.com/achimdehnert/doc-hub/issues/4 — Bauteile gemergt (doc-hub#5, doc-hub#13, doc-hub#14).
