@@ -15,7 +15,17 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 **Archiv älterer Stände und ausgelagerter Sektionen:**
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
 
-## ⚡ Aktueller Stand (2026-09-10 nachmittags — Auftrag #3015: K1–K3 gebaut, drei Gates revidiert, Token nach ADR-238)
+## ⚡ Aktueller Stand (2026-09-11 frueh — Auftrag #3015 K1–K5 fertig, Auftragsraum Stufe 1 in Bau)
+
+**Zeitanker:** HEAD `63b09690` · `rev-list --count` 4401 · geschrieben 2026-09-11
+
+**Auftrag [#3015](https://github.com/achimdehnert/platform/issues/3015) abgeschlossen:** K4 Pruefskript fuer Backlog-Gegenrede ([#3070](https://github.com/achimdehnert/platform/pull/3070), `make betrieb-check`), K5 Drill in frischer Sitzung fuer alle drei Anwendungen, 0/0/1 Abweichungen ([#3078](https://github.com/achimdehnert/platform/pull/3078)), Messjournal-Nachschaerfungen ([#3076](https://github.com/achimdehnert/platform/pull/3076), [#3077](https://github.com/achimdehnert/platform/pull/3077), [#3082](https://github.com/achimdehnert/platform/pull/3082)). `make boards` von 9,3 auf 4,5 Minuten durch Stapel-Suche im dev-hub ([dev-hub#351](https://github.com/achimdehnert/dev-hub/pull/351), [#3067](https://github.com/achimdehnert/platform/issues/3067) zu). Vorgang schliessen per Kommando ([#3085](https://github.com/achimdehnert/platform/pull/3085), schliesst [#3049](https://github.com/achimdehnert/platform/issues/3049)). Rest: Waisen-Zuordnung [#3050](https://github.com/achimdehnert/platform/issues/3050), Backlog-Check zaehlt nacktes „offen" als Anker [#3080](https://github.com/achimdehnert/platform/issues/3080).
+
+**Auftragsraum „Auftraege Achim / Lotse"** ([#3079](https://github.com/achimdehnert/platform/issues/3079), Konzept KONZ-platform-059 gemergt [#3081](https://github.com/achimdehnert/platform/pull/3081)): Raum und Lotsen-Konto waren vorhanden, Testnachricht gesendet, lokale Umgebung angelegt. Stufe 1 (Sortierer, Journal, Regel-Artefakt, Kennzahlen, Betriebsakte) in Bau; der erste Abgleich verbrauchte einen mehrtaegigen Rueckstau ohne Ablage → Verlaufs-Modus [#3086](https://github.com/achimdehnert/platform/issues/3086). Die Skill-Zeilen fuer Sitzungsstart und -ende folgen als Governance-PR (Owner-Approval).
+
+**Offen (Owner):** Skill-Zeilen-PR approven, sobald er steht; Morgen-Zeitung in den Raum senden ist eine news-hub-Aenderung (Deploy nur per Dispatch).
+
+## ⚡ Stand (2026-09-10 nachmittags — Auftrag #3015: K1–K3 gebaut, drei Gates revidiert, Token nach ADR-238)
 
 **Zeitanker:** HEAD `78900e91` · `rev-list --count` 4379 · geschrieben 2026-09-10
 
@@ -26,18 +36,6 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 **Eigene Fehler, korrigiert:** Alias statt Dienst (#3024→#3039), Betreff in Fixture (#3054), Melder-Fehlalarm (#3065).
 
 **Offen (Owner):** nichts Neues — alle Governance-PRs des Tages sind approved und gemergt.
-
-## ⚡ Stand (2026-09-10 nachmittags — Scan-Strecke geschlossen, Archiv aufgeraeumt)
-
-**Scan-Strecke** ([doc-hub#3](https://github.com/achimdehnert/doc-hub/issues/3), geschlossen): der Melder deckt jetzt drei Faelle ab — liegt zu lange (Exit 1), verschwindet ohne Dokument (Exit 4), Aufnahme scheitert (Exit 5, [#3017](https://github.com/achimdehnert/platform/pull/3017)); eine Dublette meldet sichtbar, aber stumm ([#3029](https://github.com/achimdehnert/platform/pull/3029)). **Nicht** ueber `full_audit` auf der Samba-Freigabe — der Weg blieb nach der Vier-Neustarts-Episode zurueckgebaut. Exit 4 hat erstmals an einem echten Ereignis gefeuert ([#3026](https://github.com/achimdehnert/platform/issues/3026), aufgeklaert).
-
-**Archiv aufgeraeumt** (Owner-Auftrag „Vorschlaege zur Optimierung"): ohne Besitzer 546 -> 0, ohne Absender 1149 -> 829, Titel nur Scannernummer 244 -> 91, Absender 30 -> 49, Stichwoerter 114 -> 99. Ursachen: das Ablage-Skript suchte ein Konto `achim`, das es nie gab; und 28 gepflegte Suchbegriffe standen auf „automatisch", wo der Klassifikator bei 30 Absendern auf 211 Beispielen nichts liefert (Gegenprobe ueber Stichwoerter liefert Treffer). Die Skript-Aenderungen liegen NUR auf prod (`/opt/doc-hub/scripts/auto-title.py`, Sicherung `.bak-20260910`) — bekannte Luecke.
-
-**Zwei eigene Fehler, behoben:** `docker exec` ohne `-u paperless` legte 153 Dateien als root an (Suchindex + Ablage), danach scheiterte jeder Einzug und ein echter Scan blieb liegen. Und `scan-melder.yml` schrieb seinen Marker mit Leerzeichen, waehrend `cron_melder_check.py` exakt `ROT-IST-BEFUND` sucht — er wirkte dort nie. Beides in [#3055](https://github.com/achimdehnert/platform/pull/3055), zusammen mit dem woechentlichen Rueckstau-Melder (Posteingang 331, Pruefstapel 57, meldet nur Wachstum).
-
-**Zugang:** Access-Liste fuer `docs.iil.pet` traegt jetzt Firmen- und Hochschul-Adresse plus zwei weitere Personen. Analysen und Rueckweg-Listen liegen in `~/shared/docs-hub/`; offen bleibt [doc-hub#18](https://github.com/achimdehnert/doc-hub/issues/18) (zwei Konten anderer Personen).
-
-**Zielzustand:** erreicht fuer alle freigegebenen Punkte. **SA-4:** 0 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen.
 
 ## Offene Fäden (über den Session-Stand hinaus)
 
@@ -54,6 +52,11 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 - **[2982]** Retro 136735: sieben ueberlebende Befunde ohne Umsetzungsartefakt — beim Auslagern der Sektion vom 2026-09-08 hierher gerettet — https://github.com/achimdehnert/platform/issues/2982
 - **[3015]** Auftrag Mailcheck/To-do/Zeitung selbstmessend (SA-4): Sachstand mit 12 Befunden im Issue; nach Merge von #3042 `mail-links.service` und `todo-board.service` neu starten (Owner) — https://github.com/achimdehnert/platform/issues/3015
 - **[3027]** Auslagerungs-Gate liest Fremd-Repos jetzt per Flotten-Token; schliesst erst, wenn eine Auslagerung mit Fremd-Refs im Gate gruen laeuft — https://github.com/achimdehnert/platform/issues/3027
+- **[3079]** Auftragsraum Stufe 1 in Bau; Skill-Zeilen als Governance-PR (Owner-Approval) — https://github.com/achimdehnert/platform/issues/3079
+- **[3086]** Sortierer muss den Raumverlauf nach Zeitstempel lesen (Abgleich verschluckt Rueckstau) — https://github.com/achimdehnert/platform/issues/3086
+- **[3080]** Backlog-Check zaehlt nacktes offen als Anker — https://github.com/achimdehnert/platform/issues/3080
+- **[3073]** 20 Dateien Format-Schuld (ruff format) — https://github.com/achimdehnert/platform/issues/3073
+- **[doc-hub#18]** Zwei Konten anderer Personen in der Access-Liste docs.iil.pet; Skript-Aenderungen an `auto-title.py` liegen NUR auf prod (Sicherung `.bak-20260910`) — aus dem Stand vom 2026-09-10 gerettet — https://github.com/achimdehnert/doc-hub/issues/18
 - **[news-hub#33]** Morgen-Zeitung: Themenauswahl kuert generische Woerter — beim Auslagern der Sektion vom 2026-09-09 vormittags hierher gerettet — https://github.com/achimdehnert/news-hub/issues/33
 - **[news-hub#40]** Morgen-Zeitung: Smoke-Lauf im CI, Entwurf steht — beim Auslagern gerettet — https://github.com/achimdehnert/news-hub/issues/40
 - **[news-hub#19]** Morgen-Zeitung: NIS2 und Voice Agents ohne Quelle, Robotik und IoT belegt — beim Auslagern gerettet — https://github.com/achimdehnert/news-hub/issues/19
