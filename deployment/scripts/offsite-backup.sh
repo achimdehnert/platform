@@ -7,8 +7,17 @@
 # ist nur der Transport + die Retention.
 #
 # ── Secrets (NIE hardcoden, NIE echoen; ADR-045 / ~/.secrets) ───────────────
-#   RESTIC_REPOSITORY       z. B. sftp:u123456@u123456.your-storagebox.de:/restic
+#   RESTIC_REPOSITORY       seit 2026-09-08: s3:https://<standort>.your-objectstorage.com/<bucket>
+#                           (vorher rest: auf netcup — Host ausgefallen, ADR-289 §3.1a)
 #   RESTIC_PASSWORD_FILE    Pfad zur Key-Datei (Key-Escrow ≥2 Orte: Host + ~/.secrets)
+#   AWS_ACCESS_KEY_ID       nur beim S3-Ziel; dieses Skript kennt sie nicht — das
+#   AWS_SECRET_ACCESS_KEY   `set -a` unten exportiert alles aus der Env-Datei,
+#                           deshalb war fuer den Zielwechsel KEINE Code-Aenderung noetig.
+#   RESTIC_CACERT           faellt beim S3-Ziel WEG. Es zeigte auf das CA des
+#                           netcup-rest-servers; stehengelassen pruefte restic die
+#                           oeffentliche TLS-Kette gegen ein fremdes CA und braeche ab.
+#
+#   Umstellung: deployment/scripts/offsite-auf-objectstorage-umstellen.sh
 #   Quelle der Variablen: /etc/offsite-backup.env (root:root 600), das aus
 #   ~/.secrets/ befüllt wird — dieser Pfad ist die EINZIGE Stelle, an der die
 #   Storage-Box-Credentials liegen; bewusst NICHT der Hetzner-Cloud-Token
