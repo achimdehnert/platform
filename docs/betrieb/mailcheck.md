@@ -79,7 +79,7 @@ dieses Signalsatzes — der Melder deckt ihn für `todo-board.service` und
 
 - Der Index ist gestern: Antworten nach 03:30 sieht nur der Live-Fallback. Frage „nicht erkannt oder zu neu?" (Owner, 2026-09-10) ist ohne Blick auf das Index-Alter nicht beantwortbar.
 - Verlaufseinträge sind die Akte des Vorgangs, nicht das Arbeitsprotokoll des Agenten (Regel 0 im Skill seit #3037). Eingegangene Mails werden gelesen und eingetragen, nicht als „noch nicht ausgewertet" vermerkt.
-- Vorgang schließen geht nur per Hand im JSON (`bucket: erledigt`, `erledigt_am`); Kommando fehlt → [#3049](https://github.com/achimdehnert/platform/issues/3049).
+- Vorgang schließen: `python3 tools/mail_agent/board.py --erledigt <nr> [--am YYYY-MM-DD] [--grund '…']` setzt `bucket: erledigt`, `erledigt_am`, `zustand` und den Verlaufseintrag in einem Zug; Gegenstück `--wiedereroeffnen <nr>` ([#3049](https://github.com/achimdehnert/platform/issues/3049)).
 - Das Ledger enthält Personendaten. Nichts daraus in Repo, Issue, PR-Text oder Test-Fixture — auch keine Betreffs (Realfall #3042, korrigiert).
 - IIL hat keine IMAP-UIDs; Referenzen dort per Betreff in Anführungszeichen plus Datum.
 - `graph_mail.py --find` schließt `--all` und `--from` gegenseitig aus; `--login` und `--find` ebenfalls.
