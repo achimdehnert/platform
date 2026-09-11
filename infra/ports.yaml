@@ -184,6 +184,15 @@ infra:
 # ═══════════════════════════════════════════════════════════════════════════════
 services:
 
+  post-hub:
+    prod: 11435
+    staging: 11435
+    dev: 11435
+    container_name: post_hub_web
+    domain_prod: post-hub.iil.pet
+    betriebsstatus: blockiert
+    betriebsstatus_grund: "Repo am 2026-09-11 angelegt (PostAssist-Host, meiki-lra); noch kein Code, kein Deploy — Prod erst nach Hosting-Entscheid wie frist-hub; post-hub.iil.pet hat bewusst keinen DNS-Eintrag"
+    note: "meiki-lra · PostAssist-Host (Posteingang) — Skelett, prod blockiert"
   frist-hub:
     prod: 8111
     staging: 8111
