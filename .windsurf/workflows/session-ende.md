@@ -230,6 +230,16 @@ Sitzungsende** dieser Klasse. Deshalb der Footprint-Schalter statt „immer". �
 
 ---
 
+### 0i: Auftragsraum — keine Korrektur ohne Artefakt (PFLICHT — NEU 2026-09-11, KONZ-platform-059 / #3079)
+
+`python3 tools/chat_agent/auftragsraum.py offen --block` (nur platform-Sessions). Exit 1 heißt:
+eine Owner-Korrektur aus dem Chat-Raum hat noch kein Regel-Artefakt — je Zeile `regel
+<nachricht_id> --why …` ausführen oder den Verzicht mit Grund im Stand-Block nennen. Offene
+Aufträge ohne Issue werden hier gemeldet, nicht angelegt (das bleibt Phase 1.8 des Starts).
+Betriebsakte: `docs/betrieb/auftragsraum.md`.
+
+---
+
 ## Phase 1: Wissen sichern — an `/knowledge-capture` delegieren (PFLICHT)
 
 Outline-Schreiben **nicht hier inline duplizieren** — Klassifikation, Cross-Repo-Tagging und
@@ -392,6 +402,7 @@ Memory-Upserts deduplizieren per `content_hash`.
 | 21 | Clear-Freigabe-Zeile als letzter Satz — 🟢 JA oder 🔴 NEIN + Grund (3.5) | ☐ |
 | 22 | Gate verankert? `gate_verankerung_check.py --neu` grün, sonst Kandidat (0f-verankerung) | ☐ |
 | 23 | Ab `full`: 0d und 0e von je einem fremden Agenten gegengelesen (0h) | ☐ |
+| 24 | Auftragsraum: `offen --block` Exit 0, oder je Korrektur `regel` bzw. Verzicht mit Grund (0i) | ☐ |
 
 **Neue Pflicht-Phase ⇒ Checklisten-Zeile im selben PR**; Auswahl über
 `grep -n "^## \|^### "` und Einzelbeurteilung, **nicht** über das Wort „PFLICHT".
@@ -401,6 +412,10 @@ Memory-Upserts deduplizieren per `content_hash`.
 
 ## Changelog
 
+- 2026-09-11: **Phase 0i Auftragsraum + Checklisten-Zeile 24** (KONZ-platform-059, #3079) —
+  `offen --block` schließt die Lernschleife: eine Owner-Korrektur aus dem Chat-Raum ohne
+  Regel-Artefakt hemmt das Sitzungsende, bis `regel` das Artefakt anlegt oder der Verzicht
+  begründet ist. Gegenstück zu Start 1.8.
 - 2026-09-10: **3.5 misst nur die eigene Sitzung + Checklisten-Zeile 6 gescharft** —
   Owner wörtlich: „fremde dirty sollten kein clear hemmen !! -> mehr fokus auf eigenen
   sitzung !". Anlass: eine Sitzung ohne jede Repo-Änderung lieferte 🔴, weil drei fremde
