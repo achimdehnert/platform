@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 SKRIPT = Path(__file__).resolve().parents[1] / "mail_agent" / "verfallsmelder.py"
@@ -185,3 +185,101 @@ def test_should_never_print_an_at_sign():
     )
     ergebnis = _lauf("--anwendung", "mailcheck", "--eingabe", eingabe)
     assert "@" not in ergebnis.stdout
+
+
+# --- auftragsraum (KONZ-platform-059, #3079) -----------------------------
+
+
+def _vor(stunden: int = 0, tage: int = 0) -> str:
+    zeitpunkt = datetime.now(timezone.utc) - timedelta(hours=stunden, days=tage)
+    return zeitpunkt.isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def test_should_auftragsraum_leeres_journal_nicht_pruefbar_sein_ohne_warnung():
+    ergebnis = _lauf(
+        "--anwendung",
+        "auftragsraum",
+        "--json",
+        "--eingabe",
+        json.dumps({"auftragsraum_journal": []}),
+    )
+    daten = json.loads(ergebnis.stdout)
+    for name in (
+        "Nachricht ohne Bearbeitung",
+        "Korrektur ohne Artefakt",
+        "Journal-Alter (Raum still)",
+    ):
+        assert _signal(daten, "auftragsraum", name)["zustand"] == "nicht pruefbar"
+    assert daten["warnungen"] == 0
+    assert ergebnis.returncode == 0
+
+
+def test_should_auftragsraum_nachricht_ohne_bearbeitung_ueber_24h_warnen():
+    eingabe = json.dumps(
+        {
+            "auftragsraum_journal": [
+                {
+                    "zeit": _vor(stunden=48),
+                    "klasse": "kurzbefehl",
+                    "korrektur": False,
+                    "artefakt": None,
+                    "bearbeitet_am": None,
+                }
+            ]
+        }
+    )
+    ergebnis = _lauf(
+        "--anwendung", "auftragsraum", "--json", "--eingabe", eingabe, "--block"
+    )
+    daten = json.loads(ergebnis.stdout)
+    assert _signal(daten, "auftragsraum", "Nachricht ohne Bearbeitung")["zustand"] == (
+        "WARNUNG"
+    )
+    assert ergebnis.returncode == 1
+
+
+def test_should_auftragsraum_korrektur_ohne_artefakt_ueber_24h_warnen():
+    eingabe = json.dumps(
+        {
+            "auftragsraum_journal": [
+                {
+                    "zeit": _vor(stunden=25),
+                    "klasse": "korrektur",
+                    "korrektur": True,
+                    "artefakt": None,
+                    "bearbeitet_am": None,
+                }
+            ]
+        }
+    )
+    daten = json.loads(
+        _lauf("--anwendung", "auftragsraum", "--json", "--eingabe", eingabe).stdout
+    )
+    assert _signal(daten, "auftragsraum", "Korrektur ohne Artefakt")["zustand"] == (
+        "WARNUNG"
+    )
+
+
+def test_should_auftragsraum_journal_alter_nur_hinweis_nie_warnung_nie_block():
+    eingabe = json.dumps(
+        {
+            "auftragsraum_journal": [
+                {
+                    "zeit": _vor(tage=9),
+                    "klasse": "notiz",
+                    "korrektur": False,
+                    "artefakt": None,
+                    "bearbeitet_am": _vor(tage=9),
+                }
+            ]
+        }
+    )
+    ergebnis = _lauf(
+        "--anwendung", "auftragsraum", "--json", "--eingabe", eingabe, "--block"
+    )
+    daten = json.loads(ergebnis.stdout)
+    assert _signal(daten, "auftragsraum", "Journal-Alter (Raum still)")["zustand"] == (
+        "HINWEIS"
+    )
+    assert daten["warnungen"] == 0
+    assert ergebnis.returncode == 0

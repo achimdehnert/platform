@@ -20,9 +20,20 @@ Kommandos::
 
     python3 tools/mail_agent/messjournal.py --schreiben --anwendung mailcheck
     python3 tools/mail_agent/messjournal.py --schreiben --anwendung todo
+    python3 tools/mail_agent/messjournal.py --schreiben --anwendung auftragsraum
     python3 tools/mail_agent/messjournal.py --schreiben --anwendung alle
     python3 tools/mail_agent/messjournal.py --trend
     python3 tools/mail_agent/messjournal.py --trend --anwendung mailcheck --n 7
+
+`--anwendung auftragsraum` (KONZ-platform-059, #3079) erhebt vier Kennzahlen
+aus dem rohen Ereignis-Journal des Auftragsraums
+(`~/.claude/auftragsraum-journal.jsonl`, geschrieben von
+`tools/chat_agent/auftragsraum.py sortieren`) statt ein eigenes Kommando
+aufzurufen: `nachrichten_je_klasse` (Objekt, letzte 7 Tage),
+`korrekturen_ohne_artefakt_24h`, `mittlere_stunden_bis_bearbeitung`,
+`anteil_angewendete_kurzbefehle`. `tokens` bleibt in Stufe 1 immer `null`
+(Feld der Auftragsraum-Journalzeile selbst, nicht dieser Kennzahlen).
+`--anwendung alle` schliesst `auftragsraum` mit ein.
 
 `--anwendung alle` (oder zweimal `--anwendung`) erhebt mailcheck UND todo in
 einem Prozess und schreibt zwei Zeilen. Grund (#3067): beide Anwendungen
@@ -54,7 +65,7 @@ import os
 import re
 import subprocess
 import sys
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -65,6 +76,10 @@ MAIL_AGENT_DIR = Path(__file__).resolve().parent
 TODO_BOARD_DIR = REPO / "tools" / "todo_board"
 
 JOURNAL_DEFAULT = Path.home() / ".claude" / "mail-messjournal.jsonl"
+
+#: Rohes Ereignis-Journal des Auftragsraums (`auftragsraum.py sortieren`) —
+#: eigene Datei, eigenes Format (eine Zeile je Nachricht, nicht je Lauf).
+AUFTRAGSRAUM_JOURNAL_DEFAULT = Path.home() / ".claude" / "auftragsraum-journal.jsonl"
 
 TIMEOUT = 120
 
@@ -94,6 +109,13 @@ KENNZAHLEN_TODO = (
     "mail_links_tot",
     "geschlossen_7_tage",
     "ohne_kopf_aktion",
+)
+
+KENNZAHLEN_AUFTRAGSRAUM = (
+    "nachrichten_je_klasse",
+    "korrekturen_ohne_artefakt_24h",
+    "mittlere_stunden_bis_bearbeitung",
+    "anteil_angewendete_kurzbefehle",
 )
 
 _FEHLT = object()
@@ -323,6 +345,100 @@ def _erheben_gemeinsam(
     return _mailcheck_erheben(links=links, ablage=ablage), _todo_erheben(links=links)
 
 
+# --- Auftragsraum: echte Erhebung aus dem rohen Ereignis-Journal ---------
+
+
+def _auftragsraum_zeit_parsen(text: Any) -> datetime | None:
+    if not isinstance(text, str) or not text:
+        return None
+    try:
+        wert = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if wert.tzinfo is None:
+        wert = wert.replace(tzinfo=timezone.utc)
+    return wert
+
+
+def _auftragsraum_journal_lesen(pfad: Path) -> list[dict[str, Any]]:
+    if not pfad.exists():
+        return []
+    try:
+        text = pfad.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    eintraege: list[dict[str, Any]] = []
+    for zeile in text.splitlines():
+        zeile = zeile.strip()
+        if not zeile:
+            continue
+        try:
+            eintrag = json.loads(zeile)
+        except ValueError:
+            continue
+        if isinstance(eintrag, dict):
+            eintraege.append(eintrag)
+    return eintraege
+
+
+def _auftragsraum_kennzahlen(eintraege: list[dict[str, Any]]) -> dict[str, Any]:
+    """Vier Kennzahlen aus den rohen Journalzeilen des Auftragsraums (D5,
+    KONZ-platform-059). Nie Nachrichtentext oder Konto — nur Zaehlung und
+    Zeitdifferenzen ueber Felder, die das Journal selbst schon fuehrt."""
+    jetzt = datetime.now(timezone.utc)
+    sieben_tage_alt = jetzt - timedelta(days=7)
+
+    je_klasse: dict[str, int] = {}
+    korrekturen_ohne_artefakt_24h = 0
+    bearbeitungsdauern_stunden: list[float] = []
+    kurzbefehle_gesamt = 0
+    kurzbefehle_angewendet = 0
+
+    for eintrag in eintraege:
+        klasse = eintrag.get("klasse")
+        zeit = _auftragsraum_zeit_parsen(eintrag.get("zeit"))
+
+        if klasse and zeit is not None and zeit >= sieben_tage_alt:
+            je_klasse[klasse] = je_klasse.get(klasse, 0) + 1
+
+        if (
+            eintrag.get("korrektur")
+            and not eintrag.get("artefakt")
+            and zeit is not None
+            and (jetzt - zeit).total_seconds() / 3600 > 24
+        ):
+            korrekturen_ohne_artefakt_24h += 1
+
+        bearbeitet = _auftragsraum_zeit_parsen(eintrag.get("bearbeitet_am"))
+        if zeit is not None and bearbeitet is not None:
+            bearbeitungsdauern_stunden.append(
+                (bearbeitet - zeit).total_seconds() / 3600
+            )
+
+        if klasse == "kurzbefehl":
+            kurzbefehle_gesamt += 1
+            if eintrag.get("bearbeitet_am"):
+                kurzbefehle_angewendet += 1
+
+    mittlere_stunden = (
+        sum(bearbeitungsdauern_stunden) / len(bearbeitungsdauern_stunden)
+        if bearbeitungsdauern_stunden
+        else None
+    )
+    anteil = kurzbefehle_angewendet / kurzbefehle_gesamt if kurzbefehle_gesamt else None
+    return {
+        "nachrichten_je_klasse": je_klasse,
+        "korrekturen_ohne_artefakt_24h": korrekturen_ohne_artefakt_24h,
+        "mittlere_stunden_bis_bearbeitung": mittlere_stunden,
+        "anteil_angewendete_kurzbefehle": anteil,
+    }
+
+
+def _auftragsraum_erheben() -> dict[str, Any]:
+    eintraege = _auftragsraum_journal_lesen(AUFTRAGSRAUM_JOURNAL_DEFAULT)
+    return _auftragsraum_kennzahlen(eintraege)
+
+
 # --- Sammeln, unabhaengig von der Quelle ---------------------------------
 
 
@@ -337,24 +453,32 @@ def _eingabe_lesen(wert: str) -> dict[str, Any]:
     return geladen
 
 
-def sammeln(
-    anwendung: str, roh: dict[str, Any]
-) -> tuple[dict[str, int | None], list[str]]:
+def _kennzahlen_namen(anwendung: str) -> tuple[str, ...]:
+    if anwendung == "mailcheck":
+        return KENNZAHLEN_MAILCHECK
+    if anwendung == "auftragsraum":
+        return KENNZAHLEN_AUFTRAGSRAUM
+    return KENNZAHLEN_TODO
+
+
+def sammeln(anwendung: str, roh: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     """Kennzahlen einer Anwendung aus bereits erhobenen Rohwerten filtern.
 
     Rueckgabe (Kennzahlen, Fehlerliste). `roh` ist entweder eine `--eingabe`
     (Tests) oder das Ergebnis einer echten Erhebung — welche Quelle das war,
-    entscheidet `schreiben()`, nicht diese Funktion (#3067)."""
-    namen = KENNZAHLEN_MAILCHECK if anwendung == "mailcheck" else KENNZAHLEN_TODO
+    entscheidet `schreiben()`, nicht diese Funktion (#3067). Werte sind meist
+    `int`; `auftragsraum` liefert zusaetzlich `float` (Mittelwerte/Anteile)
+    und `dict` (`nachrichten_je_klasse`, auch leer gueltig)."""
+    namen = _kennzahlen_namen(anwendung)
 
-    kennzahlen: dict[str, int | None] = {}
+    kennzahlen: dict[str, Any] = {}
     fehler: list[str] = []
     for name in namen:
         wert = roh.get(name, _FEHLT)
         if wert is _FEHLT or wert is None or isinstance(wert, bool):
             kennzahlen[name] = None
             fehler.append(name)
-        elif isinstance(wert, int):
+        elif isinstance(wert, (int, float, dict)):
             kennzahlen[name] = wert
         else:
             kennzahlen[name] = None
@@ -392,18 +516,23 @@ def schreiben(
     )
     if eingabe is not None:
         roh_je_anwendung = {a: eingabe for a in anwendungen}
-    elif set(anwendungen) == {"mailcheck", "todo"}:
+    elif {"mailcheck", "todo"} <= set(anwendungen):
+        # #3067: mailcheck+todo teilen sich link_pruefen.py --vorgangsseiten,
+        # egal ob auftragsraum (#3079) zusaetzlich angefragt ist — das laeuft
+        # unabhaengig davon separat (eigene Quelle, kein Netz).
         roh_mailcheck, roh_todo = _erheben_gemeinsam(ablage=ablage)
         roh_je_anwendung = {"mailcheck": roh_mailcheck, "todo": roh_todo}
+        if "auftragsraum" in anwendungen:
+            roh_je_anwendung["auftragsraum"] = _auftragsraum_erheben()
     else:
-        roh_je_anwendung = {
-            a: (
-                _mailcheck_erheben(ablage=ablage)
-                if a == "mailcheck"
-                else _todo_erheben()
-            )
-            for a in anwendungen
-        }
+        roh_je_anwendung = {}
+        for a in anwendungen:
+            if a == "mailcheck":
+                roh_je_anwendung[a] = _mailcheck_erheben(ablage=ablage)
+            elif a == "auftragsraum":
+                roh_je_anwendung[a] = _auftragsraum_erheben()
+            else:
+                roh_je_anwendung[a] = _todo_erheben()
 
     journal_pfad.parent.mkdir(parents=True, exist_ok=True)
     zeilen: list[dict[str, Any]] = []
@@ -471,8 +600,14 @@ def trend(anwendung: str | None, n: int, journal_pfad: Path) -> str:
         for name in alle_kennzahlen:
             wert = werte.get(name)
             text = "null" if wert is None else str(wert)
-            if name in vorher and vorher[name] is not None and wert is not None:
-                delta = wert - vorher[name]
+            vorheriger = vorher.get(name)
+            if (
+                isinstance(wert, (int, float))
+                and not isinstance(wert, bool)
+                and isinstance(vorheriger, (int, float))
+                and not isinstance(vorheriger, bool)
+            ):
+                delta = wert - vorheriger
                 text += f" ({'+' if delta >= 0 else ''}{delta})"
             spalten.append(text)
         vorher = {**vorher, **werte}
@@ -496,9 +631,9 @@ def main() -> int:
     ap.add_argument(
         "--anwendung",
         action="append",
-        choices=["mailcheck", "todo", "alle"],
-        help="mailcheck, todo oder alle (beide in einem Lauf, #3067); "
-        "fuer --schreiben mehrfach angebbar",
+        choices=["mailcheck", "todo", "auftragsraum", "alle"],
+        help="mailcheck, todo, auftragsraum oder alle (alle drei in einem "
+        "Lauf, #3067/#3079); fuer --schreiben mehrfach angebbar",
     )
     ap.add_argument("--modell", help="Default: $CLAUDE_MODEL oder 'unbekannt'")
     ap.add_argument("--journal", default=str(JOURNAL_DEFAULT))
@@ -523,13 +658,16 @@ def main() -> int:
     if args.schreiben:
         if not args.anwendung:
             print(
-                "FEHLER: --schreiben braucht --anwendung mailcheck|todo|alle",
+                "FEHLER: --schreiben braucht --anwendung "
+                "mailcheck|todo|auftragsraum|alle",
                 file=sys.stderr,
             )
             return 2
         anwendungen: list[str] = []
         for a in args.anwendung:
-            anwendungen.extend(["mailcheck", "todo"] if a == "alle" else [a])
+            anwendungen.extend(
+                ["mailcheck", "todo", "auftragsraum"] if a == "alle" else [a]
+            )
         anwendungen = list(dict.fromkeys(anwendungen))  # Reihenfolge, ohne Duplikate
 
         eingabe = _eingabe_lesen(args.eingabe) if args.eingabe else None
