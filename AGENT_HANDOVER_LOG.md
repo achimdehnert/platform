@@ -3529,3 +3529,16 @@ Der Chat-Rundlauf blieb unbelegt: die Werkzeugliste der Sitzung ist starr.
 Zwei Owner-Ergaenzungen: Mail inhaltlich beantworten ist als Dienst-Kandidat mit
 Entwurfs-Gate eingeordnet (zweite Welle), und chat-hub darf kuenftig iil-assist-hub heissen.
 
+
+
+## 2026-09-10 (nachmittags) — Scan-Strecke geschlossen, Archiv aufgeraeumt
+
+**Scan-Strecke** ([doc-hub#3](https://github.com/achimdehnert/doc-hub/issues/3), geschlossen): der Melder deckt jetzt drei Faelle ab — liegt zu lange (Exit 1), verschwindet ohne Dokument (Exit 4), Aufnahme scheitert (Exit 5, [#3017](https://github.com/achimdehnert/platform/pull/3017)); eine Dublette meldet sichtbar, aber stumm ([#3029](https://github.com/achimdehnert/platform/pull/3029)). **Nicht** ueber `full_audit` auf der Samba-Freigabe — der Weg blieb nach der Vier-Neustarts-Episode zurueckgebaut. Exit 4 hat erstmals an einem echten Ereignis gefeuert ([#3026](https://github.com/achimdehnert/platform/issues/3026), aufgeklaert).
+
+**Archiv aufgeraeumt** (Owner-Auftrag „Vorschlaege zur Optimierung"): ohne Besitzer 546 -> 0, ohne Absender 1149 -> 829, Titel nur Scannernummer 244 -> 91, Absender 30 -> 49, Stichwoerter 114 -> 99. Ursachen: das Ablage-Skript suchte ein Konto `achim`, das es nie gab; und 28 gepflegte Suchbegriffe standen auf „automatisch", wo der Klassifikator bei 30 Absendern auf 211 Beispielen nichts liefert (Gegenprobe ueber Stichwoerter liefert Treffer). Die Skript-Aenderungen liegen NUR auf prod (`/opt/doc-hub/scripts/auto-title.py`, Sicherung `.bak-20260910`) — bekannte Luecke.
+
+**Zwei eigene Fehler, behoben:** `docker exec` ohne `-u paperless` legte 153 Dateien als root an (Suchindex + Ablage), danach scheiterte jeder Einzug und ein echter Scan blieb liegen. Und `scan-melder.yml` schrieb seinen Marker mit Leerzeichen, waehrend `cron_melder_check.py` exakt `ROT-IST-BEFUND` sucht — er wirkte dort nie. Beides in [#3055](https://github.com/achimdehnert/platform/pull/3055), zusammen mit dem woechentlichen Rueckstau-Melder (Posteingang 331, Pruefstapel 57, meldet nur Wachstum).
+
+**Zugang:** Access-Liste fuer `docs.iil.pet` traegt jetzt Firmen- und Hochschul-Adresse plus zwei weitere Personen. Analysen und Rueckweg-Listen liegen in `~/shared/docs-hub/`; offen bleibt [doc-hub#18](https://github.com/achimdehnert/doc-hub/issues/18) (zwei Konten anderer Personen).
+
+**Zielzustand:** erreicht fuer alle freigegebenen Punkte. **SA-4:** 0 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen.
