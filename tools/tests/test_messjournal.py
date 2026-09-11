@@ -137,8 +137,9 @@ def test_should_trend_auf_leerem_journal_journal_leer_melden(tmp_path):
     assert ergebnis.stdout.strip() == "Journal leer"
 
 
-def test_should_anwendung_alle_zwei_zeilen_je_eigener_anwendung_schreiben(tmp_path):
-    """#3067: ein Lauf, zwei Journalzeilen — eine je Anwendung."""
+def test_should_anwendung_alle_drei_zeilen_je_eigener_anwendung_schreiben(tmp_path):
+    """#3067: ein Lauf, eine Journalzeile je Anwendung. Seit #3079 gehoert
+    `auftragsraum` zu `alle` dazu (drei statt zwei Zeilen)."""
     journal = tmp_path / "journal.jsonl"
     eingabe = json.dumps(
         {
@@ -147,6 +148,7 @@ def test_should_anwendung_alle_zwei_zeilen_je_eigener_anwendung_schreiben(tmp_pa
             "vorgangsseiten_tot": 1,
             "vorgangsseiten": 3,
             "mail_links_tot": 1,
+            "nachrichten_je_klasse": {},
         }
     )
     ergebnis = _lauf(
@@ -160,9 +162,9 @@ def test_should_anwendung_alle_zwei_zeilen_je_eigener_anwendung_schreiben(tmp_pa
     )
     assert ergebnis.returncode == 0
     zeilen = journal.read_text(encoding="utf-8").strip().splitlines()
-    assert len(zeilen) == 2
+    assert len(zeilen) == 3
     anwendungen = {json.loads(z)["anwendung"] for z in zeilen}
-    assert anwendungen == {"mailcheck", "todo"}
+    assert anwendungen == {"mailcheck", "todo", "auftragsraum"}
 
 
 def test_should_link_pruefen_bei_alle_genau_einmal_laufen_und_beide_zeilen_fuellen(
@@ -273,3 +275,109 @@ def test_should_ablage_ausgabe_vorgegeben_den_eigenen_lauf_ueberspringen(
     assert aufrufe["n"] == 0
     mailcheck = next(z for z in zeilen if z["anwendung"] == "mailcheck")
     assert mailcheck["kennzahlen"]["posteingang_geschlossene_vorgaenge"] == 3
+
+
+# --- auftragsraum (KONZ-platform-059, #3079) -----------------------------
+
+
+def test_should_auftragsraum_eingabe_direkt_in_kennzahlen_uebernehmen(tmp_path):
+    journal = tmp_path / "journal.jsonl"
+    eingabe = {
+        "nachrichten_je_klasse": {"kurzbefehl": 2, "notiz": 1},
+        "korrekturen_ohne_artefakt_24h": 1,
+        "mittlere_stunden_bis_bearbeitung": 3.5,
+        "anteil_angewendete_kurzbefehle": 0.5,
+    }
+    ergebnis = _lauf(
+        "--schreiben",
+        "--anwendung",
+        "auftragsraum",
+        "--journal",
+        str(journal),
+        "--eingabe",
+        json.dumps(eingabe),
+    )
+    assert ergebnis.returncode == 0
+    eintrag = json.loads(journal.read_text(encoding="utf-8").strip())
+    assert eintrag["kennzahlen"] == eingabe
+    assert eintrag["fehler"] == []
+
+
+def test_should_auftragsraum_kennzahlen_aus_rohem_journal_ableiten():
+    jetzt = mj.datetime.now(mj.timezone.utc)
+    frisch = jetzt.isoformat(timespec="seconds").replace("+00:00", "Z")
+    alt = (
+        (jetzt - mj.timedelta(hours=48))
+        .isoformat(timespec="seconds")
+        .replace("+00:00", "Z")
+    )
+    bearbeitet = (
+        (jetzt - mj.timedelta(hours=1))
+        .isoformat(timespec="seconds")
+        .replace("+00:00", "Z")
+    )
+    eintraege = [
+        {  # angewendeter Kurzbefehl, Bearbeitungsdauer 1h ab "alt"
+            "zeit": alt,
+            "klasse": "kurzbefehl",
+            "korrektur": False,
+            "artefakt": None,
+            "bearbeitet_am": bearbeitet,
+        },
+        {  # offener Kurzbefehl
+            "zeit": frisch,
+            "klasse": "kurzbefehl",
+            "korrektur": False,
+            "artefakt": None,
+            "bearbeitet_am": None,
+        },
+        {  # Korrektur ohne Artefakt, aelter als 24h
+            "zeit": alt,
+            "klasse": "korrektur",
+            "korrektur": True,
+            "artefakt": None,
+            "bearbeitet_am": None,
+        },
+    ]
+    kennzahlen = mj._auftragsraum_kennzahlen(eintraege)
+    assert kennzahlen["korrekturen_ohne_artefakt_24h"] == 1
+    assert kennzahlen["anteil_angewendete_kurzbefehle"] == 0.5
+    assert kennzahlen["mittlere_stunden_bis_bearbeitung"] is not None
+    assert kennzahlen["nachrichten_je_klasse"]["kurzbefehl"] == 2
+
+
+def test_should_auftragsraum_leeres_journal_alle_kennzahlen_null_machen():
+    kennzahlen = mj._auftragsraum_kennzahlen([])
+    assert kennzahlen["nachrichten_je_klasse"] == {}
+    assert kennzahlen["korrekturen_ohne_artefakt_24h"] == 0
+    assert kennzahlen["mittlere_stunden_bis_bearbeitung"] is None
+    assert kennzahlen["anteil_angewendete_kurzbefehle"] is None
+
+
+def test_should_alle_auftragsraum_mit_einschliessen(tmp_path):
+    journal = tmp_path / "journal.jsonl"
+    eingabe = {
+        "vorgaenge_gesamt": 1,
+        "ohne_frist": 0,
+        "vorgangsseiten": 1,
+        "mail_links": 1,
+        "nachrichten_je_klasse": {},
+        "korrekturen_ohne_artefakt_24h": 0,
+        "mittlere_stunden_bis_bearbeitung": None,
+        "anteil_angewendete_kurzbefehle": None,
+    }
+    ergebnis = _lauf(
+        "--schreiben",
+        "--anwendung",
+        "alle",
+        "--journal",
+        str(journal),
+        "--eingabe",
+        json.dumps(eingabe),
+    )
+    assert ergebnis.returncode == 0
+    anwendungen = {
+        json.loads(z)["anwendung"]
+        for z in journal.read_text(encoding="utf-8").splitlines()
+    }
+    assert anwendungen == {"mailcheck", "todo", "auftragsraum"}
