@@ -726,7 +726,15 @@ fi
 # Phasen hier vergleichen Zusagen miteinander (Registry, Route, run-conclusion);
 # diese ist die einzige, die das Ziel selbst befragt. wedding-hub war sechs bis
 # sieben Tage tot, waehrend Registry und Tunnel-Route uebereinstimmten.
-ERR_OUT=$(timeout 120 python3 "$PLATFORM_DIR/tools/erreichbarkeit_melder.py" --kurz 2>/dev/null || true)
+# platform#2944: Ergebnis zusaetzlich maschinenlesbar ablegen. Ziel liegt
+# ABSICHTLICH ausserhalb des Repos -- ein Sitzungsstart darf keinen
+# Arbeitsbaum schmutzig machen. Der Erheber liest von dort; fehlt die Datei
+# oder ist sie aelter als sieben Tage, faellt er auf "unverified" zurueck,
+# nicht auf rot.
+MELDER_DIR="${MELDER_DIR:-$HOME/.repo-session/melder}"
+mkdir -p "$MELDER_DIR" 2>/dev/null || true
+ERR_OUT=$(timeout 120 python3 "$PLATFORM_DIR/tools/erreichbarkeit_melder.py" --kurz \
+          --ergebnis-datei "$MELDER_DIR/erreichbarkeit.json" 2>/dev/null || true)
 # "1 von 26 Prod-Zielen antworten nicht — bahn-hub (route-ohne-backend)":
 # hinter dem Gedankenstrich stehen die Repos, in denen repariert wird.
 ERR_REPOS="$(printf '%s' "$ERR_OUT" | sed 's/.*— //' | tr ',' '\n' \
