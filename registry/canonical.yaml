@@ -486,6 +486,13 @@ repos:
       type: django
       port: 8111
       health: /livez/
+  post-hub:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: django
+      port: 11435
+      health: /livez/
   gaeb-toolkit:
     in_flat: true
     in_rich: true
