@@ -35,6 +35,13 @@ aufzurufen: `nachrichten_je_klasse` (Objekt, letzte 7 Tage),
 (Feld der Auftragsraum-Journalzeile selbst, nicht dieser Kennzahlen).
 `--anwendung alle` schliesst `auftragsraum` mit ein.
 
+`--anwendung sevdesk` (#3102) liest analog NUR die juengste Zeile des rohen
+Lauf-Journals von `tools/sevdesk/rechnungslauf.py`
+(`~/.claude/sevdesk-rechnungslauf-journal.jsonl`, eine Zeile je Lauf, vom
+Werkzeug selbst geschrieben) — fuenf Kennzahlen ohne eigene Erhebung:
+`entwuerfe_angelegt`, `uebersprungen`, `gesendet`, `wiederholungen_429`,
+`dauer_sekunden`. `--anwendung alle` schliesst `sevdesk` mit ein.
+
 `--anwendung alle` (oder zweimal `--anwendung`) erhebt mailcheck UND todo in
 einem Prozess und schreibt zwei Zeilen. Grund (#3067): beide Anwendungen
 teilen sich eine teure Quelle — `link_pruefen.py --vorgangsseiten` (184 Links,
@@ -81,6 +88,12 @@ JOURNAL_DEFAULT = Path.home() / ".claude" / "mail-messjournal.jsonl"
 #: eigene Datei, eigenes Format (eine Zeile je Nachricht, nicht je Lauf).
 AUFTRAGSRAUM_JOURNAL_DEFAULT = Path.home() / ".claude" / "auftragsraum-journal.jsonl"
 
+#: Rohes Lauf-Journal von `rechnungslauf.py` (#3102) — eine Zeile je Lauf,
+#: vom Werkzeug selbst geschrieben; hier wird nur die juengste gelesen.
+SEVDESK_JOURNAL_DEFAULT = (
+    Path.home() / ".claude" / "sevdesk-rechnungslauf-journal.jsonl"
+)
+
 TIMEOUT = 120
 
 #: `link_pruefen.py --vorgangsseiten` allein: 184 Links, gemessen 2m24s
@@ -116,6 +129,14 @@ KENNZAHLEN_AUFTRAGSRAUM = (
     "korrekturen_ohne_artefakt_24h",
     "mittlere_stunden_bis_bearbeitung",
     "anteil_angewendete_kurzbefehle",
+)
+
+KENNZAHLEN_SEVDESK = (
+    "entwuerfe_angelegt",
+    "uebersprungen",
+    "gesendet",
+    "wiederholungen_429",
+    "dauer_sekunden",
 )
 
 _FEHLT = object()
@@ -360,7 +381,10 @@ def _auftragsraum_zeit_parsen(text: Any) -> datetime | None:
     return wert
 
 
-def _auftragsraum_journal_lesen(pfad: Path) -> list[dict[str, Any]]:
+def _jsonl_lesen(pfad: Path) -> list[dict[str, Any]]:
+    """Generischer Zeilen-JSON-Reader — eine Zeile je Eintrag, defekte Zeilen
+    werden uebersprungen statt den Lauf abzubrechen. Von `auftragsraum` UND
+    `sevdesk` genutzt (#3102), je eigene Journal-Datei."""
     if not pfad.exists():
         return []
     try:
@@ -435,8 +459,18 @@ def _auftragsraum_kennzahlen(eintraege: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _auftragsraum_erheben() -> dict[str, Any]:
-    eintraege = _auftragsraum_journal_lesen(AUFTRAGSRAUM_JOURNAL_DEFAULT)
+    eintraege = _jsonl_lesen(AUFTRAGSRAUM_JOURNAL_DEFAULT)
     return _auftragsraum_kennzahlen(eintraege)
+
+
+# --- sevdesk: juengste Zeile des rohen Lauf-Journals ---------------------
+
+
+def _sevdesk_erheben() -> dict[str, Any]:
+    """Keine eigene Erhebung — `rechnungslauf.py` schreibt die Kennzahlen
+    bereits je Lauf, hier wird nur die juengste Zeile gelesen (#3102)."""
+    eintraege = _jsonl_lesen(SEVDESK_JOURNAL_DEFAULT)
+    return eintraege[-1] if eintraege else {}
 
 
 # --- Sammeln, unabhaengig von der Quelle ---------------------------------
@@ -458,6 +492,8 @@ def _kennzahlen_namen(anwendung: str) -> tuple[str, ...]:
         return KENNZAHLEN_MAILCHECK
     if anwendung == "auftragsraum":
         return KENNZAHLEN_AUFTRAGSRAUM
+    if anwendung == "sevdesk":
+        return KENNZAHLEN_SEVDESK
     return KENNZAHLEN_TODO
 
 
@@ -524,6 +560,8 @@ def schreiben(
         roh_je_anwendung = {"mailcheck": roh_mailcheck, "todo": roh_todo}
         if "auftragsraum" in anwendungen:
             roh_je_anwendung["auftragsraum"] = _auftragsraum_erheben()
+        if "sevdesk" in anwendungen:
+            roh_je_anwendung["sevdesk"] = _sevdesk_erheben()
     else:
         roh_je_anwendung = {}
         for a in anwendungen:
@@ -531,6 +569,8 @@ def schreiben(
                 roh_je_anwendung[a] = _mailcheck_erheben(ablage=ablage)
             elif a == "auftragsraum":
                 roh_je_anwendung[a] = _auftragsraum_erheben()
+            elif a == "sevdesk":
+                roh_je_anwendung[a] = _sevdesk_erheben()
             else:
                 roh_je_anwendung[a] = _todo_erheben()
 
@@ -631,9 +671,9 @@ def main() -> int:
     ap.add_argument(
         "--anwendung",
         action="append",
-        choices=["mailcheck", "todo", "auftragsraum", "alle"],
-        help="mailcheck, todo, auftragsraum oder alle (alle drei in einem "
-        "Lauf, #3067/#3079); fuer --schreiben mehrfach angebbar",
+        choices=["mailcheck", "todo", "auftragsraum", "sevdesk", "alle"],
+        help="mailcheck, todo, auftragsraum, sevdesk oder alle (alle vier in "
+        "einem Lauf, #3067/#3079/#3102); fuer --schreiben mehrfach angebbar",
     )
     ap.add_argument("--modell", help="Default: $CLAUDE_MODEL oder 'unbekannt'")
     ap.add_argument("--journal", default=str(JOURNAL_DEFAULT))
@@ -666,7 +706,7 @@ def main() -> int:
         anwendungen: list[str] = []
         for a in args.anwendung:
             anwendungen.extend(
-                ["mailcheck", "todo", "auftragsraum"] if a == "alle" else [a]
+                ["mailcheck", "todo", "auftragsraum", "sevdesk"] if a == "alle" else [a]
             )
         anwendungen = list(dict.fromkeys(anwendungen))  # Reihenfolge, ohne Duplikate
 
