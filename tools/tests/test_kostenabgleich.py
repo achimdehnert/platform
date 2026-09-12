@@ -325,6 +325,78 @@ def test_should_show_dash_when_neither_rule_nor_guidance_matches(
     assert "| — |" in ausgabe
 
 
+# ── guidance_treffer: nur Zahlername, Stoppwoerter, Mindesttreffer (K7-Fix, #3102) ──
+# Echtlauf-Fehlfall 2026-09-12: ein Hosting-Anbieter wurde ueber ein Fuellwort im
+# Bank-Verwendungszweck faelschlich als "Freiwillige soziale Aufwendungen" vorgeschlagen.
+
+
+def test_should_not_suggest_when_only_a_purpose_fillword_matches():
+    """Der beschriebene Fehlfall: Zweck traegt ein Fuellwort, das zufaellig zum
+    Kontonamen passt — der Zahlername selbst hat keine Gemeinsamkeit. Muss
+    seit dem Fix KEINEN Vorschlag mehr liefern (vorher: Treffer ueber Zweck)."""
+    guidance = [_guidance("4630", "Freiwillige soziale Aufwendungen")]
+    treffer = ka.guidance_treffer(guidance, "Beispiel Hosting GmbH")
+    assert treffer == []
+
+
+def test_should_suggest_when_single_payer_word_is_long_enough():
+    """Ein echter Treffer: ein Zahler-Wort ab 7 Zeichen im Kontonamen reicht allein."""
+    guidance = [_guidance("4930", "IT-Dienstleistungen Beispielhosting")]
+    treffer = ka.guidance_treffer(guidance, "Beispielhosting AG")
+    assert treffer
+    assert treffer[0][0] == "4930"
+
+
+def test_should_suggest_when_two_payer_words_match():
+    """Zwei gemeinsame Woerter reichen auch unterhalb der 7-Zeichen-Schwelle."""
+    guidance = [_guidance("4930", "Buero Technik Zubehoer")]
+    treffer = ka.guidance_treffer(guidance, "Buero Technik Beispiel GmbH")
+    assert treffer
+    assert treffer[0][0] == "4930"
+
+
+def test_should_not_suggest_on_single_short_word_match():
+    """Ein einzelnes kurzes (< 7 Zeichen) gemeinsames Wort reicht nicht."""
+    guidance = [_guidance("4930", "Mieten Raeume")]
+    treffer = ka.guidance_treffer(guidance, "Mieten Beispiel GmbH")
+    assert treffer == []
+
+
+def test_should_not_suggest_on_single_stopword_match():
+    """Ein einzelnes Wort aus der Stoppliste (z.B. 'online') zaehlt nicht, auch
+    wenn es laenger als 7 Zeichen ist."""
+    guidance = [_guidance("4930", "Beispiel Online Dienste")]
+    treffer = ka.guidance_treffer(guidance, "Andere Online GmbH")
+    assert treffer == []
+
+
+def test_should_ignore_purpose_in_end_to_end_kostenvorschlag(
+    monkeypatch, konten_datei, tmp_path, capsys
+):
+    """End-to-End (kontovorschlag ueber den ganzen Lauf): der Zweck-Fuellwort-
+    Fehlfall darf auch ueber die volle Pipeline keinen Vorschlag mehr liefern."""
+    sevdesk = _Sevdesk(
+        tx=[
+            _tx(
+                "t1",
+                "2026-04-05",
+                -10.00,
+                "Beispiel Hosting GmbH",
+                zweck="Dauerauftrag soziale Zwecke Referenz 123",
+            )
+        ],
+        belege=[],
+        guidance=[_guidance("4630", "Freiwillige soziale Aufwendungen")],
+    )
+    code = _lauf(monkeypatch, sevdesk, konten_datei, tmp_path)
+    ausgabe = capsys.readouterr().out
+    # code 2: kein offener Beleg zum Betrag -> Status "fehlend" (Owner-Blick noetig,
+    # siehe main()) — hier geht es nur um den Kontovorschlag, nicht um den Exit-Code.
+    assert code == 2
+    assert "4630" not in ausgabe
+    assert "| — |" in ausgabe
+
+
 # ── Buchen: Gate, nur sichere, keine Doppelbuchung ─────────────────────────
 
 

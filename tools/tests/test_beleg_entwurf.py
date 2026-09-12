@@ -214,6 +214,80 @@ def test_should_abort_when_taxrule_not_allowed_for_account(
     assert "ABBRUCH" in capsys.readouterr().out
 
 
+# ── konto_validieren: allowedTaxRules als String- ODER Dict-Liste (K6-Fix, #3102) ──
+# Echtprobe 2026-09-12 gegen GET /ReceiptGuidance/forAccountNumber: die API liefert
+# eine Liste von String-IDs, nicht von Objekten — der alte Code griff auf regel["id"]
+# zu und warf AttributeError. Beide Formen müssen validieren.
+
+
+def test_should_validate_account_when_allowed_tax_rules_are_strings():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "objects": [{"accountNumber": "6837", "allowedTaxRules": ["9", "19"]}]
+            },
+        )
+
+    ok, fehler = be.konto_validieren(_client(handler), "6837", "9")
+    assert ok is True
+    assert fehler == ""
+
+
+def test_should_validate_account_when_allowed_tax_rules_are_dicts():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "objects": [
+                    {
+                        "accountNumber": "6837",
+                        "allowedTaxRules": [{"id": 9, "name": "USTPFL"}, {"id": 19}],
+                    }
+                ]
+            },
+        )
+
+    ok, fehler = be.konto_validieren(_client(handler), "6837", "9")
+    assert ok is True
+    assert fehler == ""
+
+
+def test_should_validate_account_when_objects_is_a_single_dict():
+    """Echte Form der sevdesk-API (Echtprobe 2026-09-12, Konten 6035/6110/6837):
+    ``objects`` ist bei genau einem Treffer ein einzelnes Dict, keine Liste —
+    der alte Code iterierte dann ueber die Dict-Keys (Strings) und warf
+    AttributeError beim ``.get("allowedTaxRules")``."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "objects": {
+                    "accountNumber": "6110",
+                    "accountName": "Sonstige betriebliche Aufwendungen",
+                    "allowedTaxRules": [{"id": 9, "name": "VORST_ABZUGSF_AUFW"}],
+                }
+            },
+        )
+
+    ok, fehler = be.konto_validieren(_client(handler), "6110", "9")
+    assert ok is True
+    assert fehler == ""
+
+
+def test_should_reject_disallowed_taxrule_with_string_form():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"objects": [{"accountNumber": "6837", "allowedTaxRules": ["9"]}]},
+        )
+
+    ok, fehler = be.konto_validieren(_client(handler), "6837", "12")
+    assert ok is False
+    assert "nicht erlaubt" in fehler
+
+
 def test_should_bypass_validation_with_trotzdem(tmp_path, capsys, monkeypatch):
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "GET" and request.url.path == "/api/v1/Voucher":

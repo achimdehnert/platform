@@ -36,8 +36,10 @@ Monat fehlt").
 **Kontovorschlag** je Position: zuerst eine Regel aus
 ``~/.claude/sevdesk-konten.json`` (wiederverwendet aus ``bankpositionen.py``),
 sonst bis zu zwei Treffer aus ``GET /ReceiptGuidance/forExpense``, deren
-Kontoname/-beschreibung ein Wort des Zahlers/Zwecks enthaelt; kein Treffer
--> "—".
+Kontoname/-beschreibung mit dem Zahlernamen (nicht dem Verwendungszweck —
+der hat zu viele Fuellwoerter, K7-Fix platform#3102) mindestens zwei
+gemeinsame Woerter oder ein einzelnes Wort ab 7 Zeichen ausserhalb der
+Stoppliste teilt; kein Treffer -> "—".
 
 K8 (zweiter Mandant): ``--mandant iil|edv`` (Standard iil) waehlt den
 sevdesk-Zugang ueber ``mandant.py``; gleichwertig per Umgebungsvariable
@@ -85,6 +87,33 @@ STANDARD_ZIEL = Path.home() / ".claude" / "boards" / "sevdesk-kostenabgleich.md"
 #: werden — sonst haelt "GmbH" jede Firma fuer denselben Zahler.
 FUELLWOERTER = {"gmbh", "mbh", "ag", "kg"}
 RE_WORT = re.compile(r"[A-Za-zÄÖÜäöüß]+")
+
+#: Zusaetzliche Stoppwoerter fuer den ReceiptGuidance-Abgleich (guidance_treffer,
+#: K7-Fix platform#3102) — Rechtsformen/Fuellwoerter, die in praktisch jedem
+#: Firmennamen auftauchen und deshalb allein keinen Kontovorschlag rechtfertigen.
+#: Woerter mit <= 3 Zeichen sind ueber ``worte()`` ohnehin schon ausgeschlossen.
+GUIDANCE_STOPPWOERTER = FUELLWOERTER | {
+    "service",
+    "services",
+    "inc",
+    "ltd",
+    "llc",
+    "limited",
+    "online",
+    "payment",
+    "payments",
+    "europe",
+    "deutschland",
+    "germany",
+    "sarl",
+    "cie",
+    "holdings",
+    "holding",
+}
+
+#: Ab dieser Laenge rechtfertigt ein EINZELNES gemeinsames Wort (ausserhalb
+#: der Stoppliste) allein schon einen Guidance-Vorschlag.
+GUIDANCE_MIN_EINZELWORT = 7
 
 #: Datum-Toleranz fuer eine sichere Zuordnung.
 TAGE_TOLERANZ = 14
@@ -151,15 +180,30 @@ def _monat_diff(a: str, b: str) -> int:
 
 
 def guidance_treffer(
-    guidance: list[dict], zahler: str, zweck: str, max_n: int = 2
+    guidance: list[dict], zahler: str, max_n: int = 2
 ) -> list[tuple[str, str, str]]:
-    """(kontonummer, kontoname, treffer_wort) je Vorschlag, bis zu max_n."""
-    ziel = worte(f"{zahler} {zweck}")
+    """(kontonummer, kontoname, treffer_wort) je Vorschlag, bis zu max_n.
+
+    Geht ausschliesslich vom Zahlernamen aus — NICHT vom Verwendungszweck,
+    der bei Bankueberweisungen zu viele Fuellwoerter enthaelt und sonst
+    Fehltreffer erzeugt (K7-Fix platform#3102: "Beispiel Hosting GmbH" wurde
+    ueber ein Fuellwort im Zweck faelschlich "Freiwillige soziale
+    Aufwendungen" zugeordnet). Ein Treffer zaehlt nur, wenn mindestens zwei
+    gemeinsame Woerter uebrig bleiben oder ein einzelnes Wort ab
+    ``GUIDANCE_MIN_EINZELWORT`` Zeichen ausserhalb der Stoppliste steht.
+    """
+    ziel = worte(zahler) - GUIDANCE_STOPPWOERTER
     treffer: list[tuple[str, str, str]] = []
     for g in guidance:
-        gwort = worte(f"{g.get('accountName', '')} {g.get('description', '')}")
+        gwort = (
+            worte(f"{g.get('accountName', '')} {g.get('description', '')}")
+            - GUIDANCE_STOPPWOERTER
+        )
         schnitt = ziel & gwort
-        if schnitt:
+        einzelwort_ok = (
+            len(schnitt) == 1 and len(next(iter(schnitt))) >= GUIDANCE_MIN_EINZELWORT
+        )
+        if schnitt and (len(schnitt) >= 2 or einzelwort_ok):
             treffer.append(
                 (
                     str(g.get("accountNumber", "")),
@@ -176,12 +220,12 @@ def kontovorschlag(
     regeln: list[dict], guidance: list[dict], zahler: str, zweck: str, betrag: float
 ) -> tuple[str, str]:
     """(vorschlag_text, grund) — zuerst Regel aus sevdesk-konten.json, sonst
-    ReceiptGuidance, sonst "—"."""
+    ReceiptGuidance (nur Zahlername, siehe guidance_treffer), sonst "—"."""
     konto, bez, _anm = regel_zuordnen(f"{zahler} {zweck}", betrag, regeln)
     if konto:
         text = f"{konto} — {bez}" if bez else konto
         return text, "Regel aus sevdesk-konten.json"
-    treffer = guidance_treffer(guidance, zahler, zweck)
+    treffer = guidance_treffer(guidance, zahler)
     if treffer:
         text = "; ".join(f"{nr} {name}" for nr, name, _wort in treffer)
         return text, "sevdesk-Kontenhilfe (ReceiptGuidance/forExpense)"
