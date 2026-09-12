@@ -41,6 +41,10 @@ python3 tools/sevdesk/rechnungslauf.py --senden --monat 2026-09 --ja
 
 `make sevdesk-rechnungslauf` fährt den Dry-Run des Vormonats (siehe Makefile).
 
+## Zeitplan
+
+Der Monatslauf startet am **10. jeden Monats um 07:30** als Benutzer-Timer (`sevdesk-rechnungslauf.timer`, Dateien unter `tools/sevdesk/systemd/`, installiert nach `~/.config/systemd/user/`). Er ruft `tools/sevdesk/rechnungslauf_monatlich.sh` auf: Entwürfe für den Vormonat anlegen, Prüfliste nach `~/.claude/boards/sevdesk-rechnungslauf-<Monat>.md`, Meldung in den Auftragsraum. **Versendet wird nichts**; der Versand folgt auf Owner-Wort mit `--senden --ja`. Warum der 10.: Owner-Wort 2026-09-12 („statt 1. den 10. jeden Monats"). Prüfen: `systemctl --user list-timers sevdesk-rechnungslauf.timer`.
+
 ## Datenwege
 
 | Was | Woher | Anmerkung |
