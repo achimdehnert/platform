@@ -15,7 +15,17 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 **Archiv älterer Stände und ausgelagerter Sektionen:**
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
 
-## ⚡ Aktueller Stand (2026-09-11 vormittags — Go-Liste abgearbeitet, Gateway-Transport gemessen: nicht begehbar, netcup gekuendigt)
+## ⚡ Aktueller Stand (2026-09-12 — Auftragsraum Stufe 1 fertig, fav0 in der Zeitung, 41 sevdesk-Rechnungen raus, Auftrag #3102 gestartet)
+
+**Zeitanker:** HEAD `6f419f22` · `rev-list --count` 4421 · geschrieben 2026-09-12
+
+**Auftragsraum Stufe 1** ([#3079](https://github.com/achimdehnert/platform/issues/3079)): Werkzeug und Akte (#3087), `board.py --erledigt` (#3085), Skill-Zeilen (#3088), `chat_lotse.py history` (chat-hub#88, #3086 zu). **Morgen-Zeitung:** zweite Quelle fav0.com (news-hub#44, deployt, Tageslauf verdrahtet, [news-hub#45](https://github.com/achimdehnert/news-hub/issues/45)).
+
+**sevdesk:** Monatsrechnungen endeten im Maerz; April–August und Q2/Q3 (41) angelegt und versendet (13 per UI, 28 per API mit Text, Signatur, 429-Pausen). Daraus **Auftrag [#3102](https://github.com/achimdehnert/platform/issues/3102)** (SA-4): Monats-/Quartalslauf, Zahlungsabgleich (#3103), Eingangsbelege.
+
+**Zielzustand:** #3015 und #3079 Stufe 1 erreicht, #3102 begonnen. **SA-4:** 0 Fehlanwendungen. **SA-M:** #3085/#3087 M1, news-hub#44/chat-hub#88 M3.
+
+## ⚡ Stand (2026-09-11 vormittags — Go-Liste abgearbeitet, Gateway-Transport gemessen: nicht begehbar, netcup gekuendigt)
 
 **Zeitanker:** HEAD `a987852f` · `rev-list --count` 4403 · geschrieben 2026-09-11
 
@@ -31,12 +41,11 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 
 ## Offene Fäden (über den Session-Stand hinaus)
 
-- **Auftrag #3015 — Reste (Stand 2026-09-11 frueh):** Waisen-Zuordnung [#3050](https://github.com/achimdehnert/platform/issues/3050), Backlog-Check zaehlt nacktes „offen" als Anker [#3080](https://github.com/achimdehnert/platform/issues/3080).
-- **Auftragsraum Stufe 1** ([#3079](https://github.com/achimdehnert/platform/issues/3079)): in Bau; Verlaufs-Modus [#3086](https://github.com/achimdehnert/platform/issues/3086); Owner: Skill-Zeilen-PR approven, Morgen-Zeitung = news-hub-Aenderung (Deploy nur per Dispatch).
+- **Auftragsraum Stufe 1** ([#3079](https://github.com/achimdehnert/platform/issues/3079)): fertig; Kill-Gate-Zahlen 2026-10-08 (KONZ-059). **sevdesk-Routinen** ([#3102](https://github.com/achimdehnert/platform/issues/3102)): K4 in PR, K1–K3/K5 und K6 in Bau.
 
 0. iil-assist Gateway: Transport (D2) nicht begehbar — drei Ursachen belegt, Fix haengt an der Transport-Entscheidung: https://github.com/achimdehnert/mcp-hub/issues/264
 
-0. Auftrag #3015 (Mailcheck, To-do, Morgen-Zeitung selbstmessend) laeuft, Stand im Archiv vom 2026-09-10: https://github.com/achimdehnert/platform/issues/3015
+0. Auftrag #3102 (sevdesk-Routinen, SA-4) laeuft: https://github.com/achimdehnert/platform/issues/3102
 0. iil-assist (KONZ-058): O5 gemessen (negativ); Transport-Entscheidung Weg 1–3 = Owner-Wort, dann MVP 2 Dokument-Suche; Nebenissues #3019 PyPI, #3020 Regelkreis, #3021 Routing, #3022 ADR-036: https://github.com/achimdehnert/platform/issues/3011
 0. netcup gekuendigt (Owner 2026-09-10): hosts.yaml-PR #3093 offen; Offsite-Cron via #2968: https://github.com/achimdehnert/platform/issues/2950
 0. dev-hub Staging-Deploy vorbestehend kaputt (Kein Compose-File): https://github.com/achimdehnert/dev-hub/issues/348
@@ -45,13 +54,12 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 0. Freigabe-Zeile je Prod-Schritt als Regel bestaetigen — aus dem Stand vom 2026-09-09 abends gerettet (Owner-Entscheid).
 
 - **[2982]** Retro 136735: sieben ueberlebende Befunde ohne Umsetzungsartefakt — beim Auslagern der Sektion vom 2026-09-08 hierher gerettet — https://github.com/achimdehnert/platform/issues/2982
-- **[3015]** Auftrag Mailcheck/To-do/Zeitung selbstmessend (SA-4): Sachstand mit 12 Befunden im Issue; nach Merge von #3042 `mail-links.service` und `todo-board.service` neu starten (Owner) — https://github.com/achimdehnert/platform/issues/3015
+- **[3015]** Auftrag Mailcheck/To-do/Zeitung: K1–K5 erreicht, Reste #3050/#3080; Abschluss-Kommentar und Schliessen offen — https://github.com/achimdehnert/platform/issues/3015
 - **[3027]** Auslagerungs-Gate liest Fremd-Repos jetzt per Flotten-Token; schliesst erst, wenn eine Auslagerung mit Fremd-Refs im Gate gruen laeuft — https://github.com/achimdehnert/platform/issues/3027
-- **[3079]** Auftragsraum Stufe 1 in Bau; Skill-Zeilen als Governance-PR (Owner-Approval) — https://github.com/achimdehnert/platform/issues/3079
-- **[3086]** Sortierer muss den Raumverlauf nach Zeitstempel lesen (Abgleich verschluckt Rueckstau) — https://github.com/achimdehnert/platform/issues/3086
+- **[3079]** Auftragsraum Stufe 1 fertig; naechster Schritt Kill-Gate-Auswertung 2026-10-08 — https://github.com/achimdehnert/platform/issues/3079
 - **[3080]** Backlog-Check zaehlt nacktes offen als Anker — https://github.com/achimdehnert/platform/issues/3080
 - **[3073]** 20 Dateien Format-Schuld (ruff format) — https://github.com/achimdehnert/platform/issues/3073
-- **[doc-hub#18]** Zwei Konten anderer Personen in der Access-Liste docs.iil.pet; Skript-Aenderungen an `auto-title.py` liegen NUR auf prod (Sicherung `.bak-20260910`) — aus dem Stand vom 2026-09-10 gerettet — https://github.com/achimdehnert/doc-hub/issues/18
+- **[doc-hub#18]** Access-Liste docs.iil.pet: zwei fremde Konten; `auto-title.py` nur auf prod geaendert — https://github.com/achimdehnert/doc-hub/issues/18
 - **[news-hub#33]** Morgen-Zeitung: Themenauswahl kuert generische Woerter — beim Auslagern der Sektion vom 2026-09-09 vormittags hierher gerettet — https://github.com/achimdehnert/news-hub/issues/33
 - **[news-hub#40]** Morgen-Zeitung: Smoke-Lauf im CI, Entwurf steht — beim Auslagern gerettet — https://github.com/achimdehnert/news-hub/issues/40
 - **[news-hub#19]** Morgen-Zeitung: NIS2 und Voice Agents ohne Quelle, Robotik und IoT belegt — beim Auslagern gerettet — https://github.com/achimdehnert/news-hub/issues/19
