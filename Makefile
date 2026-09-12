@@ -7,7 +7,7 @@
 #
 # =============================================================================
 
-.PHONY: help menu boards boards-check kette aufraeumen test lint betrieb-check setup windsurf-clean windsurf-status windsurf-force
+.PHONY: help menu boards boards-check kette aufraeumen test lint betrieb-check setup windsurf-clean windsurf-status windsurf-force sevdesk-zahlungsabgleich
 
 # Default target
 .DEFAULT_GOAL := help
@@ -167,6 +167,9 @@ lint: ## Ruff über tools/ + scripts/ (ehrlich: schlägt bei Lint-Schuld fehl)
 
 betrieb-check: ## K4 (#3015): Backlog-Vorschlag ohne Gegenrede/Alternative wird abgewiesen
 	@python3 tools/betrieb_backlog_check.py --block
+
+sevdesk-zahlungsabgleich: ## K4 (#3102): offene Bankeingaenge/Rechnungen abgleichen, Mahnkandidaten anzeigen (read-only)
+	@python3 tools/sevdesk/zahlungsabgleich.py
 
 # =============================================================================
 # DEPLOYMENT (Platzhalter für zukünftige Erweiterung)
