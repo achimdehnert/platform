@@ -108,16 +108,29 @@ def konto_validieren(client, konto: str, taxrule: str) -> tuple[bool, str]:
     Kein Ersatz für ``konto_aufloesen`` (das bleibt die Quelle für die
     AccountDatev-ID) — dies ist die zusätzliche fachliche Prüfung: existiert das
     Konto laut Guidance, und passt die gewählte Steuerregel dazu.
+
+    Zwei Formabweichungen der sevdesk-Antwort, beide per Echtprobe 2026-09-12
+    belegt (K6-Fix, platform#3102) — der alte Code nahm eine Liste von Dicts
+    mit ``allowedTaxRules`` als Liste von Dicts an und warf AttributeError:
+    - ``objects`` ist bei genau einem Treffer ein EINZELNES Dict, keine Liste
+      (Konten 6035/6110/6837 real geprüft) — ``for o in objekte`` iterierte
+      sonst über die Dict-KEYS (Strings) statt über das Objekt selbst.
+    - ``allowedTaxRules`` kann Dicts (``{"id": 9, ...}``, real beobachtet) ODER
+      einfache String/Int-IDs enthalten — beide Formen werden akzeptiert.
     """
     r = client.get("/ReceiptGuidance/forAccountNumber", params={"accountNumber": konto})
     if r.status_code == 422:
         return False, f"Konto {konto}: sevdesk kennt dieses Konto nicht (422)."
     r.raise_for_status()
     objekte = r.json().get("objects") or []
+    if isinstance(objekte, dict):
+        objekte = [objekte]
     if not objekte:
         return False, f"Konto {konto}: keine ReceiptGuidance-Daten gefunden."
     erlaubt = {
-        str(regel["id"]) for o in objekte for regel in (o.get("allowedTaxRules") or [])
+        str(regel["id"]) if isinstance(regel, dict) else str(regel)
+        for o in objekte
+        for regel in (o.get("allowedTaxRules") or [])
     }
     if str(taxrule) not in erlaubt:
         return False, (
