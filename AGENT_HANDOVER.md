@@ -15,15 +15,15 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 **Archiv älterer Stände und ausgelagerter Sektionen:**
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
 
-## ⚡ Aktueller Stand (2026-09-12 — Auftragsraum Stufe 1 fertig, fav0 in der Zeitung, 41 sevdesk-Rechnungen raus, Auftrag #3102 gestartet)
+## ⚡ Aktueller Stand (2026-09-12 abends — Auftragsraum fertig, fav0 live, sevdesk-Routinen #3102)
 
-**Zeitanker:** HEAD `6f419f22` · `rev-list --count` 4421 · geschrieben 2026-09-12
+**Zeitanker:** HEAD `442d4269` · `rev-list --count` 4428 · geschrieben 2026-09-12
 
-**Auftragsraum Stufe 1** ([#3079](https://github.com/achimdehnert/platform/issues/3079)): Werkzeug und Akte (#3087), `board.py --erledigt` (#3085), Skill-Zeilen (#3088), `chat_lotse.py history` (chat-hub#88, #3086 zu). **Morgen-Zeitung:** zweite Quelle fav0.com (news-hub#44, deployt, Tageslauf verdrahtet, [news-hub#45](https://github.com/achimdehnert/news-hub/issues/45)).
+**Auftragsraum Stufe 1** ([#3079](https://github.com/achimdehnert/platform/issues/3079)): Werkzeug (#3087), `--erledigt` (#3085), Skill-Zeilen (#3088), `chat_lotse.py history` (chat-hub#88, #3086 zu). **Morgen-Zeitung:** zweite Quelle fav0.com (news-hub#44, deployt, Tageslauf verdrahtet, [news-hub#45](https://github.com/achimdehnert/news-hub/issues/45)).
 
-**sevdesk:** Monatsrechnungen endeten im Maerz; April–August und Q2/Q3 (41) angelegt und versendet (13 per UI, 28 per API mit Text, Signatur, 429-Pausen). Daraus **Auftrag [#3102](https://github.com/achimdehnert/platform/issues/3102)** (SA-4): Monats-/Quartalslauf, Zahlungsabgleich (#3103), Eingangsbelege.
+**sevdesk-Routinen [#3102](https://github.com/achimdehnert/platform/issues/3102)** (SA-4): Rechnungslauf mit Versand-Gate (#3105), Timer am 10. (#3107), Zahlungsabgleich (#3103), Kostenabgleich + `--mandant` (#3108), Eingangsbelege (#3104), Fixes (#3109). Owner-Befunde in Ledger 210/211.
 
-**Zielzustand:** #3015 und #3079 Stufe 1 erreicht, #3102 begonnen. **SA-4:** 0 Fehlanwendungen. **SA-M:** #3085/#3087 M1, news-hub#44/chat-hub#88 M3.
+**Zielzustand:** #3015 und #3079 Stufe 1 erreicht; #3102 K1–K8 erreicht, Drill K5 am 2026-10-10. **SA-4:** 0 Fehlanwendungen. **SA-M:** 8 eigene Merges (M1/M2), news-hub#44/chat-hub#88 M3.
 
 ## ⚡ Stand (2026-09-11 vormittags — Go-Liste abgearbeitet, Gateway-Transport gemessen: nicht begehbar, netcup gekuendigt)
 
