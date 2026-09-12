@@ -138,6 +138,91 @@ def test_should_ignore_invoices_without_delivery_period_when_grouping():
     assert kunden["10"]["letzte_rechnung_id"] == "r2"
 
 
+# ── K1-Nachtrag #3102: "beendet" — Luecke zwischen letztem Zeitraum und dem ──
+# ── angeforderten Zeitraum, > 2 Rhythmusperioden = beendet ───────────────────
+
+
+def test_should_mark_customer_as_beendet_when_gap_exceeds_two_periods():
+    """Realfall: letzte Rechnung Juni 2025, angeforderter Monat weit dahinter
+    liegend — der Kunde ist beendet und darf NIE wieder automatisch eine
+    Rechnung bekommen."""
+    assert rl.ist_beendet("monat", ["2025-06-01", "2025-06-30"], "2026-09-01") is True
+
+
+def test_should_keep_customer_active_when_gap_is_exactly_one_period():
+    """Normalfall: letzte Rechnung im Vormonat des angeforderten Zeitraums —
+    Luecke von genau 1 Periode ist der erwartete Ablauf, kein Abbruch."""
+    assert rl.ist_beendet("monat", ["2026-08-01", "2026-08-31"], "2026-09-01") is False
+
+
+def test_should_keep_quarterly_customer_active_within_two_quarter_gap():
+    """Positivkontrolle fuer den Quartals-Rhythmus: Luecke von genau 2
+    Quartalen (Q1 -> Q3) ist noch KEIN Abbruch (Schwelle ist '> 2', nicht
+    '>= 2')."""
+    assert (
+        rl.ist_beendet("quartal", ["2026-01-01", "2026-03-31"], "2026-07-01") is False
+    )
+
+
+def test_should_mark_quarterly_customer_as_beendet_beyond_two_quarter_gap():
+    assert rl.ist_beendet("quartal", ["2025-01-01", "2025-03-31"], "2026-10-01") is True
+
+
+def test_should_treat_missing_letzter_zeitraum_as_not_beendet():
+    """Fehlt der letzte Zeitraum (z. B. handverfasster Kundendatei-Eintrag),
+    wird NICHT automatisch beendet — sonst wuerde ein unvollstaendiger
+    Eintrag stillschweigend jeden Lauf blockieren."""
+    assert rl.ist_beendet("monat", None, "2026-09-01") is False
+
+
+def test_should_set_zustand_beendet_on_dauerkunden_when_gap_is_large():
+    """``dauerkunden_erkennen`` setzt ``zustand`` als Schnappschuss relativ
+    zu ``heute`` — hier mit fixem Referenzdatum fuer deterministische Tests."""
+    import datetime as dt
+
+    rechnungen = [
+        {
+            "id": "r1",
+            "contact_id": "50",
+            "contact_name": "Beendete Kunde GmbH",
+            "von": "2025-04-01",
+            "bis": "2025-04-30",
+        },
+        {
+            "id": "r2",
+            "contact_id": "50",
+            "contact_name": "Beendete Kunde GmbH",
+            "von": "2025-05-01",
+            "bis": "2025-05-31",
+        },
+    ]
+    kunden, _ = rl.dauerkunden_erkennen(rechnungen, heute=dt.date(2026, 9, 12))
+    assert kunden["50"]["zustand"] == "beendet"
+
+
+def test_should_set_zustand_aktiv_on_dauerkunden_when_recently_billed():
+    import datetime as dt
+
+    rechnungen = [
+        {
+            "id": "r1",
+            "contact_id": "51",
+            "contact_name": "Aktive Kunde GmbH",
+            "von": "2026-07-01",
+            "bis": "2026-07-31",
+        },
+        {
+            "id": "r2",
+            "contact_id": "51",
+            "contact_name": "Aktive Kunde GmbH",
+            "von": "2026-08-01",
+            "bis": "2026-08-31",
+        },
+    ]
+    kunden, _ = rl.dauerkunden_erkennen(rechnungen, heute=dt.date(2026, 9, 12))
+    assert kunden["51"]["zustand"] == "aktiv"
+
+
 # ── kunden_ermitteln: Diff-Meldung bei erneutem Lauf ─────────────────────────
 
 
@@ -177,6 +262,91 @@ def test_should_report_new_and_dropped_customers_on_repeated_run(tmp_path):
     assert geschrieben["10"]["rhythmus"] == "monat"
     # 0600 — nur Owner darf lesen (lokale Kundendatei, nie im Repo)
     assert oct(kunden_datei.stat().st_mode)[-3:] == "600"
+
+
+def test_should_report_zustand_counts_without_names(tmp_path):
+    """K1-Nachtrag #3102: Rueckmeldung nennt nur Zahlen je Zustand, keine
+    Namen — ein aktiver Monats-, ein aktiver Quartals- und ein beendeter
+    Kunde ergeben 1/1/1."""
+    import datetime as dt
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/Invoice":
+            offset = int(request.url.params.get("offset", "0"))
+            if offset > 0:
+                return httpx.Response(200, json={"objects": []})
+            return httpx.Response(
+                200,
+                json={
+                    "objects": [
+                        # aktiver Monatskunde
+                        _rechnung("20260701-1", "10", "2026-07-01", "2026-07-31"),
+                        _rechnung("20260801-1", "10", "2026-08-01", "2026-08-31"),
+                        # aktiver Quartalskunde
+                        _rechnung("20260101-2", "20", "2026-01-01", "2026-03-31"),
+                        _rechnung("20260401-2", "20", "2026-04-01", "2026-06-30"),
+                        # beendeter Monatskunde (letzte Rechnung weit zurueck)
+                        _rechnung("20250401-3", "30", "2025-04-01", "2025-04-30"),
+                        _rechnung("20250501-3", "30", "2025-05-01", "2025-05-31"),
+                    ]
+                },
+            )
+        if request.url.path.startswith("/api/v1/Contact/"):
+            kid = request.url.path.rsplit("/", 1)[-1]
+            return httpx.Response(
+                200, json={"objects": {"id": kid, "name": f"Kunde {kid}"}}
+            )
+        raise AssertionError(f"unerwarteter Aufruf: {request.url.path}")
+
+    kunden_datei = tmp_path / "dauerkunden.json"
+    client = _client(handler)
+    bericht = rl.kunden_ermitteln(client, kunden_datei, heute=dt.date(2026, 9, 12))
+
+    assert bericht["aktiv_monatlich"] == 1
+    assert bericht["aktiv_quartalsweise"] == 1
+    assert bericht["beendet"] == 1
+    # "neu"/"entfallen" fuehren nur Kontakt-IDs, keine Namen
+    for kontakt_id in bericht["neu"]:
+        assert kontakt_id.isdigit()
+
+
+def test_should_preserve_manual_aktiv_false_across_reruns(tmp_path):
+    """Ein Owner-Override (``"aktiv": false``) darf ein erneuter
+    --kunden-ermitteln-Lauf NICHT stillschweigend zuruecksetzen."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/Invoice":
+            offset = int(request.url.params.get("offset", "0"))
+            if offset > 0:
+                return httpx.Response(200, json={"objects": []})
+            return httpx.Response(
+                200,
+                json={
+                    "objects": [
+                        _rechnung("20260701-1", "10", "2026-07-01", "2026-07-31"),
+                        _rechnung("20260801-1", "10", "2026-08-01", "2026-08-31"),
+                    ]
+                },
+            )
+        if request.url.path == "/api/v1/Contact/10":
+            return httpx.Response(
+                200, json={"objects": {"id": "10", "name": "Musterkunde GmbH"}}
+            )
+        raise AssertionError(f"unerwarteter Aufruf: {request.url.path}")
+
+    kunden_datei = tmp_path / "dauerkunden.json"
+    kunden_datei.write_text(
+        json.dumps(
+            {"10": {"name": "Musterkunde GmbH", "rhythmus": "monat", "aktiv": False}}
+        ),
+        encoding="utf-8",
+    )
+
+    client = _client(handler)
+    rl.kunden_ermitteln(client, kunden_datei)
+
+    geschrieben = json.loads(kunden_datei.read_text(encoding="utf-8"))
+    assert geschrieben["10"]["aktiv"] is False
 
 
 # ── Zeitraumgrenzen ───────────────────────────────────────────────────────────
@@ -329,6 +499,104 @@ def test_should_create_draft_from_template_when_no_duplicate_exists():
     assert daten["invoice[deliveryDateUntil]"] == "2026-09-30"
     assert daten["invoicePosSave[0][name]"] == "Beratung"
     assert daten["invoicePosSave[0][price]"] == "100.00"
+    # Positivkontrolle K1-Nachtrag #3102: ein normaler aktiver Kunde
+    # (Luecke von nur 2 Perioden, kein "aktiv": false) wird durch die neuen
+    # Beendet-/Inaktiv-Pruefungen NICHT ausgebremst.
+
+
+# ── K1-Nachtrag #3102: beendete/inaktive Kunden bekommen GARANTIERT nichts ──
+
+
+def _kunde_beendet(letzter_zeitraum: list[str]) -> dict:
+    return {
+        "20": {
+            "name": "Beendete Kunde GmbH",
+            "rhythmus": "monat",
+            "letzte_rechnung_id": "id-tpl-alt",
+            "letzter_zeitraum": letzter_zeitraum,
+        }
+    }
+
+
+def test_should_skip_beendet_customer_in_rechnungslauf_without_further_api_calls():
+    kunden = _kunde_beendet(["2025-01-01", "2025-01-31"])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError(
+            f"beendeter Kunde darf KEINE sevdesk-Anfrage ausloesen: {request.method} {request.url}"
+        )
+
+    client = _client(handler)
+    posten = rl.rechnungslauf(
+        client, kunden, "monat", "2026-09-01", "2026-09-30", dry_run=True
+    )
+
+    assert posten[0]["status"] == "beendet"
+    assert posten[0]["entwurfsnummer"] is None
+    assert "beendet" in rl.markdown_tabelle(posten)
+
+
+def test_should_skip_beendet_customer_even_when_not_dry_run():
+    """ "auch nicht mit --senden"/dem Anlege-Lauf — die Sperre gilt fuer
+    dry_run=False genauso wie fuer dry_run=True."""
+    kunden = _kunde_beendet(["2025-01-01", "2025-01-31"])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError("beendeter Kunde darf nie angelegt werden")
+
+    client = _client(handler)
+    posten = rl.rechnungslauf(
+        client, kunden, "monat", "2026-09-01", "2026-09-30", dry_run=False
+    )
+    assert posten[0]["status"] == "beendet"
+
+
+def test_should_skip_customer_with_manual_aktiv_false_in_rechnungslauf():
+    kunden = {
+        "30": {
+            "name": "Manuell inaktive GmbH",
+            "rhythmus": "monat",
+            "letzte_rechnung_id": "id-tpl-30",
+            "letzter_zeitraum": ["2026-08-01", "2026-08-31"],  # sonst voellig normal
+            "aktiv": False,
+        }
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError(
+            f"aktiv=false darf KEINE sevdesk-Anfrage ausloesen: {request.method} {request.url}"
+        )
+
+    client = _client(handler)
+    posten = rl.rechnungslauf(
+        client, kunden, "monat", "2026-09-01", "2026-09-30", dry_run=True
+    )
+
+    assert posten[0]["status"] == "inaktiv"
+    assert "inaktiv" in rl.markdown_tabelle(posten)
+
+
+def test_should_never_send_to_beendet_or_inactive_customer():
+    """--senden darf fuer beendete/inaktive Kunden gar nicht erst eine
+    Invoice-Abfrage absetzen — auch mit --ja waere daher nichts zu finden."""
+    kunden = {
+        **_kunde_beendet(["2025-01-01", "2025-01-31"]),
+        "30": {
+            "name": "Manuell inaktive GmbH",
+            "rhythmus": "monat",
+            "letzter_zeitraum": ["2026-08-01", "2026-08-31"],
+            "aktiv": False,
+        },
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError(
+            f"beendet/inaktiv duerfen keine Versand-Anfrage ausloesen: {request.url}"
+        )
+
+    client = _client(handler)
+    kandidaten = rl._entwuerfe_fuer_versand(client, kunden, "monat", "2026-09-01")
+    assert kandidaten == []
 
 
 # ── Betragsformat, Fälligkeit ─────────────────────────────────────────────────

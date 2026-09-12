@@ -102,8 +102,40 @@ def _rhythmus_klassifizieren(tage: int) -> str | None:
     return None
 
 
+def _periodenindex(datum: date, rhythmus: str) -> int:
+    """Fortlaufender Perioden-Zaehler (Monat bzw. Quartal) — nur zum
+    Differenzbilden zwischen zwei Daten desselben Rhythmus gedacht."""
+    if rhythmus == RHYTHMUS_QUARTAL:
+        return datum.year * 4 + (datum.month - 1) // 3
+    return datum.year * 12 + datum.month
+
+
+def ist_beendet(
+    rhythmus: str, letzter_zeitraum: list[str] | None, ziel_von: str
+) -> bool:
+    """True, wenn der letzte bekannte Leistungszeitraum mehr als ZWEI
+    Rhythmusperioden vor dem angeforderten Zeitraum ``ziel_von`` endet
+    (monatlich: > 2 Monate Luecke, quartalsweise: > 2 Quartale).
+
+    Nachtrag #3102 (K1-Fehler): ein Kunde, dessen letzte Rechnung z. B. Juni
+    2025 war, wurde vorher weiter als "monat" gefuehrt — der naechste
+    Monatslauf haette ihm faelschlich eine neue Rechnung angelegt, obwohl er
+    laengst beendet ist. Wird sowohl beim Schreiben der Kundendatei
+    (``dauerkunden_erkennen``, Referenz "heute") als auch LIVE bei jedem
+    Lauf (Referenz: der tatsaechlich angeforderte Zeitraum) ausgewertet —
+    letzteres ist die eigentliche Sperre und bleibt auch dann korrekt, wenn
+    ``--kunden-ermitteln`` seit einer Weile nicht mehr gelaufen ist.
+    """
+    if not letzter_zeitraum or len(letzter_zeitraum) != 2:
+        return False
+    letztes_ende = date.fromisoformat(letzter_zeitraum[1])
+    ziel = date.fromisoformat(ziel_von)
+    luecke = _periodenindex(ziel, rhythmus) - _periodenindex(letztes_ende, rhythmus)
+    return luecke > 2
+
+
 def dauerkunden_erkennen(
-    rechnungen: list[dict],
+    rechnungen: list[dict], heute: date | None = None
 ) -> tuple[dict[str, dict], list[dict]]:
     """Gruppiert rohe Rechnungsdaten je Kontakt und erkennt einen Rhythmus.
 
@@ -113,9 +145,16 @@ def dauerkunden_erkennen(
     andere Rhythmus) auftritt — sonst zählt der Kontakt als „unregelmäßig"
     und wird NICHT übernommen.
 
+    ``zustand`` (``"aktiv"`` oder ``"beendet"``) wird relativ zu ``heute``
+    gesetzt — ein informativer Schnappschuss für die Kundendatei/den
+    Ermittlungs-Bericht; die eigentliche Sperre gegen Neuanlage sitzt in
+    ``rechnungslauf``/``_entwuerfe_fuer_versand`` und prüft live gegen den
+    tatsächlich angeforderten Zeitraum (siehe ``ist_beendet``).
+
     Rückgabe: (``{kontakt_id: {name, rhythmus, letzte_rechnung_id,
-    letzter_zeitraum}}``, Liste unregelmäßiger Kontakte).
+    letzter_zeitraum, zustand}}``, Liste unregelmäßiger Kontakte).
     """
+    heute = heute or date.today()
     je_kontakt: dict[str, list[dict]] = {}
     for r in rechnungen:
         if not r.get("von") or not r.get("bis"):
@@ -135,11 +174,18 @@ def dauerkunden_erkennen(
         dominant = max(zaehlung, key=lambda k: zaehlung[k]) if zaehlung else None
         if dominant and zaehlung[dominant] >= 2:
             letzte = liste[-1]
+            letzter_zeitraum = [letzte["von"], letzte["bis"]]
+            zustand = (
+                "beendet"
+                if ist_beendet(dominant, letzter_zeitraum, heute.isoformat())
+                else "aktiv"
+            )
             kunden[kontakt_id] = {
                 "name": letzte.get("contact_name") or "",
                 "rhythmus": dominant,
                 "letzte_rechnung_id": letzte["id"],
-                "letzter_zeitraum": [letzte["von"], letzte["bis"]],
+                "letzter_zeitraum": letzter_zeitraum,
+                "zustand": zustand,
             }
         else:
             unregelmaessig.append(
@@ -202,11 +248,19 @@ def _kunden_schreiben(pfad: Path, kunden: dict) -> None:
 
 
 def kunden_ermitteln(
-    client, kunden_datei: Path = KUNDEN_DATEI, monate: int = 18
+    client,
+    kunden_datei: Path = KUNDEN_DATEI,
+    monate: int = 18,
+    heute: date | None = None,
 ) -> dict:
-    """Voller Ablauf: Bestand lesen, Rhythmus erkennen, Datei schreiben, Diff melden."""
+    """Voller Ablauf: Bestand lesen, Rhythmus erkennen, Datei schreiben, Diff melden.
+
+    Ein manuell gesetztes ``"aktiv": false`` aus der bestehenden Kundendatei
+    bleibt über den Lauf hinweg erhalten (Owner-Override, K1-Nachtrag
+    #3102) — neue/unbekannte Kontakte starten mit ``"aktiv": true``.
+    """
     roh = _rechnungen_fuer_erkennung(client, monate)
-    kunden, unregelmaessig = dauerkunden_erkennen(roh)
+    kunden, unregelmaessig = dauerkunden_erkennen(roh, heute=heute)
     for kontakt_id, eintrag in kunden.items():
         if not eintrag["name"]:
             eintrag["name"] = _kontaktname(client, kontakt_id)
@@ -215,15 +269,35 @@ def kunden_ermitteln(
     neu_ids = sorted(set(kunden) - set(alt))
     entfernt_ids = sorted(set(alt) - set(kunden))
 
+    for kontakt_id, eintrag in kunden.items():
+        alter_eintrag = alt.get(kontakt_id)
+        eintrag["aktiv"] = (
+            bool(alter_eintrag.get("aktiv", True))
+            if isinstance(alter_eintrag, dict)
+            else True
+        )
+
     _kunden_schreiben(kunden_datei, kunden)
 
-    je_rhythmus: dict[str, int] = {}
-    for eintrag in kunden.values():
-        je_rhythmus[eintrag["rhythmus"]] = je_rhythmus.get(eintrag["rhythmus"], 0) + 1
+    aktiv_monatlich = sum(
+        1
+        for e in kunden.values()
+        if e["zustand"] == "aktiv" and e["rhythmus"] == RHYTHMUS_MONAT
+    )
+    aktiv_quartalsweise = sum(
+        1
+        for e in kunden.values()
+        if e["zustand"] == "aktiv" and e["rhythmus"] == RHYTHMUS_QUARTAL
+    )
+    beendet = sum(1 for e in kunden.values() if e["zustand"] == "beendet")
+    inaktiv_manuell = sum(1 for e in kunden.values() if e["aktiv"] is False)
 
     return {
         "kunden_gesamt": len(kunden),
-        "je_rhythmus": je_rhythmus,
+        "aktiv_monatlich": aktiv_monatlich,
+        "aktiv_quartalsweise": aktiv_quartalsweise,
+        "beendet": beendet,
+        "inaktiv_manuell": inaktiv_manuell,
         "unregelmaessig": len(unregelmaessig),
         "neu": neu_ids,
         "entfallen": entfernt_ids,
@@ -408,14 +482,48 @@ def _entwurf_anlegen(
     return rechnung["id"]
 
 
+def _leerer_posten(
+    eintrag: dict, kontakt_id: str, rhythmus: str, von: str, bis: str, status: str
+) -> dict:
+    """Prüflisten-Zeile für einen Kunden, dem NICHTS angelegt wird (beendet/inaktiv)."""
+    return {
+        "kunde": eintrag.get("name") or kontakt_id,
+        "rhythmus": rhythmus,
+        "zeitraum": f"{von}..{bis}",
+        "positionen": None,
+        "netto": None,
+        "brutto": None,
+        "entwurfsnummer": None,
+        "status": status,
+    }
+
+
 def rechnungslauf(
     client, kunden: dict, rhythmus: str, von: str, bis: str, dry_run: bool
 ) -> list[dict]:
     """Prüfliste (bzw. echte Entwürfe, wenn ``dry_run=False``) für alle
-    Dauerkunden des angegebenen Rhythmus im Zeitraum ``von``..``bis``."""
+    Dauerkunden des angegebenen Rhythmus im Zeitraum ``von``..``bis``.
+
+    K1-Nachtrag #3102: Ein Kunde gilt als ``beendet`` (live gegen ``von``
+    geprüft, unabhängig vom evtl. veralteten ``zustand``-Feld in der
+    Kundendatei — siehe ``ist_beendet``) oder manuell ``"aktiv": false``
+    bekommt GARANTIERT keinen Entwurf — die Prüfung steht VOR jeder weiteren
+    sevdesk-Anfrage für diesen Kunden.
+    """
     posten: list[dict] = []
     for kontakt_id, eintrag in sorted(kunden.items()):
         if eintrag.get("rhythmus") != rhythmus:
+            continue
+
+        if ist_beendet(rhythmus, eintrag.get("letzter_zeitraum"), von):
+            posten.append(
+                _leerer_posten(eintrag, kontakt_id, rhythmus, von, bis, "beendet")
+            )
+            continue
+        if eintrag.get("aktiv") is False:
+            posten.append(
+                _leerer_posten(eintrag, kontakt_id, rhythmus, von, bis, "inaktiv")
+            )
             continue
 
         vorhandene_nummer = _entwurf_fuer_zeitraum_vorhanden(client, kontakt_id, von)
@@ -478,6 +586,11 @@ def rechnungslauf(
     return posten
 
 
+#: Diese Status tragen KEIN Entwurf — Klartext-Hinweis statt "—" in der
+#: Tabellenspalte "Entwurfsnummer" (K1-Nachtrag #3102).
+_STATUS_HINWEIS = {"beendet": "beendet", "inaktiv": "inaktiv (aktiv=false)"}
+
+
 def markdown_tabelle(posten: list[dict]) -> str:
     zeilen = [
         "| Kunde | Rhythmus | Zeitraum | Positionen | Netto | Brutto | Entwurfsnummer |",
@@ -487,7 +600,7 @@ def markdown_tabelle(posten: list[dict]) -> str:
         netto = betrag_format(p["netto"]) if p["netto"] is not None else "—"
         brutto = betrag_format(p["brutto"]) if p["brutto"] is not None else "—"
         positionen = str(p["positionen"]) if p["positionen"] is not None else "—"
-        nummer = p["entwurfsnummer"] or "—"
+        nummer = p["entwurfsnummer"] or _STATUS_HINWEIS.get(p["status"], "—")
         zeilen.append(
             f"| {p['kunde']} | {p['rhythmus']} | {p['zeitraum']} | {positionen} | "
             f"{netto} | {brutto} | {nummer} |"
@@ -501,9 +614,17 @@ def markdown_tabelle(posten: list[dict]) -> str:
 def _entwuerfe_fuer_versand(
     client, kunden: dict, rhythmus: str, von: str
 ) -> list[dict]:
+    """K1-Nachtrag #3102: beendete/inaktive Kunden werden VOR der ersten
+    Invoice-Abfrage übersprungen — ``--senden`` (auch mit ``--ja``) kann für
+    sie also nie etwas finden und nie etwas verschicken, selbst wenn
+    irgendwo ein alter Entwurf existieren sollte."""
     ergebnis = []
     for kontakt_id, eintrag in sorted(kunden.items()):
         if eintrag.get("rhythmus") != rhythmus:
+            continue
+        if ist_beendet(rhythmus, eintrag.get("letzter_zeitraum"), von):
+            continue
+        if eintrag.get("aktiv") is False:
             continue
         for rechnung in _seiten(
             client,

@@ -46,7 +46,7 @@ python3 tools/sevdesk/rechnungslauf.py --senden --monat 2026-09 --ja
 | Was | Woher | Anmerkung |
 |---|---|---|
 | Rechnungsbestand, Positionen, Kontakte | sevdesk-API (`/Invoice`, `/InvoicePos`, `/Contact`, `/CommunicationWay`, `/TextTemplate`) | Token `~/.secrets/sevdesk_api_token`, geteilter Client aus `beleg_entwurf.py` |
-| Dauerkunden-Datei | `~/.claude/sevdesk-dauerkunden.json`, geschrieben von `--kunden-ermitteln`, Modus 0600 | NIE im Repo, NIE mit echten Namen in Tests/Doku (platform ist öffentlich) |
+| Dauerkunden-Datei | `~/.claude/sevdesk-dauerkunden.json`, geschrieben von `--kunden-ermitteln`, Modus 0600 | NIE im Repo, NIE mit echten Namen in Tests/Doku (platform ist öffentlich). Je Kunde zusätzlich `zustand` (`"aktiv"`/`"beendet"`, automatisch) und `aktiv` (Owner-Override, bleibt über Läufe hinweg erhalten) |
 | Versandlog | `~/.claude/sevdesk-versand-<von>.json` je Zeitraum-Start | macht `--senden --ja` über Tage hinweg idempotent (Mail-ID im Log oder Status ≠ 100 → überspringen) |
 | Lauf-Journal (K2) | `~/.claude/sevdesk-rechnungslauf-journal.jsonl`, vom Werkzeug selbst je Lauf angehängt | `messjournal.py --anwendung sevdesk` liest davon nur die jüngste Zeile |
 
@@ -104,10 +104,21 @@ Journal; als Vereinfachung dokumentiert, nicht stillschweigend gelassen
   übereinstimmender Zeitraumlänge (27–31 Tage = Monat, 89–93 Tage = Quartal);
   ein einzelner Treffer reicht nicht und der Kunde bleibt „unregelmäßig".
 - `--kunden-ermitteln` überschreibt die Kundendatei bei jedem Lauf komplett
-  neu (keine Merge-Logik) — Abweichungen (neu/entfallen) werden gemeldet,
-  aber der Owner muss sie lesen, bevor der nächste Lauf sie überschreibt.
+  neu — außer einem manuell gesetzten `"aktiv": false`, das erhalten bleibt.
+  Abweichungen (neu/entfallen) werden gemeldet, aber der Owner muss sie
+  lesen, bevor der nächste Lauf sie überschreibt.
 - Ohne `--ja` sendet `--senden` NIE etwas — das ist Absicht, keine Falle,
   aber leicht zu übersehen, wenn die Ausgabe wie ein Versand aussieht.
+- **Beendete Kunden (K1-Nachtrag #3102)**: Ein Kunde, dessen letzter
+  Leistungszeitraum mehr als zwei Rhythmusperioden vor dem angeforderten
+  Zeitraum endet, gilt als `beendet` und bekommt GARANTIERT keinen Entwurf —
+  auch nicht mit `--senden`. Das `zustand`-Feld in der Kundendatei ist nur
+  ein Schnappschuss vom letzten `--kunden-ermitteln`-Lauf; die eigentliche
+  Sperre prüft bei jedem Lauf live gegen den tatsächlich angeforderten
+  Zeitraum (`ist_beendet()`) und bleibt deshalb auch dann korrekt, wenn
+  `--kunden-ermitteln` seit einer Weile nicht mehr gelaufen ist. Ein Kunde
+  mit manuell gesetztem `"aktiv": false` wird ebenso übersprungen, unabhängig
+  vom `zustand`.
 
 ## Verbesserungs-Backlog (K4)
 
