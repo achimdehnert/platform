@@ -84,6 +84,10 @@ repos:
     type: django
     port: 11435
     health: /livez/
+  schreib-hub:
+    type: django
+    port: 11436
+    health: /livez/
   gaeb-toolkit:
     type: library
     pypi: gaeb-toolkit

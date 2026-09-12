@@ -184,6 +184,15 @@ infra:
 # ═══════════════════════════════════════════════════════════════════════════════
 services:
 
+  schreib-hub:
+    prod: 11436
+    staging: 11436
+    dev: 11436
+    container_name: schreib_hub_web
+    domain_prod: schreib-hub.iil.pet
+    betriebsstatus: blockiert
+    betriebsstatus_grund: "Repo am 2026-09-12 angelegt (SchreibAssist-Host, meiki-lra); noch kein Code, kein Deploy — Prod erst nach Hosting-Entscheid wie frist-hub; schreib-hub.iil.pet hat bewusst keinen DNS-Eintrag"
+    note: "meiki-lra · SchreibAssist-Host (Schreiben aus Vorlagen) — Skelett, prod blockiert"
   post-hub:
     prod: 11435
     staging: 11435

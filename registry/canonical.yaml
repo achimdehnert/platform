@@ -493,6 +493,13 @@ repos:
       type: django
       port: 11435
       health: /livez/
+  schreib-hub:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: django
+      port: 11436
+      health: /livez/
   gaeb-toolkit:
     in_flat: true
     in_rich: true
