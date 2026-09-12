@@ -283,3 +283,61 @@ def test_should_auftragsraum_journal_alter_nur_hinweis_nie_warnung_nie_block():
     )
     assert daten["warnungen"] == 0
     assert ergebnis.returncode == 0
+
+
+# --- sevdesk (#3102) --------------------------------------------------------
+
+
+def test_should_sevdesk_warn_when_no_run_since_more_than_35_days():
+    """Positivkontrolle: kein Lauf seit > 35 Tagen muss WARNUNG sein (nicht
+    HINWEIS wie bei auftragsraum — ein ausbleibender Rechnungslauf ist ein
+    Fehler, kein gewolltes Schweigen)."""
+    eingabe = json.dumps(
+        {
+            "journal": [
+                {
+                    "anwendung": "sevdesk",
+                    "zeit": _vor(tage=40),
+                    "kennzahlen": {"entwuerfe_angelegt": 3},
+                }
+            ]
+        }
+    )
+    ergebnis = _lauf(
+        "--anwendung", "sevdesk", "--json", "--eingabe", eingabe, "--block"
+    )
+    daten = json.loads(ergebnis.stdout)
+    signal = _signal(daten, "sevdesk", "Journal-Alter")
+    assert signal["zustand"] == "WARNUNG"
+    assert ergebnis.returncode == 1
+
+
+def test_should_sevdesk_be_ok_when_run_within_35_days():
+    eingabe = json.dumps(
+        {
+            "journal": [
+                {
+                    "anwendung": "sevdesk",
+                    "zeit": _vor(tage=2),
+                    "kennzahlen": {"entwuerfe_angelegt": 3},
+                }
+            ]
+        }
+    )
+    ergebnis = _lauf(
+        "--anwendung", "sevdesk", "--json", "--eingabe", eingabe, "--block"
+    )
+    daten = json.loads(ergebnis.stdout)
+    assert _signal(daten, "sevdesk", "Journal-Alter")["zustand"] == "ok"
+    assert ergebnis.returncode == 0
+
+
+def test_should_sevdesk_leeres_journal_nicht_pruefbar_sein_ohne_warnung():
+    eingabe = json.dumps({"journal": []})
+    ergebnis = _lauf(
+        "--anwendung", "sevdesk", "--json", "--eingabe", eingabe, "--block"
+    )
+    daten = json.loads(ergebnis.stdout)
+    assert _signal(daten, "sevdesk", "Journal-Alter")["zustand"] == "nicht pruefbar"
+    assert daten["warnungen"] == 0
+    assert ergebnis.returncode == 0

@@ -4,6 +4,23 @@ Werkzeuge rund um die IIL-Rechnungsstrecke in sevdesk (platform#3102, SA-4). Jed
 Werkzeug ist eigenstaendig lauffaehig; Schreib-Operationen (Entwuerfe, Buchungen,
 Versand) sind ausnahmslos hinter einem expliziten Owner-Gate (`--ja` o.ae.).
 
+## Rechnungslauf
+
+`tools/sevdesk/rechnungslauf.py` — K1/K2/K3/K5 aus platform#3102. Legt
+Dauerkunden (monatlicher oder quartalsweiser Rhythmus, aus dem Bestand
+erkannt) je Zeitraum einen Rechnungs-ENTWURF an, indem es die letzte
+Rechnung als Vorlage kopiert. Versand ist ein separater, gegateter Schritt.
+
+```bash
+python3 tools/sevdesk/rechnungslauf.py --kunden-ermitteln
+python3 tools/sevdesk/rechnungslauf.py --monat 2026-09 --dry-run
+python3 tools/sevdesk/rechnungslauf.py --senden --monat 2026-09 --ja
+```
+
+`make sevdesk-rechnungslauf` ruft den Dry-Run des Vormonats. Volle
+Betriebsakte (Datenwege, Kennzahlen, Verfallsignale, bekannte Fallen):
+[`docs/betrieb/sevdesk-rechnungslauf.md`](../../docs/betrieb/sevdesk-rechnungslauf.md).
+
 ## Zahlungsabgleich
 
 `tools/sevdesk/zahlungsabgleich.py` — K4 aus platform#3102 (Vorschlag 228). Liest

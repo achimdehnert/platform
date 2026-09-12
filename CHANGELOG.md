@@ -8,6 +8,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- `tools/sevdesk/rechnungslauf.py` (#3102): Monats-/Quartalsrechnungslauf für
+  sevdesk-Dauerkunden — `--kunden-ermitteln` erkennt den Rhythmus aus dem
+  Bestand, `--monat`/`--quartal` legt Entwürfe (Status 100) aus der letzten
+  Rechnung als Vorlage an, `--senden --ja` verschickt sie gegated (429-Backoff,
+  Versandlog gegen Doppelversand). Kennzahlen je Lauf an
+  `messjournal.py --anwendung sevdesk`, Verfallsignal (>35 Tage) an
+  `verfallsmelder.py`. Betriebsakte `docs/betrieb/sevdesk-rechnungslauf.md`.
+
 - `tools/adr/`: Fleet-Audit-Werkzeuge persistiert — `adr_inventory.py` (Inventar,
   titel-robust ggü. Config-Blöcken vor dem H1), `adr_analyze.py` (Health/Cross-Repo,
   Vokabular = iil-adrfw-Schema), `adr_fm_migrate.py` (Frontmatter-Migration, erprobt
