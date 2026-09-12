@@ -46,6 +46,15 @@ B3 kein Fehler und blockiert `--block` deshalb nie). Ein komplett leeres
 Journal (Datei fehlt oder ohne Zeilen) macht alle drei Signale `nicht
 pruefbar`, nie eine Warnung.
 
+`--anwendung sevdesk` (#3102) liest EIN Signal aus dem aggregierten
+Mailcheck-Journal (juengste Zeile mit `anwendung=sevdesk`, dort schreibt
+`messjournal.py --anwendung sevdesk`): „kein Rechnungslauf seit > 35 Tagen"
+— derselbe generische Journal-Alter-Mechanismus wie bei `mailcheck`/`todo`,
+feuert als `WARNUNG` (anders als bei `auftragsraum`: ein ausbleibender
+Rechnungslauf ist ein Fehler, kein gewolltes Schweigen). Einschraenkung:
+das Signal misst die Zeit seit dem LETZTEN Lauf jeder Art (Monat, Quartal
+ODER `--senden`) — nicht spezifisch seit dem letzten Monatslauf.
+
 `--schwellen JSON` ueberschreibt einzelne Default-Schwellen, z. B.
 `{"mailcheck.index_alter_tage": 0}`.
 """
@@ -88,6 +97,7 @@ SCHWELLEN_DEFAULT: dict[str, float] = {
     "auftragsraum.nachricht_ohne_bearbeitung_stunden": 24,
     "auftragsraum.korrektur_ohne_artefakt_stunden": 24,
     "auftragsraum.journal_alter_tage": 7,
+    "sevdesk.journal_alter_tage": 35,
 }
 
 
@@ -713,6 +723,18 @@ def signale_auftragsraum(
     ]
 
 
+# --- sevdesk: ein Signal aus dem aggregierten Journal --------------------
+
+
+def signale_sevdesk(
+    eintraege: list[dict[str, Any]], schwellen: dict[str, float]
+) -> list[Signal]:
+    """Ein Signal: „kein Rechnungslauf seit > 35 Tagen" (#3102) — derselbe
+    generische Journal-Alter-Mechanismus wie mailcheck/todo, WARNUNG statt
+    HINWEIS (ausbleibender Lauf ist ein Fehler, kein gewolltes Schweigen)."""
+    return [signal_journal_alter("sevdesk", eintraege, schwellen)]
+
+
 # --- Sammeln, ausgeben ---------------------------------------------------
 
 
@@ -736,6 +758,8 @@ def sammeln(
         signale += signale_todo(eintraege, eingabe, schwellen)
     if anwendung in ("auftragsraum", "alle"):
         signale += signale_auftragsraum(eingabe, schwellen)
+    if anwendung in ("sevdesk", "alle"):
+        signale += signale_sevdesk(eintraege, schwellen)
     return signale
 
 
@@ -782,7 +806,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0] if __doc__ else "")
     ap.add_argument(
         "--anwendung",
-        choices=["mailcheck", "todo", "auftragsraum", "alle"],
+        choices=["mailcheck", "todo", "auftragsraum", "sevdesk", "alle"],
         default="alle",
     )
     ap.add_argument("--journal", default=str(JOURNAL_DEFAULT))

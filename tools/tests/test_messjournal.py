@@ -139,7 +139,8 @@ def test_should_trend_auf_leerem_journal_journal_leer_melden(tmp_path):
 
 def test_should_anwendung_alle_drei_zeilen_je_eigener_anwendung_schreiben(tmp_path):
     """#3067: ein Lauf, eine Journalzeile je Anwendung. Seit #3079 gehoert
-    `auftragsraum` zu `alle` dazu (drei statt zwei Zeilen)."""
+    `auftragsraum` zu `alle` dazu, seit #3102 zusaetzlich `sevdesk` (vier
+    statt zwei Zeilen)."""
     journal = tmp_path / "journal.jsonl"
     eingabe = json.dumps(
         {
@@ -162,9 +163,9 @@ def test_should_anwendung_alle_drei_zeilen_je_eigener_anwendung_schreiben(tmp_pa
     )
     assert ergebnis.returncode == 0
     zeilen = journal.read_text(encoding="utf-8").strip().splitlines()
-    assert len(zeilen) == 3
+    assert len(zeilen) == 4
     anwendungen = {json.loads(z)["anwendung"] for z in zeilen}
-    assert anwendungen == {"mailcheck", "todo", "auftragsraum"}
+    assert anwendungen == {"mailcheck", "todo", "auftragsraum", "sevdesk"}
 
 
 def test_should_link_pruefen_bei_alle_genau_einmal_laufen_und_beide_zeilen_fuellen(
@@ -354,6 +355,71 @@ def test_should_auftragsraum_leeres_journal_alle_kennzahlen_null_machen():
     assert kennzahlen["anteil_angewendete_kurzbefehle"] is None
 
 
+# --- sevdesk (#3102) -------------------------------------------------------
+
+
+def test_should_sevdesk_eingabe_direkt_in_kennzahlen_uebernehmen(tmp_path):
+    journal = tmp_path / "journal.jsonl"
+    eingabe = {
+        "entwuerfe_angelegt": 3,
+        "uebersprungen": 1,
+        "gesendet": 0,
+        "wiederholungen_429": 0,
+        "dauer_sekunden": 4.2,
+    }
+    ergebnis = _lauf(
+        "--schreiben",
+        "--anwendung",
+        "sevdesk",
+        "--journal",
+        str(journal),
+        "--eingabe",
+        json.dumps(eingabe),
+    )
+    assert ergebnis.returncode == 0
+    eintrag = json.loads(journal.read_text(encoding="utf-8").strip())
+    assert eintrag["kennzahlen"] == eingabe
+    assert eintrag["fehler"] == []
+
+
+def test_should_sevdesk_read_only_the_newest_raw_journal_line(tmp_path, monkeypatch):
+    """`_sevdesk_erheben` erhebt nichts selbst — sie liest die juengste Zeile
+    des rohen Lauf-Journals, das `rechnungslauf.py` selbst schreibt."""
+    roh = tmp_path / "sevdesk-rechnungslauf-journal.jsonl"
+    roh.write_text(
+        json.dumps(
+            {
+                "entwuerfe_angelegt": 1,
+                "uebersprungen": 0,
+                "gesendet": 0,
+                "wiederholungen_429": 0,
+                "dauer_sekunden": 1.0,
+            }
+        )
+        + "\n"
+        + json.dumps(
+            {
+                "entwuerfe_angelegt": 5,
+                "uebersprungen": 2,
+                "gesendet": 4,
+                "wiederholungen_429": 1,
+                "dauer_sekunden": 9.9,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mj, "SEVDESK_JOURNAL_DEFAULT", roh)
+    kennzahlen = mj._sevdesk_erheben()
+    assert kennzahlen["entwuerfe_angelegt"] == 5
+    assert kennzahlen["gesendet"] == 4
+
+
+def test_should_sevdesk_missing_raw_journal_return_empty_dict(tmp_path, monkeypatch):
+    monkeypatch.setattr(mj, "SEVDESK_JOURNAL_DEFAULT", tmp_path / "fehlt.jsonl")
+    assert mj._sevdesk_erheben() == {}
+
+
 def test_should_alle_auftragsraum_mit_einschliessen(tmp_path):
     journal = tmp_path / "journal.jsonl"
     eingabe = {
@@ -380,4 +446,4 @@ def test_should_alle_auftragsraum_mit_einschliessen(tmp_path):
         json.loads(z)["anwendung"]
         for z in journal.read_text(encoding="utf-8").splitlines()
     }
-    assert anwendungen == {"mailcheck", "todo", "auftragsraum"}
+    assert anwendungen == {"mailcheck", "todo", "auftragsraum", "sevdesk"}
