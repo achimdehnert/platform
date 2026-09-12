@@ -23,7 +23,7 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 
 **sevdesk-Routinen [#3102](https://github.com/achimdehnert/platform/issues/3102)** (SA-4): Rechnungslauf mit Versand-Gate (#3105), Timer am 10. (#3107), Zahlungsabgleich (#3103), Kostenabgleich + `--mandant` (#3108), Eingangsbelege (#3104), Fixes (#3109). Owner-Befunde in Ledger 210/211.
 
-**Zielzustand:** #3015 und #3079 Stufe 1 erreicht; #3102 K1–K8 erreicht, Drill K5 am 2026-10-10. **SA-4:** 0 Fehlanwendungen. **SA-M:** 8 eigene Merges (M1/M2), news-hub#44/chat-hub#88 M3.
+**Zielzustand:** #3015 und #3079 Stufe 1 erreicht; #3102 K1–K5, K7 erreicht; K6/K8 verschoben mit Tracking (#3112, Akte); Drill K5 am 2026-10-10. **SA-4:** 0 Fehlanwendungen. **SA-M:** 8 eigene Merges (M1/M2), news-hub#44/chat-hub#88 M3.
 
 ## ⚡ Stand (2026-09-11 vormittags — Go-Liste abgearbeitet, Gateway-Transport gemessen: nicht begehbar, netcup gekuendigt)
 
