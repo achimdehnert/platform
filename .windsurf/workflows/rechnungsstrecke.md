@@ -64,6 +64,23 @@ python3 tools/sevdesk/beleg_entwurf.py --pdf <pdf> --lieferant "<Name laut PDF>"
   aufs Rechnungsdatum, sevdesk zieht den Stichtagskurs selbst (Feld heißt NICHT
   propExchangeRate — der 500-Fehler des Probelaufs).
 - Idempotenz macht das Werkzeug (Dedup über description = Rechnungsnummer).
+- **Kein Konto zur Hand?** `--konto-vorschlag` (ohne `--konto`) zeigt bis zu drei
+  Vorschläge mit Begründung — aus der Owner-Zuordnung zuerst, sonst aus sevdesks
+  Kontovorschlag-Daten über Wortabgleich. **Der Vorschlag ist ein Vorschlag — nur der
+  Owner setzt das Konto**, über `--konto`; ohne Bestätigung bleibt es leer, exakt wie
+  bisher.
+- Ist `--konto` gesetzt, prüft das Werkzeug automatisch, ob das Konto existiert und die
+  gewählte `--taxrule` dazu passt (sevdesk-Kontovorschlag-Daten); bei Widerspruch bricht
+  es ab (Meldung mit erlaubten taxRules) — Override nur mit `--trotzdem`.
+- Zusätzlich zur harten Dedup-Prüfung (description) warnt das Werkzeug, wenn ein Beleg
+  der letzten 500 denselben Bruttobetrag + dasselbe Datum (+ denselben Lieferanten) trägt
+  — nur Warnung, da Dauerrechnungen mit gleichem Betrag legitim sind; `--strikt` macht
+  daraus einen Abbruch.
+- `--dry-run` prüft/schlägt alles vor, legt aber nichts an — für Probeläufe.
+- Jeder Lauf schreibt eine Zeile ins lokale Messjournal (`~/.claude/sevdesk-belege-journal.jsonl`,
+  Beschreibung nur gehasht); `--auswertung [N]` gibt die Trefferquote
+  Vorschlag-1/Top-3 der letzten N Läufe aus — das ist der K6-Messpunkt (20 echte
+  Belege im Nachlauf, Owner trägt das Ergebnis ein).
 
 ## Step 4: Mail einsortieren (reversibel)
 
@@ -100,3 +117,7 @@ Deckungsblock; Ledger-Todos für STOPP-Fälle.
 
 - 2026-08-07: Initial (v1) — kodifiziert den bestandenen Probelauf aus platform#1827
   (3 Belege Ende-zu-Ende, 2 Entitäts-Ausschlüsse, USD-Lösung, Cerebras-Erkennungslücke).
+- 2026-09-12: Step 3 um K6 (platform#3102) ergänzt — `--konto-vorschlag` (nie
+  automatisch setzen), `--trotzdem`-gegatete Validierung gegen sevdesks
+  Kontovorschlag-Daten, Dedup-Softcheck (`--strikt`), `--dry-run`, Messjournal +
+  `--auswertung`.
