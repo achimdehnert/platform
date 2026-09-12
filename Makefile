@@ -7,7 +7,7 @@
 #
 # =============================================================================
 
-.PHONY: help menu boards boards-check kette aufraeumen test lint betrieb-check sevdesk-rechnungslauf sevdesk-zahlungsabgleich setup windsurf-clean windsurf-status windsurf-force
+.PHONY: help menu boards boards-check kette aufraeumen test lint betrieb-check sevdesk-rechnungslauf sevdesk-zahlungsabgleich sevdesk-kostenabgleich setup windsurf-clean windsurf-status windsurf-force
 
 # Default target
 .DEFAULT_GOAL := help
@@ -173,6 +173,9 @@ sevdesk-rechnungslauf: ## #3102: Dry-Run des Vormonats-Rechnungslaufs (liest, sc
 
 sevdesk-zahlungsabgleich: ## K4 (#3102): offene Bankeingaenge/Rechnungen abgleichen, Mahnkandidaten anzeigen (read-only)
 	@python3 tools/sevdesk/zahlungsabgleich.py
+
+sevdesk-kostenabgleich: ## K7 (#3102): Bankabgaenge gegen offene Belege abgleichen, Kontovorschlag (read-only)
+	@python3 tools/sevdesk/kostenabgleich.py
 
 # =============================================================================
 # DEPLOYMENT (Platzhalter für zukünftige Erweiterung)
