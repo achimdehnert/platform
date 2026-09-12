@@ -402,3 +402,29 @@ Bei Nightly-Läufen: Report nur bei FAIL oder Abweichung >10 % zum Vortag eskali
   **Konsequenz:** ein Nightly-Report, der ein Artefakt nennt, muss dessen Existenz
   im selben Lauf belegen (`git diff --stat` ≠ leer), sonst ist der Zug-Eintrag
   eine Behauptung ohne Objekt.
+- 2026-09-12: **Nightly-Lauf (03:17 UTC), Step 0 gefahren.** fetch + ff-only über alle
+  25 Repos: 24 bereits auf `origin/main`, writing-hub 1 Commit fast-forwarded (kein
+  Diff in `klickdummy/` oder `docs/adr/`), dev-hub weiter Nicht-ff (48 Commits hinter,
+  9 dirty Dateien, platform#2865 offen). Quelländerung seit dem 11.09.-Report
+  (`git log --since` über `klickdummy/` + `docs/adr/`, alle 25 Repos): **keine** ⇒
+  Erwartung 0 `written: true`. R3 PASS: 176/176 `ok`, 0 failed, 25 Repos, Producer
+  `iil-klickdummy 1.35.0`, 176 Zeilen = 176 unique `entry_key`, Schema-WARNs 177
+  unverändert (pg-hub 110, design-hub 36, nl2iot-hub 31, alle getrackt). Discovery 28,
+  frist-hub/meiki-hub/ttz-hub gov-ausgeschlossen (E3) → 25. 6 Sonnet-Worker à 24–29
+  Entries (Brief mit Fehlerklasse **und** explizitem Umbruch-Verbot), die 7
+  `\n\n`-Entries inline: 7× dedup.
+  **`written: true` = 1, davon 0 legitim — derselbe Entry wie am 11.09.**
+  `writing-hub:ADR-190` kippte erneut aus einem Sonnet-Worker, obwohl der Brief
+  die Umbruch-Variante diesmal ausdrücklich benannte. Zwei Läufe in Folge, zwei
+  verschiedene Worker, dieselbe Stelle (`„Charaktere" und` / `„Welten"`): das ist
+  eine **reproduzierbare Kipp-Stelle**, kein Worker-Zufall. Korrektur inline
+  (`written: true`), lesend verifiziert (Umbrüche nach `und`/`der`/`ein`, U+201E +
+  ASCII `"`, Tail `\n`). Beleg als Kommentar an
+  [platform#1733](https://github.com/achimdehnert/platform/issues/1733).
+  **Konsequenz für Step 3, bis platform#2462 entschieden ist:** bekannte
+  Kipp-Entries (`writing-hub:ADR-190`, `ausschreibungs-hub:ADR-005`,
+  `ausschreibungs-hub:ADR-009`) werden wie die `\n\n`-Fälle **fest inline**
+  geschrieben, nicht mehr delegiert — die Liste wächst mit jedem neuen Fund.
+  Betriebs-Nebenbefund: `git switch -c` im Haupt-Tree wird vom main-tree-guard
+  (ADR-233) zurückgesetzt — der Changelog-Weg aus dem Nightly ist ausschließlich
+  `repo-session start platform --task <slug>` + Worktree, wie am 11.09.
