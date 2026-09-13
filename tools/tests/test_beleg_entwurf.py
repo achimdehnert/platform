@@ -658,3 +658,30 @@ def test_should_set_account_when_konto_given_and_valid(tmp_path, capsys, monkeyp
     assert daten["voucherPosSave[0][accountDatev][objectName]"] == "AccountDatev"
     ausgabe = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
     assert ausgabe["konto"] == "6837"
+
+
+# ── Beleg ohne Dokument (Owner-Wort 2026-09-13: Abos ohne Rechnung wie die Handbuchungen) ──
+
+
+def test_should_create_voucher_without_document_when_flag_set(tmp_path, monkeypatch):
+    aufrufe: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        aufrufe.append(request.url.path)
+        if request.method == "GET" and request.url.path == "/api/v1/Voucher":
+            return httpx.Response(200, json={"objects": []})
+        if request.url.path == "/api/v1/Voucher/Factory/saveVoucher":
+            body = request.read().decode()
+            assert "filename" not in body
+            assert "voucher%5Bstatus%5D=50" in body
+            return httpx.Response(
+                200, json={"objects": {"voucher": {"id": "1", "status": "50"}}}
+            )
+        raise AssertionError(f"unerwarteter Aufruf: {request.method} {request.url}")
+
+    args = _args(tmp_path, ohne_dokument=True, dry_run=False)
+    args.pdf = None
+    monkeypatch.setattr(be, "_client", lambda *_a, **_k: _client(handler))
+    assert be.anlegen(args) == 0
+    assert "/api/v1/Voucher/Factory/uploadTempFile" not in aufrufe
+    assert "/api/v1/Voucher/Factory/saveVoucher" in aufrufe
