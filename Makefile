@@ -43,6 +43,7 @@ boards: ## Mail-Action-Board und Todo-Board neu bauen (beide Ausgaben)
 	[ "$$ABLAGE_RC" = "0" ] || echo "  (Melder: offene Posteingangs-Mails ODER Postfach nicht erreichbar — Zeilen oben lesen)"
 	@python3 tools/mail_agent/faelligkeit.py --schreibe >/dev/null || echo "  (Faelligkeit uebersprungen — Mail-Index nicht erreichbar)"
 	@python3 tools/mail_agent/eintrag_mails.py --schreibe | tail -1 || echo "  (Eintrag-Mail-Zuordnung uebersprungen — Mail-Index nicht erreichbar)"
+	@python3 tools/mail_agent/alterung.py --schreibe | tail -3
 	@python3 tools/mail_agent/board.py --render --nach $(HOME)/.claude/mail-action-board.md
 	@python3 tools/todo_board/todo_board.py build
 	@ABLAGE_TMP=/tmp/.mailcheck-ablage-pruefe-$$PPID.txt; \
