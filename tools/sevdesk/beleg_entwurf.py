@@ -16,6 +16,8 @@ Werkzeug macht sie dauerhaft:
 - Konto NUR bei eindeutigem ``GET /AccountDatev``-Treffer auf die NUMMER; ohne
   ``--konto`` bleibt das Feld leer (kein Raten — 🌀 6310-statt-6837-Realfall).
 - ``taxRule`` nested (Update 2.0); ``taxType`` würde stillschweigend verworfen.
+  Bekannt sind 9 (Vorsteuer), 10 (ohne Vorsteuerabzug), 12/13 (Reverse Charge
+  Drittland, mit/ohne Vorsteuerabzug) und 14 (Reverse Charge EU).
 - Dedup über ``description`` (= Rechnungsnummer/-kennung) gegen den Bestand: existiert
   ein Beleg mit identischer description, wird NICHT erneut angelegt (K5 Idempotenz).
 
@@ -80,7 +82,11 @@ WORT_MIN_LAENGE = 4
 
 #: GET /TaxRule, verifiziert 2026-07-28: 9 = Vorsteuerabziehbare Aufwendungen ·
 #: 12 = Reverse Charge §13b Abs. 2 Drittland · 14 = Reverse Charge §13b Abs. 1 EU.
-TAXRULES_BEKANNT = {"1", "9", "12", "14"}
+#: Ergänzt 2026-09-13 (im Mandanten edv per GET /TaxRule geprüft):
+#: 10 = Nicht vorsteuerabziehbare Aufwendungen — für Eigenbelege ohne
+#: Vorsteuerausweis (Anbieter stellt keine Rechnung, der Beleg stammt aus dem
+#: Transaktionsverlauf) · 13 = Reverse Charge ohne Vorsteuerabzug.
+TAXRULES_BEKANNT = {"1", "9", "10", "12", "13", "14"}
 
 
 def _client(mandant: str = STANDARD_MANDANT):
@@ -630,7 +636,12 @@ def main() -> int:
         help="Rechnungsnummer/eindeutige Kennung (Dedup-Schlüssel)",
     )
     p.add_argument(
-        "--taxrule", default="9", help="9 DE-Vorsteuer · 12 Drittland RC · 14 EU RC"
+        "--taxrule",
+        default="9",
+        help=(
+            "9 DE-Vorsteuer · 10 ohne Vorsteuerabzug · 12 Drittland RC · "
+            "13 RC ohne Vorsteuerabzug · 14 EU RC"
+        ),
     )
     p.add_argument(
         "--konto",

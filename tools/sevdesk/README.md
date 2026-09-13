@@ -225,6 +225,12 @@ der Ablage keinen Lieferantenbeleg ausloest.
   vor dem Upload zurueck).
 - Gebucht wird **nie** — `beleg_entwurf.py` legt ausschliesslich Status 50 an.
 - Ein Buchungskonto wird **nie** gesetzt; der Vorschlag steht nur im Board.
+- Ein Register-Eintrag mit `"mandant": "edv"` (oder `"iil"`) legt den
+  Mandanten fuer diesen Lieferanten fest — der Empfaenger im PDF wird dann
+  nicht ausgewertet (Owner-Entscheid je Lieferant, 2026-09-13).
+- Nennt eine Rechnung Reverse Charge (§13b), ist die Steuer 0,00 und die
+  Steuerregel kommt aus `taxrule_rc`; ohne Angabe 12 bei einer Anschrift in
+  den USA, sonst 14.
 - `--mandant iil|edv|beide` (Standard `iil`) entscheidet, welche Belege
   entstehen: nur eigene, nur die der zweiten Firma, oder je Beleg der
   Mandant, auf den er laut PDF lautet (#3112). Ein Beleg mit unklarem
@@ -236,6 +242,13 @@ der Ablage keinen Lieferantenbeleg ausloest.
 - Weist das PDF deutsche Umsatzsteuer aus, gilt Steuerregel 9 statt des
   Register-Werts; die Abweichung steht als Hinweis unter der Liste (#3118).
 - Das Postfach wird nur gelesen — nichts verschoben, markiert oder geloescht.
+- **Dubletten ueber beide Mandanten**: vor jedem Anlegen wird die
+  Rechnungsnummer gegen den Lieferantenbeleg-Bestand **beider** Mandanten
+  geprueft — der Owner erfasst Rechnungen mitunter in der anderen Firma, und
+  der Dedup in `beleg_entwurf.py` sieht nur den eigenen Bestand. Treffer
+  ergibt `DUPLIKAT (anderer Mandant: <name>)` und keinen Entwurf. Ist ein
+  Zugang nicht lesbar, sagt der Board-Kopf, gegen welche Mandanten geprueft
+  wurde.
 - Idempotenz: bereits geholte Nachrichten stehen in
   `~/.claude/sevdesk-belegbeschaffung-index.json` und werden nicht erneut
   heruntergeladen; doppelte Entwuerfe faengt der description-Dedup in
