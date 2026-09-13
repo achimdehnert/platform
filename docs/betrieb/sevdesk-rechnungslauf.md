@@ -111,6 +111,8 @@ liest NUR die jüngste Zeile und übernimmt fünf Kennzahlen:
 | `pdf_gefunden` | Rechnungs-PDFs, die einem Register-Eintrag zugeordnet wurden |
 | `ablage_pdf` | aus der Owner-Ablage `~/shared/inbox/invoices/` gelesene Dateien — auch die ohne Zuordnung, die als Owner-Zug erscheinen |
 | `bereits_im_lauf` | Rechnungen, die im selben Lauf ein zweites Mal auftauchten (Rechnungsmail + Zahlungsbeleg + Ablage) |
+| `duplikate_fremder_mandant` | Rechnungen, die bereits im ANDEREN sevdesk-Mandanten liegen — kein Entwurf |
+| `dubletten_geprueft_gegen` | Mandanten, deren Bestand für den Abgleich lesbar war |
 | `entwuerfe_je_mandant` | Entwürfe je sevdesk-Mandant (`iil`, `edv`) |
 | `entwuerfe_angelegt` | neu angelegte Beleg-Entwürfe (nur mit `--anlegen`) |
 | `duplikate` | Belege, die es unter derselben Beschreibung schon gab |
@@ -192,7 +194,23 @@ Journal; als Vereinfachung dokumentiert, nicht stillschweigend gelassen
   Standard `iil` bleibt er Owner-Zug.
 - **Steuerregel aus dem Register kann falsch sein**: Weist das PDF deutsche
   Umsatzsteuer aus, ist Reverse Charge ausgeschlossen — dann gilt Regel 9 und
-  das Board nennt die Abweichung ([#3118](https://github.com/achimdehnert/platform/issues/3118)).
+  das Board nennt die Abweichung ([#3118](https://github.com/achimdehnert/platform/issues/3118)). Nennt die Rechnung
+  umgekehrt ausdrücklich Reverse Charge (§13b), ist die Steuer 0,00 und die
+  Regel kommt aus dem Register-Feld `taxrule_rc`; ohne Angabe 12 bei einer
+  Anbieteranschrift in den USA, sonst 14.
+- **Steuerbetrag steht neben der Beschriftung**: Zahlen in runden oder
+  eckigen Klammern zählen nie als Betrag (dort stehen Rechenformeln und
+  Fußnotenmarken); trägt die Steuerzeile selbst keinen Betrag, gilt der
+  Betrag der Zeile darüber, wenn sie nur aus einem Betrag besteht.
+- **Dubletten liegen im anderen Mandanten**: Der Owner erfasst Rechnungen
+  mitunter in der zweiten Firma, obwohl sie auf die erste lauten. Der Dedup
+  in `beleg_entwurf.py` sieht nur den Bestand des Ziel-Mandanten; deshalb
+  prüft `belegbeschaffung.py` die Nummer zusätzlich gegen den Bestand des
+  anderen Mandanten (`DUPLIKAT (anderer Mandant: …)`). Ist dessen Zugang
+  nicht lesbar, steht das im Board-Kopf.
+- **Mandant je Lieferant**: Ein Register-Eintrag mit `"mandant": "edv"` legt
+  den sevdesk-Mandanten für diesen Lieferanten fest; der Empfänger im PDF
+  wird dann nicht ausgewertet (Owner-Entscheid 2026-09-13).
 - **Dieselbe Rechnung mehrfach**: Rechnungsmail, Zahlungsbeleg und
   Ablage-Datei tragen dieselbe Nummer; je Lauf gewinnt die erste Fundstelle
   (`bereits_im_lauf`). Gegenüber dem Bestand greift zusätzlich der Dedup in

@@ -31,6 +31,37 @@ def _isolierte_dateien(tmp_path, monkeypatch):
     monkeypatch.setattr(be, "JOURNAL_DATEI", tmp_path / "sevdesk-belege-journal.jsonl")
 
 
+# ── Bekannte Steuerregeln ──────────────────────────────────────────────────
+
+
+def test_should_accept_taxrule_10_for_expenses_without_input_tax():
+    """Eigenbelege ohne Vorsteuerausweis brauchen Regel 10 — im Mandanten
+    geprueft, nicht geraten (2026-09-13)."""
+    assert "10" in be.TAXRULES_BEKANNT
+    assert "13" in be.TAXRULES_BEKANNT
+
+
+def test_should_reject_an_unknown_taxrule(tmp_path, capsys):
+    args = argparse.Namespace(
+        pdf=str(tmp_path / "x.pdf"),
+        lieferant="Beispiel",
+        datum="2026-04-01",
+        brutto="10.00",
+        steuer="0.00",
+        beschreibung="BSP-1",
+        taxrule="99",
+        konto="",
+        waehrung="EUR",
+        kurs="",
+        konto_vorschlag=False,
+        trotzdem=False,
+        strikt=False,
+        dry_run=True,
+    )
+    assert be.anlegen(args) == 2
+    assert "nicht in" in capsys.readouterr().out
+
+
 # ── Dedup: Nummer steckt in einer gewachsenen Beschreibung (#3118) ─────────
 
 

@@ -13,7 +13,9 @@
     "url": "Abrufseite (nur weg=portal)",
     "grund": "Warum dieser Weg — steht im Board",
     "ohne_abgang": "optional: true = dieser Lieferant wird auch dann abgesucht, wenn kein Abgang zu ihm passt (bezahlt ueber ein anderes Konto); Fenster ist dann --tage",
-    "logins": "Zuordnung Konto-Login -> Mandant fuer Zahlungsbelege ohne Empfaengerzeile ('Account billed <login>'), z. B. {\"<org-login>\": \"iil\", \"<privat-login>\": \"edv\"}. Ein Login ohne Zuordnung bleibt 'unklar' und geht an den Owner. Die aeltere Listenform 'eigene_logins' gilt weiter und meint alle Logins als iil. Die echten Logins gehoeren in die lokale Datei, nicht in diese Vorlage"
+    "logins": "Zuordnung Konto-Login -> Mandant fuer Zahlungsbelege ohne Empfaengerzeile ('Account billed <login>'), z. B. {\"<org-login>\": \"iil\", \"<privat-login>\": \"edv\"}. Ein Login ohne Zuordnung bleibt 'unklar' und geht an den Owner. Die aeltere Listenform 'eigene_logins' gilt weiter und meint alle Logins als iil. Die echten Logins gehoeren in die lokale Datei, nicht in diese Vorlage",
+    "taxrule_rc": "optional: Steuerregel fuer Reverse-Charge-Rechnungen dieses Lieferanten (12 Drittland, 14 EU). Ohne Angabe entscheidet die Anbieteranschrift im PDF",
+    "mandant": "optional: iil|edv — legt den sevdesk-Mandanten fuer diesen Lieferanten fest; der Empfaenger im PDF wird dann nicht ausgewertet (Owner-Entscheid je Lieferant)"
   },
   "eintraege": [
     {
@@ -95,6 +97,20 @@
       "waehrung": "USD",
       "konto": "",
       "grund": "wird nicht vom Geschaeftskonto bezahlt — Rechnung liegt trotzdem im Postfach"
+    },
+    {
+      "muster": "beispiel-fachportal",
+      "weg": "mail",
+      "lieferant": "Beispiel Fachportal",
+      "absender": "noreply@fachportal.invalid",
+      "betreff": "Rechnung",
+      "ordner": [
+        "inbox"
+      ],
+      "mandant": "edv",
+      "taxrule": "9",
+      "taxrule_rc": "14",
+      "grund": "Rechnung kommt ins IIL-Postfach, gebucht wird sie nach Owner-Entscheid in der zweiten Firma"
     },
     {
       "muster": "spotify",

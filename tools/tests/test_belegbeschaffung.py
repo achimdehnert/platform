@@ -1081,3 +1081,270 @@ def test_should_create_drafts_in_both_mandanten_by_login(
     assert sorted(ns.mandant for ns in anleger.aufrufe) == ["edv", "iil"]
     assert ergebnis["kennzahlen"]["entwuerfe_je_mandant"] == {"edv": 1, "iil": 1}
     assert ergebnis["owner"] == []
+
+
+# ── Steuer aus Klammertext / Fussnote (#3121) ──────────────────────────────
+
+#: Mehrspaltiges Layout: der Steuerbetrag steht allein in einer Zeile, die
+#: Beschriftung darunter, und in der Klammer steht die Rechenformel.
+PDF_STEUER_UEBER_BESCHRIFTUNG = """
+Beispiel Modelle Inc.
+Invoice number BSP-0001
+Date of issue April 7, 2026
+$10.00
+Subtotal $10.00
+$1.90
+VAT - Germany (19% on $10.00)
+(€1.64)
+Total $11.90
+"""
+
+#: Reverse Charge mit Fussnotenmarke: "[1]" wurde als Steuerbetrag 1,00
+#: gelesen, bevor Klammerinhalte ausgeschlossen wurden.
+PDF_REVERSE_CHARGE_US = """
+Beispiel Modelle Inc.
+548 Market Street, San Francisco, United States
+Invoice number BSP-0002
+Rechnungsdatum 07.04.2026
+Max plan - 20x 1 €180.00 0% €180.00
+ [1]
+Subtotal €180.00
+Total €180.00
+[1] Tax to be paid on reverse charge basis
+"""
+
+PDF_REVERSE_CHARGE_EU = PDF_REVERSE_CHARGE_US.replace(
+    "548 Market Street, San Francisco, United States",
+    "Beispielstrasse 1, Dublin, Irland",
+)
+
+
+def test_should_ignore_amounts_inside_parentheses_and_take_the_line_above():
+    """Die Klammer traegt die Rechenformel, nicht den Betrag; der Steuerbetrag
+    steht in der Zeile ueber seiner Beschriftung."""
+    feld = bb.pdf_lesen(PDF_STEUER_UEBER_BESCHRIFTUNG, "b.pdf")
+    assert feld["brutto"] == 11.90
+    assert feld["steuer"] == 1.90
+    assert feld["waehrung"] == "USD"
+    assert feld["reverse_charge"] is False
+
+
+def test_should_not_read_a_footnote_marker_as_tax():
+    feld = bb.pdf_lesen(PDF_REVERSE_CHARGE_US, "b.pdf")
+    assert feld["brutto"] == 180.00
+    assert feld["steuer"] == 0.00
+    assert feld["reverse_charge"] is True
+
+
+def test_should_choose_third_country_reverse_charge_for_us_supplier():
+    feld = bb.pdf_lesen(PDF_REVERSE_CHARGE_US, "b.pdf")
+    taxrule, hinweis = bb.taxrule_bestimmen(feld, {"taxrule": "9"})
+    assert taxrule == "12"
+    assert "Reverse Charge" in hinweis
+
+
+def test_should_choose_eu_reverse_charge_for_supplier_outside_the_us():
+    feld = bb.pdf_lesen(PDF_REVERSE_CHARGE_EU, "b.pdf")
+    assert feld["us_adresse"] is False
+    taxrule, _hinweis = bb.taxrule_bestimmen(feld, {"taxrule": "9"})
+    assert taxrule == "14"
+
+
+def test_should_let_the_register_override_the_reverse_charge_rule():
+    """``taxrule_rc`` ist die Owner-Angabe und gewinnt gegen die Anschrift."""
+    feld = bb.pdf_lesen(PDF_REVERSE_CHARGE_US, "b.pdf")
+    taxrule, _hinweis = bb.taxrule_bestimmen(feld, {"taxrule": "9", "taxrule_rc": "14"})
+    assert taxrule == "14"
+
+
+def test_should_keep_rule_9_when_vat_is_shown_even_with_rc_wording():
+    """Die USt-Regel steht vor der Reverse-Charge-Regel: eine Rechnung mit
+    ausgewiesener Steuer ist kein §13b-Fall."""
+    taxrule, _hinweis = bb.taxrule_bestimmen(
+        {"steuer": 1.90, "reverse_charge": True, "us_adresse": True}, {"taxrule": "12"}
+    )
+    assert taxrule == "9"
+
+
+# ── Register-Feld "mandant" (Owner-Wort 2026-09-13) ────────────────────────
+
+
+def _register_mit_mandant(tmp_path: Path, mandant: str) -> Path:
+    pfad = tmp_path / "bezugswege-mandant.json"
+    pfad.write_text(
+        json.dumps(
+            {
+                "eintraege": [
+                    {
+                        "muster": "beispiel[ -]?cloud",
+                        "weg": "mail",
+                        "lieferant": "Beispiel Cloud",
+                        "absender": "noreply@cloud.invalid",
+                        "betreff": "Rechnung",
+                        "ordner": ["inbox"],
+                        "mandant": mandant,
+                        "taxrule": "9",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    return pfad
+
+
+def test_should_follow_the_register_mandant_against_the_pdf_recipient(
+    tmp_path, monkeypatch
+):
+    """Der Owner bucht diesen Lieferanten in der zweiten Firma, obwohl die
+    Rechnung auf die erste lautet — das Register entscheidet."""
+    monkeypatch.setattr(bb, "secret_datei", lambda m: tmp_path / "token")
+    (tmp_path / "token").write_text("KEY=synthetisch", encoding="utf-8")
+    register = _register_mit_mandant(tmp_path, "edv")
+    postfach = _Postfach({"m1": ("inbox", "r.pdf", PDF_RECHNUNG_EUR_KOMMA)})
+    anleger = _Anleger()
+    ergebnis = bb.lauf(
+        _args(
+            tmp_path,
+            register,
+            [_abgang("2026-04-07", "Beispiel Cloud Europe", 119.00)],
+            mandant="beide",
+            anlegen=True,
+        ),
+        HEUTE,
+        suche_fn=postfach.suche_fn,
+        download_fn=postfach.download_fn,
+        anlegen_fn=anleger,
+        lese_fn=_lese_fn,
+    )
+    assert [ns.mandant for ns in anleger.aufrufe] == ["edv"]
+    assert ergebnis["kennzahlen"]["entwuerfe_je_mandant"] == {"edv": 1}
+
+
+def test_should_keep_register_mandant_edv_as_owner_move_in_iil_mode(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(bb, "secret_datei", lambda m: tmp_path / "token")
+    register = _register_mit_mandant(tmp_path, "edv")
+    postfach = _Postfach({"m1": ("inbox", "r.pdf", PDF_RECHNUNG_EUR_KOMMA)})
+    anleger = _Anleger()
+    ergebnis = bb.lauf(
+        _args(
+            tmp_path,
+            register,
+            [_abgang("2026-04-07", "Beispiel Cloud Europe", 119.00)],
+            anlegen=True,
+        ),
+        HEUTE,
+        suche_fn=postfach.suche_fn,
+        download_fn=postfach.download_fn,
+        anlegen_fn=anleger,
+        lese_fn=_lese_fn,
+    )
+    assert anleger.aufrufe == []
+    assert any(z["art"] == "anderer Mandant (edv)" for z in ergebnis["owner"])
+
+
+# ── Dubletten ueber beide Mandanten (#3121) ────────────────────────────────
+
+
+def test_should_not_create_a_draft_that_already_exists_in_the_other_mandant(
+    tmp_path, register_datei, monkeypatch
+):
+    """Der Owner hat die Rechnung im anderen Mandanten erfasst — ohne
+    Abgleich ueber beide Bestaende entstuende hier ein zweiter Beleg."""
+    monkeypatch.setattr(bb, "secret_datei", lambda m: tmp_path / f"token-{m}")
+    for name in ("iil", "edv"):
+        (tmp_path / f"token-{name}").write_text("KEY=synthetisch", encoding="utf-8")
+    bestand = {
+        "iil": [],
+        "edv": [
+            {"id": "v-alt", "description": "Beispiel Invoice ch_synthetisch123 — April"}
+        ],
+    }
+    postfach = _Postfach({"m1": ("Beispielordner", "r.pdf", PDF_RECEIPT_USD)})
+    anleger = _Anleger()
+    ergebnis = bb.lauf(
+        _args(
+            tmp_path,
+            register_datei,
+            [_abgang("2026-04-10", "—", 43.05, "BEISPIEL PLATTFORM INC")],
+            anlegen=True,
+        ),
+        HEUTE,
+        suche_fn=postfach.suche_fn,
+        download_fn=postfach.download_fn,
+        anlegen_fn=anleger,
+        lese_fn=_lese_fn,
+        bestand_fn=lambda m: bestand[m],
+    )
+    assert anleger.aufrufe == []
+    assert ergebnis["entwuerfe"][0]["ergebnis"] == "DUPLIKAT (anderer Mandant: edv)"
+    assert ergebnis["kennzahlen"]["duplikate_fremder_mandant"] == 1
+    assert ergebnis["kennzahlen"]["entwuerfe_je_mandant"] == {}
+
+
+def test_should_still_create_the_draft_when_only_the_own_mandant_has_it(
+    tmp_path, register_datei, monkeypatch
+):
+    """Der eigene Bestand ist Sache von beleg_entwurf.duplikat — dieser
+    Abgleich darf ihm nicht vorgreifen."""
+    monkeypatch.setattr(bb, "secret_datei", lambda m: tmp_path / f"token-{m}")
+    for name in ("iil", "edv"):
+        (tmp_path / f"token-{name}").write_text("KEY=synthetisch", encoding="utf-8")
+    bestand = {
+        "iil": [{"id": "v-alt", "description": "ch_synthetisch123"}],
+        "edv": [],
+    }
+    postfach = _Postfach({"m1": ("Beispielordner", "r.pdf", PDF_RECEIPT_USD)})
+    anleger = _Anleger()
+    ergebnis = bb.lauf(
+        _args(
+            tmp_path,
+            register_datei,
+            [_abgang("2026-04-10", "—", 43.05, "BEISPIEL PLATTFORM INC")],
+            anlegen=True,
+        ),
+        HEUTE,
+        suche_fn=postfach.suche_fn,
+        download_fn=postfach.download_fn,
+        anlegen_fn=anleger,
+        lese_fn=_lese_fn,
+        bestand_fn=lambda m: bestand[m],
+    )
+    assert len(anleger.aufrufe) == 1
+    assert ergebnis["kennzahlen"]["duplikate_fremder_mandant"] == 0
+
+
+def test_should_say_in_the_board_which_mandanten_were_checked(
+    tmp_path, register_datei, monkeypatch
+):
+    """Fehlt ein Zugang, wird nicht stillschweigend weniger geprueft."""
+    monkeypatch.setattr(bb, "secret_datei", lambda m: tmp_path / f"token-{m}")
+    (tmp_path / "token-iil").write_text("KEY=synthetisch", encoding="utf-8")
+    args = _args(tmp_path, register_datei, [])
+    ergebnis = bb.lauf(
+        args,
+        HEUTE,
+        suche_fn=lambda *a, **k: [],
+        download_fn=lambda *a, **k: [],
+        anlegen_fn=_Anleger(),
+        lese_fn=_lese_fn,
+        bestand_fn=lambda m: [],
+    )
+    assert ergebnis["kennzahlen"]["dubletten_geprueft_gegen"] == ["iil"]
+    assert "Dubletten geprueft gegen: iil" in bb.render_markdown(ergebnis, args)
+
+
+def test_should_report_no_cross_check_when_no_bestand_is_available(
+    tmp_path, register_datei
+):
+    ergebnis = bb.lauf(
+        _args(tmp_path, register_datei, []),
+        HEUTE,
+        suche_fn=lambda *a, **k: [],
+        download_fn=lambda *a, **k: [],
+        anlegen_fn=_Anleger(),
+        lese_fn=_lese_fn,
+    )
+    assert ergebnis["kennzahlen"]["dubletten_geprueft_gegen"] == []

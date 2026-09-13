@@ -57,6 +57,8 @@ Gates:
   Upload zurueck).
 - Ein Konto wird **nie** gesetzt (``--konto`` bleibt leer) — der Vorschlag
   steht nur im Board, bestaetigen muss ihn der Owner in sevdesk.
+- Ein Register-Eintrag mit ``"mandant": "edv"`` legt den Mandanten fuer
+  diesen Lieferanten fest; der Empfaenger im PDF wird dann nicht ausgewertet.
 - ``--mandant`` entscheidet, WELCHE Belege entstehen: ``iil`` (Standard) nur
   eigene, ``edv`` nur die der zweiten Firma, ``beide`` je Beleg den, auf den
   er laut PDF lautet. ``unklar`` bleibt in jedem Fall Owner-Zug — ein Beleg
@@ -135,6 +137,11 @@ MANDANTEN_EINZELN = frozenset(MANDANTEN_ZIEL["beide"])
 #: Steuer > 0, ist Reverse Charge ausgeschlossen — dann gilt sie und nicht
 #: der Register-Wert (#3118).
 TAXRULE_MIT_UST = "9"
+#: Reverse Charge: 12 = Drittland (§13b Abs. 2), 14 = EU (§13b Abs. 1). Welche
+#: der beiden gilt, haengt am Sitz des Anbieters — ohne Angabe im Register
+#: entscheidet die Anschrift im PDF.
+TAXRULE_RC_DRITTLAND = "12"
+TAXRULE_RC_EU = "14"
 
 #: Datumsabstand zwischen Abgang und Rechnung, in Tagen. Grosszuegig, weil
 #: Abo-Abbuchungen dem Rechnungsdatum um Wochen nachlaufen koennen.
@@ -202,6 +209,27 @@ MONATE = {
     "dezember": 12,
 }
 RE_ZAHL = re.compile(r"\d[\d.,]*\d|\d")
+#: Klammertext traegt Erlaeuterungen, keine Betraege: "(19% on $10.00)" ist die
+#: Rechenformel zur Steuer, "[1]" eine Fussnotenmarke. Beide wurden im Echtlauf
+#: als Steuerbetrag gelesen (2026-09-13). Der Inhalt wird durch Leerzeichen
+#: GLEICHER LAENGE ersetzt, damit Positionen im Text gueltig bleiben.
+RE_KLAMMER = re.compile(r"\([^()]*\)|\[[^\[\]]*\]")
+#: Eine Zeile, die nur aus einem Betrag mit Waehrungszeichen besteht — bei
+#: mehrspaltigen Layouts steht der Steuerbetrag dort und die Beschriftung
+#: ("VAT - Germany …") erst in der Zeile darunter.
+RE_NUR_BETRAG = re.compile(
+    r"^\s*(?:€|\$|eur|usd|chf)?\s*(\d[\d.,]*)\s*(?:€|\$|eur|usd|chf)?\s*$",
+    re.IGNORECASE,
+)
+#: Formulierungen, die eine Rechnung ohne ausgewiesene Steuer als
+#: Reverse-Charge-Fall ausweisen (Steuerschuld beim Empfaenger).
+RC_MARKER = (
+    "reverse charge",
+    "steuerschuldnerschaft des leistungsempfängers",
+    "steuerschuldnerschaft des leistungsempfaengers",
+    "§ 13b",
+    "§13b",
+)
 RE_ACCOUNT_BILLED = re.compile(r"account billed\s+([A-Za-z0-9_.\-]+)", re.IGNORECASE)
 RE_NUMMER = re.compile(
     r"(?:abrechnungsnummer|rechnungsnummer|rechnungs-nr\.?|belegnummer|"
@@ -327,6 +355,17 @@ def zahl_lesen(roh: str) -> float | None:
         return None
 
 
+def _ohne_klammern(zeile: str) -> str:
+    """Klammerinhalte ausblenden, Zeilenlaenge erhalten."""
+    return RE_KLAMMER.sub(lambda m: " " * len(m.group(0)), zeile or "")
+
+
+def _nur_betrag(zeile: str) -> float | None:
+    """Betrag einer Zeile, die NUR aus einem Betrag besteht — sonst None."""
+    m = RE_NUR_BETRAG.match(_ohne_klammern(zeile))
+    return zahl_lesen(m.group(1)) if m else None
+
+
 def _ist_summenzeile(zeile: str) -> bool:
     """Traegt diese Zeile eine Endsumme — oder nur zufaellig eine Zahl?
 
@@ -334,17 +373,18 @@ def _ist_summenzeile(zeile: str) -> bool:
     noch eine Waehrung. Die zweite Bedingung trennt die Summe vom Fliesstext,
     in dem dieselben Woerter vorkommen ("Der Rechnungsbetrag ist ... 10 Tage").
     """
-    klein = zeile.lower()
+    ohne = _ohne_klammern(zeile)
+    klein = ohne.lower()
     if not (any(w in klein for w in SUMMEN_WOERTER) or RE_SUMME_WORT.search(klein)):
         return False
-    treffer = list(RE_ZAHL.finditer(zeile))
+    treffer = list(RE_ZAHL.finditer(ohne))
     if not treffer:
         return False
-    return bool(RE_SUMMEN_SCHWANZ.match(zeile[treffer[-1].end() :]))
+    return bool(RE_SUMMEN_SCHWANZ.match(ohne[treffer[-1].end() :]))
 
 
 def _letzte_zahl(zeile: str) -> float | None:
-    werte = [zahl_lesen(t) for t in RE_ZAHL.findall(zeile)]
+    werte = [zahl_lesen(t) for t in RE_ZAHL.findall(_ohne_klammern(zeile))]
     werte = [w for w in werte if w is not None]
     return werte[-1] if werte else None
 
@@ -362,7 +402,9 @@ def _steuer_aus_summenzeile(zeile: str | None) -> float | None:
     if not zeile:
         return None
     werte = [
-        z for z in (zahl_lesen(t) for t in RE_ZAHL.findall(zeile)) if z is not None
+        z
+        for z in (zahl_lesen(t) for t in RE_ZAHL.findall(_ohne_klammern(zeile)))
+        if z is not None
     ]
     if len(werte) < 3:
         return None
@@ -461,28 +503,46 @@ def pdf_lesen(text: str, dateiname: str = "", logins=EIGENE_LOGINS) -> dict:
     """Rechnungsfelder aus dem PDF-Text — rein, ohne Datei- oder Netzzugriff.
 
     Rueckgabe: ``datum`` (ISO oder None), ``brutto``, ``steuer`` (0.00 wenn
-    keine ausgewiesen), ``waehrung``, ``nummer`` (Fallback: Dateiname ohne
-    Endung), ``empfaenger``, ``lieferant_hinweis`` (erste nicht-leere Zeile).
+    keine ausgewiesen), ``reverse_charge``, ``us_adresse``, ``waehrung``,
+    ``nummer`` (Fallback: Dateiname ohne Endung), ``empfaenger``,
+    ``lieferant_hinweis`` (erste nicht-leere Zeile).
+
+    Zahlen in runden oder eckigen Klammern zaehlen nie als Betrag: dort stehen
+    Rechenformeln ("(19% on $10.00)") und Fussnotenmarken ("[1]"), und beide
+    sind im Echtlauf als Steuerbetrag durchgegangen (2026-09-13).
     """
     zeilen = (text or "").splitlines()
     flach = " ".join((text or "").split())
 
-    summen_zeile, steuer_zeile = None, None
+    summen_zeile = None
+    steuer_wert = None
+    vorige = ""
     for zeile in zeilen:
-        klein = zeile.lower()
+        klein = _ohne_klammern(zeile).lower()
         if _ist_summenzeile(zeile) and _letzte_zahl(zeile) is not None:
             summen_zeile = zeile
+            vorige = zeile
             continue
         if any(w in klein for w in STEUER_AUSNAHMEN):
+            vorige = zeile
             continue
         ist_steuer = any(w in klein for w in STEUER_WOERTER) or RE_STEUER_KURZ.search(
             klein
         )
-        if ist_steuer and _letzte_zahl(zeile) is not None:
-            steuer_zeile = zeile
+        if ist_steuer:
+            # Der Betrag steht entweder in der Steuerzeile selbst oder — bei
+            # mehrspaltigen Layouts — allein in der Zeile DAVOR; die
+            # Beschriftung rutscht dann unter ihren Wert (Echtprobe
+            # 2026-09-13: "$1.90" / "VAT - Germany (19% on $10.00)").
+            wert = _letzte_zahl(zeile)
+            if wert is None:
+                wert = _nur_betrag(vorige)
+            if wert is not None:
+                steuer_wert = wert
+        vorige = zeile
 
     brutto = _letzte_zahl(summen_zeile) if summen_zeile else None
-    steuer = _letzte_zahl(steuer_zeile) if steuer_zeile else None
+    steuer = steuer_wert
     # Eine Summenzeile der Form "Summe <netto> <steuer> <brutto>" traegt die
     # Steuer selbst — erkennbar an der Probe netto+steuer==brutto. Ohne sie
     # bekaeme eine deutsche Rechnung ohne eigene Steuerzeile 0,00 Steuer und
@@ -492,6 +552,13 @@ def pdf_lesen(text: str, dateiname: str = "", logins=EIGENE_LOGINS) -> dict:
         steuer = aus_summenzeile
     if steuer is not None and brutto is not None and steuer >= brutto:
         steuer = None  # eine Summenzeile in Steuer-Verkleidung, nicht die Steuer
+
+    # Reverse Charge: die Rechnung weist bewusst KEINE Steuer aus, die
+    # Steuerschuld liegt beim Empfaenger. Was der Parser hier sonst noch
+    # aufsammelt (eine Fussnotenmarke, ein Steuersatz 0 %), ist keine Steuer.
+    reverse_charge = any(m in flach.lower() for m in RC_MARKER)
+    if reverse_charge:
+        steuer = 0.00
 
     quelle = summen_zeile or flach
     if "usd" in quelle.lower() or "$" in quelle:
@@ -523,6 +590,10 @@ def pdf_lesen(text: str, dateiname: str = "", logins=EIGENE_LOGINS) -> dict:
         "datum": datum,
         "brutto": brutto,
         "steuer": 0.00 if steuer is None else steuer,
+        "reverse_charge": reverse_charge,
+        # Drittland oder EU entscheidet ueber die Reverse-Charge-Regel; die
+        # Anbieteranschrift im PDF ist der einzige Anhaltspunkt dafuer.
+        "us_adresse": "united states" in flach.lower(),
         "waehrung": waehrung,
         "nummer": nummer,
         "empfaenger": empfaenger_bestimmen(text, logins),
@@ -881,6 +952,56 @@ def ablage_lesen(
 # ── Entwurf anlegen (ueber beleg_entwurf.py) ───────────────────────────────
 
 
+def bestand_standard(mandant: str) -> list[dict]:
+    """Lieferantenbelege eines Mandanten — einmal je Lauf, nicht je Beleg."""
+    import beleg_entwurf  # noqa: PLC0415
+
+    return beleg_entwurf.beleg_bestand(beleg_entwurf._client(mandant))
+
+
+def bestaende_laden(bestand_fn) -> tuple[dict[str, list[dict]], list[str]]:
+    """({mandant: belege}, nicht_gepruefte_mandanten).
+
+    Der Dedup in ``beleg_entwurf.py`` kennt nur den Bestand des Mandanten, in
+    den gerade geschrieben wird. Rechnungen, die der Owner in der ANDEREN
+    Firma erfasst hat, waeren damit unsichtbar und wuerden ein zweites Mal
+    angelegt (Befund 2026-09-13). Deshalb wird der Bestand beider Mandanten
+    geladen — soweit ihr Zugang lesbar ist; fehlt einer, sagt das Board es.
+    """
+    bestaende: dict[str, list[dict]] = {}
+    fehlend: list[str] = []
+    for name in sorted(MANDANTEN_EINZELN):
+        if not secret_datei(name).exists():
+            fehlend.append(name)
+            continue
+        try:
+            bestaende[name] = bestand_fn(name)
+        except Exception as exc:  # Zugang da, Abruf misslungen — kein Abbruch
+            print(f"⚠ Bestand {name} nicht lesbar: {exc}", file=sys.stderr)
+            fehlend.append(name)
+    return bestaende, fehlend
+
+
+def fremder_mandant(
+    nummer, mandant: str, bestaende: dict[str, list[dict]]
+) -> str | None:
+    """Name des ANDEREN Mandanten, in dem diese Rechnung schon liegt.
+
+    Der Vergleich ist derselbe wie beim eigenen Bestand (``duplikat`` in
+    ``beleg_entwurf.py``) — eine Regel, eine Stelle.
+    """
+    import beleg_entwurf  # noqa: PLC0415
+
+    if not nummer:
+        return None
+    for name, belege in bestaende.items():
+        if name == mandant:
+            continue
+        if beleg_entwurf.duplikat(belege, str(nummer)):
+            return name
+    return None
+
+
 def anlegen_standard(namespace) -> int:
     """Echter Aufruf von ``beleg_entwurf.anlegen`` — lazy, damit Tests ohne
     sevdesk-Zugang laufen."""
@@ -894,15 +1015,30 @@ def taxrule_bestimmen(beleg: dict, eintrag: dict) -> tuple[str, str]:
 
     Weist eine Rechnung deutsche Umsatzsteuer aus, kann sie keine
     Reverse-Charge-Rechnung sein; ein Register-Eintrag, der noch auf 12 oder
-    14 steht, waere dann schlicht falsch (#3118). Die Abweichung wird nicht
-    stillschweigend genommen, sondern im Board benannt.
+    14 steht, waere dann schlicht falsch (#3118). Umgekehrt gilt: nennt die
+    Rechnung ausdruecklich Reverse Charge, gehoert sie nach §13b — Drittland
+    oder EU, je nach Sitz des Anbieters. Das Register kann das mit
+    ``taxrule_rc`` festlegen und gewinnt dann gegen die Anschrift im PDF.
+    Jede Abweichung wird nicht stillschweigend genommen, sondern im Board
+    benannt.
     """
     aus_register = str(eintrag.get("taxrule") or TAXRULE_MIT_UST)
-    if (beleg.get("steuer") or 0) <= 0:
-        return aus_register, ""
-    if aus_register == TAXRULE_MIT_UST:
-        return aus_register, ""
-    return TAXRULE_MIT_UST, f"Register {aus_register} → {TAXRULE_MIT_UST} (USt im PDF)"
+    if (beleg.get("steuer") or 0) > 0:
+        if aus_register == TAXRULE_MIT_UST:
+            return aus_register, ""
+        return (
+            TAXRULE_MIT_UST,
+            f"Register {aus_register} → {TAXRULE_MIT_UST} (USt im PDF)",
+        )
+    if beleg.get("reverse_charge"):
+        aus_register_rc = str(eintrag.get("taxrule_rc") or "").strip()
+        gewaehlt = aus_register_rc or (
+            TAXRULE_RC_DRITTLAND if beleg.get("us_adresse") else TAXRULE_RC_EU
+        )
+        if gewaehlt == aus_register:
+            return gewaehlt, ""
+        return gewaehlt, f"Register {aus_register} → {gewaehlt} (Reverse Charge im PDF)"
+    return aus_register, ""
 
 
 def entwurf_anlegen(beleg: dict, eintrag: dict, anlegen_fn, wirklich: bool) -> dict:
@@ -1017,12 +1153,15 @@ def lauf(
     download_fn=None,
     anlegen_fn=None,
     lese_fn=None,
+    bestand_fn=None,
 ) -> dict:
     """Der ganze Durchgang: Abgaenge -> Register -> Postfach -> Entwuerfe.
 
     Alle Aussenzugriffe sind injizierbar (Postfach-Suche, Download, PDF-Text,
-    Entwurf) — so laeuft der Test ohne Netz und ohne ``pdftotext`` denselben
-    Pfad wie der Betrieb.
+    Entwurf, Beleg-Bestand) — so laeuft der Test ohne Netz und ohne
+    ``pdftotext`` denselben Pfad wie der Betrieb. Ohne ``bestand_fn`` findet
+    der Dubletten-Abgleich gegen den ANDEREN Mandanten nicht statt; das Board
+    sagt das im Kopf, statt es zu verschweigen.
     """
     start = time.monotonic()
     register = register_laden(Path(args.register))
@@ -1115,6 +1254,13 @@ def lauf(
     if anlegen_fn is None:
         anlegen_fn = anlegen_standard
 
+    bestaende, ohne_bestand = (
+        bestaende_laden(bestand_fn) if bestand_fn else ({}, sorted(MANDANTEN_EINZELN))
+    )
+
+    def fremd_fn(nummer, mandant):
+        return fremder_mandant(nummer, mandant, bestaende)
+
     pdf_gefunden = 0
     bereits_im_lauf = 0
     gesehene_nummern: set[str] = set()
@@ -1159,6 +1305,17 @@ def lauf(
                 }
             )
 
+        # Ein Register-Eintrag kann den Mandanten festlegen — dann zaehlt der
+        # Empfaenger im PDF fuer diesen Lieferanten nicht. Anlass: eine
+        # Rechnung, die im IIL-Postfach liegt und auf die IIL adressiert ist,
+        # aber nach Owner-Entscheid in der zweiten Firma gebucht wird
+        # (Owner-Wort 2026-09-13). Der Owner entscheidet das je Lieferant
+        # einmal im Register, statt jeden Beleg einzeln zu sortieren.
+        fest = str(eintrag.get("mandant") or "").lower()
+        if fest in MANDANTEN_EINZELN:
+            for beleg in belege:
+                beleg["empfaenger"] = fest
+
         # Der Empfaenger im PDF entscheidet, in welchem Mandanten der Beleg
         # entsteht — und ob ueberhaupt. "unklar" bleibt ausnahmslos Owner-Zug.
         eigene = [
@@ -1188,7 +1345,9 @@ def lauf(
             teil if "iil" in ziel_mandanten else [], eigene
         )
         for paar in paare:
-            entwuerfe.append(_entwurf_zeile(paar, eintrag, anlegen_fn, wirklich))
+            entwuerfe.append(
+                _entwurf_zeile(paar, eintrag, anlegen_fn, wirklich, fremd_fn)
+            )
         for abgang in ohne_pdf:
             owner.append(
                 {
@@ -1205,6 +1364,7 @@ def lauf(
                 eintrag,
                 anlegen_fn,
                 wirklich,
+                fremd_fn,
             )
             pdf_ohne_abgang.append(zeile)
 
@@ -1245,6 +1405,12 @@ def lauf(
         "mandant": args.mandant,
         "entwuerfe_je_mandant": je_mandant,
         "bereits_im_lauf": bereits_im_lauf,
+        "duplikate_fremder_mandant": sum(
+            1
+            for z in entwuerfe + pdf_ohne_abgang
+            if str(z.get("ergebnis", "")).startswith("DUPLIKAT (anderer Mandant")
+        ),
+        "dubletten_geprueft_gegen": sorted(bestaende),
         "lieferanten_abgaenge": sum(len(v) for v in gruppen.values()),
         # pdf_gefunden = PDFs, die einem Register-Eintrag zugeordnet werden
         # konnten; ablage_pdf = aus der Owner-Ablage gelesene Dateien, auch
@@ -1269,10 +1435,24 @@ def lauf(
     }
 
 
-def _entwurf_zeile(paar: dict, eintrag: dict, anlegen_fn, wirklich: bool) -> dict:
+def _entwurf_zeile(
+    paar: dict, eintrag: dict, anlegen_fn, wirklich: bool, fremd_fn=None
+) -> dict:
     beleg = paar["beleg"]
     abgang = paar.get("abgang")
-    if beleg.get("datum") is None or beleg.get("brutto") is None:
+    mandant = beleg.get("empfaenger") or ABGANG_MANDANT
+    fremd = fremd_fn(beleg.get("nummer"), mandant) if fremd_fn else None
+    if fremd:
+        taxrule, taxrule_hinweis = taxrule_bestimmen(beleg, eintrag)
+        ergebnis = {
+            "status": f"DUPLIKAT (anderer Mandant: {fremd})",
+            "beleg_id": None,
+            "konto_vorschlag": eintrag.get("konto") or "—",
+            "ausgabe": f"Rechnung liegt bereits im Mandanten {fremd} — nichts angelegt.",
+            "taxrule": taxrule,
+            "taxrule_hinweis": taxrule_hinweis,
+        }
+    elif beleg.get("datum") is None or beleg.get("brutto") is None:
         taxrule, taxrule_hinweis = taxrule_bestimmen(beleg, eintrag)
         ergebnis = {
             "status": "FEHLER",
@@ -1285,7 +1465,7 @@ def _entwurf_zeile(paar: dict, eintrag: dict, anlegen_fn, wirklich: bool) -> dic
     else:
         ergebnis = entwurf_anlegen(beleg, eintrag, anlegen_fn, wirklich)
     return {
-        "mandant": beleg.get("empfaenger") or ABGANG_MANDANT,
+        "mandant": mandant,
         "taxrule": ergebnis["taxrule"],
         "taxrule_hinweis": ergebnis["taxrule_hinweis"],
         "datum_abgang": abgang["datum"] if abgang else "—",
@@ -1347,6 +1527,12 @@ def render_markdown(ergebnis: dict, args) -> str:
             or "(keine)"
         )
         + f" (Lauf-Mandant: {k.get('mandant', ABGANG_MANDANT)})\n"
+    )
+    geprueft = k.get("dubletten_geprueft_gegen") or []
+    zeilen.append(
+        "\nDubletten geprueft gegen: "
+        + (", ".join(geprueft) if geprueft else "nur den eigenen Mandanten")
+        + f" · {k.get('duplikate_fremder_mandant', 0)} im anderen Mandanten gefunden\n"
     )
     if not k["anlegen"]:
         zeilen.append(
@@ -1496,7 +1682,7 @@ def main(argv: list[str] | None = None) -> int:
 
     heute = dt.date.fromisoformat(args.heute) if args.heute else dt.date.today()
     try:
-        ergebnis = lauf(args, heute)
+        ergebnis = lauf(args, heute, bestand_fn=bestand_standard)
     except Bezugsfehler as exc:
         print(f"ABBRUCH: {exc}")
         return 3
