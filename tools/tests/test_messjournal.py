@@ -11,6 +11,7 @@ import importlib.util
 import json
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 SKRIPT = Path(__file__).resolve().parents[1] / "mail_agent" / "messjournal.py"
@@ -447,3 +448,140 @@ def test_should_alle_auftragsraum_mit_einschliessen(tmp_path):
         for z in journal.read_text(encoding="utf-8").splitlines()
     }
     assert anwendungen == {"mailcheck", "todo", "auftragsraum", "sevdesk"}
+
+
+# --- V8 (#3015 K2): Modellkennung-Kette + Laufzeit -----------------------
+
+
+def test_should_modell_ermitteln_arg_schlaegt_env_und_settings(tmp_path):
+    settings = tmp_path / "settings.json"
+    settings.write_text(json.dumps({"model": "aus-settings"}), encoding="utf-8")
+    modell, quelle = mj.modell_ermitteln(
+        "aus-arg", {"CLAUDE_MODEL": "aus-env"}, settings
+    )
+    assert (modell, quelle) == ("aus-arg", "arg")
+
+
+def test_should_modell_ermitteln_env_schlaegt_settings(tmp_path):
+    settings = tmp_path / "settings.json"
+    settings.write_text(json.dumps({"model": "aus-settings"}), encoding="utf-8")
+    modell, quelle = mj.modell_ermitteln(None, {"CLAUDE_MODEL": "aus-env"}, settings)
+    assert (modell, quelle) == ("aus-env", "env")
+
+
+def test_should_modell_ermitteln_messjournal_env_schlaegt_settings(tmp_path):
+    settings = tmp_path / "settings.json"
+    settings.write_text(json.dumps({"model": "aus-settings"}), encoding="utf-8")
+    modell, quelle = mj.modell_ermitteln(
+        None, {"MESSJOURNAL_MODELL": "aus-mj-env"}, settings
+    )
+    assert (modell, quelle) == ("aus-mj-env", "env")
+
+
+def test_should_modell_ermitteln_settings_greifen_ohne_arg_und_env(tmp_path):
+    settings = tmp_path / "settings.json"
+    settings.write_text(json.dumps({"model": "aus-settings"}), encoding="utf-8")
+    modell, quelle = mj.modell_ermitteln(None, {}, settings)
+    assert (modell, quelle) == ("aus-settings", "settings")
+
+
+def test_should_modell_ermitteln_settings_ohne_feld_model_unbekannt(tmp_path):
+    settings = tmp_path / "settings.json"
+    settings.write_text(json.dumps({"theme": "dark"}), encoding="utf-8")
+    modell, quelle = mj.modell_ermitteln(None, {}, settings)
+    assert (modell, quelle) == ("unbekannt", "unbekannt")
+
+
+def test_should_modell_ermitteln_settings_datei_fehlt_unbekannt(tmp_path):
+    modell, quelle = mj.modell_ermitteln(None, {}, tmp_path / "fehlt.json")
+    assert (modell, quelle) == ("unbekannt", "unbekannt")
+
+
+def test_should_modell_ermitteln_settings_kaputtes_json_unbekannt(tmp_path):
+    settings = tmp_path / "settings.json"
+    settings.write_text("{kaputt", encoding="utf-8")
+    modell, quelle = mj.modell_ermitteln(None, {}, settings)
+    assert (modell, quelle) == ("unbekannt", "unbekannt")
+
+
+def test_should_schreiben_modell_quelle_in_jede_zeile_schreiben(tmp_path):
+    journal = tmp_path / "journal.jsonl"
+    mj.schreiben(
+        ["mailcheck"],
+        "aus-env",
+        journal,
+        {"vorgaenge_gesamt": 1},
+        modell_quelle="env",
+    )
+    eintrag = json.loads(journal.read_text(encoding="utf-8").strip())
+    assert eintrag["modell_quelle"] == "env"
+
+
+def test_should_gestartet_laufzeit_s_in_jede_anwendung_schreiben(tmp_path):
+    journal = tmp_path / "journal.jsonl"
+    gestartet = int(time.time()) - 42
+    zeilen = mj.schreiben(
+        ["mailcheck", "todo"],
+        "m1",
+        journal,
+        {"vorgaenge_gesamt": 1, "vorgangsseiten": 1},
+        gestartet=gestartet,
+    )
+    for zeile in zeilen:
+        assert "laufzeit_s" in zeile["kennzahlen"]
+        assert zeile["kennzahlen"]["laufzeit_s"] >= 42
+
+
+def test_should_ohne_gestartet_kein_laufzeit_s_schreiben(tmp_path):
+    journal = tmp_path / "journal.jsonl"
+    zeilen = mj.schreiben(["mailcheck"], "m1", journal, {"vorgaenge_gesamt": 1})
+    assert "laufzeit_s" not in zeilen[0]["kennzahlen"]
+
+
+def test_should_cli_gestartet_option_laufzeit_s_schreiben(tmp_path):
+    journal = tmp_path / "journal.jsonl"
+    gestartet = int(time.time()) - 5
+    ergebnis = _lauf(
+        "--schreiben",
+        "--anwendung",
+        "mailcheck",
+        "--modell",
+        "m1",
+        "--journal",
+        str(journal),
+        "--eingabe",
+        json.dumps({"vorgaenge_gesamt": 1}),
+        "--gestartet",
+        str(gestartet),
+    )
+    assert ergebnis.returncode == 0
+    eintrag = json.loads(journal.read_text(encoding="utf-8").strip())
+    assert eintrag["kennzahlen"]["laufzeit_s"] >= 5
+
+
+def test_should_trend_mit_gemischten_alten_und_neuen_zeilen_nicht_brechen(tmp_path):
+    journal = tmp_path / "journal.jsonl"
+    alte_zeile = {
+        "zeit": "2026-09-10T08:00:00Z",
+        "anwendung": "mailcheck",
+        "modell": "unbekannt",
+        "kennzahlen": {"vorgaenge_gesamt": 3},
+        "fehler": [],
+        "quelle_version": "test",
+    }
+    journal.write_text(json.dumps(alte_zeile, sort_keys=True) + "\n", encoding="utf-8")
+    mj.schreiben(
+        ["mailcheck"],
+        "m1",
+        journal,
+        {"vorgaenge_gesamt": 4},
+        modell_quelle="arg",
+        gestartet=int(time.time()) - 10,
+    )
+    ergebnis = _lauf("--trend", "--anwendung", "mailcheck", "--journal", str(journal))
+    assert ergebnis.returncode == 0
+    zeilen = ergebnis.stdout.strip().splitlines()
+    assert len(zeilen) == 3  # Kopfzeile + 2 Laeufe
+    assert "laufzeit_s" in zeilen[0]
+    # alte Zeile ohne laufzeit_s bleibt lesbar — Wert wird "null"
+    assert "null" in zeilen[1]

@@ -34,6 +34,7 @@ kette: ## Mail-/Todo-Kette pruefen (Postfach -> Ledger -> Vorhersage -> Board ->
 	@python3 tools/mail_agent/kettencheck.py
 
 boards: ## Mail-Action-Board und Todo-Board neu bauen (beide Ausgaben)
+	@echo $$(date +%s) > /tmp/.mailcheck-boards-start-$$PPID
 	@python3 tools/mail_agent/board.py --pruefe
 	@python3 tools/mail_agent/eintrag_anker.py --kurz || echo "  (Verankerung uebersprungen — Postfach nicht erreichbar)"
 	@ABLAGE_TMP=/tmp/.mailcheck-ablage-pruefe-$$PPID.txt; \
@@ -45,8 +46,8 @@ boards: ## Mail-Action-Board und Todo-Board neu bauen (beide Ausgaben)
 	@python3 tools/mail_agent/board.py --render --nach $(HOME)/.claude/mail-action-board.md
 	@python3 tools/todo_board/todo_board.py build
 	@ABLAGE_TMP=/tmp/.mailcheck-ablage-pruefe-$$PPID.txt; \
-	python3 tools/mail_agent/messjournal.py --schreiben --anwendung alle --ablage-ausgabe "$$ABLAGE_TMP" || { echo "  (Messjournal uebersprungen)"; true; }; \
-	rm -f "$$ABLAGE_TMP"
+	python3 tools/mail_agent/messjournal.py --schreiben --anwendung alle --ablage-ausgabe "$$ABLAGE_TMP" --gestartet $$(cat /tmp/.mailcheck-boards-start-$$PPID) $(if $(MODELL),--modell $(MODELL),) || { echo "  (Messjournal uebersprungen)"; true; }; \
+	rm -f "$$ABLAGE_TMP" /tmp/.mailcheck-boards-start-$$PPID
 	@python3 tools/mail_agent/verfallsmelder.py || true
 
 boards-check: ## K1-Beleg (#2592): beide Renderer zweimal mit festem Stichtag bauen, byteweise vergleichen
