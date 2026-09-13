@@ -107,7 +107,7 @@ def altern(ledger: dict, stichtag: date, tage: int = DEFAULT_TAGE) -> list[dict]
         vorgang["zustand"] = f"ueberfaellig-seit-{frist_alt}-owner-wort-offen"
         _verlaufseintrag(
             vorgang,
-            f"{stichtag.isoformat()} (alterung.py): Sieben Tage ueberfaellig ohne "
+            f"{stichtag.isoformat()} (alterung.py): {tage} Tage ueberfaellig ohne "
             f"Owner-Wort — nach warten verschoben, Frist {frist_alt} aufgehoben. "
             "Offen: Owner-Wort.",
         )
