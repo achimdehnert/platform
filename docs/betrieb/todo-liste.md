@@ -82,6 +82,7 @@ Prüfung: `make betrieb-check` — ein Vorschlag ohne Gegenrede und Alternative 
 | 2 | „Geschlossen in 7 Tagen" als Kopfzahl | Eine Motivationszahl ohne Handlung; sie zeigt Tempo, aber der Owner kann daraus nichts anklicken oder öffnen | Geschlossene Vorgänge als eigenen, eingeklappten Abschnitt zeigen | offen |
 | 3 | Melder „Dienst läuft mit altem Code" | Ein Melder mehr, der den Owner zum Neustart auffordert, den er ohnehin nach jedem Merge macht | Neustart durch den Merge-Workflow (braucht Deploy-Recht, das der Dienst bewusst nicht hat) | gebaut (Melder), PR [#3064](https://github.com/achimdehnert/platform/pull/3064) — Auto-Neustart bleibt Owner-Entscheid #2507 |
 | V10 | Zeitung markiert den Bezug zu offenen Vorgangstypen („betrifft: NIS2") | Vorgangsinhalte gehören nicht in die Zeitung; wer erst einen Bezug zeigt, liefert beim nächsten Schritt den Betreff gleich mit | Nur der Typ wird abgeglichen, nie Name oder Betreff — und genau so ist es gebaut: `board.py --typen` gibt Typ, Zahl und älteste Frist, sonst nichts | gebaut, [#3130](https://github.com/achimdehnert/platform/pull/3130) + [news-hub#49](https://github.com/achimdehnert/news-hub/pull/49) |
+| 1 | Modellkennung und Laufzeit im Messjournal | Trivial: die Kette ändert kein einziges Kennzahl-Ergebnis, nur die Erklärbarkeit | Die Laufzeit erklärt Unterschiede zwischen Läufen oft besser als das Modell, deshalb beides erheben statt nur der Kennung | gebaut, [PR #3124](https://github.com/achimdehnert/platform/pull/3124) (K2, #3015) |
 
 ## Modellfest-Drill (K5)
 

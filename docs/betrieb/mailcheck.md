@@ -16,7 +16,7 @@ python3 tools/mail_agent/suche.py --nur-deckung
 # 2) Kette prüfen: Anker, Fristen, Ordner-Pflicht, Ablage, Links — ein Lauf
 python3 tools/mail_agent/kettencheck.py
 # 3) Beide Boards bauen (Action-Board + Arbeitsliste), reproduzierbar
-make boards
+make boards MODELL=<kennung>   # MODELL optional: ohne Angabe greift $CLAUDE_MODEL/Settings-Fallback
 make boards-check      # zweimal mit festem Stichtag, byteweise gleich
 # 4) Rausch-Kandidaten der letzten 30 Tage vorschlagen (V7, verschiebt nichts)
 make rausch-kandidaten
@@ -61,7 +61,7 @@ Schlaegt ein Quellkommando fehl oder liefert unlesbare Ausgabe (Timeout 120 s), 
 
 ## Journal-Pfad
 
-`~/.claude/mail-messjournal.jsonl` (Default, überschreibbar per `--journal`), eine JSON-Zeile je Lauf mit `zeit`, `anwendung`, `modell`, `kennzahlen`, `fehler`, `quelle_version`. `make boards` ruft `messjournal.py --schreiben --anwendung alle` einmal auf und haengt je eine Zeile für `mailcheck` und `todo` an — die geteilte Quelle `link_pruefen.py --vorgangsseiten` laeuft dabei nur einmal (#3067). `ablage_erledigt.py --pruefe` (75 Index-Abfragen, gemessen 253 s) ruft `make boards` ebenfalls nur einmal auf: die Textausgabe des eigenen Melder-Schritts geht per `--ablage-ausgabe DATEI` ins Messjournal, statt dort ein zweites Mal zu laufen (#3069). Trend über die letzten sieben Läufe:
+`~/.claude/mail-messjournal.jsonl` (Default, überschreibbar per `--journal`), eine JSON-Zeile je Lauf mit `zeit`, `anwendung`, `modell`, `modell_quelle`, `kennzahlen`, `fehler`, `quelle_version`. `modell` kommt aus `--modell` → `$CLAUDE_MODEL` → `$MESSJOURNAL_MODELL` → Feld `model` aus `~/.claude/settings.json` → `"unbekannt"`; `modell_quelle` (`arg|env|settings|unbekannt`) erklärt, welche Stufe gegriffen hat (V8, #3015 K2). `--gestartet EPOCH` (von `make boards` automatisch gesetzt) haengt jeder Zeile zusaetzlich `kennzahlen.laufzeit_s` an — sie erklaert Unterschiede zwischen Laeufen oft besser als das Modell. `make boards` ruft `messjournal.py --schreiben --anwendung alle` einmal auf und haengt je eine Zeile für `mailcheck` und `todo` an — die geteilte Quelle `link_pruefen.py --vorgangsseiten` laeuft dabei nur einmal (#3067). `ablage_erledigt.py --pruefe` (75 Index-Abfragen, gemessen 253 s) ruft `make boards` ebenfalls nur einmal auf: die Textausgabe des eigenen Melder-Schritts geht per `--ablage-ausgabe DATEI` ins Messjournal, statt dort ein zweites Mal zu laufen (#3069). Trend über die letzten sieben Läufe:
 
 ```bash
 python3 tools/mail_agent/messjournal.py --trend --anwendung mailcheck --n 7
@@ -111,6 +111,7 @@ Prüfung: `make betrieb-check` — ein Vorschlag ohne Gegenrede und Alternative 
 | 7 | Secret-Prüfhelfer (Hash, HTTP, Formprüfung) | Der Guard hat heute korrekt gefeuert, das Leck kam vom Sourcing, nicht vom Lesen — ein weiterer Lese-Guard hätte nichts geändert | Werte gar nicht mehr lokal halten, nur Hashes; der echte Test läuft im Zielcontainer, nicht auf dem Client | gebaut, [PR #3126](https://github.com/achimdehnert/platform/pull/3126) |
 | 8 | V5: Antwort-Vorlagen je Vorgangstyp (`antwort.py` + `vorlagen/<typ>/<art>.md`) | Ein Standardtext liest sich als Standardtext; der Owner schreibt ihn ohnehin um, dann hat die Vorlage nur den leeren Rahmen gespart und eine Floskel mehr erzeugt | Statt fester Vorlage die letzten fünf gesendeten Antworten desselben Typs als Stilquelle nehmen und den Entwurf daraus bauen — der Ton käme dann aus echten Mails statt aus einer gepflegten Datei | gebaut (dieser PR, K4 aus [#3015](https://github.com/achimdehnert/platform/issues/3015)); eigene Vorlagen für betreuung, betreuung-masterarbeit, dsb-beratung, alle übrigen Typen über den Rückfall `vorgang` |
 | 9 | Rausch-Kandidaten vorschlagen (V7) | Der Owner muss weiter jeden Kandidaten bestätigen, der Lärm ist nur verschoben, nicht weg | Serverseitige Postfach-Regel beim Provider einrichten statt jedem Agent-Move hinterherzulaufen | gebaut, [PR #3128](https://github.com/achimdehnert/platform/pull/3128) |
+| 10 | Modellkennung und Laufzeit im Messjournal | Trivial: die Kette ändert kein einziges Kennzahl-Ergebnis, nur die Erklärbarkeit | Die Laufzeit erklärt Unterschiede zwischen Läufen oft besser als das Modell, deshalb beides erheben statt nur der Kennung | gebaut, [PR #3124](https://github.com/achimdehnert/platform/pull/3124) (K2, #3015) |
 ## Modellfest-Drill (K5)
 
 Gefahren am 2026-09-10 mit zwei frischen Sitzungen (Sonnet), Vorlage aus dieser Akte (`python3 tools/session_skill_drill.py --vorlage --datei docs/betrieb/mailcheck.md`): beide Läufe 9/9 erfüllt, 0 Abweichungen im Vergleich (`--vergleich`), Kennzahlen in beiden Läufen identisch (87 Vorgänge, 0 ohne Frist, 116 unverankert, 185 Links / 5 tot, Index 1 Tag alt). Beide Läufe schlugen dasselbe vor (Index-Alter auf die Arbeitsliste, Backlog 2). Protokolle liegen im Sitzungs-Scratchpad; die Zahlen stehen im Messjournal.

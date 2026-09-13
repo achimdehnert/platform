@@ -55,6 +55,18 @@ Kommandos durch feste Werte — fuer Tests, ganz ohne Postfach oder Netz. Bei
 `--anwendung alle` deckt ein einzelnes `--eingabe`-JSON beide Anwendungen ab:
 jede Zeile liest daraus nur die fuer sie benannten Kennzahlen.
 
+Modellkennung (V8, #3015 K2): `--modell` schlaegt `$CLAUDE_MODEL`, das
+schlaegt `$MESSJOURNAL_MODELL`, das schlaegt das Feld `model` aus
+`~/.claude/settings.json` (nur gelesen, nur dieses Feld), das schlaegt
+`"unbekannt"`. Die Journalzeile fuehrt die gewaehlte Quelle zusaetzlich im
+Feld `modell_quelle` (`arg|env|settings|unbekannt`), damit ein spaeteres
+`"unbekannt"` erklaerbar bleibt statt nur behauptet zu werden.
+
+Laufzeit (V8): `--gestartet EPOCH` (Unix-Sekunden des Laufbeginns) schreibt
+jeder Zeile dieses Laufs zusaetzlich die Kennzahl `laufzeit_s` (jetzt minus
+`gestartet`, ganzzahlig) — sie erklaert Unterschiede zwischen Laeufen oft
+besser als das Modell. `make boards` setzt sie automatisch.
+
 `--ablage-ausgabe DATEI` (#3069, Folge von #3076) ersetzt NUR den eigenen Lauf
 von `ablage_erledigt.py --pruefe`: die Datei enthaelt dessen bereits erzeugte
 Textausgabe (stdout+stderr), z. B. weil `make boards` den Melder ohnehin schon
@@ -72,6 +84,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -83,6 +96,15 @@ MAIL_AGENT_DIR = Path(__file__).resolve().parent
 TODO_BOARD_DIR = REPO / "tools" / "todo_board"
 
 JOURNAL_DEFAULT = Path.home() / ".claude" / "mail-messjournal.jsonl"
+
+#: Fallback-Env-Variable fuer die Modellkennung (V8, #3015 K2) — nach
+#: `$CLAUDE_MODEL`, vor `~/.claude/settings.json`. Eigener Name, damit ein
+#: Lauf die Kennung setzen kann, ohne `$CLAUDE_MODEL` selbst zu ueberschreiben
+#: (das koennte andere Werkzeuge in derselben Shell beeinflussen).
+MESSJOURNAL_MODELL_ENV = "MESSJOURNAL_MODELL"
+
+#: `~/.claude/settings.json` — nur das Feld `model` wird gelesen, nie mehr.
+CLAUDE_SETTINGS_DEFAULT = Path.home() / ".claude" / "settings.json"
 
 #: Rohes Ereignis-Journal des Auftragsraums (`auftragsraum.py sortieren`) —
 #: eigene Datei, eigenes Format (eine Zeile je Nachricht, nicht je Lauf).
@@ -522,6 +544,48 @@ def sammeln(anwendung: str, roh: dict[str, Any]) -> tuple[dict[str, Any], list[s
     return kennzahlen, fehler
 
 
+def _settings_modell(settings_pfad: Path) -> str | None:
+    """Feld `model` aus `~/.claude/settings.json` — nur lesen, nur dieses Feld.
+
+    Datei fehlt, ist kein JSON, oder das Feld fehlt/ist kein String: `None`
+    statt Ausnahme — die Kette (`modell_ermitteln`) faellt dann weiter."""
+    try:
+        text = settings_pfad.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    try:
+        daten = json.loads(text)
+    except ValueError:
+        return None
+    if not isinstance(daten, dict):
+        return None
+    wert = daten.get("model")
+    return wert if isinstance(wert, str) and wert else None
+
+
+def modell_ermitteln(
+    arg: str | None,
+    env: dict[str, str],
+    settings_pfad: Path,
+) -> tuple[str, str]:
+    """Modellkennung ermitteln (V8, #3015 K2).
+
+    Kette: `--modell` (arg) -> `$CLAUDE_MODEL` -> `$MESSJOURNAL_MODELL` ->
+    Feld `model` aus `settings_pfad` (nur lesen, nur dieses Feld) ->
+    `"unbekannt"`. Rueckgabe (Kennung, Quelle) — Quelle ist eine von
+    `arg|env|settings|unbekannt`, damit ein spaeteres `"unbekannt"` erklaerbar
+    bleibt statt nur behauptet zu werden."""
+    if arg:
+        return arg, "arg"
+    aus_env = env.get("CLAUDE_MODEL") or env.get(MESSJOURNAL_MODELL_ENV)
+    if aus_env:
+        return aus_env, "env"
+    aus_settings = _settings_modell(settings_pfad)
+    if aus_settings:
+        return aus_settings, "settings"
+    return "unbekannt", "unbekannt"
+
+
 def _quelle_version() -> str:
     out, _err, rc = _run(
         ["git", "-C", str(REPO), "rev-parse", "--short", "HEAD"], timeout=10
@@ -536,6 +600,8 @@ def schreiben(
     journal_pfad: Path,
     eingabe: dict[str, Any] | None,
     ablage_text: str | None = None,
+    modell_quelle: str = "unbekannt",
+    gestartet: int | None = None,
 ) -> list[dict[str, Any]]:
     """Eine Journalzeile je Anwendung erheben und anhaengen.
 
@@ -546,7 +612,12 @@ def schreiben(
     deckt alle angefragten Anwendungen aus demselben JSON. `ablage_text`
     (#3069) ist die bereits erzeugte `--pruefe`-Ausgabe von
     `ablage_erledigt.py` — vorgegeben, entfaellt deren eigener, teurer Lauf
-    hier (75 Index-Abfragen, gemessen 253s)."""
+    hier (75 Index-Abfragen, gemessen 253s). `modell_quelle` (V8, #3015 K2)
+    ist das Ergebnis von `modell_ermitteln()` und erklaert ein spaeteres
+    `"unbekannt"` bei `modell`. `gestartet` (V8) ist der Unix-Zeitstempel des
+    Laufbeginns (typischerweise `make boards`) — gesetzt, bekommt JEDE Zeile
+    dieses Laufs zusaetzlich die Kennzahl `laufzeit_s` (jetzt minus
+    `gestartet`, ganzzahlig)."""
     ablage = (
         _mailcheck_ablage_aus_text(ablage_text) if ablage_text is not None else None
     )
@@ -578,12 +649,18 @@ def schreiben(
     zeilen: list[dict[str, Any]] = []
     for anwendung in anwendungen:
         kennzahlen, fehler = sammeln(anwendung, roh_je_anwendung[anwendung])
+        if gestartet is not None:
+            kennzahlen = {
+                **kennzahlen,
+                "laufzeit_s": int(time.time()) - gestartet,
+            }
         zeile = {
             "zeit": datetime.now(timezone.utc)
             .isoformat(timespec="seconds")
             .replace("+00:00", "Z"),
             "anwendung": anwendung,
             "modell": modell,
+            "modell_quelle": modell_quelle,
             "kennzahlen": kennzahlen,
             "fehler": fehler,
             "quelle_version": _quelle_version(),
@@ -675,7 +752,11 @@ def main() -> int:
         help="mailcheck, todo, auftragsraum, sevdesk oder alle (alle vier in "
         "einem Lauf, #3067/#3079/#3102); fuer --schreiben mehrfach angebbar",
     )
-    ap.add_argument("--modell", help="Default: $CLAUDE_MODEL oder 'unbekannt'")
+    ap.add_argument(
+        "--modell",
+        help="Default: $CLAUDE_MODEL, sonst $MESSJOURNAL_MODELL, sonst Feld "
+        "'model' aus ~/.claude/settings.json, sonst 'unbekannt' (V8, #3015 K2)",
+    )
     ap.add_argument("--journal", default=str(JOURNAL_DEFAULT))
     ap.add_argument(
         "--eingabe", help="Inline-JSON oder Pfad zu einer JSON-Datei (Tests)"
@@ -684,6 +765,12 @@ def main() -> int:
         "--ablage-ausgabe",
         help="Pfad zu einer bereits erzeugten `ablage_erledigt.py --pruefe`-"
         "Textausgabe (#3069) — spart deren zweiten, teuren Lauf hier",
+    )
+    ap.add_argument(
+        "--gestartet",
+        type=int,
+        help="Unix-Zeitstempel (Sekunden) des Laufbeginns (V8) — gesetzt, "
+        "schreibt jede Zeile dieses Laufs zusaetzlich 'laufzeit_s'",
     )
     ap.add_argument("--n", type=int, default=7)
     args = ap.parse_args()
@@ -726,8 +813,18 @@ def main() -> int:
                     "ablage_erledigt.py laeuft selbst)",
                     file=sys.stderr,
                 )
-        modell = args.modell or os.environ.get("CLAUDE_MODEL") or "unbekannt"
-        zeilen = schreiben(anwendungen, modell, journal_pfad, eingabe, ablage_text)
+        modell, modell_quelle = modell_ermitteln(
+            args.modell, dict(os.environ), CLAUDE_SETTINGS_DEFAULT
+        )
+        zeilen = schreiben(
+            anwendungen,
+            modell,
+            journal_pfad,
+            eingabe,
+            ablage_text,
+            modell_quelle=modell_quelle,
+            gestartet=args.gestartet,
+        )
         for zeile in zeilen:
             print(
                 f"Journal geschrieben: {journal_pfad} ({zeile['anwendung']}, "
