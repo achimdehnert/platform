@@ -52,6 +52,9 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 0. Freigabe-Zeile je Prod-Schritt als Regel bestaetigen — aus dem Stand vom 2026-09-09 abends gerettet (Owner-Entscheid).
 
 - **[2982]** Retro 136735: sieben ueberlebende Befunde ohne Umsetzungsartefakt — beim Auslagern der Sektion vom 2026-09-08 hierher gerettet — https://github.com/achimdehnert/platform/issues/2982
+- **[2507]** dev-desktop: 10 undeklarierte Container / 4 oeffentliche Hostnamen gegen die Auflage; todo-board-Befund blockte #3093 — https://github.com/achimdehnert/platform/issues/2507
+- **[2908]** gate_namensdeckung lief nie durch — Drill-Luecken; 8 Gates nennen Faelle ohne Drill (Start 0.7.15) — https://github.com/achimdehnert/platform/issues/2908
+- **[2990]** ci_deckung: shared-ci-Workflows aufloesen statt NICHT PRUEFBAR (24 Ziele) — https://github.com/achimdehnert/platform/issues/2990
 - **[3102]** sevdesk-Routinen: K9 im Echtlauf, Owner-Reste (RE-1028, GitHub/Microsoft-Belege, 20.000 hin/zurueck) im Kommentar — https://github.com/achimdehnert/platform/issues/3102
 - **[3015]** Auftrag Mailcheck/To-do/Zeitung: K1–K5 erreicht, Reste #3050/#3080; Abschluss-Kommentar und Schliessen offen — https://github.com/achimdehnert/platform/issues/3015
 - **[3027]** Auslagerungs-Gate liest Fremd-Repos jetzt per Flotten-Token; schliesst erst, wenn eine Auslagerung mit Fremd-Refs im Gate gruen laeuft — https://github.com/achimdehnert/platform/issues/3027
