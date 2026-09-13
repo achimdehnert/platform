@@ -158,6 +158,19 @@ def datum_von_uid(imap: imaplib.IMAP4_SSL, uid: str) -> str:
         return ""
 
 
+def von_von_uid(imap: imaplib.IMAP4_SSL, uid: str) -> str:
+    """UID -> dekodierter From-Header. '' wenn er fehlt.
+
+    Genutzt von board.py `kopf_laden` (V2, platform#3015 K4) — derselbe
+    schlanke FETCH wie `betreff_von_uid`, nur fuer den Absender.
+    """
+    typ, data = imap.uid("FETCH", uid, "(BODY.PEEK[HEADER.FIELDS (FROM)])")
+    if typ != "OK" or not data or data[0] is None:
+        return ""
+    roh = b"".join(teil[1] for teil in data if isinstance(teil, tuple))
+    return decode_hdr(email.message_from_bytes(roh).get("From")) or ""
+
+
 def suche_message_id(
     imap: imaplib.IMAP4_SSL, message_id: str, ausser: str = ""
 ) -> tuple[str, str]:

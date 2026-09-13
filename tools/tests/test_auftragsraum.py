@@ -210,20 +210,81 @@ def _synthetischer_ledger(tmp_path: Path, nr: int = 12) -> Path:
     return ledger
 
 
+def _synthetischer_anker(tmp_path: Path, nr: int = 12) -> Path:
+    """Anker-Datei mit einem vorab gesetzten Eintrag fuer `nr` (V3, #3015 K4).
+
+    board.py --erledigt verlangt seit V3 einen Anker; ohne ihn wuerde der
+    synthetische Vorgang (ohne Mail-Referenz im Verlauf) abgewiesen — das
+    prueft `test_should_anwenden_erledigt_ohne_anker_abweisen` eigens.
+    """
+    anker = tmp_path / "anker.json"
+    anker.write_text(
+        json.dumps(
+            {
+                str(nr): {
+                    "item": str(nr),
+                    "konto": "hnu",
+                    "ordner": "INBOX",
+                    "uid": "1",
+                    "message_id": "<synthetisch@example.org>",
+                    "betreff": "Testvorgang Gutachten",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    return anker
+
+
 def test_should_anwenden_erledigt_vorgang_im_ledger_schliessen(tmp_path):
     """`#12 erledigt` schliesst #12 ueber `board.py --erledigt` (#3049) und
     markiert den Vorschlag als bearbeitet — nur im uebergebenen Ledger."""
     ledger = _synthetischer_ledger(tmp_path)
+    anker = _synthetischer_anker(tmp_path)
     journal = _sortieren(
         tmp_path, [_zeile(OWNER, "2026-09-01T08:00:00Z", "$e1", "#12 erledigt")]
     )
-    ergebnis = _lauf("anwenden", "--journal", str(journal), "--ledger", str(ledger))
+    ergebnis = _lauf(
+        "anwenden",
+        "--journal",
+        str(journal),
+        "--ledger",
+        str(ledger),
+        "--anker",
+        str(anker),
+    )
     assert ergebnis.returncode == 0, ergebnis.stderr
     assert "angewendet" in ergebnis.stdout
     vorgang = json.loads(ledger.read_text(encoding="utf-8"))["vorgaenge"][0]
     assert vorgang["bucket"] == "erledigt"
     assert vorgang["erledigt_am"]
     assert _journal_lesen(journal)[0]["bearbeitet_am"] is not None
+
+
+def test_should_anwenden_erledigt_ohne_anker_abweisen(tmp_path):
+    """Ohne Anker und ohne Mail-Referenz im Verlauf weist V3 (#3015 K4) ab,
+    statt zu schliessen — der Vorschlag bleibt unbearbeitet (rc=1 wie rc=2)."""
+    ledger = _synthetischer_ledger(tmp_path)
+    anker = tmp_path / "anker.json"
+    anker.write_text("{}", encoding="utf-8")
+    journal = _sortieren(
+        tmp_path, [_zeile(OWNER, "2026-09-01T08:00:00Z", "$e1", "#12 erledigt")]
+    )
+    ergebnis = _lauf(
+        "anwenden",
+        "--journal",
+        str(journal),
+        "--ledger",
+        str(ledger),
+        "--anker",
+        str(anker),
+    )
+    assert ergebnis.returncode == 0, ergebnis.stderr
+    assert "abgewiesen (board.py:" in ergebnis.stdout
+    assert "ohne Anker" in ergebnis.stdout
+    vorgang = json.loads(ledger.read_text(encoding="utf-8"))["vorgaenge"][0]
+    assert vorgang["bucket"] == "warten"
+    assert _journal_lesen(journal)[0]["bearbeitet_am"] is None
 
 
 def test_should_anwenden_unbekannte_nummer_abweisen_und_exit_0(tmp_path):

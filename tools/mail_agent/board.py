@@ -43,19 +43,33 @@ Kommandos:
   --vergib-nummern    fehlende Nummern vergeben (schreibt den Ledger)
   --render            Board erzeugen (stdout, mit --nach in die Board-Datei)
   --aktionen [TYP]    Aktionskatalog zeigen
-  --erledigt NR       Vorgang schliessen (#3049; --am, --grund optional)
+  --erledigt NR       Vorgang schliessen (#3049; --am, --grund optional).
+                      Verlangt einen Anker (V3, platform#3015 K4) — ohne
+                      Anker Exit 1 mit Setz-Vorschlag; --ohne-anker erzwingt.
   --wiedereroeffnen NR  geschlossenen Vorgang wieder oeffnen
+  --neu KONTO ORDNER#UID --typ TYP   Vorgang aus einer Mail anlegen (V2,
+                      platform#3015 K4). [--bucket owner|warten]
+                      [--frist YYYY-MM-DD|keine --grund TEXT] [--kurz TEXT]
+                      [--von ADRESSE --betreff TEXT --datum ISO fuer iil/manuell]
+                      [--ohne-anker]
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
-from urllib.parse import quote
-from datetime import date
+from datetime import date, datetime
+from email.utils import parseaddr
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
+
+#: Damit `import anker`/`from read_mail import …` unabhaengig vom Aufrufort
+#: klappen (dieselbe Zeile wie in referenzen.py) — nur die V2/V3-Pfade
+#: (`kopf_laden`, `setze_anker_aus_referenz`, `_letzte_referenz`) brauchen sie.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 TOOL_VERSION = "board.py/1"
 
@@ -516,7 +530,7 @@ def _verlaufseintrag(vorgang: dict, eintrag: str) -> None:
 
 
 def schliesse_vorgang(
-    ledger: dict, nr: int, am: str, grund: str, heute: str
+    ledger: dict, nr: int, am: str, grund: str, heute: str, ohne_anker: bool = False
 ) -> tuple[dict, str]:
     """Vorgang #nr schliessen (#3049 — bis hierher ging das nur per Hand im JSON).
 
@@ -524,6 +538,10 @@ def schliesse_vorgang(
     Nacherfassung ueberschreibbar). `heute` ist der tatsaechliche Lauftag und
     steht in `letzte_pruefung` sowie im Verlaufseintrag — dieselbe Trennung wie
     bei `--frist`/`--datum` vs. dem Zeitpunkt des Kommandos.
+
+    `ohne_anker` markiert den Verlaufseintrag (V3, platform#3015 K4): den
+    Anker-Zwang selbst prueft `main()` VOR diesem Aufruf — diese Funktion
+    schliesst immer, sie entscheidet nur, wie es im Verlauf steht.
 
     Rueckgabe `(vorgang, status)`: `status` ist `"geschlossen"` beim ersten
     Schliessen, `"bereits"` wenn der Vorgang es schon war (dann unveraendert —
@@ -541,9 +559,10 @@ def schliesse_vorgang(
         zustand = f"erledigt: {grund_text}" if grund_text else "erledigt"
         vorgang["zustand"] = zustand[:60]
         vorgang["letzte_pruefung"] = heute
+        zusatz = " (ohne Anker geschlossen)" if ohne_anker else ""
         _verlaufseintrag(
             vorgang,
-            f"{heute} ERLEDIGT (Owner): {grund_text or 'Owner meldet erledigt'}",
+            f"{heute} ERLEDIGT (Owner): {grund_text or 'Owner meldet erledigt'}{zusatz}",
         )
         return vorgang, "geschlossen"
     raise ValueError(f"Vorgang #{nr} gibt es nicht.")
@@ -567,6 +586,215 @@ def wiedereroeffne_vorgang(ledger: dict, nr: int, heute: str) -> tuple[dict, str
         _verlaufseintrag(vorgang, f"{heute} WIEDER GEOEFFNET (Owner)")
         return vorgang, "geoeffnet"
     raise ValueError(f"Vorgang #{nr} gibt es nicht.")
+
+
+#: Fuehrende Antwort-/Weiterleitungspraefixe vor dem Betreff — auch mehrfach
+#: verschachtelt ("Re: AW: ..."). Der bereinigte Betreff ist der thread_key.
+_PRAEFIX_RE = re.compile(r"^(?:\s*(?:re|aw|fwd|wg)\s*:\s*)+", re.IGNORECASE)
+
+
+def thread_key_aus_betreff(betreff: str) -> str:
+    """Betreff ohne fuehrende Re:/AW:/Fwd:/WG:-Praefixe (V2, platform#3015 K4)."""
+    return _PRAEFIX_RE.sub("", betreff or "").strip()
+
+
+def _gegenueber_aus_von(von: str) -> tuple[str, str]:
+    """(Anzeigename, Adresse) aus einem From-Header — leer bleibt leer."""
+    name, adresse = parseaddr(von or "")
+    return name.strip(), adresse.strip()
+
+
+def _referenz_text(ordner: str, uid: str) -> str:
+    """Kanonische Referenz-Schreibweise, die `referenzen.py --pruefe-ordner`
+    als "Ordner daneben" erkennt: einwortige Ordner direkt vor der Nummer,
+    mehrwortige in der Klammerform (dieselben zwei Formen, die im Verlauf
+    ohnehin vorkommen: ``INBOX #164024`` vs. ``Ordner 'Gesendete Objekte'
+    (#34349)``)."""
+    return f"Ordner '{ordner}' (#{uid})" if " " in ordner else f"{ordner} #{uid}"
+
+
+def kopf_laden(konto: str, ordner: str, uid: str) -> dict[str, str]:
+    """Kopfdaten (Von/Betreff/Datum/Message-ID) einer Mail per IMAP holen (V2).
+
+    Nur hnu/ad koennen das (anker.py-Funktionen auf einer bestehenden
+    IMAP-Verbindung). iil (Graph) hat hier keinen Lesepfad — statt ihn
+    nachzubauen, verweist die Fehlermeldung auf den manuellen Weg
+    (--von/--betreff/--datum), den `main()` fuer alle Konten anbietet.
+    """
+    if konto == "iil":
+        raise SystemExit(
+            "iil: bitte Message-ID per graph_mail --show holen und "
+            "--von/--betreff mitgeben."
+        )
+    import anker as _anker  # lokal: nur dieser Weg braucht eine IMAP-Verbindung
+
+    imap = _anker._verbinde(konto)
+    try:
+        imap.select(_anker._mailbox_arg(ordner), readonly=True)
+        message_id = _anker.message_id_von_uid(imap, uid)
+        if not message_id:
+            raise SystemExit(
+                f"FEHLER: UID {uid} in '{ordner}' ({konto}) nicht gefunden."
+            )
+        betreff = _anker.betreff_von_uid(imap, uid)
+        datum = _anker.datum_von_uid(imap, uid)
+        von = _anker.von_von_uid(imap, uid)
+    finally:
+        imap.logout()
+    return {"von": von, "betreff": betreff, "datum": datum, "message_id": message_id}
+
+
+def vorgang_aus_mail(
+    ledger: dict,
+    konto: str,
+    ordner: str,
+    uid: str,
+    kopf: dict,
+    typ: str,
+    bucket: str,
+    frist: str | None,
+    grund: str,
+    kurz: str | None,
+    heute: str,
+) -> dict:
+    """Vorgang aus einer eingegangenen Mail anlegen (V2, platform#3015 K4).
+
+    Reine Funktion: alles kommt aus den Parametern, nichts aus der Uhr oder
+    dem Postfach — `main()` besorgt Kopfdaten (`kopf_laden`) und Anker separat.
+
+    `heute` ist ein Zeitstempel ``YYYY-MM-DD HH:MM``, kein blosses Datum: der
+    Verlaufseintrag will die Uhrzeit, und `tage_seit` schneidet ohnehin nur
+    die ersten 10 Zeichen — dieselbe Kuerzung wie ueberall sonst im Modul.
+
+    Frist ist Pflicht: `frist` (ISO-Datum oder ``"keine"``) oder `grund`
+    muss gesetzt sein, sonst ``ValueError`` (main() macht daraus Exit 1).
+    """
+    frist = (frist or "").strip()
+    grund = (grund or "").strip()
+    if not frist and not grund:
+        raise ValueError(
+            "Frist ist Pflicht: --frist <YYYY-MM-DD|keine> und/oder --grund <TEXT>."
+        )
+    if frist and frist != "keine":
+        try:
+            date.fromisoformat(frist)
+        except ValueError:
+            raise ValueError(f"--frist {frist!r} ist kein ISO-Datum.") from None
+    elif frist == "keine" and not grund:
+        raise ValueError("--frist keine braucht --grund.")
+
+    datum_teil, _, zeit_teil = heute.partition(" ")
+    betreff = kopf.get("betreff") or ""
+    thread_key = thread_key_aus_betreff(betreff)
+    name, adresse = _gegenueber_aus_von(kopf.get("von") or "")
+    gegenueber = f"{name} <{adresse}>" if name and adresse else (adresse or name or "?")
+    if name:
+        nachname = name.split()[-1]
+    elif adresse:
+        nachname = adresse.split("@")[0]
+    else:
+        nachname = "?"
+
+    nr = ledger.get("naechste_nr")
+    nr = nr if isinstance(nr, int) else 1
+    ledger["naechste_nr"] = nr + 1
+
+    tt_mm = f"{datum_teil[8:10]}-{datum_teil[5:7]}" if len(datum_teil) >= 10 else "?"
+    zustand = f"eingang-{tt_mm}-{'warte' if bucket == 'warten' else 'owner-entscheidet'}"
+
+    vorgang: dict[str, Any] = {
+        "nr": nr,
+        "konto": konto,
+        "typ": typ,
+        "bucket": bucket,
+        "thread_key": thread_key,
+        "gegenueber": gegenueber,
+        "angelegt": heute,
+        "letzte_pruefung": heute,
+        "zustand": zustand,
+        "kurz": kurz.strip() if (kurz or "").strip() else f"{nachname}: {thread_key[:40]}",
+        "next_trigger": "Owner entscheidet; auf Zuruf Antwort-Entwurf",
+        "mail_ref": f"/a/{nr}",
+    }
+    if frist and frist != "keine":
+        vorgang["frist"] = frist
+        if grund:
+            vorgang["frist_grund"] = grund
+    else:
+        vorgang["frist"] = None
+        vorgang["frist_grund"] = grund
+
+    absendername = name or adresse or "?"
+    vorgang["notiz"] = (
+        f"{datum_teil} {zeit_teil} EINGANG ({absendername}, "
+        f"{_referenz_text(ordner, uid)}): '{betreff}'. Offen: Owner-Entscheid."
+    )
+
+    ledger.setdefault("vorgaenge", []).append(vorgang)
+    return vorgang
+
+
+def _letzte_referenz(notiz: str) -> tuple[str, str] | None:
+    """(Ordner, UID) der juengsten Mail-Referenz mit Ordner im Verlauf — oder None.
+
+    Genutzt vor dem Schliessen (V3): fehlt der Anker, ist die zuletzt genannte
+    Referenz der beste Kandidat, um ihn automatisch nachzuziehen.
+    """
+    import referenzen as _referenzen  # lokal: nur der --erledigt-Pfad braucht das
+
+    treffer = [r for r in _referenzen.finde(notiz or "") if r.ordner]
+    if not treffer:
+        return None
+    letzte = treffer[-1]
+    return letzte.ordner, letzte.uid
+
+
+def setze_anker_aus_referenz(
+    nr: int, konto: str, ordner: str, uid: str, anker_pfad: Path
+) -> bool:
+    """Anker automatisch aus einer Verlaufs-Referenz setzen (V3, #3015 K4).
+
+    Injizierbar: Tests monkeypatchen diese Funktion, statt eine IMAP-Verbindung
+    zu simulieren. True bei Erfolg (Anker gespeichert); False wenn das
+    Postfach es nicht hergibt — dann bleibt der Vorgang offen (Exit 1 in
+    `main()`, Ledger unveraendert). `anker_pfad` kommt immer explizit vom
+    Aufrufer (kein Default auf `ANKER`): `anker.lade`/`speichere` binden ihren
+    Pfad als Default-Argument beim Import, ein spaeteres Monkeypatchen von
+    `anker.ANKER_DATEI` griffe also nicht — deshalb reicht `main()` immer den
+    aufgeloesten Pfad durch.
+    """
+    import imaplib
+
+    import anker as _anker
+
+    try:
+        imap = _anker._verbinde(konto)
+    except (OSError, imaplib.IMAP4.error, KeyError, ValueError, SystemExit):
+        return False
+    try:
+        typ, _sel = imap.select(_anker._mailbox_arg(ordner), readonly=True)
+        if typ != "OK":
+            return False
+        message_id = _anker.message_id_von_uid(imap, uid)
+        if not message_id:
+            return False
+        betreff = _anker.betreff_von_uid(imap, uid)
+    except (imaplib.IMAP4.error, OSError):
+        return False
+    finally:
+        imap.logout()
+
+    alle = _anker.lade(anker_pfad)
+    alle[str(nr)] = _anker.Anker(
+        item=str(nr),
+        konto=konto,
+        ordner=ordner,
+        uid=uid,
+        message_id=message_id,
+        betreff=betreff,
+    )
+    _anker.speichere(alle, anker_pfad)
+    return True
 
 
 def _posten_zeile(vorgang: dict, anker: dict, links: dict) -> list[str]:
@@ -775,21 +1003,35 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--ledger", metavar="DATEI", help="anderer Ledger-Pfad")
     parser.add_argument(
+        "--anker",
+        metavar="DATEI",
+        help="anderer Anker-Pfad (Tests, Trockenlauf; sonst mail-anker.json, "
+        "V3 platform#3015 K4)",
+    )
+    parser.add_argument(
         "--stichtag",
         metavar="YYYY-MM-DD",
         help="zu --render: Bezugsdatum statt heute (reproduzierbar, #2592 K1)",
     )
     parser.add_argument(
-        "--frist", type=int, metavar="NR", help="Frist eines Vorgangs setzen (#2592 K4)"
+        "--frist",
+        metavar="NR|YYYY-MM-DD|keine",
+        help="ohne --neu: Frist eines Vorgangs setzen (NR, mit --datum/--grund, "
+        "#2592 K4); mit --neu: die anfaengliche Frist selbst (Datum oder "
+        "'keine', mit --grund)",
     )
     parser.add_argument(
-        "--datum", metavar="YYYY-MM-DD|keine", help="zu --frist: das Datum oder 'keine'"
+        "--datum",
+        metavar="YYYY-MM-DD|keine",
+        help="zu --frist (ohne --neu): das Datum oder 'keine'; zu --neu: das "
+        "Mail-Datum bei manuellem Kopf (mit --von/--betreff)",
     )
     parser.add_argument(
         "--grund",
         default="",
         metavar="TEXT",
-        help="zu --frist: warum keine / Kontext; zu --erledigt: Abschlussgrund",
+        help="zu --frist/--neu: warum keine Frist / Kontext; zu --erledigt: "
+        "Abschlussgrund",
     )
     parser.add_argument(
         "--erledigt", type=int, metavar="NR", help="Vorgang schliessen (#3049)"
@@ -811,6 +1053,32 @@ def main(argv: list[str] | None = None) -> int:
         help="Schlagwort eines Vorgangs ausgeben (fuer `draft_mail --kategorie` bzw. "
         "`graph_mail --categorize`)",
     )
+    parser.add_argument(
+        "--neu",
+        nargs=2,
+        metavar=("KONTO", "ORDNER#UID"),
+        help="Vorgang aus einer Mail anlegen (V2, platform#3015 K4)",
+    )
+    parser.add_argument("--typ", metavar="TYP", help="zu --neu: Vorgangstyp")
+    parser.add_argument(
+        "--bucket",
+        choices=("owner", "warten"),
+        default="owner",
+        help="zu --neu: Bucket (Default owner)",
+    )
+    parser.add_argument("--kurz", metavar="TEXT", help="zu --neu: Kurztext ueberschreiben")
+    parser.add_argument(
+        "--von", metavar="ADRESSE", help="zu --neu: Absender manuell (u.a. iil)"
+    )
+    parser.add_argument(
+        "--betreff", metavar="TEXT", help="zu --neu: Betreff manuell (u.a. iil)"
+    )
+    parser.add_argument(
+        "--ohne-anker",
+        action="store_true",
+        help="zu --neu: ohne Anker anlegen; zu --erledigt: ohne Anker schliessen "
+        "(V3, platform#3015 K4)",
+    )
     args = parser.parse_args(argv)
 
     if args.aktionen is not None:
@@ -819,6 +1087,7 @@ def main(argv: list[str] | None = None) -> int:
 
     ledger_pfad = Path(args.ledger) if args.ledger else LEDGER
     ledger = lade(ledger_pfad, {"vorgaenge": []})
+    anker_pfad = Path(args.anker) if args.anker else ANKER
 
     if args.kategorie:
         try:
@@ -827,15 +1096,90 @@ def main(argv: list[str] | None = None) -> int:
             parser.error(str(fehler))
         return 0
 
+    if args.neu:
+        konto, ordner_uid = args.neu
+        if "#" not in ordner_uid:
+            parser.error(
+                f"--neu erwartet ORDNER#UID (z.B. INBOX#164024), bekommen: "
+                f"{ordner_uid!r}"
+            )
+        ordner, _, uid = ordner_uid.rpartition("#")
+        if not args.typ:
+            parser.error("--neu braucht --typ.")
+
+        manuell = bool(args.von) and bool(args.betreff) and bool(args.datum)
+        if manuell:
+            try:
+                date.fromisoformat(args.datum)
+            except ValueError:
+                parser.error(f"--datum {args.datum!r} ist kein ISO-Datum.")
+            kopf = {
+                "von": args.von,
+                "betreff": args.betreff,
+                "datum": args.datum,
+                "message_id": "",
+            }
+        else:
+            try:
+                kopf = kopf_laden(konto, ordner, uid)
+            except SystemExit as fehler:
+                print(str(fehler), file=sys.stderr)
+                return 1
+
+        heute = datetime.now().strftime("%Y-%m-%d %H:%M")
+        try:
+            vorgang = vorgang_aus_mail(
+                ledger,
+                konto,
+                ordner,
+                uid,
+                kopf,
+                args.typ,
+                args.bucket,
+                args.frist,
+                args.grund,
+                args.kurz,
+                heute,
+            )
+        except ValueError as fehler:
+            print(f"FEHLER: {fehler}", file=sys.stderr)
+            return 1
+
+        ledger_pfad.write_text(
+            json.dumps(ledger, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+        if kopf.get("message_id") and not args.ohne_anker:
+            import anker as _anker
+
+            alle = _anker.lade(anker_pfad)
+            alle[str(vorgang["nr"])] = _anker.Anker(
+                item=str(vorgang["nr"]),
+                konto=konto,
+                ordner=ordner,
+                uid=uid,
+                message_id=kopf["message_id"],
+                betreff=kopf.get("betreff") or "",
+                datum=kopf.get("datum") or "",
+            )
+            _anker.speichere(alle, anker_pfad)
+        print(f"Vorgang {vorgang['nr']} angelegt: {vorgang['kurz']}")
+        return 0
+
     if args.frist is not None:
         if not args.datum:
             parser.error("--frist braucht --datum <YYYY-MM-DD|keine>")
-        vorgang = setze_frist(ledger, args.frist, args.datum, args.grund)
+        try:
+            nr = int(args.frist)
+        except ValueError:
+            parser.error(
+                f"--frist {args.frist!r} ist keine gueltige Nummer (ohne --neu)."
+            )
+        vorgang = setze_frist(ledger, nr, args.datum, args.grund)
         ledger_pfad.write_text(
             json.dumps(ledger, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
         print(
-            f"#{args.frist} '{vorgang.get('kurz')}': frist={vorgang.get('frist')!r}"
+            f"#{nr} '{vorgang.get('kurz')}': frist={vorgang.get('frist')!r}"
             + (
                 f", grund='{vorgang['frist_grund']}'"
                 if vorgang.get("frist_grund")
@@ -851,9 +1195,46 @@ def main(argv: list[str] | None = None) -> int:
             date.fromisoformat(am)
         except ValueError:
             parser.error(f"--am {am!r} ist kein ISO-Datum.")
+
+        vorgang_vorab = next(
+            (v for v in vorgaenge_von(ledger) if v.get("nr") == args.erledigt), None
+        )
+        if vorgang_vorab is None:
+            parser.error(f"Vorgang #{args.erledigt} gibt es nicht.")
+        if vorgang_vorab.get("bucket") != "erledigt" and not args.ohne_anker:
+            import anker as _anker
+
+            anker_map = _anker.lade(anker_pfad)
+            if str(args.erledigt) not in anker_map:
+                ref = _letzte_referenz(vorgang_vorab.get("notiz") or "")
+                gesetzt = False
+                if ref:
+                    ref_ordner, ref_uid = ref
+                    ref_konto = vorgang_vorab.get("konto") or "hnu"
+                    gesetzt = setze_anker_aus_referenz(
+                        args.erledigt, ref_konto, ref_ordner, ref_uid, anker_pfad
+                    )
+                if not gesetzt:
+                    konto_vorschlag = vorgang_vorab.get("konto") or "<konto>"
+                    ordner_vorschlag = ref[0] if ref else "<ordner>"
+                    uid_vorschlag = ref[1] if ref else "<uid>"
+                    print(
+                        f"Vorgang {args.erledigt} ohne Anker — nicht geschlossen. "
+                        f"Setzen: anker.py --setze {args.erledigt} --account "
+                        f"{konto_vorschlag} --folder {ordner_vorschlag} --uid "
+                        f"{uid_vorschlag}",
+                        file=sys.stderr,
+                    )
+                    return 1
+
         try:
             vorgang, status = schliesse_vorgang(
-                ledger, args.erledigt, am, args.grund, heute
+                ledger,
+                args.erledigt,
+                am,
+                args.grund,
+                heute,
+                ohne_anker=args.ohne_anker,
             )
         except ValueError as fehler:
             parser.error(str(fehler))

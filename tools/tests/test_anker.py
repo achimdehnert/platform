@@ -197,3 +197,27 @@ class TestDarstellung:
 
     def test_should_say_so_when_nothing_is_anchored(self):
         assert anker_modul.rendern([]) == "keine Anker hinterlegt"
+
+
+class TestVonVonUid:
+    """`von_von_uid` — der From-Header, den `board.py --neu` braucht (#3015 K4)."""
+
+    class _FakeFrom:
+        def __init__(self, roh: bytes | None):
+            self.roh = roh
+
+        def uid(self, befehl, uid, felder):
+            assert befehl == "FETCH"
+            if self.roh is None:
+                return "OK", [None]
+            return "OK", [(b"1 (UID %s BODY[] {%d}" % (uid.encode(), len(self.roh)), self.roh)]
+
+    def test_should_return_the_decoded_from_header(self):
+        roh = b"From: Max Mustermann <max.muster@example.org>\r\n\r\n"
+        assert (
+            anker_modul.von_von_uid(self._FakeFrom(roh), "1")
+            == "Max Mustermann <max.muster@example.org>"
+        )
+
+    def test_should_return_empty_when_the_header_is_missing(self):
+        assert anker_modul.von_von_uid(self._FakeFrom(None), "1") == ""
