@@ -112,7 +112,9 @@ def _domain_von(adresse: str) -> str:
 def ist_posteingang_treffer(treffer: dict) -> bool:
     """Nur Treffer aus Posteingangs-Ordnern zaehlen (nicht Gesendet/Entwuerfe)."""
     ordner = treffer.get("ordner") or []
-    if any(any(teil in o.lower() for teil in AUSGESCHLOSSENE_ORDNER_TEILE) for o in ordner):
+    if any(
+        any(teil in o.lower() for teil in AUSGESCHLOSSENE_ORDNER_TEILE) for o in ordner
+    ):
         return False
     return any(
         o.strip().lower() == praefix or o.strip().lower().startswith(praefix + "/")
@@ -133,7 +135,9 @@ def _rausch_regeln_corpus(rausch_regeln: dict) -> str:
 
 
 def _vorgang_corpus(vorgang: dict) -> str:
-    teile = [str(vorgang.get(feld) or "") for feld in ("gegenueber", "thread_key", "notiz")]
+    teile = [
+        str(vorgang.get(feld) or "") for feld in ("gegenueber", "thread_key", "notiz")
+    ]
     return " ".join(teile).lower()
 
 
@@ -179,10 +183,14 @@ def kandidaten_ermitteln(
         domain = _domain_von(adresse)
         if _bereits_erfasst(adresse, domain, rausch_corpus, vorgaenge):
             continue
-        geordnet = sorted(treffer_liste, key=lambda t: t.get("datum") or "", reverse=True)
+        geordnet = sorted(
+            treffer_liste, key=lambda t: t.get("datum") or "", reverse=True
+        )
         betreffs = [t.get("betreff") or "" for t in geordnet[:2]]
         kandidaten.append(
-            Kandidat(absender=adresse, treffer=len(treffer_liste), beispiel_betreffs=betreffs)
+            Kandidat(
+                absender=adresse, treffer=len(treffer_liste), beispiel_betreffs=betreffs
+            )
         )
     kandidaten.sort(key=lambda k: k.treffer, reverse=True)
     return kandidaten
@@ -203,7 +211,10 @@ def regel_vorschlag(kandidat: Kandidat, stichtag: str) -> dict:
 def _tabelle(kandidaten: list[Kandidat]) -> str:
     if not kandidaten:
         return "Keine Rausch-Kandidaten im Fenster."
-    zeilen = ["Absender | Treffer | Beispiel-Betreffs (2) | Vorschlag", "---|---|---|---"]
+    zeilen = [
+        "Absender | Treffer | Beispiel-Betreffs (2) | Vorschlag",
+        "---|---|---|---",
+    ]
     for k in kandidaten:
         beispiele = " / ".join(b[:60] for b in k.beispiel_betreffs) or "(kein Betreff)"
         zeilen.append(f"{k.absender} | {k.treffer} | {beispiele} | {ZIELORDNER}")
@@ -248,7 +259,9 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(ausgabe, ensure_ascii=False, indent=2))
         return 0
 
-    print(f"Rausch-Kandidaten {seit} .. {args.stichtag} (Fenster {FENSTER_TAGE} Tage)\n")
+    print(
+        f"Rausch-Kandidaten {seit} .. {args.stichtag} (Fenster {FENSTER_TAGE} Tage)\n"
+    )
     print(_tabelle(kandidaten))
     if kandidaten:
         print("\nVorschlaege als Regel-Zeile (rausch_regeln-Form):\n")
