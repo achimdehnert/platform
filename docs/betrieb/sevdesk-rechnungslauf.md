@@ -111,6 +111,7 @@ liest NUR die jüngste Zeile und übernimmt fünf Kennzahlen:
 | `pdf_gefunden` | Rechnungs-PDFs, die einem Register-Eintrag zugeordnet wurden |
 | `ablage_pdf` | aus der Owner-Ablage `~/shared/inbox/invoices/` gelesene Dateien — auch die ohne Zuordnung, die als Owner-Zug erscheinen |
 | `bereits_im_lauf` | Rechnungen, die im selben Lauf ein zweites Mal auftauchten (Rechnungsmail + Zahlungsbeleg + Ablage) |
+| `anlagen_uebersprungen` | Mail-Anhänge ohne Datum und Betrag (Beilagen, keine Rechnungen) |
 | `duplikate_fremder_mandant` | Rechnungen, die bereits im ANDEREN sevdesk-Mandanten liegen — kein Entwurf |
 | `dubletten_geprueft_gegen` | Mandanten, deren Bestand für den Abgleich lesbar war |
 | `entwuerfe_je_mandant` | Entwürfe je sevdesk-Mandant (`iil`, `edv`) |
@@ -208,6 +209,12 @@ Journal; als Vereinfachung dokumentiert, nicht stillschweigend gelassen
   prüft `belegbeschaffung.py` die Nummer zusätzlich gegen den Bestand des
   anderen Mandanten (`DUPLIKAT (anderer Mandant: …)`). Ist dessen Zugang
   nicht lesbar, steht das im Board-Kopf.
+- **Zweitanhang ohne Rechnungsdaten**: Manche Anbieter hängen neben der
+  Rechnung einen Zahlungsbeleg an, der eine andere Kennung trägt und kein
+  Datum — im Echtlauf 2026-09-13 neun FEHLER-Zeilen. Das Register-Feld
+  `anhang_muster` (Regex gegen den Dateinamen) grenzt ein, welche Anhänge als
+  Rechnung gelten; eine Beilage ohne Datum und Betrag erscheint als "Anlage
+  ohne Rechnungsdaten".
 - **Mandant je Lieferant**: Ein Register-Eintrag mit `"mandant": "edv"` legt
   den sevdesk-Mandanten für diesen Lieferanten fest; der Empfänger im PDF
   wird dann nicht ausgewertet (Owner-Entscheid 2026-09-13).

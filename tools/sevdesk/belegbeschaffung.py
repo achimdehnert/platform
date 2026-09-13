@@ -64,6 +64,10 @@ Gates:
   er laut PDF lautet. ``unklar`` bleibt in jedem Fall Owner-Zug — ein Beleg
   ohne erkennbaren Empfaenger wird nie geraten. Fehlt der Zugang eines
   Mandanten, ist das eine Zeile im Board, kein Abbruch (#3112).
+- ``anhang_muster`` im Register grenzt ein, welche Anhaenge einer Mail als
+  Rechnung gelten — ohne das Feld zaehlen alle PDFs.
+- Eine Beilage ohne Datum UND ohne Betrag ist keine Rechnung: sie erscheint
+  als "Anlage ohne Rechnungsdaten" und nicht als Layout-Fehler.
 - Dieselbe Rechnung erreicht das Werkzeug mehrfach (Rechnungsmail,
   Zahlungsbeleg, Ablage-Datei): innerhalb eines Laufs gewinnt die erste
   Fundstelle, weitere zaehlen als ``bereits_im_lauf`` (#3118).
@@ -132,6 +136,9 @@ MANDANTEN_ZIEL = {
 #: Die echten sevdesk-Mandanten (ohne den Sammelwert "beide") — alles andere
 #: ist als Empfaenger kein gueltiger Wert.
 MANDANTEN_EINZELN = frozenset(MANDANTEN_ZIEL["beide"])
+
+#: Art einer Zeile, deren PDF gar keine Rechnung ist (Beilage einer Mail).
+ART_ANLAGE = "Anlage ohne Rechnungsdaten"
 
 #: Steuerregel fuer ausgewiesene deutsche Umsatzsteuer. Steht im PDF eine
 #: Steuer > 0, ist Reverse Charge ausgeschlossen — dann gilt sie und nicht
@@ -231,12 +238,25 @@ RC_MARKER = (
     "§13b",
 )
 RE_ACCOUNT_BILLED = re.compile(r"account billed\s+([A-Za-z0-9_.\-]+)", re.IGNORECASE)
-RE_NUMMER = re.compile(
-    r"(?:abrechnungsnummer|rechnungsnummer|rechnungs-nr\.?|belegnummer|"
-    r"invoice number|invoice no\.?|transaction id|receipt id)\s*[:#]?\s*"
-    r"([A-Za-z0-9][A-Za-z0-9_\-/]{2,})",
+#: Das Label und ALLES dahinter bis zum Zeilenende — was davon zur Nummer
+#: gehoert, entscheidet ``nummer_aus_rest``. Die alte Fassung las nur den
+#: naechsten Zeichenblock und lieferte aus "733 934 0350" die "733" und aus
+#: "D56/(260)257231" das "D56/" (Echtprobe 2026-09-13).
+RE_NUMMER_LABEL = re.compile(
+    r"(?:abrechnungsnummer|rechnungsnummer|rechnungs-?nr\.?|belegnummer|"
+    r"beleg-?nr\.?|invoice\s*(?:number|no\.?|#)|receipt\s*(?:id|#)|"
+    r"transaction\s+id)\s*[:#]?\s*(.+)$",
     re.IGNORECASE,
 )
+#: Ziffern, die zur Lesbarkeit in Gruppen gesetzt sind ("733 934 0350"),
+#: gehoeren zu EINER Nummer. Einzelne Ziffern bleiben getrennt — sonst
+#: verschmilzt "Rechnung 7 vom 3 Maerz" zu einer Kennung.
+RE_ZIFFERNGRUPPEN = re.compile(r"\b\d{2,}(?: \d{2,})+\b")
+#: Zeichen, die in einer Rechnungsnummer vorkommen duerfen.
+RE_NUMMER_ZEICHEN = re.compile(r"[A-Za-z0-9_\-/().]+")
+#: Was die Nummer beendet: zwei Leerzeichen (Spaltenabstand im Layout), eine
+#: eckige Klammer ("[ORIGINAL]") oder ein senkrechter Strich.
+RE_NUMMER_ENDE = re.compile(r"\s{2,}|[\[|]")
 RE_VORSCHLAG_KONTO = re.compile(r"^\s*\d+\.\s*Konto\s+(\S+)", re.MULTILINE)
 
 #: Zeilen mit diesen Woertern tragen den Bruttobetrag; der LETZTE Treffer
@@ -264,6 +284,16 @@ RE_SUMME_WORT = re.compile(r"\bsumme\b")
 #: 2026-09-13, zwei von drei Hoster-Rechnungen).
 RE_SUMMEN_SCHWANZ = re.compile(
     r"^[\s.,]*(?:€|\$|eur|usd|chf)?[\s*.,;:)]*$", re.IGNORECASE
+)
+#: Diese Zeilen sind die ENDsumme und schlagen jede andere Total-/Gesamt-Zeile.
+#: Anlass (Echtprobe 2026-09-13): eine Rechnung fuehrt "Total", "VAT (0.00%)",
+#: "Total include VAT" und "Total Monthly Recurring Services" untereinander —
+#: gewann die letzte Total-Zeile, trug der Beleg 0,00.
+RE_ENDSUMME = re.compile(
+    r"total\s+includ(?:e|ing)\s+(?:vat|tax)|total\s+incl\.?|amount\s+due|"
+    r"rechnungsbetrag|zu\s+zahlen(?:der\s+betrag)?|"
+    r"gesamtbetrag\s*\(?\s*nach\s+steuern",
+    re.IGNORECASE,
 )
 #: Zeilen mit diesen Woertern tragen die enthaltene Steuer. Summenzeilen sind
 #: ausgenommen — "Gesamtbetrag (nach Steuern)" ist keine Steuerzeile.
@@ -389,8 +419,70 @@ def _letzte_zahl(zeile: str) -> float | None:
     return werte[-1] if werte else None
 
 
+def _klammern_trimmen(text: str) -> str:
+    """Satzzeichen und unpaarige Klammern am Rand abschneiden.
+
+    "D56/(260)257231" bleibt unveraendert (die Klammer gehoert zur Nummer),
+    "(BSP-1)" wird zu "BSP-1".
+    """
+    text = text.strip().strip(".,;:")
+    while text.endswith((")", "]")):
+        zu = text[-1]
+        auf = "(" if zu == ")" else "["
+        if text.count(auf) >= text.count(zu):
+            break
+        text = text[:-1].rstrip(".,;:")
+    if (
+        len(text) > 2
+        and text[0] in "(["
+        and text[-1] in ")]"
+        and text.count(text[0]) == text.count(text[-1])
+    ):
+        text = text[1:-1]
+    return text
+
+
+def nummer_aus_rest(rest: str) -> str | None:
+    """Rechnungsnummer aus dem Text hinter dem Label.
+
+    Gelesen wird bis zum Zeilenende, abgeschnitten an zwei Leerzeichen oder
+    einer eckigen Klammer; in Gruppen gesetzte Ziffern werden
+    zusammengezogen.
+    """
+    rest = RE_NUMMER_ENDE.split((rest or "").strip(), maxsplit=1)[0]
+    rest = RE_ZIFFERNGRUPPEN.sub(lambda m: m.group(0).replace(" ", ""), rest)
+    stueck = rest.split()
+    if not stueck:
+        return None
+    treffer = RE_NUMMER_ZEICHEN.search(stueck[0])
+    if not treffer:
+        return None
+    nummer = _klammern_trimmen(treffer.group(0))
+    return nummer if len(nummer) >= 3 else None
+
+
+def nummer_finden(zeilen: list[str], dateiname: str = "") -> str:
+    """Erste Nummer mit Label; ohne Label der Dateiname ohne Endung."""
+    for zeile in zeilen:
+        treffer = RE_NUMMER_LABEL.search(zeile)
+        if not treffer:
+            continue
+        nummer = nummer_aus_rest(treffer.group(1))
+        if nummer:
+            return nummer
+    return Path(dateiname).stem
+
+
 def _monat_nummer(wort: str) -> int | None:
     return MONATE.get((wort or "").strip(".").lower())
+
+
+def _summe_waehlen(kandidaten: list[tuple[str, float]]) -> tuple[str, float] | None:
+    """Letzter Kandidat mit Betrag > 0; sonst der letzte ueberhaupt."""
+    if not kandidaten:
+        return None
+    positive = [k for k in kandidaten if k[1] > 0]
+    return (positive or kandidaten)[-1]
 
 
 def _steuer_aus_summenzeile(zeile: str | None) -> float | None:
@@ -527,13 +619,17 @@ def pdf_lesen(text: str, dateiname: str = "", logins=EIGENE_LOGINS) -> dict:
     zeilen = (text or "").splitlines()
     flach = " ".join((text or "").split())
 
-    summen_zeile = None
+    end_kandidaten: list[tuple[str, float]] = []
+    summen_kandidaten: list[tuple[str, float]] = []
     steuer_wert = None
     vorige = ""
     for zeile in zeilen:
-        klein = _ohne_klammern(zeile).lower()
-        if _ist_summenzeile(zeile) and _letzte_zahl(zeile) is not None:
-            summen_zeile = zeile
+        ohne = _ohne_klammern(zeile)
+        klein = ohne.lower()
+        wert = _letzte_zahl(zeile)
+        if _ist_summenzeile(zeile) and wert is not None:
+            ziel = end_kandidaten if RE_ENDSUMME.search(ohne) else summen_kandidaten
+            ziel.append((zeile, wert))
             vorige = zeile
             continue
         if any(w in klein for w in STEUER_AUSNAHMEN):
@@ -554,7 +650,15 @@ def pdf_lesen(text: str, dateiname: str = "", logins=EIGENE_LOGINS) -> dict:
                 steuer_wert = wert
         vorige = zeile
 
-    brutto = _letzte_zahl(summen_zeile) if summen_zeile else None
+    # Eine 0,00 ist nur dann die Endsumme, wenn es keine groessere gibt —
+    # Rechnungen fuehren Zwischenzeilen ("Total Taxes: 0.00") mit derselben
+    # Beschriftung wie ihre Endsumme.
+    gewaehlt = _summe_waehlen(end_kandidaten) or _summe_waehlen(summen_kandidaten)
+    if gewaehlt and gewaehlt[1] <= 0:
+        ersatz = _summe_waehlen(summen_kandidaten + end_kandidaten)
+        if ersatz and ersatz[1] > 0:
+            gewaehlt = ersatz
+    summen_zeile, brutto = gewaehlt if gewaehlt else (None, None)
     steuer = steuer_wert
     # Eine Summenzeile der Form "Summe <netto> <steuer> <brutto>" traegt die
     # Steuer selbst — erkennbar an der Probe netto+steuer==brutto. Ohne sie
@@ -595,8 +699,7 @@ def pdf_lesen(text: str, dateiname: str = "", logins=EIGENE_LOGINS) -> dict:
             if datum:
                 break
 
-    m = RE_NUMMER.search(flach)
-    nummer = m.group(1) if m else Path(dateiname).stem
+    nummer = nummer_finden(zeilen, dateiname)
 
     lieferant_hinweis = next((z.strip() for z in zeilen if z.strip()), "")
     return {
@@ -815,6 +918,25 @@ def suchfenster(
     return max(1, (heute - min(daten)).days + fenster)
 
 
+def anhang_passt(dateiname: str, eintrag: dict) -> bool:
+    """Gehoert dieser Anhang zur Rechnung — oder haengt er nur daneben?
+
+    Manche Anbieter haengen an dieselbe Mail die Rechnung UND einen
+    Zahlungsbeleg mit eigener Kennung ohne Datum (Echtprobe 2026-09-13: neun
+    FEHLER-Zeilen aus lauter Zweitanhaengen). Das Register-Feld
+    ``anhang_muster`` grenzt das ein; ohne Feld bleibt es bei allen PDFs.
+    Gefiltert wird nach dem Abruf: Graph liefert die Anhaenge einer Nachricht
+    in einem Zug, einzeln laesst sich das nicht anfordern.
+    """
+    muster = eintrag.get("anhang_muster")
+    if not muster:
+        return True
+    try:
+        return bool(re.search(muster, dateiname or "", re.IGNORECASE))
+    except re.error:
+        return True
+
+
 def belege_beschaffen(
     eintrag: dict,
     abgaenge: list[dict],
@@ -873,6 +995,8 @@ def belege_beschaffen(
             }
         for pfad in dateien:
             if pfad.suffix.lower() != ".pdf":
+                continue
+            if not anhang_passt(pfad.name, eintrag):
                 continue
             if not pfad.exists():
                 fehler.append(f"PDF fehlt in der Ablage: {pfad}")
@@ -1418,6 +1542,9 @@ def lauf(
         "mandant": args.mandant,
         "entwuerfe_je_mandant": je_mandant,
         "bereits_im_lauf": bereits_im_lauf,
+        "anlagen_uebersprungen": sum(
+            1 for z in entwuerfe + pdf_ohne_abgang if z.get("art") == ART_ANLAGE
+        ),
         "duplikate_fremder_mandant": sum(
             1
             for z in entwuerfe + pdf_ohne_abgang
@@ -1467,13 +1594,23 @@ def _entwurf_zeile(
         }
     elif beleg.get("datum") is None or beleg.get("brutto") is None:
         taxrule, taxrule_hinweis = taxrule_bestimmen(beleg, eintrag)
+        # WEDER Datum NOCH Betrag: das ist keine Rechnung, sondern eine
+        # Anlage (Kontenuebersicht, Merkblatt). Ein Parserfehler haette
+        # mindestens eines der beiden gefunden — die Unterscheidung steht im
+        # Board, damit eine Beilage nicht wie ein Layout-Bruch aussieht.
+        anlage = beleg.get("datum") is None and beleg.get("brutto") is None
         ergebnis = {
             "status": "FEHLER",
             "beleg_id": None,
             "konto_vorschlag": eintrag.get("konto") or "—",
-            "ausgabe": "Datum oder Betrag im PDF nicht gefunden — Layout geaendert?",
+            "ausgabe": (
+                "Anlage ohne Rechnungsdaten — kein Datum, kein Betrag"
+                if anlage
+                else "Datum oder Betrag im PDF nicht gefunden — Layout geaendert?"
+            ),
             "taxrule": taxrule,
             "taxrule_hinweis": taxrule_hinweis,
+            "art": ART_ANLAGE if anlage else None,
         }
     else:
         ergebnis = entwurf_anlegen(beleg, eintrag, anlegen_fn, wirklich)
@@ -1489,7 +1626,7 @@ def _entwurf_zeile(
         "steuer": beleg.get("steuer"),
         "datum_beleg": beleg.get("datum"),
         "nummer": beleg.get("nummer"),
-        "art": paar["art"],
+        "art": ergebnis.get("art") or paar["art"],
         "pdf": beleg.get("pfad"),
         "ergebnis": ergebnis["status"],
         "beleg_id": ergebnis["beleg_id"],
@@ -1528,7 +1665,8 @@ def render_markdown(ergebnis: dict, args) -> str:
         f"**{k['entwuerfe_angelegt']} Entwuerfe angelegt** · "
         f"{k['vorschau']} Vorschau · {k['duplikate']} Duplikate · "
         f"**{k['owner_zug']} Owner-Zug** · {k['intern']} intern · "
-        f"{k['bereits_im_lauf']} doppelt im Lauf\n"
+        f"{k['bereits_im_lauf']} doppelt im Lauf · "
+        f"{k.get('anlagen_uebersprungen', 0)} Anlagen ohne Rechnungsdaten\n"
     )
     je_mandant = k.get("entwuerfe_je_mandant") or {}
     zeilen.append(
@@ -1601,15 +1739,16 @@ def render_markdown(ergebnis: dict, args) -> str:
     zeilen.append(f"\n## 4. PDF ohne Abgang ({len(ergebnis['pdf_ohne_abgang'])})\n")
     if ergebnis["pdf_ohne_abgang"]:
         zeilen.append(
-            "\n| Datum Beleg | Lieferant | Betrag | Nummer | Beleg | Steuer | Mandant |"
+            "\n| Datum Beleg | Lieferant | Betrag | Nummer | Beleg | Steuer | Mandant | Art |"
         )
-        zeilen.append("|---|---|---:|---|---|---|---|")
+        zeilen.append("|---|---|---:|---|---|---|---|---|")
         for z in ergebnis["pdf_ohne_abgang"]:
             beleg = z["beleg_id"] or z["ergebnis"]
             zeilen.append(
                 f"| {z['datum_beleg']} | {kurz(z['lieferant'], 24)} | "
                 f"{_betrag(z['pdf_betrag'])} {z['waehrung']} | {kurz(str(z['nummer']), 24)} | "
-                f"{beleg} | {z.get('taxrule', '')} | {z.get('mandant', '')} |"
+                f"{beleg} | {z.get('taxrule', '')} | {z.get('mandant', '')} | "
+                f"{kurz(str(z.get('art', '')), 28)} |"
             )
     else:
         zeilen.append("\n(keine)\n")
