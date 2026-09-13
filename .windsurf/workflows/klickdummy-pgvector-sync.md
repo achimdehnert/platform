@@ -428,3 +428,35 @@ Bei Nightly-Läufen: Report nur bei FAIL oder Abweichung >10 % zum Vortag eskali
   Betriebs-Nebenbefund: `git switch -c` im Haupt-Tree wird vom main-tree-guard
   (ADR-233) zurückgesetzt — der Changelog-Weg aus dem Nightly ist ausschließlich
   `repo-session start platform --task <slug>` + Worktree, wie am 11.09.
+- 2026-09-13: **Nightly-Lauf (03:17 UTC), Step 0 gefahren.** fetch + ff-only über alle
+  25 Repos: 24 bereits auf `origin/main`, writing-hub 1 Commit fast-forwarded
+  (Vorlesungsfolien, kein Diff in `klickdummy/` oder `docs/adr/`), dev-hub weiter
+  Nicht-ff (48 Commits hinter, 9 dirty Dateien, platform#2865 offen). Quelländerung
+  seit dem 12.09.-Report (`git log --since` über `klickdummy/` + `docs/adr/`, alle 25
+  Repos): **keine** ⇒ Erwartung 0 `written: true`. R3 PASS: 176/176 `ok`, 0 failed,
+  25 Repos, Producer `iil-klickdummy 1.35.0`, 176 Zeilen = 176 unique `entry_key`,
+  Schema-WARNs 177 unverändert (pg-hub 110, design-hub 36, nl2iot-hub 31, alle
+  getrackt). Discovery 28, frist-hub/meiki-hub/ttz-hub gov-ausgeschlossen (E3) → 25.
+  6 Sonnet-Worker à 27–28 Entries, 10 Entries inline (7 `\n\n` + 3 Kipp-Entries
+  laut 12.09.).
+  **`written: true` = 5, davon 0 legitim — und erstmals einer aus dem Inline-Pfad.**
+  (a) `writing-hub:ADR-190` kam aus dem **Inline-Upsert** (Hauptmodell, kein Worker)
+  mit `written: true` zurück; die Quelldatei wurde zuletzt 2026-07-06 geändert. Der
+  Store-Stand vom 12.09. („Korrektur inline, lesend verifiziert") und der heutige
+  Inline-Schrieb sind also verschieden — mindestens einer von beiden war nicht
+  byte-genau, und welcher, ist nicht mehr feststellbar, weil der Sync-Schrieb sein
+  eigenes Vergleichsobjekt überschreibt. Heutiger Store-Stand lesend gegen das NDJSON
+  geprüft (Umbrüche nach `und`/`der`/`ein`, U+201E + ASCII `"`, Tail `\n`): keine
+  Abweichung sichtbar. **Konsequenz:** „lesend verifiziert" ist eine Sichtprüfung,
+  kein Byte-Vergleich. Die Lehre vom 07.09. („byte-genau ist nur Inline-Upsert") ist
+  damit **relativiert** — inline ist besser, nicht sicher. Ein echter Vergleich braucht
+  den `content_hash` im Search-Ergebnis oder einen Transport ohne LLM (platform#2462).
+  (b) Worker 6 meldete selbst 4 Abweichungen, alle an der bekannten Kipp-Stelle
+  `„…"`: `risk-hub:ADR-049` und `pptx-hub:ADR-004` (Schlusszeichen `"` → U+201C,
+  Variante vom 06.09.), `writing-hub:ADR-184` (Leerzeichen vor `-Autoren-Loop`
+  eingefügt), `writing-hub:ADR-197` (doppeltes Leerzeichen nach `„Research"`).
+  Fünfte und sechste Variante: **eingefügtes bzw. verdoppeltes Leerzeichen**.
+  Korrektur inline (4× `written: true`), lesend verifiziert. Feste Inline-Liste
+  wächst von 3 auf 7: + `risk-hub:ADR-049`, `pptx-hub:ADR-004`, `writing-hub:ADR-184`,
+  `writing-hub:ADR-197`. Beleg als Kommentar an
+  [platform#1733](https://github.com/achimdehnert/platform/issues/1733).
