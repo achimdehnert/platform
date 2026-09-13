@@ -195,8 +195,15 @@ def duplikat(belege: list[dict], beschreibung: str) -> str | None:
             return v["id"]
         if len(ziel) < NUMMER_MIN_TEILSTRING:
             continue
-        if ziel in vorhanden or (
-            len(vorhanden) >= NUMMER_MIN_TEILSTRING and vorhanden in ziel
+        if ziel in vorhanden:
+            return v["id"]
+        # Gegenrichtung nur fuer echte Kennungen: eine Beschreibung, die nur
+        # aus einem Wort besteht ("scribd"), steckt in JEDER Eigenbeleg-Kennung
+        # desselben Anbieters — 13 falsche Dubletten am 2026-09-13.
+        if (
+            len(vorhanden) >= NUMMER_MIN_TEILSTRING
+            and any(ch.isdigit() for ch in vorhanden)
+            and vorhanden in ziel
         ):
             return v["id"]
     return None
