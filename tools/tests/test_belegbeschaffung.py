@@ -1348,3 +1348,14 @@ def test_should_report_no_cross_check_when_no_bestand_is_available(
         lese_fn=_lese_fn,
     )
     assert ergebnis["kennzahlen"]["dubletten_geprueft_gegen"] == []
+
+
+def test_should_map_known_login_without_account_billed_line():
+    """GitHub-Rechnungslayout: Login steht nur unter BILL TO (Echtprobe 2026-09-13)."""
+    logins = {"orgbeispiel": "iil", "privatbeispiel": "edv"}
+    text = "GitHub, Inc. Invoice # INV1 Support Contact BILL TO 88 Street privatbeispiel privatbeispiel Germany"
+    assert bb.empfaenger_bestimmen(text, logins) == "edv"
+    assert bb.empfaenger_bestimmen("BILL TO orgbeispiel", logins) == "iil"
+    assert bb.empfaenger_bestimmen("BILL TO fremderlogin", logins) == "unklar"
+    # Teilwort darf nicht treffen
+    assert bb.empfaenger_bestimmen("BILL TO privatbeispiel2", logins) == "unklar"
