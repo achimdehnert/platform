@@ -91,7 +91,7 @@ def register_datei(tmp_path) -> Path:
                         "absender": "noreply@example.invalid",
                         "betreff": "Payment Receipt",
                         "ordner": ["Beispielordner"],
-                        "eigene_logins": ["testkonto"],
+                        "logins": {"testkonto": "iil", "privatkonto": "edv"},
                         "taxrule": "12",
                         "waehrung": "USD",
                     },
@@ -809,3 +809,275 @@ def test_should_not_match_internal_register_entry_for_a_dropbox_file():
     ]
     assert bb.eintrag_aus_ablage("kontoauszug-04.pdf", "", register) is None
     assert bb.eintrag_aus_ablage("4711.pdf", "Beispiel Cloud", register) is not None
+
+
+# ── Hoster-Layout: Summe nach den Positionen (#3118) ───────────────────────
+
+PDF_HOSTER = """
+Beispiel Hoster GmbH
+Rechnungsnummer: 090000000000
+Rechnungsdatum: 16.04.2026
+Gesamtuebersicht
+Service zeitraum Netto Steuer Brutto
+Projekt "eins" 03/2026 140,55 EUR 26,70 EUR 167,25 EUR
+Projekt "zwei" 03/2026 62,99 EUR 11,97 EUR 74,96 EUR
+Summe 203,54 EUR 38,67 EUR 242,21 EUR
+Der Rechnungsbetrag ist sofort faellig ohne Abzug, zahlbar nicht spaeter als 10 Tage nach Rechnungsdatum.
+Position 1 CPX42 Cloud Server Monate 2 25,4900 EUR 50,9800 EUR
+Zwischensumme 140,55 EUR
+Position 2 CCX33 Cloud Server Monate 1 62,4900 EUR 62,4900 EUR
+Zwischensumme 62,99 EUR
+Beispiel Hoster GmbH Industriestr. 25 Bankverbindung:
+USt-IdNr. DE000000000 info@hoster.invalid
+"""
+
+
+def test_should_read_the_total_line_that_stands_after_the_positions():
+    """Zwischensummen NACH der Endsumme, ein Fliesstext mit 'Rechnungsbetrag …
+    10 Tage' und eine Anschrift mit 'Industriestr.' — alle drei haben den
+    Parser im Echtlauf in die Irre gefuehrt (#3118)."""
+    feld = bb.pdf_lesen(PDF_HOSTER, "hoster.pdf")
+    assert feld["brutto"] == 242.21
+    assert feld["steuer"] == 38.67
+    assert feld["datum"] == "2026-04-16"
+
+
+def test_should_not_take_a_number_from_running_text_as_the_total():
+    text = (
+        "Rechnung\nGesamtbetrag 50,00 EUR\nDer Rechnungsbetrag ist zahlbar in 10 Tagen."
+    )
+    assert bb.pdf_lesen(text, "x.pdf")["brutto"] == 50.00
+
+
+def test_should_not_read_a_street_number_as_tax():
+    """'ust' steckt in 'Industriestr.' — ohne Wortgrenze wurde die Hausnummer
+    zum Steuerbetrag."""
+    text = (
+        "Rechnung\nGesamtbetrag 50,00 EUR\nBeispiel GmbH Industriestr. 25 Musterstadt"
+    )
+    assert bb.pdf_lesen(text, "x.pdf")["steuer"] == 0.00
+
+
+# ── Steuerregel aus dem PDF (#3118) ────────────────────────────────────────
+
+
+def test_should_prefer_taxrule_9_when_the_pdf_shows_german_vat():
+    beleg = {"steuer": 19.00}
+    taxrule, hinweis = bb.taxrule_bestimmen(beleg, {"taxrule": "12"})
+    assert taxrule == "9"
+    assert "12" in hinweis and "9" in hinweis
+
+
+def test_should_keep_the_register_taxrule_when_the_pdf_shows_no_vat():
+    taxrule, hinweis = bb.taxrule_bestimmen({"steuer": 0.00}, {"taxrule": "12"})
+    assert taxrule == "12"
+    assert hinweis == ""
+
+
+def test_should_pass_the_corrected_taxrule_to_the_draft(tmp_path, register_datei):
+    """Register sagt 12 (Reverse Charge), das PDF weist USt aus — angelegt
+    wird mit 9, und das Board sagt, warum."""
+    postfach = _Postfach({"m1": ("Beispielordner", "r.pdf", PDF_RECHNUNG_EUR_KOMMA)})
+    anleger = _Anleger()
+    args = _args(
+        tmp_path,
+        register_datei,
+        [_abgang("2026-04-07", "—", 119.00, "BEISPIEL PLATTFORM INC")],
+    )
+    ergebnis = bb.lauf(
+        args,
+        HEUTE,
+        suche_fn=postfach.suche_fn,
+        download_fn=postfach.download_fn,
+        anlegen_fn=anleger,
+        lese_fn=_lese_fn,
+    )
+    assert anleger.aufrufe[0].taxrule == "9"
+    assert ergebnis["entwuerfe"][0]["taxrule"] == "9"
+    assert "Register 12" in bb.render_markdown(ergebnis, args)
+
+
+# ── Dedup innerhalb eines Laufs (#3118) ────────────────────────────────────
+
+
+def test_should_count_the_same_invoice_number_only_once_per_run(
+    tmp_path, register_datei
+):
+    """Rechnungsmail und Zahlungsbeleg tragen dieselbe Nummer — nur die erste
+    Fundstelle wird zur Vorschau-Zeile."""
+    postfach = _Postfach(
+        {
+            "m1": ("Beispielordner", "invoice.pdf", PDF_RECEIPT_USD),
+            "m2": ("Beispielordner", "receipt.pdf", PDF_RECEIPT_USD),
+        }
+    )
+    ergebnis = bb.lauf(
+        _args(
+            tmp_path,
+            register_datei,
+            [_abgang("2026-04-10", "—", 43.05, "BEISPIEL PLATTFORM INC")],
+        ),
+        HEUTE,
+        suche_fn=postfach.suche_fn,
+        download_fn=postfach.download_fn,
+        anlegen_fn=_Anleger(),
+        lese_fn=_lese_fn,
+    )
+    assert ergebnis["kennzahlen"]["bereits_im_lauf"] == 1
+    assert len(ergebnis["entwuerfe"]) + len(ergebnis["pdf_ohne_abgang"]) == 1
+
+
+# ── Mandanten iil | edv | beide (#3112) ────────────────────────────────────
+
+
+def _edv_lauf(tmp_path, register_datei, mandant: str, monkeypatch, vorhanden=True):
+    monkeypatch.setattr(bb, "secret_datei", lambda m: tmp_path / f"token-{m}")
+    if vorhanden:
+        (tmp_path / "token-edv").write_text("KEY=synthetisch", encoding="utf-8")
+    postfach = _Postfach({"m1": ("inbox", "r.pdf", PDF_RECHNUNG_EUR_EDV)})
+    anleger = _Anleger()
+    ergebnis = bb.lauf(
+        _args(
+            tmp_path,
+            register_datei,
+            [_abgang("2026-04-07", "Beispiel Cloud Europe", 742.56)],
+            mandant=mandant,
+            anlegen=True,
+        ),
+        HEUTE,
+        suche_fn=postfach.suche_fn,
+        download_fn=postfach.download_fn,
+        anlegen_fn=anleger,
+        lese_fn=_lese_fn,
+    )
+    return ergebnis, anleger
+
+
+def test_should_create_edv_invoice_in_the_edv_mandant(
+    tmp_path, register_datei, monkeypatch
+):
+    ergebnis, anleger = _edv_lauf(tmp_path, register_datei, "edv", monkeypatch)
+    assert [ns.mandant for ns in anleger.aufrufe] == ["edv"]
+    assert ergebnis["pdf_ohne_abgang"][0]["mandant"] == "edv"
+    assert ergebnis["kennzahlen"]["entwuerfe_je_mandant"] == {"edv": 1}
+    assert not any(z["art"] == "anderer Mandant (edv)" for z in ergebnis["owner"])
+
+
+def test_should_keep_edv_invoice_as_owner_move_in_iil_mode(
+    tmp_path, register_datei, monkeypatch
+):
+    ergebnis, anleger = _edv_lauf(tmp_path, register_datei, "iil", monkeypatch)
+    assert anleger.aufrufe == []
+    assert any(z["art"] == "anderer Mandant (edv)" for z in ergebnis["owner"])
+
+
+def test_should_report_missing_edv_access_instead_of_aborting(
+    tmp_path, register_datei, monkeypatch
+):
+    ergebnis, anleger = _edv_lauf(
+        tmp_path, register_datei, "beide", monkeypatch, vorhanden=False
+    )
+    assert anleger.aufrufe == []
+    arten = [z["art"] for z in ergebnis["owner"]]
+    assert "edv-Zugang fehlt" in arten
+    assert "anderer Mandant (edv)" in arten
+
+
+def test_should_never_create_a_draft_for_an_unclear_recipient(
+    tmp_path, register_datei, monkeypatch
+):
+    """Auch mit --mandant beide bleibt ein Beleg ohne erkennbaren Empfaenger
+    Owner-Sache — geraten wird nie."""
+    monkeypatch.setattr(bb, "secret_datei", lambda m: tmp_path / "token")
+    (tmp_path / "token").write_text("KEY=synthetisch", encoding="utf-8")
+    fremdes_konto = PDF_RECEIPT_USD.replace(
+        "Account billed testkonto", "Account billed fremdkonto"
+    )
+    postfach = _Postfach({"m1": ("Beispielordner", "r.pdf", fremdes_konto)})
+    anleger = _Anleger()
+    ergebnis = bb.lauf(
+        _args(
+            tmp_path,
+            register_datei,
+            [_abgang("2026-04-10", "—", 43.05, "BEISPIEL PLATTFORM INC")],
+            mandant="beide",
+            anlegen=True,
+        ),
+        HEUTE,
+        suche_fn=postfach.suche_fn,
+        download_fn=postfach.download_fn,
+        anlegen_fn=anleger,
+        lese_fn=_lese_fn,
+    )
+    assert anleger.aufrufe == []
+    assert any(z["art"] == "Empfaenger unklar" for z in ergebnis["owner"])
+
+
+# ── Login → Mandant (Owner-Wort 2026-09-13) ────────────────────────────────
+
+
+def test_should_map_each_billing_login_to_its_own_mandant():
+    """Zwei Konten, zwei Firmen: das Register sagt, welches Konto zu welcher
+    gehoert — vorher war das persoenliche Konto pauschal 'unklar'."""
+    zuordnung = {"orgkonto": "iil", "privatkonto": "edv"}
+    org = PDF_RECEIPT_USD.replace("Account billed testkonto", "Account billed orgkonto")
+    privat = PDF_RECEIPT_USD.replace(
+        "Account billed testkonto", "Account billed privatkonto"
+    )
+    fremd = PDF_RECEIPT_USD.replace(
+        "Account billed testkonto", "Account billed fremdkonto"
+    )
+    assert bb.empfaenger_bestimmen(org, zuordnung) == "iil"
+    assert bb.empfaenger_bestimmen(privat, zuordnung) == "edv"
+    assert bb.empfaenger_bestimmen(fremd, zuordnung) == "unklar"
+
+
+def test_should_still_accept_the_old_login_list_as_all_iil():
+    """Die Vorlage im Repo und aeltere lokale Register tragen eine Liste —
+    die bleibt gueltig und meint den eigenen Mandanten."""
+    assert bb.logins_zuordnung({"eigene_logins": ["Orgkonto"]}) == {"orgkonto": "iil"}
+    assert bb.logins_zuordnung({"logins": {"A": "EDV"}}) == {"a": "edv"}
+    assert bb.logins_zuordnung({}) == {}
+
+
+def test_should_ignore_a_login_mapped_to_an_unknown_mandant():
+    """Ein Tippfehler im Register darf keinen Beleg in einen erfundenen
+    Mandanten legen."""
+    text = PDF_RECEIPT_USD.replace("Account billed testkonto", "Account billed konto")
+    assert bb.empfaenger_bestimmen(text, {"konto": "gibtsnicht"}) == "unklar"
+
+
+def test_should_create_drafts_in_both_mandanten_by_login(
+    tmp_path, register_datei, monkeypatch
+):
+    """Zwei Zahlungsbelege desselben Lieferanten, zwei Konten — mit
+    --mandant beide entsteht je Beleg ein Entwurf im richtigen Mandanten."""
+    monkeypatch.setattr(bb, "secret_datei", lambda m: tmp_path / "token")
+    (tmp_path / "token").write_text("KEY=synthetisch", encoding="utf-8")
+    privat = PDF_RECEIPT_USD.replace(
+        "Account billed testkonto", "Account billed privatkonto"
+    ).replace("ch_synthetisch123", "ch_synthetisch999")
+    postfach = _Postfach(
+        {
+            "m1": ("Beispielordner", "org.pdf", PDF_RECEIPT_USD),
+            "m2": ("Beispielordner", "privat.pdf", privat),
+        }
+    )
+    anleger = _Anleger()
+    ergebnis = bb.lauf(
+        _args(
+            tmp_path,
+            register_datei,
+            [_abgang("2026-04-10", "—", 43.05, "BEISPIEL PLATTFORM INC")],
+            mandant="beide",
+            anlegen=True,
+        ),
+        HEUTE,
+        suche_fn=postfach.suche_fn,
+        download_fn=postfach.download_fn,
+        anlegen_fn=anleger,
+        lese_fn=_lese_fn,
+    )
+    assert sorted(ns.mandant for ns in anleger.aufrufe) == ["edv", "iil"]
+    assert ergebnis["kennzahlen"]["entwuerfe_je_mandant"] == {"edv": 1, "iil": 1}
+    assert ergebnis["owner"] == []
