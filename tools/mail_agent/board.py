@@ -43,6 +43,7 @@ Kommandos:
   --vergib-nummern    fehlende Nummern vergeben (schreibt den Ledger)
   --render            Board erzeugen (stdout, mit --nach in die Board-Datei)
   --aktionen [TYP]    Aktionskatalog zeigen
+  --typen [--json]    offene Vorgaenge nach Typ (Export ohne Inhalte)
   --erledigt NR       Vorgang schliessen (#3049; --am, --grund optional).
                       Verlangt einen Anker (V3, platform#3015 K4) — ohne
                       Anker Exit 1 mit Setz-Vorschlag; --ohne-anker erzwingt.
@@ -992,6 +993,47 @@ def kategorie(ledger: dict, nr) -> str:
     return f"Vorgang-{nr}" + (f"-{key}" if key else "")
 
 
+def typen_uebersicht(ledger: dict) -> dict[str, dict[str, Any]]:
+    """Offene Vorgaenge nach Typ — Zaehler und aelteste Frist, sonst nichts.
+
+    Die Datenschutz-Grenze dieses Exports (Charta Art. 2): Aus dem Ledger
+    verlaesst NUR der Typ das Haus. `thread_key`, `gegenueber`, `kurz`, `notiz`
+    und jeder Betreff bleiben hier. Die Morgen-Zeitung laeuft auf einem anderen
+    Host und braucht fuer die Frage „gibt es dazu etwas Offenes?" nicht mehr als
+    ein Schlagwort und eine Zahl — alles darueber waere Inhalt, nicht Bezug.
+
+    „Offen" heisst `bucket != erledigt`; die aelteste Frist ist das kleinste
+    gesetzte Datum der Gruppe, `None` wenn keiner der Vorgaenge eine Frist hat.
+    """
+    uebersicht: dict[str, dict[str, Any]] = {}
+    for vorgang in vorgaenge_von(ledger):
+        if vorgang.get("bucket") == "erledigt":
+            continue
+        typ = str(vorgang.get("typ") or "ohne-typ")
+        eintrag = uebersicht.setdefault(typ, {"offen": 0, "aelteste_frist": None})
+        eintrag["offen"] += 1
+        frist = vorgang.get("frist")
+        if isinstance(frist, str) and frist:
+            bisher = eintrag["aelteste_frist"]
+            if bisher is None or frist < bisher:
+                eintrag["aelteste_frist"] = frist
+    return {typ: uebersicht[typ] for typ in sorted(uebersicht)}
+
+
+def typen_export(ledger: dict, stand: str) -> dict[str, Any]:
+    """Der Export in Uebergabeform: Stand plus Typen, kein weiteres Feld."""
+    return {"stand": stand, "typen": typen_uebersicht(ledger)}
+
+
+def typen_render(uebersicht: dict[str, dict[str, Any]]) -> str:
+    """Dieselben Zahlen fuer das Auge — drei Spalten, keine vierte."""
+    zeilen = ["typ | offen | aelteste_frist"]
+    for typ, werte in uebersicht.items():
+        frist = werte["aelteste_frist"] or "-"
+        zeilen.append(f"{typ} | {werte['offen']} | {frist}")
+    return "\n".join(zeilen) + "\n"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pruefe", action="store_true", help="Invarianten pruefen")
@@ -1052,6 +1094,14 @@ def main(argv: list[str] | None = None) -> int:
         help="geschlossenen Vorgang wieder oeffnen (#3049)",
     )
     parser.add_argument(
+        "--typen",
+        action="store_true",
+        help="offene Vorgaenge nach Typ (nur Typ, Zahl, aelteste Frist — keine Inhalte)",
+    )
+    parser.add_argument(
+        "--json", action="store_true", help="zu --typen: Ausgabe als JSON"
+    )
+    parser.add_argument(
         "--kategorie",
         metavar="NR",
         help="Schlagwort eines Vorgangs ausgeben (fuer `draft_mail --kategorie` bzw. "
@@ -1094,6 +1144,15 @@ def main(argv: list[str] | None = None) -> int:
     ledger_pfad = Path(args.ledger) if args.ledger else LEDGER
     ledger = lade(ledger_pfad, {"vorgaenge": []})
     anker_pfad = Path(args.anker) if args.anker else ANKER
+
+    if args.typen:
+        stand = args.stichtag or date.today().isoformat()
+        date.fromisoformat(stand)  # frueh scheitern statt halb exportieren
+        if args.json:
+            print(json.dumps(typen_export(ledger, stand), ensure_ascii=False, indent=2))
+        else:
+            sys.stdout.write(typen_render(typen_uebersicht(ledger)))
+        return 0
 
     if args.kategorie:
         try:

@@ -1023,3 +1023,124 @@ class TestErledigtVerlangtAnker:
             ["--ledger", str(ledger), "--erledigt", "7", "--am", "2026-09-13"]
         )
         assert rc == 0
+# --- V10: Typen-Export für die Morgen-Zeitung -------------------------------
+
+#: Ein Ledger mit drei Typen, der in jedem Feld etwas trägt, das NICHT
+#: hinausdarf. Die Werte sind erfunden, aber an der Stelle, an der im echten
+#: Ledger Name, Betreff und Notiz stehen — genau darüber prüft
+#: `test_should_export_no_value_from_content_fields`.
+GEHEIM = {
+    "thread_key": "pruefstein-fadenschluessel",
+    "gegenueber": "Pruefstein Gegenueber",
+    "notiz": "Pruefstein Notiztext",
+}
+
+
+def _typen_ledger():
+    return _ledger(
+        _v(
+            nr=1,
+            typ="dsb-beratung",
+            bucket="owner",
+            frist="2026-09-20",
+            kurz="Kurz-Pruefstein-A",
+            **GEHEIM,
+        ),
+        _v(
+            nr=2,
+            typ="dsb-beratung",
+            bucket="agent",
+            frist="2026-09-15",
+            kurz="Kurz-Pruefstein-B",
+            **GEHEIM,
+        ),
+        _v(nr=3, typ="loeschung", bucket="warten", kurz="Kurz-Pruefstein-C", **GEHEIM),
+        _v(
+            nr=4,
+            typ="betreuung-masterarbeit",
+            bucket="owner",
+            frist="2026-10-01",
+            kurz="Kurz-Pruefstein-D",
+            **GEHEIM,
+        ),
+        _v(
+            nr=5,
+            typ="loeschung",
+            bucket="erledigt",
+            erledigt_am="2026-09-01",
+            kurz="Kurz-Pruefstein-E",
+            **GEHEIM,
+        ),
+        naechste=6,
+    )
+
+
+class TestTypenExport:
+    """`--typen` beantwortet „gibt es dazu etwas Offenes?" — und sonst nichts."""
+
+    def test_should_group_open_items_by_type(self, pfade):
+        uebersicht = board.typen_uebersicht(_typen_ledger())
+
+        assert uebersicht["dsb-beratung"]["offen"] == 2
+        assert uebersicht["loeschung"]["offen"] == 1
+        assert uebersicht["betreuung-masterarbeit"]["offen"] == 1
+
+    def test_should_report_the_earliest_deadline_of_a_type(self, pfade):
+        uebersicht = board.typen_uebersicht(_typen_ledger())
+
+        assert uebersicht["dsb-beratung"]["aelteste_frist"] == "2026-09-15"
+        assert uebersicht["loeschung"]["aelteste_frist"] is None
+
+    def test_should_not_count_closed_items_as_open(self, pfade):
+        """Vorgang 5 ist erledigt — sonst stünde bei `loeschung` eine 2."""
+        assert board.typen_uebersicht(_typen_ledger())["loeschung"]["offen"] == 1
+
+    def test_should_carry_no_field_beyond_count_and_deadline(self, pfade):
+        export = board.typen_export(_typen_ledger(), "2026-09-13")
+
+        assert set(export) == {"stand", "typen"}
+        assert export["stand"] == "2026-09-13"
+        for werte in export["typen"].values():
+            assert set(werte) == {"offen", "aelteste_frist"}
+
+    def test_should_export_no_value_from_content_fields(self, pfade, tmp_path, capsys):
+        """Die eigentliche Zusage: kein Name, kein Betreff, keine Notiz wandert mit.
+
+        Geprüft wird gegen den Fixture-Text selbst — nicht gegen eine Liste von
+        Feldnamen. Ein neues Inhaltsfeld im Ledger fiele einer Feldnamen-Liste
+        durch, dem Vergleich mit dem Fixture-Wert nicht.
+        """
+        ledger = tmp_path / "ledger.json"
+        ledger.write_text(json.dumps(_typen_ledger()), encoding="utf-8")
+
+        assert board.main(["--ledger", str(ledger), "--typen"]) == 0
+        text = capsys.readouterr().out
+        assert board.main(["--ledger", str(ledger), "--typen", "--json"]) == 0
+        text += capsys.readouterr().out
+
+        for wert in [*GEHEIM.values(), *[f"Kurz-Pruefstein-{b}" for b in "ABCDE"]]:
+            assert wert not in text, f"{wert!r} hat die Arbeitsliste verlassen"
+
+    def test_should_print_three_columns_and_no_fourth(self, pfade, tmp_path, capsys):
+        ledger = tmp_path / "ledger.json"
+        ledger.write_text(json.dumps(_typen_ledger()), encoding="utf-8")
+
+        board.main(["--ledger", str(ledger), "--typen"])
+        zeilen = capsys.readouterr().out.strip().split("\n")
+
+        assert zeilen[0] == "typ | offen | aelteste_frist"
+        assert all(len(z.split(" | ")) == 3 for z in zeilen[1:])
+        assert "dsb-beratung | 2 | 2026-09-15" in zeilen
+
+    def test_should_take_the_reference_date_from_stichtag(
+        self, pfade, tmp_path, capsys
+    ):
+        """Ohne festes Datum wäre der Export nicht wiederholbar (#2592 K1)."""
+        ledger = tmp_path / "ledger.json"
+        ledger.write_text(json.dumps(_typen_ledger()), encoding="utf-8")
+
+        board.main(
+            ["--ledger", str(ledger), "--typen", "--json", "--stichtag", "2026-01-02"]
+        )
+
+        assert json.loads(capsys.readouterr().out)["stand"] == "2026-01-02"
