@@ -507,3 +507,61 @@ def test_should_not_match_the_same_voucher_to_two_debits(monkeypatch):
     stati = [p["status"] for p in positionen]
     assert stati.count("sicher") == 1
     assert [p["beleg"]["id"] for p in positionen if p["status"] == "sicher"] == ["v1"]
+
+
+def test_should_book_draft_voucher_to_status_100_before_book_amount():
+    """Entwurf (50) → saveVoucher Status 100 → bookAmount (Echtprobe 2026-09-13: 422 ohne diesen Schritt)."""
+    import datetime as dt
+
+    aufrufe: list[tuple[str, str]] = []
+    zustand = {"status": "50", "paid": "0"}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        pfad = request.url.path.replace("/api/v1", "")
+        aufrufe.append((request.method, pfad))
+        if pfad == "/VoucherPos":
+            return httpx.Response(200, json={"objects": [{"id": "p1"}]})
+        if pfad == "/Voucher/Factory/saveVoucher":
+            body = request.read().decode()
+            assert (
+                "voucher%5Bstatus%5D=100" in body
+                and "voucherPosSave%5B0%5D%5Bid%5D=p1" in body
+            )
+            zustand["status"] = "100"
+            return httpx.Response(
+                200, json={"objects": {"voucher": {"id": "v1", "status": "100"}}}
+            )
+        if pfad == "/Voucher/v1/bookAmount":
+            assert zustand["status"] == "100"
+            zustand["paid"] = "10.99"
+            return httpx.Response(200, json={"objects": {"ok": True}})
+        if pfad == "/Voucher/v1":
+            return httpx.Response(
+                200,
+                json={
+                    "objects": [
+                        {
+                            "id": "v1",
+                            "status": zustand["status"],
+                            "sumGross": 10.99,
+                            "paidAmount": zustand["paid"],
+                        }
+                    ]
+                },
+            )
+        raise AssertionError(f"unerwartet: {request.method} {pfad}")
+
+    c = httpx.Client(
+        base_url="https://my.sevdesk.de/api/v1", transport=httpx.MockTransport(handler)
+    )
+    position = {
+        "id": "t1",
+        "beleg": {"id": "v1", "status": "50", "sumGross": 10.99, "paidAmount": "0"},
+        "checkAccount": {"id": "ca"},
+    }
+    ergebnis = ka.buchen(c, position, dt.date(2026, 9, 13))
+    assert ergebnis["warnung"] is None
+    pfade = [p for _, p in aufrufe]
+    assert pfade.index("/Voucher/Factory/saveVoucher") < pfade.index(
+        "/Voucher/v1/bookAmount"
+    )
