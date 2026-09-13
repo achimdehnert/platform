@@ -70,7 +70,9 @@ def erkenne_form(inhalt: str) -> tuple[str, list[tuple[str | None, str]]]:
     ``werte`` ist eine Liste aus ``(name, wert)`` — bei ``bare`` ist der Name
     ``None``. Leere Zeilen und ``#``-Kommentare zaehlen nicht als Inhalt.
     """
-    zeilen = [z for z in inhalt.splitlines() if z.strip() and not z.strip().startswith("#")]
+    zeilen = [
+        z for z in inhalt.splitlines() if z.strip() and not z.strip().startswith("#")
+    ]
     if not zeilen:
         return "leer", []
 
@@ -101,7 +103,13 @@ def ist_riskant(form: str) -> bool:
 
 def validiere_dateiname(name: str) -> str | None:
     """``None`` = ok, sonst Fehlertext. NAME darf keinen Pfadanteil tragen."""
-    if not name or "/" in name or "\\" in name or ".." in name or name != Path(name).name:
+    if (
+        not name
+        or "/" in name
+        or "\\" in name
+        or ".." in name
+        or name != Path(name).name
+    ):
         return f"ungueltiger Dateiname (kein Pfadanteil erlaubt): {name!r}"
     return None
 
@@ -198,7 +206,9 @@ def modus_alle(basis: Path) -> int:
     return 1 if warnungen else 0
 
 
-def modus_datei(basis: Path, name: str, http_provider: str | None, var: str | None) -> int:
+def modus_datei(
+    basis: Path, name: str, http_provider: str | None, var: str | None
+) -> int:
     fehler = validiere_dateiname(name)
     if fehler:
         print(fehler, file=sys.stderr)

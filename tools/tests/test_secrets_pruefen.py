@@ -223,7 +223,9 @@ def test_should_exit_1_when_http_getter_returns_401(tmp_path, monkeypatch, capsy
     assert "groq http 401" in out
 
 
-def test_should_report_network_error_as_klasse_not_traceback(tmp_path, monkeypatch, capsys):
+def test_should_report_network_error_as_klasse_not_traceback(
+    tmp_path, monkeypatch, capsys
+):
     schreib(tmp_path, "groq_key", "wert-fuer-groq\n")
 
     def platzt(url, headers):
@@ -271,7 +273,16 @@ def test_should_reject_http_without_a_matching_var(tmp_path, capsys):
     schreib(tmp_path, "kv-secret", "A=1\nB=2\n")
 
     rc = sp.main(
-        ["--datei", "kv-secret", "--basis", str(tmp_path), "--http", "groq", "--var", "FEHLT"]
+        [
+            "--datei",
+            "kv-secret",
+            "--basis",
+            str(tmp_path),
+            "--http",
+            "groq",
+            "--var",
+            "FEHLT",
+        ]
     )
 
     assert rc == 2
@@ -287,7 +298,9 @@ def test_should_use_the_single_bare_value_for_http_without_var(tmp_path, monkeyp
 
     monkeypatch.setattr(sp, "http_get", fake)
 
-    rc = sp.main(["--datei", "bare-secret", "--basis", str(tmp_path), "--http", "openai"])
+    rc = sp.main(
+        ["--datei", "bare-secret", "--basis", str(tmp_path), "--http", "openai"]
+    )
 
     assert rc == 0
     assert gesehen["auth"] == "Bearer der-bare-wert"
