@@ -15,7 +15,19 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 **Archiv älterer Stände und ausgelagerter Sektionen:**
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
 
-## ⚡ Aktueller Stand (2026-09-12 abends — Auftragsraum fertig, fav0 live, sevdesk-Routinen #3102)
+## ⚡ Aktueller Stand (2026-09-13 — sevdesk-Belegstrecke K9 gebaut und im Echtlauf, EDV-Rechnungen fortgeschrieben)
+
+**Zeitanker:** HEAD `46261dd7` · `rev-list --count` 4435 · geschrieben 2026-09-13
+
+**K9 Belegbeschaffung ([#3102](https://github.com/achimdehnert/platform/issues/3102)):** `tools/sevdesk/belegbeschaffung.py` holt Rechnungs-PDFs aus dem IIL-Postfach und der Owner-Ablage `~/shared/inbox/invoices/`, ordnet sie Bankabgaengen zu und legt Beleg-Entwuerfe in beiden Mandanten an (PRs #3117, #3119, #3120, #3121, alle gemergt; Register `~/.claude/sevdesk-bezugswege.json` mit `mandant`, `logins`, `ohne_abgang`, `taxrule_rc`; Dubletten per Teilstring ueber beide Bestaende; Steuer aus dem PDF). Echtlauf: 20 Entwuerfe (edv 16, iil 4), 11 Eigenbelege (Scribd, 6837/Regel 9/Steuer 0 wie die Handbuchungen), 9 IIL-Eingangsbelege der EDV-Rechnungen (5900). Owner-Regeln: KI-Abos und Bibliocad auf 6837; Anthropic, OpenAI, Bibliocad, GitHub-Privatkonto im Mandanten edv; Spotify privat. Versand per API vom Freigabe-Filter geblockt — Owner sendet in der Oberflaeche.
+
+**EDV → IIL:** 23 Rechnungen seit 04/2024 geprueft, Monatspaket 2.350 EUR netto war bis 30.11.2025 abgerechnet; RE-1024–RE-1032 (Dez 2025–Aug 2026) angelegt, 8 vom Owner versendet, RE-1028 noch Entwurf; 5 Rechnungen aus 2025 (RE-1018–1022, 47.957 EUR) unbezahlt. Der edv-Mandant verlangt `invoice[taxRate]` beim Anlegen ([#3112](https://github.com/achimdehnert/platform/issues/3112)).
+
+**Befunde:** [#3115](https://github.com/achimdehnert/platform/issues/3115) origin-tls gpu-ollama nicht messbar · [#3116](https://github.com/achimdehnert/platform/issues/3116) Auftragsraum zaehlt `?` als Wort · #3118 Parser-Nachlauf (geschlossen) · Merge von #3117 endete mit HTTP 502, Commit lag trotzdem auf main (Memory ergaenzt) · `ruff format --check` per Pipe maskiert, Commit amendet · Subagent erfand eine Issue-Nummer im Commit-Text.
+
+**Zielzustand:** K9 Werkzeug-Kriterien erfuellt (fremder Blick 0d: 6 von 7 mit Beleg), Massstab **nicht erreicht** — 2/17 Lieferanten-Abgaenge mit Beleg, beide vorbestehend, weil die fehlenden Rechnungen nicht im Postfach liegen (Belegquelle, nicht Werkzeug); Owner-Reste (RE-1028, GitHub Mai–Juli, Microsoft Juni/Juli, Dashlane, Newshosting, 20.000 hin/zurueck) im [#3102-Kommentar](https://github.com/achimdehnert/platform/issues/3102#issuecomment-5652883200) getrackt. **SA-4:** 4 Anwendungen (Merges unter SA-M W1/M1) · 0 Einzel-OK · 0 Fehlanwendungen. **0h fremder Blick:** siehe Log. Anker: pgvector `session:platform:20260913:20260913-b5c8d6c1`.
+
+## ⚡ Stand (2026-09-12 abends — Auftragsraum fertig, fav0 live, sevdesk-Routinen #3102)
 
 **Zeitanker:** HEAD `442d4269` · `rev-list --count` 4428 · geschrieben 2026-09-12
 
@@ -24,20 +36,6 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 **sevdesk-Routinen [#3102](https://github.com/achimdehnert/platform/issues/3102)** (SA-4): Rechnungslauf mit Versand-Gate (#3105), Timer am 10. (#3107), Zahlungsabgleich (#3103), Kostenabgleich + `--mandant` (#3108), Eingangsbelege (#3104), Fixes (#3109). Owner-Befunde in Ledger 210/211.
 
 **Zielzustand:** #3015 und #3079 Stufe 1 erreicht; #3102 K1–K5, K7 erreicht; K6/K8 verschoben mit Tracking (#3112, Akte); Drill K5 am 2026-10-10. **SA-4:** 0 Fehlanwendungen. **SA-M:** 8 eigene Merges (M1/M2), news-hub#44/chat-hub#88 M3.
-
-## ⚡ Stand (2026-09-11 vormittags — Go-Liste abgearbeitet, Gateway-Transport gemessen: nicht begehbar, netcup gekuendigt)
-
-**Zeitanker:** HEAD `a987852f` · `rev-list --count` 4403 · geschrieben 2026-09-11
-
-**iil-assist O5 gemessen — negativ:** erste Sitzung mit sichtbaren Gateway-Werkzeugen; `dienst_katalog(repo=dev-hub)` scheitert am Routing, obwohl `ports.yaml` den Eintrag traegt. Drei Ursachen, jede einzeln belegt ([mcp-hub#264](https://github.com/achimdehnert/mcp-hub/issues/264)): Routing-Datei nicht im Container (`/root/github/platform` auf prod ist ein Symlink ins Runner-Verzeichnis, `/opt/platform/infra` nicht gemountet), kein `ssh` und keine Schluessel im Image, prod erreicht prod-b nicht (dort laeuft dev-hub). D2 (ssh + docker exec) ist so nicht umsetzbar; Entscheidungsvorlage mit drei Wegen, Empfehlung Dienst-Route je Hub mit Cloudflare-Access-Dienst-Token, in [#3011](https://github.com/achimdehnert/platform/issues/3011). Zustandsdatei `chat_rundlauf: fehlgeschlagen`, Befund B4 ([#3071](https://github.com/achimdehnert/platform/pull/3071)). MVP 2 wartet auf die Entscheidung.
-
-**Owner-Go-Liste ausgefuehrt:** #3068 (Handover, 4 Faeden auf Erledigtes) und #2984 (Gate-Registry) gemergt; `mail-links.service`/`todo-board.service` neu gestartet; risk-hub Prod per Owner-Dispatch + Owner-Klick auf `e8c64cd7` = main ([risk-hub#729](https://github.com/iilgmbh/risk-hub/issues/729)); fuenf Journal-Befunde verankert (#2908, #2990, #2950). Freigabe-Filter blockte Prod-Dispatch und Gate-Freigabe zweimal trotz Go — Kommando per `!` an den Owner, nicht umgangen; die vom Owner eingetragene autoMode-Regel traegt ein Doppel-Leerzeichen und greift nicht.
-
-**netcup gekuendigt (Owner-Wort):** drei tote Runner-Registrierungen in mcp-hub geloescht; `hosts.yaml` mit netcup unter `ehemalige_hosts:` und Test liegt als [#3093](https://github.com/achimdehnert/platform/pull/3093) vor (Push ging am 2026-09-11 durch); `hosts_audit` meldet dort nur den vorbestehenden Befund `todo-board auf dev-desktop` ([#2507](https://github.com/achimdehnert/platform/issues/2507)), der nicht Teil der Aenderung ist. Offsite-Cron zielt weiter auf netcup → [#2968](https://github.com/achimdehnert/platform/pull/2968). Stand in [#2950](https://github.com/achimdehnert/platform/issues/2950).
-
-**Befund Werkzeug:** beide Session-Worktrees dieser Sitzung wurden ueber Nacht entfernt (Leases `.closed`), obwohl ein PR offen (#3071) bzw. Commits ungepusht waren; Branches blieben erhalten, kein Verlust. Ursache nicht ermittelt — Reaper-Log ohne Eintrag.
-
-**Zielzustand:** Sitzungsziel „weiter mit Chat- und App-Funktionen" — **nicht erreicht** (Chat-Rundlauf negativ), **verschoben mit Tracking** (#3011 Entscheidung, mcp-hub#264 Befund). Go-Punkte: erreicht bis auf 39/40/41/28 (Owner-Zug). **SA-4:** 0 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen. **SA-M:** 3 eigene Merges (#3068 M1 mit Owner-Zitat, #2984 M2, alle W1). **Scope-Checkpoint:** in #3011 festgehalten. **0h fremder Blick:** 0d — alle fünf Kriterien ERFÜLLT mit Beleg (Grauton: D2 stand formal noch auf „entschieden“, jetzt „revision offen“); 0e — drei JA (0h-Ergebnis fehlte im Log, Sitzungs-ID ohne Anker, Fäden 22/24 ohne Link), alle drei im selben Zug behoben ([#3090](https://github.com/achimdehnert/platform/issues/3090)). **Dauerhafte Anker der Sitzung:** pgvector `session:platform:20260911:577a8b8c`, Outline-Lesson `2026-09-10-gateway-galt-als-deployt-…-ZqOAZ2fog7`, Konzept `…-058-spbZ8iixmq` (Stand 2026-09-11).
 
 ## Offene Fäden (über den Session-Stand hinaus)
 
@@ -54,6 +52,7 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 0. Freigabe-Zeile je Prod-Schritt als Regel bestaetigen — aus dem Stand vom 2026-09-09 abends gerettet (Owner-Entscheid).
 
 - **[2982]** Retro 136735: sieben ueberlebende Befunde ohne Umsetzungsartefakt — beim Auslagern der Sektion vom 2026-09-08 hierher gerettet — https://github.com/achimdehnert/platform/issues/2982
+- **[3102]** sevdesk-Routinen: K9 im Echtlauf, Owner-Reste (RE-1028, GitHub/Microsoft-Belege, 20.000 hin/zurueck) im Kommentar — https://github.com/achimdehnert/platform/issues/3102
 - **[3015]** Auftrag Mailcheck/To-do/Zeitung: K1–K5 erreicht, Reste #3050/#3080; Abschluss-Kommentar und Schliessen offen — https://github.com/achimdehnert/platform/issues/3015
 - **[3027]** Auslagerungs-Gate liest Fremd-Repos jetzt per Flotten-Token; schliesst erst, wenn eine Auslagerung mit Fremd-Refs im Gate gruen laeuft — https://github.com/achimdehnert/platform/issues/3027
 - **[3079]** Auftragsraum Stufe 1 fertig; naechster Schritt Kill-Gate-Auswertung 2026-10-08 — https://github.com/achimdehnert/platform/issues/3079
