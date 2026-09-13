@@ -1,0 +1,156 @@
+{
+  "_hinweis": "Vorlage fuer ~/.claude/sevdesk-bezugswege.json (K9, platform#3102). Die echte Datei lebt NUR lokal — sie darf Ordnernamen, Zugangsseiten und Muster mit Personennamen enthalten, dieses Repo ist oeffentlich. Reihenfolge zaehlt: der erste Treffer gewinnt.",
+  "_felder": {
+    "muster": "regulaerer Ausdruck, ohne Beachtung der Gross-/Kleinschreibung gegen 'Zahler Verwendungszweck' geprueft",
+    "weg": "intern (kein Lieferantenbeleg noetig) | mail (Rechnung liegt im Postfach) | portal (nur ueber Kundenportal abrufbar)",
+    "lieferant": "Name, der als supplierName in den sevdesk-Beleg geht",
+    "absender": "Absender-Teilstring fuer die Postfachsuche (nur weg=mail)",
+    "betreff": "Betreff-Teilstring fuer die Postfachsuche (nur weg=mail)",
+    "ordner": "Liste von Postfach-Ordnern, 'inbox' fuer den Posteingang (nur weg=mail)",
+    "eigene_logins": "Kontonamen, die im Beleg den eigenen Mandanten belegen (z. B. 'Account billed <login>'). Ohne Angabe bleibt der Empfaenger unklar und geht an den Owner — der echte Login gehoert in die lokale Datei, nicht in diese Vorlage",
+    "taxrule": "9 DE-Vorsteuer | 12 Reverse Charge Drittland | 14 Reverse Charge EU",
+    "waehrung": "Waehrung der Rechnung (EUR, USD) — nur Erwartung, gelesen wird sie aus dem PDF",
+    "konto": "Kontovorschlag zur Anzeige; gesetzt wird er NIE automatisch (Owner bestaetigt in sevdesk)",
+    "url": "Abrufseite (nur weg=portal)",
+    "grund": "Warum dieser Weg — steht im Board",
+    "ohne_abgang": "optional: true = dieser Lieferant wird auch dann abgesucht, wenn kein Abgang zu ihm passt (bezahlt ueber ein anderes Konto); Fenster ist dann --tage"
+  },
+  "eintraege": [
+    {
+      "muster": "github",
+      "weg": "mail",
+      "lieferant": "GitHub Inc.",
+      "absender": "noreply@github.com",
+      "betreff": "Payment Receipt",
+      "ordner": [
+        "Github",
+        "inbox"
+      ],
+      "eigene_logins": [
+        "<eigener-konto-login>"
+      ],
+      "taxrule": "12",
+      "waehrung": "USD",
+      "konto": "",
+      "grund": "Zahlungsbeleg kommt als PDF-Anhang; Drittland ohne USt, Rechnung in USD"
+    },
+    {
+      "muster": "microsoft",
+      "weg": "mail",
+      "lieferant": "Microsoft",
+      "absender": "microsoft-noreply@microsoft.com",
+      "betreff": "Rechnung",
+      "ordner": [
+        "inbox"
+      ],
+      "taxrule": "9",
+      "waehrung": "EUR",
+      "konto": "",
+      "grund": "Rechnungsmail mit PDF-Anhang; Empfaenger steht im PDF und ist NICHT zwingend der Postfach-Inhaber"
+    },
+    {
+      "muster": "ionos",
+      "weg": "mail",
+      "lieferant": "IONOS SE",
+      "absender": "noreply@ionos.de",
+      "betreff": "Rechnung",
+      "ordner": [
+        "IIL.Lieferanten/Hosting"
+      ],
+      "taxrule": "9",
+      "waehrung": "EUR",
+      "konto": "",
+      "grund": "Hosting-Rechnung als PDF-Anhang im Lieferantenordner"
+    },
+    {
+      "muster": "anthropic",
+      "weg": "mail",
+      "lieferant": "Anthropic, PBC",
+      "absender": "invoice+statements@mail.anthropic.com",
+      "betreff": "Your receipt from Anthropic",
+      "ordner": [
+        "inbox",
+        "IIL.Finanzen/Rechnungen"
+      ],
+      "ohne_abgang": true,
+      "taxrule": "12",
+      "waehrung": "USD",
+      "konto": "",
+      "grund": "wird nicht vom Geschaeftskonto bezahlt — Rechnung liegt trotzdem im Postfach"
+    },
+    {
+      "muster": "groq",
+      "weg": "mail",
+      "lieferant": "Groq LLC",
+      "absender": "groq.com",
+      "betreff": "Your Invoice from Groq",
+      "ordner": [
+        "inbox",
+        "Info",
+        "IIL.Finanzen/Rechnungen/01-in-sevdesk"
+      ],
+      "ohne_abgang": true,
+      "taxrule": "12",
+      "waehrung": "USD",
+      "konto": "",
+      "grund": "wird nicht vom Geschaeftskonto bezahlt — Rechnung liegt trotzdem im Postfach"
+    },
+    {
+      "muster": "spotify",
+      "weg": "portal",
+      "lieferant": "Spotify",
+      "url": "https://www.spotify.com/account/",
+      "grund": "keine Rechnungsmail — Beleg nur im Kundenportal abrufbar"
+    },
+    {
+      "muster": "dashlane",
+      "weg": "portal",
+      "lieferant": "Dashlane",
+      "url": "https://app.dashlane.com/",
+      "grund": "keine Rechnungsmail — Beleg nur im Kundenportal abrufbar"
+    },
+    {
+      "muster": "newshosting",
+      "weg": "portal",
+      "lieferant": "Newshosting",
+      "url": "https://www.newshosting.com/my-account/",
+      "grund": "keine Rechnungsmail — Beleg nur im Kundenportal abrufbar"
+    },
+    {
+      "muster": "minijob|lohn|gehalt|sammel-?ueberweisung|sammel-?überweisung",
+      "weg": "intern",
+      "lieferant": "Lohn",
+      "grund": "Lohnabrechnung, kein Lieferantenbeleg — Buchung ueber die Lohnkonten"
+    },
+    {
+      "muster": "knappschaft|rentenversicherung|sozialversicherung",
+      "weg": "intern",
+      "lieferant": "Sozialversicherung",
+      "grund": "Beitragsnachweis statt Rechnung"
+    },
+    {
+      "muster": "finanzkasse|finanzamt|koerpst|koerperschaftsteuer|steuernr|steuernummer|umsatzsteuer-?vorauszahlung",
+      "weg": "intern",
+      "lieferant": "Finanzkasse",
+      "grund": "Steuerzahlung, kein Lieferantenbeleg"
+    },
+    {
+      "muster": "girocard|kontof|abschluss per|entgeltabrechnung",
+      "weg": "intern",
+      "lieferant": "Bank",
+      "grund": "Kontofuehrung/Kartenpreis — Beleg ist der Kontoauszug selbst"
+    },
+    {
+      "muster": "ust-anteil|umsatzsteuer",
+      "weg": "intern",
+      "lieferant": "Umsatzsteuer",
+      "grund": "USt-Anteil der Bankabrechnung, kein eigener Lieferantenbeleg"
+    },
+    {
+      "muster": "eigenuebertrag|privatentnahme|uebertrag auf",
+      "weg": "intern",
+      "lieferant": "Eigenuebertrag",
+      "grund": "Umbuchung zwischen eigenen Konten — Personennamen gehoeren in die lokale Datei, nicht in diese Vorlage"
+    }
+  ]
+}

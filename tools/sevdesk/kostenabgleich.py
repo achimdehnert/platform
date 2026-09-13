@@ -392,6 +392,77 @@ def buchen_lauf(
     return log
 
 
+def positionen_ermitteln(
+    client_, heute: dt.date, tage: int, regeln: list[dict]
+) -> list[dict]:
+    """Alle offenen Bankabgaenge des Fensters als fertige Positionen.
+
+    Laedt Umsaetze, offene Lieferantenbelege und die Kontenhilfe, ordnet jeden
+    Abgang zu (``zuordnen_position``), haengt den Kontovorschlag an und
+    markiert wiederkehrende Serien (``cluster_wiederkehrend``). Eigene
+    Funktion, damit andere Werkzeuge dieselbe Liste bekommen, ohne ``main()``
+    und dessen Ausgabe zu durchlaufen (K9, platform#3102) — API-Fehler reicht
+    sie unveraendert nach oben, der Aufrufer entscheidet ueber den Exit-Code.
+    """
+    seit = (heute - dt.timedelta(days=tage)).isoformat()
+    alle_tx = hole(client_, "/CheckAccountTransaction", startDate=seit)
+    alle_belege = hole(client_, "/Voucher", creditDebit=CREDIT)
+    guidance_r = client_.get("/ReceiptGuidance/forExpense")
+    guidance_r.raise_for_status()
+    guidance = guidance_r.json().get("objects") or []
+
+    belege = [v for v in alle_belege if str(v.get("status")) in VOUCHER_STATUS_OFFEN]
+
+    abgaenge = sorted(
+        (
+            t
+            for t in alle_tx
+            if str(t.get("status")) == STATUS_TX_OFFEN
+            and float(t.get("amount") or 0) < 0
+        ),
+        key=lambda t: t.get("valueDate") or "",
+    )
+
+    positionen: list[dict] = []
+    for nr, t in enumerate(abgaenge, 1):
+        betrag = abs(float(t.get("amount") or 0))
+        zweck = t.get("paymtPurpose") or ""
+        name = t.get("payeePayerName") or ""
+        anzeige = zahler_anzeige(name, zweck)
+        datum = _datum(t.get("valueDate"))
+        kandidaten = [
+            v for v in belege if abs(voucher_offener_betrag(v) - betrag) <= 0.01
+        ]
+        ergebnis = zuordnen_position(anzeige, betrag, datum, kandidaten)
+        vorschlag, vorschlag_grund = kontovorschlag(
+            regeln, guidance, anzeige, zweck, betrag
+        )
+        positionen.append(
+            {
+                "nr": nr,
+                "id": t.get("id"),
+                "datum": (t.get("valueDate") or "")[:10],
+                "betrag": betrag,
+                "zahler": anzeige or "—",
+                "zweck": zweck,
+                "status": ergebnis["status"],
+                "grund": ergebnis["grund"],
+                "kandidaten": ergebnis["kandidaten"],
+                "beleg": ergebnis["beleg"],
+                "checkAccount": t.get("checkAccount"),
+                "konto_vorschlag": vorschlag,
+                "konto_grund": vorschlag_grund,
+                "zahler_key": frozenset(worte(anzeige)),
+                "monat": monat_schluessel(datum) if datum else "",
+                "wiederkehrend": None,
+                "beleg_frueher_vorhanden": False,
+            }
+        )
+
+    cluster_wiederkehrend(positionen)
+    return positionen
+
+
 def _wiederkehrend_text(p: dict) -> str:
     if not p.get("wiederkehrend"):
         return ""
@@ -466,6 +537,10 @@ def als_json(positionen: list[dict], gebucht: list[dict], kennzahlen: dict) -> d
         return {
             "datum": p["datum"],
             "zahler": p["zahler"],
+            # Ohne geparsten Zahlernamen ("—") ist der Verwendungszweck die
+            # einzige Spur auf den Lieferanten — nachgelagerte Werkzeuge
+            # (belegbeschaffung.py, K9) brauchen ihn deshalb im JSON.
+            "zweck": kurz(p.get("zweck", ""), 80),
             "betrag": p["betrag"],
             "status": p["status"],
             "grund": p["grund"],
@@ -522,65 +597,10 @@ def main() -> int:
 
     c = client(args.mandant)
     try:
-        seit = (heute - dt.timedelta(days=args.tage)).isoformat()
-        alle_tx = hole(c, "/CheckAccountTransaction", startDate=seit)
-        alle_belege = hole(c, "/Voucher", creditDebit=CREDIT)
-        guidance_r = c.get("/ReceiptGuidance/forExpense")
-        guidance_r.raise_for_status()
-        guidance = guidance_r.json().get("objects") or []
+        positionen = positionen_ermitteln(c, heute, args.tage, regeln)
     except Exception as exc:  # httpx.HTTPError, ConnectError, etc.
         print(f"ABBRUCH: API-Fehler — {exc}")
         return 3
-
-    belege = [v for v in alle_belege if str(v.get("status")) in VOUCHER_STATUS_OFFEN]
-
-    abgaenge = sorted(
-        (
-            t
-            for t in alle_tx
-            if str(t.get("status")) == STATUS_TX_OFFEN
-            and float(t.get("amount") or 0) < 0
-        ),
-        key=lambda t: t.get("valueDate") or "",
-    )
-
-    positionen: list[dict] = []
-    for nr, t in enumerate(abgaenge, 1):
-        betrag = abs(float(t.get("amount") or 0))
-        zweck = t.get("paymtPurpose") or ""
-        name = t.get("payeePayerName") or ""
-        anzeige = zahler_anzeige(name, zweck)
-        datum = _datum(t.get("valueDate"))
-        kandidaten = [
-            v for v in belege if abs(voucher_offener_betrag(v) - betrag) <= 0.01
-        ]
-        ergebnis = zuordnen_position(anzeige, betrag, datum, kandidaten)
-        vorschlag, vorschlag_grund = kontovorschlag(
-            regeln, guidance, anzeige, zweck, betrag
-        )
-        positionen.append(
-            {
-                "nr": nr,
-                "id": t.get("id"),
-                "datum": (t.get("valueDate") or "")[:10],
-                "betrag": betrag,
-                "zahler": anzeige or "—",
-                "zweck": zweck,
-                "status": ergebnis["status"],
-                "grund": ergebnis["grund"],
-                "kandidaten": ergebnis["kandidaten"],
-                "beleg": ergebnis["beleg"],
-                "checkAccount": t.get("checkAccount"),
-                "konto_vorschlag": vorschlag,
-                "konto_grund": vorschlag_grund,
-                "zahler_key": frozenset(worte(anzeige)),
-                "monat": monat_schluessel(datum) if datum else "",
-                "wiederkehrend": None,
-                "beleg_frueher_vorhanden": False,
-            }
-        )
-
-    cluster_wiederkehrend(positionen)
 
     sicher = [p for p in positionen if p["status"] == "sicher"]
     unklar = [p for p in positionen if p["status"] == "unklar"]
