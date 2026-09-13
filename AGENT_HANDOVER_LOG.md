@@ -3567,3 +3567,29 @@ mcp-hub#264, #3011 und #3071; Grauton D2-Status behoben. Clear-Haerte-Agent — 
 alle im selben Zug geschlossen. Anker: pgvector `session:platform:20260911:577a8b8c`,
 Outline-Lesson `…-ZqOAZ2fog7`, Konzept `…-spbZ8iixmq`, Worktree-Befund platform#3089.
 
+
+## 2026-09-13 — sevdesk-Belegstrecke K9, EDV-Rechnungen fortgeschrieben, Eigenbelege
+
+Sitzungsziel (Owner): „arbeiten mit sevdesk optimieren — Belege aus IIL-Account holen, aus den
+Dienstleister-Domains holen, zuordnen, Verbuchung vorbereiten". Gebaut als K9 in #3102:
+`belegbeschaffung.py` mit Register, Postfach- und Ablage-Weg, Mandanten-Routing, Dedup ueber
+beide Bestaende, Steuer aus dem PDF (vier PRs, alle unter SA-M gemergt). Echtlauf legte 20
+Entwuerfe an; dazu 11 Scribd-Eigenbelege und 9 IIL-Eingangsbelege fuer EDV-Rechnungen.
+
+EDV → IIL: Monatspaket war bis November 2025 abgerechnet, neun Monatsentwuerfe angelegt; der
+Versand per API blieb am Freigabe-Filter haengen (auch das Ablegen des Skripts) — der Owner
+sendete selbst, acht von neun. Fuenf 2025er-Rechnungen sind unbezahlt.
+
+Drei Werkzeugbefunde: Merge-502 mit Commit auf main (#3117, per REST geschlossen);
+`ruff format --check` per Pipe maskiert; Subagent-Commit mit erfundener Issue-Nummer.
+Owner-Entscheide des Tages (Konten, Mandanten, Scribd) liegen im lokalen Register und in der
+Memory-Datei `project_sevdesk_invoice_pipeline`. Fremder Blick (0h): Ergebnis unten.
+
+**Fremder Blick (0h):** Abnahme-Agent — 6 von 7 K9-Kriterien ERFUELLT mit Beleg (Register,
+PDF-Felder, status 50 fest, Idempotenz, Listen, Out of Scope), Massstab NICHT ERFUELLT: der
+Echtlauf-Kommentar nannte Rohzahlen statt des Anteils gegen die 17 Lieferanten-Abgaenge;
+nachgetragen als 2/17 (beide vorbestehend, Belegquelle fehlt). Clear-Haerte-Agent — Frage 1 JA
+(Zielabgleich und Bibliocad-Konto widerspruechlich), Fragen 2/3 NEIN; fuenf Luecken benannt,
+alle im selben Zug geschlossen (Issue-Kommentar, Memory, dieser Absatz). Sitzungs-ID
+b5c8d6c1, pgvector `session:platform:20260913:20260913-b5c8d6c1`, Outline-Lesson
+`2026-09-13-merge-502-…-s2mpZVEXNR`, Konzept `sevdesk-routinen-…-HKE7rEpwyY` aktualisiert.
