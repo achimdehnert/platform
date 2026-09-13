@@ -18,6 +18,8 @@ python3 tools/mail_agent/kettencheck.py
 # 3) Beide Boards bauen (Action-Board + Arbeitsliste), reproduzierbar
 make boards
 make boards-check      # zweimal mit festem Stichtag, byteweise gleich
+# 4) Rausch-Kandidaten der letzten 30 Tage vorschlagen (V7, verschiebt nichts)
+make rausch-kandidaten
 ```
 
 ```bash
@@ -108,6 +110,7 @@ Prüfung: `make betrieb-check` — ein Vorschlag ohne Gegenrede und Alternative 
 | 6 | `--erledigt` verankert oder verweigert | Schließen wird langsamer und hängt am Postfach, gerade wenn es schnell gehen sollte | Ablage läuft je Vorgang scharf, sobald der einzelne bereit ist, statt alles oder nichts am Tagesende | gebaut, [#3015](https://github.com/achimdehnert/platform/issues/3015) (dieser PR) |
 | 7 | Secret-Prüfhelfer (Hash, HTTP, Formprüfung) | Der Guard hat heute korrekt gefeuert, das Leck kam vom Sourcing, nicht vom Lesen — ein weiterer Lese-Guard hätte nichts geändert | Werte gar nicht mehr lokal halten, nur Hashes; der echte Test läuft im Zielcontainer, nicht auf dem Client | gebaut, [PR #3126](https://github.com/achimdehnert/platform/pull/3126) |
 | 8 | V5: Antwort-Vorlagen je Vorgangstyp (`antwort.py` + `vorlagen/<typ>/<art>.md`) | Ein Standardtext liest sich als Standardtext; der Owner schreibt ihn ohnehin um, dann hat die Vorlage nur den leeren Rahmen gespart und eine Floskel mehr erzeugt | Statt fester Vorlage die letzten fünf gesendeten Antworten desselben Typs als Stilquelle nehmen und den Entwurf daraus bauen — der Ton käme dann aus echten Mails statt aus einer gepflegten Datei | gebaut (dieser PR, K4 aus [#3015](https://github.com/achimdehnert/platform/issues/3015)); eigene Vorlagen für betreuung, betreuung-masterarbeit, dsb-beratung, alle übrigen Typen über den Rückfall `vorgang` |
+| 9 | Rausch-Kandidaten vorschlagen (V7) | Der Owner muss weiter jeden Kandidaten bestätigen, der Lärm ist nur verschoben, nicht weg | Serverseitige Postfach-Regel beim Provider einrichten statt jedem Agent-Move hinterherzulaufen | gebaut, #3015 |
 ## Modellfest-Drill (K5)
 
 Gefahren am 2026-09-10 mit zwei frischen Sitzungen (Sonnet), Vorlage aus dieser Akte (`python3 tools/session_skill_drill.py --vorlage --datei docs/betrieb/mailcheck.md`): beide Läufe 9/9 erfüllt, 0 Abweichungen im Vergleich (`--vergleich`), Kennzahlen in beiden Läufen identisch (87 Vorgänge, 0 ohne Frist, 116 unverankert, 185 Links / 5 tot, Index 1 Tag alt). Beide Läufe schlugen dasselbe vor (Index-Alter auf die Arbeitsliste, Backlog 2). Protokolle liegen im Sitzungs-Scratchpad; die Zahlen stehen im Messjournal.
