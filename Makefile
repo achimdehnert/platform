@@ -7,7 +7,7 @@
 #
 # =============================================================================
 
-.PHONY: help menu boards boards-check kette aufraeumen test lint betrieb-check sevdesk-rechnungslauf sevdesk-zahlungsabgleich sevdesk-kostenabgleich setup windsurf-clean windsurf-status windsurf-force
+.PHONY: help menu boards boards-check kette aufraeumen test lint betrieb-check sevdesk-rechnungslauf sevdesk-zahlungsabgleich sevdesk-kostenabgleich sevdesk-belegbeschaffung setup windsurf-clean windsurf-status windsurf-force
 
 # Default target
 .DEFAULT_GOAL := help
@@ -176,6 +176,9 @@ sevdesk-zahlungsabgleich: ## K4 (#3102): offene Bankeingaenge/Rechnungen abgleic
 
 sevdesk-kostenabgleich: ## K7 (#3102): Bankabgaenge gegen offene Belege abgleichen, Kontovorschlag (read-only)
 	@python3 tools/sevdesk/kostenabgleich.py
+
+sevdesk-belegbeschaffung: ## K9 (#3102): fehlende Lieferantenbelege aus dem Postfach holen — Vorschau, legt nichts an
+	@python3 tools/sevdesk/belegbeschaffung.py
 
 # =============================================================================
 # DEPLOYMENT (Platzhalter für zukünftige Erweiterung)

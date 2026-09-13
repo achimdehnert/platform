@@ -159,6 +159,86 @@ sonst bis zu zwei Treffer aus `GET /ReceiptGuidance/forExpense`; kein Treffer
 - Exit-Codes: `0` alles zugeordnet oder nichts offen, `2` unklare Faelle oder
   fehlende Belege (Owner-Blick noetig), `3` API-Fehler.
 
+## Belegbeschaffung
+
+`tools/sevdesk/belegbeschaffung.py` — K9 aus platform#3102. Nimmt die Abgaenge
+ohne Beleg aus dem Kostenabgleich und beschafft die fehlenden Rechnungen,
+statt sie Monat fuer Monat von Hand aus dem Postfach zu fischen.
+
+### Zweck
+
+Der Kostenabgleich sagt, **wo** ein Beleg fehlt — nicht, **woher** er kommt.
+Ein lokales Bezugswege-Register (`~/.claude/sevdesk-bezugswege.json`, Vorlage
+`tools/sevdesk/sevdesk-bezugswege.example.json`) beantwortet je Lieferant
+genau das: `intern` (es gibt keinen Lieferantenbeleg), `mail` (Rechnung liegt
+im IIL-Postfach) oder `portal` (nur ueber das Kundenkonto abrufbar). Fuer den
+`mail`-Weg holt das Werkzeug die PDFs ueber Microsoft Graph (read-only), liest
+Betrag/Datum/Nummer/Empfaenger aus dem PDF, ordnet PDF und Abgang zu und legt
+sevdesk-Beleg-**ENTWUERFE** an (Status 50 aus `beleg_entwurf.py`).
+
+### Kommandos
+
+```bash
+python3 tools/sevdesk/belegbeschaffung.py                       # Vorschau, legt NICHTS an
+python3 tools/sevdesk/belegbeschaffung.py --tage 60             # engeres Fenster
+python3 tools/sevdesk/belegbeschaffung.py --eingabe lauf.json   # Kostenabgleich-JSON statt Live-Lauf
+python3 tools/sevdesk/belegbeschaffung.py --anlegen             # Entwuerfe wirklich anlegen
+python3 tools/sevdesk/belegbeschaffung.py --json                # maschinenlesbar
+```
+
+`make sevdesk-belegbeschaffung` ruft die Vorschau. Das Board liegt unter
+`~/.claude/boards/sevdesk-belegbeschaffung.md`, die PDFs unter
+`~/.claude/sevdesk-belege/<Lieferant>/`.
+
+### Die vier Listen
+
+1. **Entwuerfe angelegt / Vorschau** — PDF und Abgang passen zusammen
+   (`sicher` bei EUR-Gleichstand, `fremdwaehrung` im Kursband). Zeigt
+   Beleg-ID bzw. `VORSCHAU`/`DUPLIKAT` und den Kontovorschlag.
+2. **Owner-Zug** — Portal-Abruf (mit Link), Beleg nicht im Postfach, anderer
+   Mandant (`edv`, mit lokalem PDF-Pfad), Empfaenger unklar, kein Bezugsweg
+   im Register, Ordner nicht gefunden.
+3. **intern (kein Lieferantenbeleg)** — Lohn, Steuern, Kontofuehrung,
+   Eigenuebertraege, jeweils mit Kontovorschlag aus dem Kostenabgleich.
+4. **PDF ohne Abgang** — Rechnung gefunden, kein passender Abgang im Fenster.
+   Fuer den eigenen Mandanten wird trotzdem ein Entwurf angelegt; der Abgang
+   kommt spaeter oder lief ueber ein anderes Konto.
+
+### Gates
+
+- Ohne `--anlegen` ist der Lauf eine Vorschau: sevdesk wird nur gelesen, es
+  wird **kein PDF hochgeladen** (`beleg_entwurf.anlegen` kehrt im Trockenlauf
+  vor dem Upload zurueck).
+- Gebucht wird **nie** — `beleg_entwurf.py` legt ausschliesslich Status 50 an.
+- Ein Buchungskonto wird **nie** gesetzt; der Vorschlag steht nur im Board.
+- `--anlegen` wirkt nur fuer Mandant `iil`; Belege an `edv` werden gelistet,
+  nicht angelegt (`beleg_entwurf.py` ist noch fest auf IIL, platform#3112).
+- Das Postfach wird nur gelesen — nichts verschoben, markiert oder geloescht.
+- Idempotenz: bereits geholte Nachrichten stehen in
+  `~/.claude/sevdesk-belegbeschaffung-index.json` und werden nicht erneut
+  heruntergeladen; doppelte Entwuerfe faengt der description-Dedup in
+  `beleg_entwurf.py` als `DUPLIKAT` ab.
+- Exit-Codes: `0` keine Owner-Zug-Zeile, `2` Owner-Zug noetig, `3`
+  Register/Zugang/API.
+
+### Bekannte Fallen
+
+- **Empfaenger != Postfach**: Eine Rechnung im IIL-Postfach kann an den
+  zweiten Mandanten adressiert sein (real gesehen 2026-09-13). Der Empfaenger
+  wird deshalb aus dem PDF-Text gelesen, nie aus dem Postfach geschlossen.
+  Zahlungsbelege ohne Empfaengerzeile (nur `Account billed <login>`) gelten
+  nur fuer die im Register hinterlegten eigenen Logins als eigener Mandant,
+  sonst als "Empfaenger unklar".
+- **Fremdwaehrung**: Der Abgang steht in EUR, das Receipt in USD. Eine solche
+  Zuordnung ist nie "sicher", sondern `fremdwaehrung` — den Stichtagskurs
+  setzt sevdesk selbst (`propertyForeignCurrencyDeadline`).
+- **Zahler `—`**: Bei Lastschriften ohne geparsten Namen traegt nur der
+  Verwendungszweck den Lieferanten; das Register wird deshalb gegen
+  `"<zahler> <zweck>"` geprueft. Dafuer gibt `kostenabgleich.py --json` den
+  Zweck je Position mit aus.
+- **Fehlendes Register**: bricht mit Exit 3 ab und nennt die Vorlage — ein
+  leeres Register saehe sonst aus wie "nichts zu tun".
+
 ## Mandanten
 
 K8 aus platform#3102: der Owner betreibt zwei sevdesk-Mandanten — die IIL GmbH
