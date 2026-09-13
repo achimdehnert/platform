@@ -327,10 +327,53 @@ def _dd_mm_yyyy(datum: dt.date) -> str:
     return datum.strftime("%d.%m.%Y")
 
 
+def entwurf_buchen(client_, beleg: dict) -> dict:
+    """Entwurf (Status 50) → gebucht (Status 100) — Pflichtschritt vor bookAmount.
+
+    sevdesk lehnt ``bookAmount`` auf einem Entwurf mit 422 ab und den
+    Statuswechsel per ``PUT /Voucher/{id}`` mit „Use saveVoucher instead"
+    (Echtprobe 2026-09-13, Mandant edv). Also ``saveVoucher`` mit id, Status
+    100 und den vorhandenen Positionen (ids), danach Kontrolle per GET.
+    """
+    if str(beleg.get("status")) != "50":
+        return beleg
+    pos = client_.get(
+        "/VoucherPos",
+        params={
+            "voucher[id]": beleg["id"],
+            "voucher[objectName]": "Voucher",
+            "limit": 50,
+        },
+    )
+    pos.raise_for_status()
+    daten = {
+        "voucher[id]": str(beleg["id"]),
+        "voucher[objectName]": "Voucher",
+        "voucher[mapAll]": "true",
+        "voucher[status]": "100",
+    }
+    for i, p in enumerate(pos.json().get("objects") or []):
+        daten[f"voucherPosSave[{i}][id]"] = str(p["id"])
+        daten[f"voucherPosSave[{i}][objectName]"] = "VoucherPos"
+        daten[f"voucherPosSave[{i}][mapAll]"] = "true"
+    r = client_.post("/Voucher/Factory/saveVoucher", data=daten)
+    r.raise_for_status()
+    pruef = client_.get(f"/Voucher/{beleg['id']}")
+    pruef.raise_for_status()
+    objekte = pruef.json().get("objects") or []
+    danach = objekte[0] if isinstance(objekte, list) and objekte else objekte
+    if str(danach.get("status")) != "100":
+        raise RuntimeError(
+            f"Beleg {beleg['id']}: Status nach saveVoucher ist {danach.get('status')}, nicht 100"
+        )
+    return danach
+
+
 def buchen(client_, position: dict, heute: dt.date) -> dict:
     """Bucht EINEN sicheren Abgang voll auf seinen Beleg (immer FULL_PAYMENT —
-    Teilbetraege ohne Owner-Wort sind ausgeschlossen)."""
-    beleg = position["beleg"]
+    Teilbetraege ohne Owner-Wort sind ausgeschlossen). Ein Entwurf wird vorher
+    gebucht (Status 100), siehe ``entwurf_buchen``."""
+    beleg = entwurf_buchen(client_, position["beleg"])
     checkaccount = position.get("checkAccount") or {}
     payload = {
         "amount": voucher_offener_betrag(beleg),
