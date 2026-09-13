@@ -171,7 +171,7 @@ Der Kostenabgleich sagt, **wo** ein Beleg fehlt — nicht, **woher** er kommt.
 Ein lokales Bezugswege-Register (`~/.claude/sevdesk-bezugswege.json`, Vorlage
 `tools/sevdesk/sevdesk-bezugswege.example.json`) beantwortet je Lieferant
 genau das: `intern` (es gibt keinen Lieferantenbeleg), `mail` (Rechnung liegt
-im IIL-Postfach) oder `portal` (nur ueber das Kundenkonto abrufbar). Fuer den
+im IIL-Postfach) oder `portal` (nur ueber das Kundenportal abrufbar). Fuer den
 `mail`-Weg holt das Werkzeug die PDFs ueber Microsoft Graph (read-only), liest
 Betrag/Datum/Nummer/Empfaenger aus dem PDF, ordnet PDF und Abgang zu und legt
 sevdesk-Beleg-**ENTWUERFE** an (Status 50 aus `beleg_entwurf.py`).
@@ -193,7 +193,7 @@ python3 tools/sevdesk/belegbeschaffung.py --ablage-inbox PFAD   # andere Owner-A
 
 **Zweite Quelle: die Owner-Ablage** `~/shared/inbox/invoices/`
 (`--ablage-inbox`, fehlender Ordner ist kein Fehler). Rechnungen, die der
-Owner von Hand aus einem Kundenkonto laedt und dort einstellt, gehen denselben
+Owner von Hand aus einem Kundenportal laedt und dort einstellt, gehen denselben
 Weg wie Postfach-PDFs; der Lieferant wird ueber den Dateinamen, sonst ueber
 den PDF-Text gegen das Register bestimmt, ohne Treffer ist es ein Owner-Zug.
 Die Dateien werden nie verschoben oder geloescht — ein angelegter Beleg wird

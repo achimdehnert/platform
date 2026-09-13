@@ -2,7 +2,7 @@
   "_hinweis": "Vorlage fuer ~/.claude/sevdesk-bezugswege.json (K9, platform#3102). Die echte Datei lebt NUR lokal — sie darf Ordnernamen, Zugangsseiten und Muster mit Personennamen enthalten, dieses Repo ist oeffentlich. Reihenfolge zaehlt: der erste Treffer gewinnt.",
   "_felder": {
     "muster": "regulaerer Ausdruck, ohne Beachtung der Gross-/Kleinschreibung gegen 'Zahler Verwendungszweck' geprueft",
-    "weg": "intern (kein Lieferantenbeleg noetig) | mail (Rechnung liegt im Postfach) | portal (nur ueber Kundenkonto abrufbar)",
+    "weg": "intern (kein Lieferantenbeleg noetig) | mail (Rechnung liegt im Postfach) | portal (nur ueber Kundenportal abrufbar)",
     "lieferant": "Name, der als supplierName in den sevdesk-Beleg geht",
     "absender": "Absender-Teilstring fuer die Postfachsuche (nur weg=mail)",
     "betreff": "Betreff-Teilstring fuer die Postfachsuche (nur weg=mail)",
@@ -100,21 +100,21 @@
       "weg": "portal",
       "lieferant": "Spotify",
       "url": "https://www.spotify.com/account/",
-      "grund": "keine Rechnungsmail — Beleg nur im Kundenkonto abrufbar"
+      "grund": "keine Rechnungsmail — Beleg nur im Kundenportal abrufbar"
     },
     {
       "muster": "dashlane",
       "weg": "portal",
       "lieferant": "Dashlane",
       "url": "https://app.dashlane.com/",
-      "grund": "keine Rechnungsmail — Beleg nur im Kundenkonto abrufbar"
+      "grund": "keine Rechnungsmail — Beleg nur im Kundenportal abrufbar"
     },
     {
       "muster": "newshosting",
       "weg": "portal",
       "lieferant": "Newshosting",
       "url": "https://www.newshosting.com/my-account/",
-      "grund": "keine Rechnungsmail — Beleg nur im Kundenkonto abrufbar"
+      "grund": "keine Rechnungsmail — Beleg nur im Kundenportal abrufbar"
     },
     {
       "muster": "minijob|lohn|gehalt|sammel-?ueberweisung|sammel-?überweisung",

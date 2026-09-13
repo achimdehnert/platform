@@ -18,11 +18,11 @@ Je Abgang ohne Beleg entscheidet ein lokales **Bezugswege-Register**
   sie (Microsoft Graph, read-only), legt sie unter ``~/.claude/sevdesk-belege/``
   ab, liest Betrag/Datum/Nummer/Empfaenger aus dem PDF und ordnet sie dem
   Abgang zu.
-- ``portal``  — die Rechnung gibt es nur im Kundenkonto (Owner-Zug, mit Link).
+- ``portal``  — die Rechnung gibt es nur im Kundenportal (Owner-Zug, mit Link).
 
 Zweite Quelle neben dem Postfach ist die **Owner-Ablage**
 ``~/shared/inbox/invoices/`` (``--ablage-inbox``): Rechnungen, die der Owner
-von Hand aus einem Kundenkonto laedt und dort einstellt, gehen denselben Weg
+von Hand aus einem Kundenportal laedt und dort einstellt, gehen denselben Weg
 wie Postfach-PDFs. Der Lieferant wird ueber Dateiname, sonst ueber den
 PDF-Text gegen das Register bestimmt; ohne Treffer ist das ein Owner-Zug.
 Die Dateien werden nie verschoben oder geloescht — die Schleuse raeumt der
@@ -98,7 +98,7 @@ VORLAGE = Path(__file__).resolve().parent / "sevdesk-bezugswege.example.json"
 STANDARD_REGISTER = Path.home() / ".claude" / "sevdesk-bezugswege.json"
 STANDARD_ABLAGE = Path.home() / ".claude" / "sevdesk-belege"
 #: Zweite Quelle neben dem Postfach: Rechnungen, die der Owner von Hand aus
-#: einem Kundenkonto laedt und hier einstellt (Owner-Entscheid B 2026-08-07,
+#: einem Kundenportal laedt und hier einstellt (Owner-Entscheid B 2026-08-07,
 #: Schleuse ``~/shared``). Fehlt der Ordner, ist das kein Fehler — dann gibt
 #: es eben nichts abzuholen.
 STANDARD_ABLAGE_INBOX = Path.home() / "shared" / "inbox" / "invoices"
