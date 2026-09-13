@@ -1359,3 +1359,191 @@ def test_should_map_known_login_without_account_billed_line():
     assert bb.empfaenger_bestimmen("BILL TO fremderlogin", logins) == "unklar"
     # Teilwort darf nicht treffen
     assert bb.empfaenger_bestimmen("BILL TO privatbeispiel2", logins) == "unklar"
+
+
+# ── Rechnungsnummer: Gruppen und Sonderzeichen (#3133) ─────────────────────
+
+
+def test_should_join_digit_groups_of_an_invoice_number():
+    """Die Nummer steht zur Lesbarkeit in Dreiergruppen — der Parser nahm
+    vorher nur die erste Gruppe."""
+    assert bb.nummer_finden(["Rechnungsnummer 733 934 0350"], "x.pdf") == "7339340350"
+
+
+def test_should_keep_slashes_and_brackets_inside_an_invoice_number():
+    zeile = "Invoice Number D56/(260)257231 [ORIGINAL]"
+    assert bb.nummer_finden([zeile], "x.pdf") == "D56/(260)257231"
+
+
+def test_should_stop_the_invoice_number_at_a_column_gap():
+    zeile = "Abrechnungsnummer S999000111   Kundennummer 4711"
+    assert bb.nummer_finden([zeile], "x.pdf") == "S999000111"
+
+
+def test_should_read_additional_invoice_number_labels():
+    for zeile, erwartet in (
+        ("Rechnungs-Nr. BSP-0001", "BSP-0001"),
+        ("Rechnungsnr. BSP-0002", "BSP-0002"),
+        ("Invoice # BSP-0003", "BSP-0003"),
+        ("Invoice No BSP-0004", "BSP-0004"),
+        ("Receipt # BSP-0005", "BSP-0005"),
+        ("Beleg-Nr. BSP-0006", "BSP-0006"),
+    ):
+        assert bb.nummer_finden([zeile], "x.pdf") == erwartet
+
+
+def test_should_fall_back_to_the_filename_without_a_label():
+    assert bb.nummer_finden(["Nur Fliesstext ohne Kennung"], "beleg-4711.pdf") == (
+        "beleg-4711"
+    )
+
+
+# ── Endsumme schlaegt jede andere Total-Zeile (#3133) ───────────────────────
+
+PDF_MEHRERE_TOTALS = """
+Beispiel Anbieter Ltd.
+Invoice Number D56/(260)257231 [ORIGINAL]
+Rechnungsdatum 01.09.2026
+Total: 4.00 USD
+VAT (0.00%): 0.00 USD
+Total include VAT: 4.00 USD
+Total Monthly Recurring Services (Current Month): 4.00 USD
+"""
+
+PDF_DEUTSCHE_ENDSUMME = """
+Beispiel Anbieter GmbH
+Rechnungsnummer 733 934 0350
+Rechnungsdatum 01.09.2026
+Summe Betrag 36,09 €
++19 % USt. auf 36,09 € 6,86 €
+Rechnungsbetrag 42,95 €
+"""
+
+
+def test_should_prefer_the_total_including_vat_line():
+    """Ohne Vorrang gewann die letzte Total-Zeile und der Beleg trug 0,00."""
+    feld = bb.pdf_lesen(PDF_MEHRERE_TOTALS, "x.pdf")
+    assert feld["brutto"] == 4.00
+    assert feld["steuer"] == 0.00
+    assert feld["nummer"] == "D56/(260)257231"
+
+
+def test_should_prefer_the_german_rechnungsbetrag_over_the_subtotal():
+    feld = bb.pdf_lesen(PDF_DEUTSCHE_ENDSUMME, "x.pdf")
+    assert feld["brutto"] == 42.95
+    assert feld["steuer"] == 6.86
+    assert feld["nummer"] == "7339340350"
+
+
+def test_should_not_read_a_vat_total_line_as_the_tax_amount():
+    """Eine Zeile mit Steuer- UND Summenwort ist eine Endsumme."""
+    text = "Rechnung\nTotal include VAT: 4.00 USD\n"
+    assert bb.pdf_lesen(text, "x.pdf")["brutto"] == 4.00
+    assert bb.pdf_lesen(text, "x.pdf")["steuer"] == 0.00
+
+
+# ── Anhang-Muster und Beilagen (#3133) ─────────────────────────────────────
+
+
+def test_should_only_read_attachments_that_match_the_register_pattern(
+    tmp_path, register_datei
+):
+    """Die Mail traegt Rechnung UND Zahlungsbeleg; nur die Rechnung zaehlt."""
+    register = json.loads(register_datei.read_text(encoding="utf-8"))
+    for eintrag in register["eintraege"]:
+        if eintrag["muster"] == "beispiel plattform":
+            eintrag["anhang_muster"] = "^Invoice-"
+    register_datei.write_text(json.dumps(register), encoding="utf-8")
+
+    class _ZweiAnhaenge(_Postfach):
+        def download_fn(self, msg_id, ziel):
+            self.downloads.append(msg_id)
+            Path(ziel).mkdir(parents=True, exist_ok=True)
+            (Path(ziel) / "Invoice-BSP0001.pdf").write_text(
+                PDF_RECEIPT_USD, encoding="utf-8"
+            )
+            (Path(ziel) / "bill-ord-bsp.pdf").write_text(
+                "Zahlungsbeleg ohne Datum und Betrag", encoding="utf-8"
+            )
+            return ["Invoice-BSP0001.pdf", "bill-ord-bsp.pdf"]
+
+    postfach = _ZweiAnhaenge({"m1": ("Beispielordner", "x.pdf", PDF_RECEIPT_USD)})
+    ergebnis = bb.lauf(
+        _args(
+            tmp_path,
+            register_datei,
+            [_abgang("2026-04-10", "—", 43.05, "BEISPIEL PLATTFORM INC")],
+        ),
+        HEUTE,
+        suche_fn=postfach.suche_fn,
+        download_fn=postfach.download_fn,
+        anlegen_fn=_Anleger(),
+        lese_fn=_lese_fn,
+    )
+    assert ergebnis["kennzahlen"]["pdf_gefunden"] == 1
+
+
+def test_should_read_all_attachments_without_a_pattern(tmp_path, register_datei):
+    class _ZweiAnhaenge(_Postfach):
+        def download_fn(self, msg_id, ziel):
+            self.downloads.append(msg_id)
+            Path(ziel).mkdir(parents=True, exist_ok=True)
+            (Path(ziel) / "Invoice-BSP0001.pdf").write_text(
+                PDF_RECEIPT_USD, encoding="utf-8"
+            )
+            (Path(ziel) / "bill-ord-bsp.pdf").write_text(
+                PDF_RECHNUNG_EUR_KOMMA, encoding="utf-8"
+            )
+            return ["Invoice-BSP0001.pdf", "bill-ord-bsp.pdf"]
+
+    postfach = _ZweiAnhaenge({"m1": ("Beispielordner", "x.pdf", PDF_RECEIPT_USD)})
+    ergebnis = bb.lauf(
+        _args(
+            tmp_path,
+            register_datei,
+            [_abgang("2026-04-10", "—", 43.05, "BEISPIEL PLATTFORM INC")],
+        ),
+        HEUTE,
+        suche_fn=postfach.suche_fn,
+        download_fn=postfach.download_fn,
+        anlegen_fn=_Anleger(),
+        lese_fn=_lese_fn,
+    )
+    assert ergebnis["kennzahlen"]["pdf_gefunden"] == 2
+
+
+def test_should_mark_a_mail_attachment_without_invoice_data_as_anlage(
+    tmp_path, register_datei
+):
+    """Eine Beilage ohne Datum und Betrag ist keine kaputte Rechnung."""
+    postfach = _Postfach(
+        {
+            "m1": (
+                "Beispielordner",
+                "anlage.pdf",
+                # Die Beilage nennt den Kunden (wie eine echte
+                # Kontenuebersicht), traegt aber weder Datum noch Betrag.
+                "Anlage Rechnungskonten\nKunde: IIL GmbH\nUebersicht der Konten",
+            )
+        }
+    )
+    ergebnis = bb.lauf(
+        _args(
+            tmp_path,
+            register_datei,
+            [_abgang("2026-04-10", "—", 43.05, "BEISPIEL PLATTFORM INC")],
+        ),
+        HEUTE,
+        suche_fn=postfach.suche_fn,
+        download_fn=postfach.download_fn,
+        anlegen_fn=_Anleger(),
+        lese_fn=_lese_fn,
+    )
+    zeilen = ergebnis["entwuerfe"] + ergebnis["pdf_ohne_abgang"]
+    assert [z["art"] for z in zeilen] == ["Anlage ohne Rechnungsdaten"]
+    assert ergebnis["kennzahlen"]["anlagen_uebersprungen"] == 1
+    # Die Art muss im Board stehen, nicht nur in der Kennzahl — sonst sieht
+    # die Zeile dort weiter wie ein Parserfehler aus.
+    assert "Anlage ohne Rechnungsdaten" in bb.render_markdown(
+        ergebnis, _args(tmp_path, register_datei, [])
+    )

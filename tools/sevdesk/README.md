@@ -242,6 +242,13 @@ der Ablage keinen Lieferantenbeleg ausloest.
 - Weist das PDF deutsche Umsatzsteuer aus, gilt Steuerregel 9 statt des
   Register-Werts; die Abweichung steht als Hinweis unter der Liste (#3118).
 - Das Postfach wird nur gelesen — nichts verschoben, markiert oder geloescht.
+- `anhang_muster` im Register grenzt ein, welche Anhaenge einer Mail als
+  Rechnung gelten (Regex gegen den Dateinamen) — manche Anbieter haengen
+  neben der Rechnung einen Zahlungsbeleg mit eigener Kennung an, der kein
+  Datum traegt. Ohne das Feld zaehlen weiterhin alle PDFs.
+- Ein Anhang ohne Datum UND ohne Betrag ist keine Rechnung, sondern eine
+  Beilage: er erscheint als "Anlage ohne Rechnungsdaten" und wird als
+  `anlagen_uebersprungen` gezaehlt, nicht als Layout-Fehler.
 - **Dubletten ueber beide Mandanten**: vor jedem Anlegen wird die
   Rechnungsnummer gegen den Lieferantenbeleg-Bestand **beider** Mandanten
   geprueft — der Owner erfasst Rechnungen mitunter in der anderen Firma, und
