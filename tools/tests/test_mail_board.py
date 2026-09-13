@@ -1023,6 +1023,8 @@ class TestErledigtVerlangtAnker:
             ["--ledger", str(ledger), "--erledigt", "7", "--am", "2026-09-13"]
         )
         assert rc == 0
+
+
 # --- V10: Typen-Export für die Morgen-Zeitung -------------------------------
 
 #: Ein Ledger mit drei Typen, der in jedem Feld etwas trägt, das NICHT
