@@ -634,6 +634,13 @@ def main() -> int:
         help="Buchung wirklich ausfuehren (nur mit --buchen)",
     )
     p.add_argument(
+        "--nicht-buchen",
+        dest="nicht_buchen",
+        default="",
+        help="Regex (case-insensitive) gegen Zahler/Zweck: passende Abgaenge werden "
+        "gezeigt, aber nie gebucht (z. B. ein Anbieter mit privater Zweitserie)",
+    )
+    p.add_argument(
         "--heute",
         default=None,
         help="Stichtag YYYY-MM-DD (Reproduzierbarkeit); Standard: Systemdatum",
@@ -661,7 +668,17 @@ def main() -> int:
     gebucht: list[dict] = []
     if args.buchen:
         try:
-            gebucht = buchen_lauf(c, sicher, heute, wirklich=args.ja)
+            zu_buchen = sicher
+            if args.nicht_buchen:
+                muster = re.compile(args.nicht_buchen, re.IGNORECASE)
+                zu_buchen = [
+                    q
+                    for q in sicher
+                    if not muster.search(
+                        (q.get("zahler") or "") + " " + (q.get("zweck") or "")
+                    )
+                ]
+            gebucht = buchen_lauf(c, zu_buchen, heute, wirklich=args.ja)
         except Exception as exc:
             print(f"ABBRUCH: API-Fehler beim Buchen — {exc}")
             return 3
