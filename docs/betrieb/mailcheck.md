@@ -20,6 +20,14 @@ make boards
 make boards-check      # zweimal mit festem Stichtag, byteweise gleich
 ```
 
+```bash
+# 4) Owner-Wort „213 ja“ → Antwort-Entwurf aus der Vorlage des Vorgangstyps
+python3 tools/mail_agent/antwort.py --vorgang 213 --art zusage --trocken   # zeigen
+python3 tools/mail_agent/antwort.py --vorgang 213 --art zusage             # anlegen
+```
+
+Der Entwurf bleibt Entwurf: `antwort.py` ruft `draft_mail.py` (HNU/AD) bzw. `graph_mail.py --draft` (IIL) und schreibt das Ledger nicht fort — ein Entwurf ist kein Sachstand (Regel 0). Arten: `zusage`, `absage`, `rueckfrage`; ein Satz zusätzlich über `--hinweis`. Die Anrede kommt aus `gegenueber`, der Empfänger aus dem Anker des Vorgangs — ohne Anker bricht der Aufruf ab und nennt den `anker.py --setze`-Befehl.
+
 Der interaktive Lauf ist `/mailcheck` in der Kapitäns-Sitzung; die drei Kommandos oben sind das, was er am Anfang und am Ende ausführt.
 
 ## Datenwege
@@ -99,6 +107,7 @@ Prüfung: `make betrieb-check` — ein Vorschlag ohne Gegenrede und Alternative 
 | 5 | `board.py --neu` aus Mail-Nummer | Noch ein Flag, das nur der Agent tippt — der Owner sagt weiterhin „mach daraus einen Vorgang", nicht die Kommandozeile | `/briefing` legt jede unbeantwortete Erstanfrage automatisch als Vorgang an, der Owner löscht statt anlegt | gebaut, [#3015](https://github.com/achimdehnert/platform/issues/3015) (dieser PR) |
 | 6 | `--erledigt` verankert oder verweigert | Schließen wird langsamer und hängt am Postfach, gerade wenn es schnell gehen sollte | Ablage läuft je Vorgang scharf, sobald der einzelne bereit ist, statt alles oder nichts am Tagesende | gebaut, [#3015](https://github.com/achimdehnert/platform/issues/3015) (dieser PR) |
 | 7 | Secret-Prüfhelfer (Hash, HTTP, Formprüfung) | Der Guard hat heute korrekt gefeuert, das Leck kam vom Sourcing, nicht vom Lesen — ein weiterer Lese-Guard hätte nichts geändert | Werte gar nicht mehr lokal halten, nur Hashes; der echte Test läuft im Zielcontainer, nicht auf dem Client | gebaut, [PR #3126](https://github.com/achimdehnert/platform/pull/3126) |
+| 8 | V5: Antwort-Vorlagen je Vorgangstyp (`antwort.py` + `vorlagen/<typ>/<art>.md`) | Ein Standardtext liest sich als Standardtext; der Owner schreibt ihn ohnehin um, dann hat die Vorlage nur den leeren Rahmen gespart und eine Floskel mehr erzeugt | Statt fester Vorlage die letzten fünf gesendeten Antworten desselben Typs als Stilquelle nehmen und den Entwurf daraus bauen — der Ton käme dann aus echten Mails statt aus einer gepflegten Datei | gebaut (dieser PR, K4 aus [#3015](https://github.com/achimdehnert/platform/issues/3015)); eigene Vorlagen für betreuung, betreuung-masterarbeit, dsb-beratung, alle übrigen Typen über den Rückfall `vorgang` |
 ## Modellfest-Drill (K5)
 
 Gefahren am 2026-09-10 mit zwei frischen Sitzungen (Sonnet), Vorlage aus dieser Akte (`python3 tools/session_skill_drill.py --vorlage --datei docs/betrieb/mailcheck.md`): beide Läufe 9/9 erfüllt, 0 Abweichungen im Vergleich (`--vergleich`), Kennzahlen in beiden Läufen identisch (87 Vorgänge, 0 ohne Frist, 116 unverankert, 185 Links / 5 tot, Index 1 Tag alt). Beide Läufe schlugen dasselbe vor (Index-Alter auf die Arbeitsliste, Backlog 2). Protokolle liegen im Sitzungs-Scratchpad; die Zahlen stehen im Messjournal.
