@@ -168,6 +168,9 @@ lint: ## Ruff über tools/ + scripts/ (ehrlich: schlägt bei Lint-Schuld fehl)
 betrieb-check: ## K4 (#3015): Backlog-Vorschlag ohne Gegenrede/Alternative wird abgewiesen
 	@python3 tools/betrieb_backlog_check.py --block
 
+rausch-kandidaten: ## Absender ohne Vorgang und ohne Regel (30 Tage) vorschlagen
+	@python3 tools/mail_agent/rausch_kandidaten.py
+
 sevdesk-rechnungslauf: ## #3102: Dry-Run des Vormonats-Rechnungslaufs (liest, schreibt nichts)
 	@python3 tools/sevdesk/rechnungslauf.py --monat --dry-run
 
