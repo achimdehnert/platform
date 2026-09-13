@@ -675,44 +675,98 @@ class TestVorgangAusMail:
     def test_should_increment_the_ledger_counter(self, pfade):
         ledger = _ledger(naechste=5)
         board.vorgang_aus_mail(
-            ledger, "ad", "INBOX", "1", self.KOPF, "vorgang", "owner", None, "x",
-            None, "2026-09-13 08:00",
+            ledger,
+            "ad",
+            "INBOX",
+            "1",
+            self.KOPF,
+            "vorgang",
+            "owner",
+            None,
+            "x",
+            None,
+            "2026-09-13 08:00",
         )
         assert ledger["naechste_nr"] == 6
 
     def test_should_refuse_when_neither_frist_nor_grund_is_given(self, pfade):
         with pytest.raises(ValueError, match="Frist ist Pflicht"):
             board.vorgang_aus_mail(
-                _ledger(naechste=1), "ad", "INBOX", "1", self.KOPF, "vorgang",
-                "owner", None, "", None, "2026-09-13 08:00",
+                _ledger(naechste=1),
+                "ad",
+                "INBOX",
+                "1",
+                self.KOPF,
+                "vorgang",
+                "owner",
+                None,
+                "",
+                None,
+                "2026-09-13 08:00",
             )
 
     def test_should_refuse_none_deadline_without_a_reason(self, pfade):
         with pytest.raises(ValueError, match="braucht --grund"):
             board.vorgang_aus_mail(
-                _ledger(naechste=1), "ad", "INBOX", "1", self.KOPF, "vorgang",
-                "owner", "keine", "", None, "2026-09-13 08:00",
+                _ledger(naechste=1),
+                "ad",
+                "INBOX",
+                "1",
+                self.KOPF,
+                "vorgang",
+                "owner",
+                "keine",
+                "",
+                None,
+                "2026-09-13 08:00",
             )
 
     def test_should_accept_an_iso_deadline_without_a_reason(self, pfade):
         v = board.vorgang_aus_mail(
-            _ledger(naechste=1), "ad", "INBOX", "1", self.KOPF, "vorgang", "owner",
-            "2026-10-01", "", None, "2026-09-13 08:00",
+            _ledger(naechste=1),
+            "ad",
+            "INBOX",
+            "1",
+            self.KOPF,
+            "vorgang",
+            "owner",
+            "2026-10-01",
+            "",
+            None,
+            "2026-09-13 08:00",
         )
         assert v["frist"] == "2026-10-01"
         assert "frist_grund" not in v
 
     def test_should_set_the_waiting_state_word_for_the_waiting_bucket(self, pfade):
         v = board.vorgang_aus_mail(
-            _ledger(naechste=1), "ad", "INBOX", "1", self.KOPF, "vorgang", "warten",
-            None, "wartet auf Rueckmeldung", None, "2026-09-13 08:00",
+            _ledger(naechste=1),
+            "ad",
+            "INBOX",
+            "1",
+            self.KOPF,
+            "vorgang",
+            "warten",
+            None,
+            "wartet auf Rueckmeldung",
+            None,
+            "2026-09-13 08:00",
         )
         assert v["zustand"] == "eingang-13-09-warte"
 
     def test_should_take_an_explicit_kurz_over_the_derived_one(self, pfade):
         v = board.vorgang_aus_mail(
-            _ledger(naechste=1), "ad", "INBOX", "1", self.KOPF, "vorgang", "owner",
-            None, "x", "Eigener Kurztext", "2026-09-13 08:00",
+            _ledger(naechste=1),
+            "ad",
+            "INBOX",
+            "1",
+            self.KOPF,
+            "vorgang",
+            "owner",
+            None,
+            "x",
+            "Eigener Kurztext",
+            "2026-09-13 08:00",
         )
         assert v["kurz"] == "Eigener Kurztext"
 
@@ -720,8 +774,17 @@ class TestVorgangAusMail:
         self, pfade
     ):
         v = board.vorgang_aus_mail(
-            _ledger(naechste=1), "ad", "INBOX", "164024", self.KOPF, "vorgang",
-            "owner", None, "x", None, "2026-09-13 14:32",
+            _ledger(naechste=1),
+            "ad",
+            "INBOX",
+            "164024",
+            self.KOPF,
+            "vorgang",
+            "owner",
+            None,
+            "x",
+            None,
+            "2026-09-13 14:32",
         )
         ab, _davor = referenzen.pruefe_ordner({"vorgaenge": [v]}, {})
         assert ab == []
@@ -730,8 +793,17 @@ class TestVorgangAusMail:
         self, pfade
     ):
         v = board.vorgang_aus_mail(
-            _ledger(naechste=1), "hnu", "Gesendete Objekte", "34349", self.KOPF,
-            "vorgang", "owner", None, "x", None, "2026-09-13 14:32",
+            _ledger(naechste=1),
+            "hnu",
+            "Gesendete Objekte",
+            "34349",
+            self.KOPF,
+            "vorgang",
+            "owner",
+            None,
+            "x",
+            None,
+            "2026-09-13 14:32",
         )
         ab, _davor = referenzen.pruefe_ordner({"vorgaenge": [v]}, {})
         assert ab == []
@@ -901,9 +973,7 @@ class TestErledigtVerlangtAnker:
         self, pfade, tmp_path, monkeypatch
     ):
         ledger = self._ledger_mit(tmp_path, notiz="")
-        monkeypatch.setattr(
-            board, "setze_anker_aus_referenz", lambda *a: False
-        )
+        monkeypatch.setattr(board, "setze_anker_aus_referenz", lambda *a: False)
         vorher = ledger.read_text()
         rc = board.main(
             ["--ledger", str(ledger), "--erledigt", "7", "--am", "2026-09-13"]

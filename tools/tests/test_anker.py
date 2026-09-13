@@ -210,7 +210,9 @@ class TestVonVonUid:
             assert befehl == "FETCH"
             if self.roh is None:
                 return "OK", [None]
-            return "OK", [(b"1 (UID %s BODY[] {%d}" % (uid.encode(), len(self.roh)), self.roh)]
+            return "OK", [
+                (b"1 (UID %s BODY[] {%d}" % (uid.encode(), len(self.roh)), self.roh)
+            ]
 
     def test_should_return_the_decoded_from_header(self):
         roh = b"From: Max Mustermann <max.muster@example.org>\r\n\r\n"

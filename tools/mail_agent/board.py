@@ -700,7 +700,9 @@ def vorgang_aus_mail(
     ledger["naechste_nr"] = nr + 1
 
     tt_mm = f"{datum_teil[8:10]}-{datum_teil[5:7]}" if len(datum_teil) >= 10 else "?"
-    zustand = f"eingang-{tt_mm}-{'warte' if bucket == 'warten' else 'owner-entscheidet'}"
+    zustand = (
+        f"eingang-{tt_mm}-{'warte' if bucket == 'warten' else 'owner-entscheidet'}"
+    )
 
     vorgang: dict[str, Any] = {
         "nr": nr,
@@ -712,7 +714,9 @@ def vorgang_aus_mail(
         "angelegt": heute,
         "letzte_pruefung": heute,
         "zustand": zustand,
-        "kurz": kurz.strip() if (kurz or "").strip() else f"{nachname}: {thread_key[:40]}",
+        "kurz": kurz.strip()
+        if (kurz or "").strip()
+        else f"{nachname}: {thread_key[:40]}",
         "next_trigger": "Owner entscheidet; auf Zuruf Antwort-Entwurf",
         "mail_ref": f"/a/{nr}",
     }
@@ -1066,7 +1070,9 @@ def main(argv: list[str] | None = None) -> int:
         default="owner",
         help="zu --neu: Bucket (Default owner)",
     )
-    parser.add_argument("--kurz", metavar="TEXT", help="zu --neu: Kurztext ueberschreiben")
+    parser.add_argument(
+        "--kurz", metavar="TEXT", help="zu --neu: Kurztext ueberschreiben"
+    )
     parser.add_argument(
         "--von", metavar="ADRESSE", help="zu --neu: Absender manuell (u.a. iil)"
     )
