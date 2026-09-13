@@ -3593,3 +3593,17 @@ nachgetragen als 2/17 (beide vorbestehend, Belegquelle fehlt). Clear-Haerte-Agen
 alle im selben Zug geschlossen (Issue-Kommentar, Memory, dieser Absatz). Sitzungs-ID
 b5c8d6c1, pgvector `session:platform:20260913:20260913-b5c8d6c1`, Outline-Lesson
 `2026-09-13-merge-502-…-s2mpZVEXNR`, Konzept `sevdesk-routinen-…-HKE7rEpwyY` aktualisiert.
+
+## 2026-09-13 (abends) — EDV-Konto abgeglichen, Buchungslaeufe, Vorzeichen-Fehler repariert
+
+Nach dem Session-Ende vom Mittag ging es mit dem EDV-Konto weiter: 94 Abgaenge ohne Beleg,
+Register um Mail-, Portal- und Privat-Wege ergaenzt, 71 EDV-Entwuerfe (Mail, Ablage, Paperless-
+Tankbelege, 14 ohne Dokument wie die Handbuchungen). Fuenf PRs (#3131, #3133, #3134, #3136,
+#3138), alle unter SA-M gemergt, jeweils CI-Ergebnis vor dem Merge gelesen.
+
+Eigener Fehler: der erste echte Buchungslauf uebergab den Zahlbetrag positiv — sevdesk erwartet
+ihn bei Ausgaben negativ; 25 Belege standen auf teilbezahlt mit doppeltem Offenbetrag. Sofort
+gemeldet, per resetToOpen + Neubuchung repariert, jeder Beleg verifiziert; Fix im Werkzeug mit
+Vorzeichen-Test; Regel im Memory: erste Echtbuchung eines Schreibpfads an EINEM Beleg.
+Danach IIL: ein Beleg einzeln, dann fuenf weitere. Gesamt 31 Zuordnungen gebucht.
+Anker: pgvector `session:platform:20260913:20260913-b5c8d6c1` (Mittag), Issue-Kommentar #3102.
