@@ -554,13 +554,15 @@ def anlegen(args) -> int:
         )
         return 0
 
-    pdf = Path(args.pdf)
-    up = client.post(
-        "/Voucher/Factory/uploadTempFile",
-        files={"file": (pdf.name, pdf.read_bytes(), "application/pdf")},
-    )
-    up.raise_for_status()
-    intern = up.json()["objects"]["filename"]
+    intern = None
+    if not getattr(args, "ohne_dokument", False):
+        pdf = Path(args.pdf)
+        up = client.post(
+            "/Voucher/Factory/uploadTempFile",
+            files={"file": (pdf.name, pdf.read_bytes(), "application/pdf")},
+        )
+        up.raise_for_status()
+        intern = up.json()["objects"]["filename"]
 
     steuersatz = round(steuer / netto * 100, 0) if netto and steuer else 0.0
     daten = {
@@ -593,8 +595,9 @@ def anlegen(args) -> int:
         "voucherPosSave[0][sumTax]": f"{steuer:.2f}",
         "voucherPosSave[0][sumGross]": f"{brutto:.2f}",
         "voucherPosSave[0][comment]": args.lieferant,
-        "filename": intern,
     }
+    if intern:
+        daten["filename"] = intern
     if konto:
         daten["voucherPosSave[0][accountDatev][id]"] = str(konto["id"])
         daten["voucherPosSave[0][accountDatev][objectName]"] = "AccountDatev"
@@ -631,6 +634,13 @@ def main() -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     mandant_argument(p)
     p.add_argument("--pdf")
+    p.add_argument(
+        "--ohne-dokument",
+        action="store_true",
+        dest="ohne_dokument",
+        help="Beleg ohne Dokument anlegen — Abo ohne Rechnung, Buchung wie die "
+        "Handbuchungen des Owners (Owner-Wort je Anbieter noetig); --pdf entfaellt",
+    )
     p.add_argument("--lieferant")
     p.add_argument("--datum", help="YYYY-MM-DD (Rechnungsdatum)")
     p.add_argument("--brutto")
@@ -703,7 +713,7 @@ def main() -> int:
         return 0
 
     pflicht = {
-        "--pdf": args.pdf,
+        "--pdf": args.pdf or args.ohne_dokument,
         "--lieferant": args.lieferant,
         "--datum": args.datum,
         "--brutto": args.brutto,
