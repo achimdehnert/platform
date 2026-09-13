@@ -225,8 +225,16 @@ der Ablage keinen Lieferantenbeleg ausloest.
   vor dem Upload zurueck).
 - Gebucht wird **nie** — `beleg_entwurf.py` legt ausschliesslich Status 50 an.
 - Ein Buchungskonto wird **nie** gesetzt; der Vorschlag steht nur im Board.
-- `--anlegen` wirkt nur fuer Mandant `iil`; Belege an `edv` werden gelistet,
-  nicht angelegt (`beleg_entwurf.py` ist noch fest auf IIL, platform#3112).
+- `--mandant iil|edv|beide` (Standard `iil`) entscheidet, welche Belege
+  entstehen: nur eigene, nur die der zweiten Firma, oder je Beleg der
+  Mandant, auf den er laut PDF lautet (#3112). Ein Beleg mit unklarem
+  Empfaenger bleibt in jedem Fall Owner-Zug — geraten wird nie. Fehlt der
+  Zugang eines Mandanten, ist das eine Board-Zeile, kein Abbruch.
+- Dieselbe Rechnung kommt mehrfach an (Rechnungsmail, Zahlungsbeleg,
+  Ablage-Datei): innerhalb eines Laufs gewinnt die erste Fundstelle, weitere
+  zaehlen als `bereits_im_lauf` (#3118).
+- Weist das PDF deutsche Umsatzsteuer aus, gilt Steuerregel 9 statt des
+  Register-Werts; die Abweichung steht als Hinweis unter der Liste (#3118).
 - Das Postfach wird nur gelesen — nichts verschoben, markiert oder geloescht.
 - Idempotenz: bereits geholte Nachrichten stehen in
   `~/.claude/sevdesk-belegbeschaffung-index.json` und werden nicht erneut
@@ -240,11 +248,13 @@ der Ablage keinen Lieferantenbeleg ausloest.
 - **Empfaenger != Postfach**: Eine Rechnung im IIL-Postfach kann an den
   zweiten Mandanten adressiert sein (real gesehen 2026-09-13). Der Empfaenger
   wird deshalb aus dem PDF-Text gelesen, nie aus dem Postfach geschlossen.
-  Zahlungsbelege ohne Empfaengerzeile (nur `Account billed <login>`) gelten
-  nur fuer die im Register hinterlegten eigenen Logins als eigener Mandant,
-  sonst als "Empfaenger unklar" — und zwar auch dann, wenn daneben eine
-  eigene Rechnungsmailadresse steht: welches Konto belastet wurde, sagt die
-  Kontozeile, nicht die Adresse. Rechnungen **ohne** Kontozeile erkennt das
+  Zahlungsbelege ohne Empfaengerzeile (nur `Account billed <login>`) ordnet
+  das Register ueber `logins` (Login -> Mandant) zu — ein persoenliches Konto
+  kann so zur zweiten Firma gehoeren, ohne dass geraten wird. Ein Login ohne
+  Zuordnung bleibt "Empfaenger unklar", auch wenn daneben eine eigene
+  Rechnungsmailadresse steht: welches Konto belastet wurde, sagt die
+  Kontozeile, nicht die Adresse. Die aeltere Listenform `eigene_logins` gilt
+  weiter (alle Logins = eigener Mandant). Rechnungen **ohne** Kontozeile erkennt das
   Werkzeug an `iil.gmbh`, `iil-institut` oder `IIL` als eigenem Wort.
 - **Fremdwaehrung**: Der Abgang steht in EUR, das Receipt in USD. Eine solche
   Zuordnung ist nie "sicher", sondern `fremdwaehrung` — den Stichtagskurs
@@ -285,7 +295,17 @@ vorliegen (Abgleich laeuft ohnehin ueber Betrag + Lieferantenname/Datum,
 unabhaengig vom Ursprungsmandanten) — wirksam erst, wenn der Owner den
 zweiten Zugang hinterlegt hat.
 
-**Noch nicht umgestellt (Folgeschritt, #3102 K8):** `bankpositionen.py`,
-`zahlungsabgleich.py` und `beleg_entwurf.py` lesen ihren Zugang weiterhin
-fest verdrahtet auf den IIL-Pfad. Das Umstellen dieser Werkzeuge auf
-`mandant.py` ist bewusst nicht Teil dieser Aenderung.
+**Umgestellt (#3112):** `beleg_entwurf.py` nimmt `--mandant iil|edv` und holt
+seinen Zugang ueber `mandant.py`; der Standard bleibt `iil`, die
+Schwesterwerkzeuge rufen `_client()` weiterhin ohne Argument. Der
+Kontenhilfe-Cache liegt je Mandant getrennt
+(`~/.claude/sevdesk-receipt-guidance-<mandant>.json`, `iil` behaelt den alten
+Pfad) — der Kontenrahmen der zweiten Firma ist ein anderer.
+
+```bash
+python3 tools/sevdesk/beleg_entwurf.py --mandant edv --pdf r.pdf ...
+```
+
+**Noch nicht umgestellt (Folgeschritt, #3102 K8):** `bankpositionen.py` und
+`zahlungsabgleich.py` lesen ihren Zugang weiterhin fest verdrahtet auf den
+IIL-Pfad.

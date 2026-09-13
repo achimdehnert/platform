@@ -31,6 +31,70 @@ def _isolierte_dateien(tmp_path, monkeypatch):
     monkeypatch.setattr(be, "JOURNAL_DATEI", tmp_path / "sevdesk-belege-journal.jsonl")
 
 
+# ── Dedup: Nummer steckt in einer gewachsenen Beschreibung (#3118) ─────────
+
+
+def test_should_find_duplicate_when_number_is_part_of_existing_description():
+    """Im Bestand stehen gewachsene Beschreibungen; das Werkzeug schreibt nur
+    die Nummer. Ohne Teilstring-Vergleich entstand ein zweiter Beleg."""
+    bestand = [
+        {"id": "v1", "description": "Beispiel Invoice ABCDEF-0017 — Zeitraum Maerz"},
+        {"id": "v2", "description": "Anderer Beleg"},
+    ]
+    assert be.duplikat(bestand, "ABCDEF-0017") == "v1"
+
+
+def test_should_find_duplicate_when_existing_description_is_the_bare_number():
+    """Auch andersherum: der Bestand traegt die nackte Nummer, die neue
+    Beschreibung ist die ausgeschriebene."""
+    bestand = [{"id": "v1", "description": "ABCDEF-0017"}]
+    assert be.duplikat(bestand, "Beispiel Invoice ABCDEF-0017 vom 01.03.2026") == "v1"
+
+
+def test_should_ignore_whitespace_and_case_in_duplicate_check():
+    bestand = [{"id": "v1", "description": "beispiel invoice abcdef-0017"}]
+    assert be.duplikat(bestand, "ABCDEF-0017") == "v1"
+
+
+def test_should_require_exact_match_for_short_identifiers():
+    """Kurze Kennungen stecken in jeder zweiten Beschreibung — dort bleibt es
+    beim exakten Vergleich, sonst deduppt das Werkzeug fremde Belege weg."""
+    bestand = [{"id": "v1", "description": "Beispiel Invoice 0025 — Maerz"}]
+    assert be.duplikat(bestand, "0025") is None
+    assert be.duplikat([{"id": "v2", "description": "0025"}], "0025") == "v2"
+
+
+def test_should_return_none_when_no_description_matches():
+    bestand = [{"id": "v1", "description": "Beispiel Invoice ABCDEF-0017"}]
+    assert be.duplikat(bestand, "ZZZZZZ-9999") is None
+
+
+# ── Mandant (#3112) ────────────────────────────────────────────────────────
+
+
+def test_should_use_the_mandant_client_and_note_it_in_the_journal(monkeypatch):
+    gerufen: list[str] = []
+    monkeypatch.setattr(be, "mandant_client", lambda m: gerufen.append(m))
+    be._client("edv")
+    assert gerufen == ["edv"]
+
+
+def test_should_default_to_iil_when_namespace_has_no_mandant():
+    """``belegbeschaffung.py`` baut den Namespace selbst — ein fehlendes Feld
+    darf nicht brechen."""
+    ns = argparse.Namespace(beschreibung="X", konto="", taxrule="9")
+    zeile = be._journal_zeile(
+        ns, konto_gesetzt=False, vorschlaege_liste=[], dedup_treffer=None, dauer_s=0.1
+    )
+    assert zeile["mandant"] == "iil"
+
+
+def test_should_keep_the_old_cache_path_for_iil_and_split_for_others():
+    assert be.guidance_cache_pfad("iil") == be.GUIDANCE_CACHE
+    assert be.guidance_cache_pfad("edv") != be.GUIDANCE_CACHE
+    assert "edv" in be.guidance_cache_pfad("edv").name
+
+
 def _client(handler) -> httpx.Client:
     return httpx.Client(
         base_url="https://my.sevdesk.de/api/v1", transport=httpx.MockTransport(handler)
@@ -139,7 +203,9 @@ def test_should_leave_account_empty_in_dry_run_when_no_suggestion_matches(
         raise AssertionError(f"unerwarteter Aufruf: {request.method} {request.url}")
 
     args = _args(tmp_path, konto_vorschlag=True, dry_run=True)
-    monkeypatch.setattr(be, "_client", lambda: _client(_leerer_bestand_handler(zusatz)))
+    monkeypatch.setattr(
+        be, "_client", lambda *_a, **_k: _client(_leerer_bestand_handler(zusatz))
+    )
     ergebnis = be.anlegen(args)
     assert ergebnis == 0
     zeile = json.loads(be.JOURNAL_DATEI.read_text(encoding="utf-8").splitlines()[-1])
@@ -208,7 +274,7 @@ def test_should_abort_when_taxrule_not_allowed_for_account(
         raise AssertionError(f"unerwarteter Aufruf: {request.method} {request.url}")
 
     args = _args(tmp_path, konto="6837", taxrule="12", dry_run=True)
-    monkeypatch.setattr(be, "_client", lambda: _client(handler))
+    monkeypatch.setattr(be, "_client", lambda *_a, **_k: _client(handler))
     ergebnis = be.anlegen(args)
     assert ergebnis == 2
     assert "ABBRUCH" in capsys.readouterr().out
@@ -311,7 +377,7 @@ def test_should_bypass_validation_with_trotzdem(tmp_path, capsys, monkeypatch):
         raise AssertionError(f"unerwarteter Aufruf: {request.method} {request.url}")
 
     args = _args(tmp_path, konto="6837", taxrule="12", trotzdem=True, dry_run=True)
-    monkeypatch.setattr(be, "_client", lambda: _client(handler))
+    monkeypatch.setattr(be, "_client", lambda *_a, **_k: _client(handler))
     ergebnis = be.anlegen(args)
     assert ergebnis == 0
     assert "WARNUNG (--trotzdem)" in capsys.readouterr().out
@@ -341,7 +407,7 @@ def test_should_warn_on_soft_duplicate_without_aborting(tmp_path, capsys, monkey
         raise AssertionError(f"unerwarteter Aufruf: {request.method} {request.url}")
 
     args = _args(tmp_path, strikt=False, dry_run=True)
-    monkeypatch.setattr(be, "_client", lambda: _client(handler))
+    monkeypatch.setattr(be, "_client", lambda *_a, **_k: _client(handler))
     ergebnis = be.anlegen(args)
     assert ergebnis == 0
     ausgabe = capsys.readouterr().out
@@ -358,7 +424,7 @@ def test_should_abort_soft_duplicate_with_strikt(tmp_path, capsys, monkeypatch):
         raise AssertionError(f"unerwarteter Aufruf: {request.method} {request.url}")
 
     args = _args(tmp_path, strikt=True, dry_run=True)
-    monkeypatch.setattr(be, "_client", lambda: _client(handler))
+    monkeypatch.setattr(be, "_client", lambda *_a, **_k: _client(handler))
     ergebnis = be.anlegen(args)
     assert ergebnis == 2
     assert "ABBRUCH (--strikt)" in capsys.readouterr().out
@@ -376,7 +442,7 @@ def test_should_not_warn_when_supplier_differs():
 def test_should_hash_description_in_journal_not_store_plaintext(tmp_path, monkeypatch):
     handler = _leerer_bestand_handler()
     args = _args(tmp_path, beschreibung="GEHEIME-RECHNUNGSNUMMER-42", dry_run=True)
-    monkeypatch.setattr(be, "_client", lambda: _client(handler))
+    monkeypatch.setattr(be, "_client", lambda *_a, **_k: _client(handler))
     be.anlegen(args)
 
     inhalt = be.JOURNAL_DATEI.read_text(encoding="utf-8")
@@ -439,7 +505,7 @@ def test_should_abort_on_unknown_taxrule(tmp_path, monkeypatch):
         raise AssertionError("Unbekannte taxRule muss vor jedem API-Aufruf abbrechen")
 
     args = _args(tmp_path, taxrule="99", dry_run=False)
-    monkeypatch.setattr(be, "_client", lambda: _client(handler))
+    monkeypatch.setattr(be, "_client", lambda *_a, **_k: _client(handler))
     assert be.anlegen(args) == 2
 
 
@@ -461,7 +527,7 @@ def test_should_skip_creation_when_description_already_exists(
         )
 
     args = _args(tmp_path, dry_run=False)
-    monkeypatch.setattr(be, "_client", lambda: _client(handler))
+    monkeypatch.setattr(be, "_client", lambda *_a, **_k: _client(handler))
     ergebnis = be.anlegen(args)
     assert ergebnis == 0
     assert "DUPLIKAT" in capsys.readouterr().out
@@ -493,7 +559,7 @@ def test_should_create_voucher_without_account_when_konto_not_given(
         raise AssertionError(f"unerwarteter Aufruf: {request.method} {pfad}")
 
     args = _args(tmp_path, pdf=str(pdf), dry_run=False)
-    monkeypatch.setattr(be, "_client", lambda: _client(handler))
+    monkeypatch.setattr(be, "_client", lambda *_a, **_k: _client(handler))
     ergebnis = be.anlegen(args)
 
     assert ergebnis == 0
@@ -552,7 +618,7 @@ def test_should_set_account_when_konto_given_and_valid(tmp_path, capsys, monkeyp
         raise AssertionError(f"unerwarteter Aufruf: {request.method} {pfad}")
 
     args = _args(tmp_path, pdf=str(pdf), konto="6837", taxrule="9", dry_run=False)
-    monkeypatch.setattr(be, "_client", lambda: _client(handler))
+    monkeypatch.setattr(be, "_client", lambda *_a, **_k: _client(handler))
     ergebnis = be.anlegen(args)
 
     assert ergebnis == 0

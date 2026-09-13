@@ -54,6 +54,9 @@ python3 tools/sevdesk/belegbeschaffung.py --eingabe /tmp/kostenabgleich.json
 
 # Beleg-ENTWÜRFE wirklich anlegen (Status 50, nie gebucht)
 python3 tools/sevdesk/belegbeschaffung.py --anlegen
+
+# Je Beleg in den Mandanten, auf den er laut PDF lautet (#3112)
+python3 tools/sevdesk/belegbeschaffung.py --mandant beide --anlegen
 ```
 
 `make sevdesk-belegbeschaffung` fährt die Vorschau. Voraussetzung ist das
@@ -107,6 +110,8 @@ liest NUR die jüngste Zeile und übernimmt fünf Kennzahlen:
 | `lieferanten_abgaenge` | Abgänge ohne Beleg, für die das Register einen Lieferantenweg (`mail`) kennt |
 | `pdf_gefunden` | Rechnungs-PDFs, die einem Register-Eintrag zugeordnet wurden |
 | `ablage_pdf` | aus der Owner-Ablage `~/shared/inbox/invoices/` gelesene Dateien — auch die ohne Zuordnung, die als Owner-Zug erscheinen |
+| `bereits_im_lauf` | Rechnungen, die im selben Lauf ein zweites Mal auftauchten (Rechnungsmail + Zahlungsbeleg + Ablage) |
+| `entwuerfe_je_mandant` | Entwürfe je sevdesk-Mandant (`iil`, `edv`) |
 | `entwuerfe_angelegt` | neu angelegte Beleg-Entwürfe (nur mit `--anlegen`) |
 | `duplikate` | Belege, die es unter derselben Beschreibung schon gab |
 | `vorschau` | Entwürfe, die im Trockenlauf nur vorgemerkt wurden |
@@ -182,15 +187,25 @@ Journal; als Vereinfachung dokumentiert, nicht stillschweigend gelassen
 
 - **Empfänger ≠ Postfach**: Eine Rechnung im IIL-Postfach kann an den zweiten
   Mandanten adressiert sein (real gesehen 2026-09-13). Der Empfänger wird
-  ausschließlich aus dem PDF-Text gelesen; Belege für `edv` werden gelistet,
-  nicht angelegt (`beleg_entwurf.py` ist noch fest auf IIL, [#3112](https://github.com/achimdehnert/platform/issues/3112)).
+  ausschließlich aus dem PDF-Text gelesen. Mit `--mandant edv` bzw. `beide`
+  entsteht der Beleg im richtigen Mandanten ([#3112](https://github.com/achimdehnert/platform/issues/3112)); mit dem
+  Standard `iil` bleibt er Owner-Zug.
+- **Steuerregel aus dem Register kann falsch sein**: Weist das PDF deutsche
+  Umsatzsteuer aus, ist Reverse Charge ausgeschlossen — dann gilt Regel 9 und
+  das Board nennt die Abweichung ([#3118](https://github.com/achimdehnert/platform/issues/3118)).
+- **Dieselbe Rechnung mehrfach**: Rechnungsmail, Zahlungsbeleg und
+  Ablage-Datei tragen dieselbe Nummer; je Lauf gewinnt die erste Fundstelle
+  (`bereits_im_lauf`). Gegenüber dem Bestand greift zusätzlich der Dedup in
+  `beleg_entwurf.py`, der die Nummer jetzt auch als Teil einer gewachsenen
+  Beschreibung findet ([#3118](https://github.com/achimdehnert/platform/issues/3118)).
 - **Zahlungsbeleg statt Rechnung**: Manche Anbieter schicken nur ein Receipt
-  ohne Empfängerzeile, dafür mit `Account billed <login>`. Nur die im
-  Register hinterlegten eigenen Logins gelten als eigener Mandant — jeder
-  andere Login landet als "Empfänger unklar" beim Owner, auch wenn daneben
-  eine IIL-Mailadresse steht (real so gesehen 2026-09-13: vier Belege auf ein
-  privates Konto mit IIL-Rechnungsmail). Rechnungen ohne Kontozeile erkennt
-  das Werkzeug dagegen an `iil.gmbh` / `iil-institut` / `IIL`.
+  ohne Empfängerzeile, dafür mit `Account billed <login>`. Welcher Mandant
+  hinter einem Konto steht, sagt das Register-Feld `logins`
+  (`{"<org-login>": "iil", "<privat-login>": "edv"}`) — die Belege des
+  persönlichen Kontos gehören zur EDV-Beratung (Owner-Wort 2026-09-13). Ein
+  Login ohne Zuordnung bleibt "Empfänger unklar" beim Owner, auch wenn
+  daneben eine IIL-Mailadresse steht. Rechnungen ohne Kontozeile erkennt das
+  Werkzeug dagegen an `iil.gmbh` / `iil-institut` / `IIL`.
 - **Fremdwährung**: EUR-Abgang gegen USD-Receipt wird nur im Kursband
   0,80–1,00 und innerhalb von 40 Tagen zusammengeführt, und nie als "sicher".
   Den Stichtagskurs setzt sevdesk selbst.

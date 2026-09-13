@@ -7,13 +7,13 @@
     "absender": "Absender-Teilstring fuer die Postfachsuche (nur weg=mail)",
     "betreff": "Betreff-Teilstring fuer die Postfachsuche (nur weg=mail)",
     "ordner": "Liste von Postfach-Ordnern, 'inbox' fuer den Posteingang (nur weg=mail)",
-    "eigene_logins": "Kontonamen, die im Beleg den eigenen Mandanten belegen (z. B. 'Account billed <login>'). Ohne Angabe bleibt der Empfaenger unklar und geht an den Owner — der echte Login gehoert in die lokale Datei, nicht in diese Vorlage",
     "taxrule": "9 DE-Vorsteuer | 12 Reverse Charge Drittland | 14 Reverse Charge EU",
     "waehrung": "Waehrung der Rechnung (EUR, USD) — nur Erwartung, gelesen wird sie aus dem PDF",
     "konto": "Kontovorschlag zur Anzeige; gesetzt wird er NIE automatisch (Owner bestaetigt in sevdesk)",
     "url": "Abrufseite (nur weg=portal)",
     "grund": "Warum dieser Weg — steht im Board",
-    "ohne_abgang": "optional: true = dieser Lieferant wird auch dann abgesucht, wenn kein Abgang zu ihm passt (bezahlt ueber ein anderes Konto); Fenster ist dann --tage"
+    "ohne_abgang": "optional: true = dieser Lieferant wird auch dann abgesucht, wenn kein Abgang zu ihm passt (bezahlt ueber ein anderes Konto); Fenster ist dann --tage",
+    "logins": "Zuordnung Konto-Login -> Mandant fuer Zahlungsbelege ohne Empfaengerzeile ('Account billed <login>'), z. B. {\"<org-login>\": \"iil\", \"<privat-login>\": \"edv\"}. Ein Login ohne Zuordnung bleibt 'unklar' und geht an den Owner. Die aeltere Listenform 'eigene_logins' gilt weiter und meint alle Logins als iil. Die echten Logins gehoeren in die lokale Datei, nicht in diese Vorlage"
   },
   "eintraege": [
     {
@@ -26,13 +26,14 @@
         "Github",
         "inbox"
       ],
-      "eigene_logins": [
-        "<eigener-konto-login>"
-      ],
       "taxrule": "12",
       "waehrung": "USD",
       "konto": "",
-      "grund": "Zahlungsbeleg kommt als PDF-Anhang; Drittland ohne USt, Rechnung in USD"
+      "grund": "Zahlungsbeleg kommt als PDF-Anhang; Drittland ohne USt, Rechnung in USD",
+      "logins": {
+        "<org-login>": "iil",
+        "<privat-login>": "edv"
+      }
     },
     {
       "muster": "microsoft",

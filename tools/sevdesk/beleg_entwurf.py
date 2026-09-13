@@ -19,9 +19,14 @@ Werkzeug macht sie dauerhaft:
 - Dedup über ``description`` (= Rechnungsnummer/-kennung) gegen den Bestand: existiert
   ein Beleg mit identischer description, wird NICHT erneut angelegt (K5 Idempotenz).
 
-    python3 tools/sevdesk/beleg_entwurf.py --pdf r.pdf --lieferant "Groq LLC" \
-        --datum 2026-08-06 --brutto 12.34 --steuer 0.00 --beschreibung GROQ-2026-08 \
-        --taxrule 12 [--konto 6837]
+    python3 tools/sevdesk/beleg_entwurf.py --pdf r.pdf --lieferant "Beispiel LLC" \
+        --datum 2026-08-06 --brutto 12.34 --steuer 0.00 --beschreibung BEISPIEL-2026-08 \
+        --taxrule 12 [--konto 6837] [--mandant edv]
+
+``--mandant iil|edv`` (Standard iil, auch per ``SEVDESK_MANDANT``) wählt den
+sevdesk-Zugang über ``mandant.py`` — Rechnungen, die auf die zweite Firma
+lauten, gehören in deren Mandanten und waren vorher gar nicht anlegbar
+(#3112). Der Kontenhilfe-Cache liegt je Mandant getrennt.
 
 ## Erweiterungen K6 (platform#3102) — Vorschlag statt Raten, Validierung, Messung
 
@@ -57,8 +62,11 @@ import time
 from datetime import date, datetime, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from mandant import STANDARD_MANDANT, mandant_argument  # noqa: E402
+from mandant import client as mandant_client  # noqa: E402
+
 API = "https://my.sevdesk.de/api/v1"
-TOKEN_DATEI = Path.home() / ".secrets" / "sevdesk_api_token"
 
 #: Personenbezogene Kontenzuordnung des Owners — NIE ins Repo, Vorlage daneben.
 KONTEN_DATEI = Path.home() / ".claude" / "sevdesk-konten.json"
@@ -75,18 +83,17 @@ WORT_MIN_LAENGE = 4
 TAXRULES_BEKANNT = {"1", "9", "12", "14"}
 
 
-def token_lesen(pfad: Path = TOKEN_DATEI) -> str:
-    """Datei ist KEY=WERT — die ganze Zeile als Header gibt 401 bei gültigem Token."""
-    roh = pfad.read_text(encoding="utf-8").strip()
-    return roh.split("=", 1)[1] if "=" in roh else roh
+def _client(mandant: str = STANDARD_MANDANT):
+    """httpx.Client für den gewählten Mandanten (#3112).
 
-
-def _client():
-    import httpx
-
-    return httpx.Client(
-        base_url=API, headers={"Authorization": token_lesen()}, timeout=30
-    )
+    Der Zugang liegt seit dieser Änderung **nur noch** in ``mandant.py`` —
+    vorher las dieses Werkzeug die IIL-Token-Datei selbst, und genau das machte
+    Belege der zweiten Firma unanlegbar. Der Standard bleibt ``iil``, damit die
+    Schwesterwerkzeuge (``rechnungslauf.py``, ``zahlungsabgleich.py``,
+    ``rechnung_entwurf.py``), die ``_client()`` ohne Argument rufen, sich
+    unverändert verhalten.
+    """
+    return mandant_client(mandant)
 
 
 def konto_aufloesen(client, nummer: str) -> dict | None:
@@ -150,10 +157,41 @@ def beleg_bestand(client) -> list[dict]:
     return r.json()["objects"]
 
 
+#: Ab dieser Länge gilt eine Kennung als für sich sprechend genug, um als
+#: Teilstring einer fremden Beschreibung einen Dedup-Treffer zu rechtfertigen.
+#: Darunter bleibt es beim exakten Vergleich — "0025" steckt sonst in jeder
+#: zweiten Beschreibung.
+NUMMER_MIN_TEILSTRING = 6
+
+
+def _dedup_schluessel(text: str) -> str:
+    """Vergleichsform einer Beschreibung: klein, ohne Leerraum."""
+    return re.sub(r"\s+", "", (text or "")).lower()
+
+
 def duplikat(belege: list[dict], beschreibung: str) -> str | None:
-    """Bestehenden Beleg mit identischer description finden (harter Dedup, K5)."""
+    """Bestehenden Beleg zur selben Rechnung finden (harter Dedup, K5).
+
+    Der exakte Vergleich allein greift zu kurz: im Bestand stehen gewachsene
+    Beschreibungen wie "<Anbieter> Invoice <Nummer> — <Zeitraum>", während
+    dieses Werkzeug nur die nackte Nummer schreibt. Die Rechnung ist dieselbe,
+    der Vergleich scheiterte — und legte einen zweiten Beleg an (#3118).
+    Deshalb zählt ab ``NUMMER_MIN_TEILSTRING`` Zeichen auch, wenn die eine
+    Kennung in der anderen steckt; kurze Kennungen bleiben beim exakten
+    Vergleich, sonst trifft "0025" die halbe Ablage.
+    """
+    ziel = _dedup_schluessel(beschreibung)
     for v in belege:
-        if (v.get("description") or "").strip() == beschreibung:
+        vorhanden = _dedup_schluessel(v.get("description"))
+        if not ziel or not vorhanden:
+            continue
+        if vorhanden == ziel:
+            return v["id"]
+        if len(ziel) < NUMMER_MIN_TEILSTRING:
+            continue
+        if ziel in vorhanden or (
+            len(vorhanden) >= NUMMER_MIN_TEILSTRING and vorhanden in ziel
+        ):
             return v["id"]
     return None
 
@@ -181,6 +219,16 @@ def dedup_softcheck(
                 continue
         return v["id"]
     return None
+
+
+def guidance_cache_pfad(mandant: str = STANDARD_MANDANT) -> Path:
+    """Cache-Datei je Mandant; ``iil`` behält den bisherigen Pfad (kein
+    unnötiger Neuaufbau eines gültigen Caches). Der Kontenrahmen ist je
+    Mandant ein anderer — ein gemeinsamer Cache schlüge dem zweiten Mandanten
+    die Konten des ersten vor."""
+    if mandant == STANDARD_MANDANT:
+        return GUIDANCE_CACHE
+    return GUIDANCE_CACHE.with_name(f"{GUIDANCE_CACHE.stem}-{mandant}.json")
 
 
 def regeln_laden(pfad: Path) -> list[dict]:
@@ -312,6 +360,7 @@ def _journal_zeile(
     vorschlag_konten = [v["konto"] for v in vorschlaege_liste]
     return {
         "zeit": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "mandant": getattr(args, "mandant", STANDARD_MANDANT),
         "beschreibung_hash": hashlib.sha256(
             args.beschreibung.encode("utf-8")
         ).hexdigest()[:16],
@@ -381,7 +430,10 @@ def anlegen(args) -> int:
         print(f"ABBRUCH: taxRule {args.taxrule} nicht in {sorted(TAXRULES_BEKANNT)}.")
         return 2
 
-    client = _client()
+    # getattr statt args.mandant: ``belegbeschaffung.py`` baut den Namespace
+    # selbst zusammen und darf dabei ein Feld weglassen, ohne hier zu brechen.
+    mandant = getattr(args, "mandant", STANDARD_MANDANT)
+    client = _client(mandant)
     belege = beleg_bestand(client)
 
     vorhanden = duplikat(belege, args.beschreibung)
@@ -427,7 +479,7 @@ def anlegen(args) -> int:
 
     vorschlaege_liste: list[dict] = []
     if args.konto_vorschlag:
-        guidance = guidance_laden(client, GUIDANCE_CACHE)
+        guidance = guidance_laden(client, guidance_cache_pfad(mandant))
         regeln = regeln_laden(KONTEN_DATEI)
         vorschlaege_liste = vorschlaege(
             args.lieferant, args.beschreibung, regeln, guidance
@@ -564,6 +616,7 @@ def anlegen(args) -> int:
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    mandant_argument(p)
     p.add_argument("--pdf")
     p.add_argument("--lieferant")
     p.add_argument("--datum", help="YYYY-MM-DD (Rechnungsdatum)")
