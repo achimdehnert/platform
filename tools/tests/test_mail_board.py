@@ -18,6 +18,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "mail_agent"))
 
 board = pytest.importorskip("board")
+anker_modul = pytest.importorskip("anker")
+referenzen = pytest.importorskip("referenzen")
 
 
 @pytest.fixture
@@ -272,6 +274,8 @@ class TestErledigtKommando:
             json.dumps(_ledger(_v(nr=7, bucket="owner", kurz="K"), naechste=8)),
             "utf-8",
         )
+        # --ohne-anker: dieser Test prueft die drei Felder, nicht den seit V3
+        # (#3015 K4) verlangten Anker — der hat seine eigene Testklasse.
         rc = board.main(
             [
                 "--ledger",
@@ -282,6 +286,7 @@ class TestErledigtKommando:
                 "2026-09-11",
                 "--grund",
                 "Antwort erhalten",
+                "--ohne-anker",
             ]
         )
         v = json.loads(ledger.read_text())["vorgaenge"][0]
@@ -586,3 +591,435 @@ class TestKenntnis:
     def test_should_count_as_stand_not_as_zug(self, pfade):
         assert "kenntnis" in board.STAND_BUCKETS
         assert "kenntnis" not in board.ZUG_BUCKETS
+
+
+class TestThreadKeyUndReferenzText:
+    """Bausteine von `--neu` (V2, platform#3015 K4) — reine Textfunktionen."""
+
+    @pytest.mark.parametrize(
+        "betreff, erwartet",
+        [
+            ("Anfrage Musterarbeit", "Anfrage Musterarbeit"),
+            ("Re: Anfrage Musterarbeit", "Anfrage Musterarbeit"),
+            ("AW: Re: Anfrage Musterarbeit", "Anfrage Musterarbeit"),
+            ("Fwd: WG: Anfrage Musterarbeit", "Anfrage Musterarbeit"),
+            ("re:Anfrage Musterarbeit", "Anfrage Musterarbeit"),
+        ],
+    )
+    def test_should_strip_leading_reply_and_forward_prefixes(self, betreff, erwartet):
+        assert board.thread_key_aus_betreff(betreff) == erwartet
+
+    def test_should_use_the_plain_form_for_a_one_word_folder(self):
+        assert board._referenz_text("INBOX", "164024") == "INBOX #164024"
+
+    def test_should_use_the_quoted_form_for_a_folder_with_a_space(self):
+        assert (
+            board._referenz_text("Gesendete Objekte", "34349")
+            == "Ordner 'Gesendete Objekte' (#34349)"
+        )
+
+
+class TestVorgangAusMail:
+    """`vorgang_aus_mail` legt den Vorgang an — reine Funktion (V2, #3015 K4)."""
+
+    KOPF = {
+        "von": "Max Mustermann <max.muster@example.org>",
+        "betreff": "Re: Anfrage Musterarbeit",
+        "datum": "2026-09-10",
+        "message_id": "<abc@example.org>",
+    }
+
+    def test_should_create_a_vorgang_from_a_synthetic_header(self, pfade):
+        ledger = _ledger(naechste=5)
+        v = board.vorgang_aus_mail(
+            ledger,
+            "ad",
+            "INBOX",
+            "164024",
+            self.KOPF,
+            "vorgang",
+            "owner",
+            None,
+            "noch keine Frist vereinbart",
+            None,
+            "2026-09-13 14:32",
+        )
+        assert v["nr"] == 5
+        assert v["thread_key"] == "Anfrage Musterarbeit"
+        assert v["gegenueber"] == "Max Mustermann <max.muster@example.org>"
+        assert v["kurz"] == "Mustermann: Anfrage Musterarbeit"
+        assert v["zustand"] == "eingang-13-09-owner-entscheidet"
+        assert v["angelegt"] == v["letzte_pruefung"] == "2026-09-13 14:32"
+        assert v["mail_ref"] == "/a/5"
+        assert v in ledger["vorgaenge"]
+
+    def test_should_strip_the_prefix_for_the_thread_key_but_not_for_the_notiz(
+        self, pfade
+    ):
+        v = board.vorgang_aus_mail(
+            _ledger(naechste=1),
+            "ad",
+            "INBOX",
+            "1",
+            self.KOPF,
+            "vorgang",
+            "owner",
+            None,
+            "x",
+            None,
+            "2026-09-13 08:00",
+        )
+        assert v["thread_key"] == "Anfrage Musterarbeit"
+        assert "'Re: Anfrage Musterarbeit'" in v["notiz"]
+
+    def test_should_increment_the_ledger_counter(self, pfade):
+        ledger = _ledger(naechste=5)
+        board.vorgang_aus_mail(
+            ledger,
+            "ad",
+            "INBOX",
+            "1",
+            self.KOPF,
+            "vorgang",
+            "owner",
+            None,
+            "x",
+            None,
+            "2026-09-13 08:00",
+        )
+        assert ledger["naechste_nr"] == 6
+
+    def test_should_refuse_when_neither_frist_nor_grund_is_given(self, pfade):
+        with pytest.raises(ValueError, match="Frist ist Pflicht"):
+            board.vorgang_aus_mail(
+                _ledger(naechste=1),
+                "ad",
+                "INBOX",
+                "1",
+                self.KOPF,
+                "vorgang",
+                "owner",
+                None,
+                "",
+                None,
+                "2026-09-13 08:00",
+            )
+
+    def test_should_refuse_none_deadline_without_a_reason(self, pfade):
+        with pytest.raises(ValueError, match="braucht --grund"):
+            board.vorgang_aus_mail(
+                _ledger(naechste=1),
+                "ad",
+                "INBOX",
+                "1",
+                self.KOPF,
+                "vorgang",
+                "owner",
+                "keine",
+                "",
+                None,
+                "2026-09-13 08:00",
+            )
+
+    def test_should_accept_an_iso_deadline_without_a_reason(self, pfade):
+        v = board.vorgang_aus_mail(
+            _ledger(naechste=1),
+            "ad",
+            "INBOX",
+            "1",
+            self.KOPF,
+            "vorgang",
+            "owner",
+            "2026-10-01",
+            "",
+            None,
+            "2026-09-13 08:00",
+        )
+        assert v["frist"] == "2026-10-01"
+        assert "frist_grund" not in v
+
+    def test_should_set_the_waiting_state_word_for_the_waiting_bucket(self, pfade):
+        v = board.vorgang_aus_mail(
+            _ledger(naechste=1),
+            "ad",
+            "INBOX",
+            "1",
+            self.KOPF,
+            "vorgang",
+            "warten",
+            None,
+            "wartet auf Rueckmeldung",
+            None,
+            "2026-09-13 08:00",
+        )
+        assert v["zustand"] == "eingang-13-09-warte"
+
+    def test_should_take_an_explicit_kurz_over_the_derived_one(self, pfade):
+        v = board.vorgang_aus_mail(
+            _ledger(naechste=1),
+            "ad",
+            "INBOX",
+            "1",
+            self.KOPF,
+            "vorgang",
+            "owner",
+            None,
+            "x",
+            "Eigener Kurztext",
+            "2026-09-13 08:00",
+        )
+        assert v["kurz"] == "Eigener Kurztext"
+
+    def test_should_pass_the_referenzen_ordner_check_for_a_single_word_folder(
+        self, pfade
+    ):
+        v = board.vorgang_aus_mail(
+            _ledger(naechste=1),
+            "ad",
+            "INBOX",
+            "164024",
+            self.KOPF,
+            "vorgang",
+            "owner",
+            None,
+            "x",
+            None,
+            "2026-09-13 14:32",
+        )
+        ab, _davor = referenzen.pruefe_ordner({"vorgaenge": [v]}, {})
+        assert ab == []
+
+    def test_should_pass_the_referenzen_ordner_check_for_a_multi_word_folder(
+        self, pfade
+    ):
+        v = board.vorgang_aus_mail(
+            _ledger(naechste=1),
+            "hnu",
+            "Gesendete Objekte",
+            "34349",
+            self.KOPF,
+            "vorgang",
+            "owner",
+            None,
+            "x",
+            None,
+            "2026-09-13 14:32",
+        )
+        ab, _davor = referenzen.pruefe_ordner({"vorgaenge": [v]}, {})
+        assert ab == []
+
+
+class TestNeuKommando:
+    """`board.py --neu` legt einen Vorgang aus einer Mail an (V2, #3015 K4)."""
+
+    def test_should_create_a_vorgang_via_manual_headers_without_touching_imap(
+        self, pfade, tmp_path
+    ):
+        ledger = tmp_path / "l.json"
+        ledger.write_text(json.dumps(_ledger(naechste=1)), "utf-8")
+        rc = board.main(
+            [
+                "--ledger",
+                str(ledger),
+                "--neu",
+                "ad",
+                "INBOX#164024",
+                "--typ",
+                "vorgang",
+                "--von",
+                "max.muster@example.org",
+                "--betreff",
+                "Anfrage Musterarbeit",
+                "--datum",
+                "2026-09-10",
+                "--grund",
+                "noch offen",
+                "--ohne-anker",
+            ]
+        )
+        assert rc == 0
+        v = json.loads(ledger.read_text())["vorgaenge"][0]
+        assert v["nr"] == 1
+        assert v["thread_key"] == "Anfrage Musterarbeit"
+        assert v["konto"] == "ad"
+
+    def test_should_error_clearly_for_iil_without_manual_headers(self, pfade, tmp_path):
+        ledger = tmp_path / "l.json"
+        ledger.write_text(json.dumps(_ledger(naechste=1)), "utf-8")
+        rc = board.main(
+            [
+                "--ledger",
+                str(ledger),
+                "--neu",
+                "iil",
+                "INBOX#1",
+                "--typ",
+                "vorgang",
+                "--grund",
+                "x",
+            ]
+        )
+        assert rc == 1
+        assert json.loads(ledger.read_text())["vorgaenge"] == []
+
+    def test_should_refuse_missing_typ(self, pfade, tmp_path):
+        ledger = tmp_path / "l.json"
+        ledger.write_text(json.dumps(_ledger(naechste=1)), "utf-8")
+        with pytest.raises(SystemExit):
+            board.main(
+                [
+                    "--ledger",
+                    str(ledger),
+                    "--neu",
+                    "ad",
+                    "INBOX#1",
+                    "--von",
+                    "a@b.de",
+                    "--betreff",
+                    "x",
+                    "--datum",
+                    "2026-09-10",
+                    "--grund",
+                    "x",
+                ]
+            )
+
+    def test_should_set_an_anchor_when_a_message_id_is_known(self, pfade, tmp_path):
+        """Manuelle Kopfangaben tragen keine Message-ID — kein Anker, kein Fehler."""
+        ledger = tmp_path / "l.json"
+        ledger.write_text(json.dumps(_ledger(naechste=1)), "utf-8")
+        rc = board.main(
+            [
+                "--ledger",
+                str(ledger),
+                "--neu",
+                "ad",
+                "INBOX#164024",
+                "--typ",
+                "vorgang",
+                "--von",
+                "max.muster@example.org",
+                "--betreff",
+                "Anfrage Musterarbeit",
+                "--datum",
+                "2026-09-10",
+                "--grund",
+                "noch offen",
+            ]
+        )
+        assert rc == 0
+        # Ohne message_id (manueller Kopf) bleibt board.ANKER unveraendert.
+        anker_inhalt = json.loads(board.ANKER.read_text())
+        assert "1" not in anker_inhalt
+
+    def test_should_still_close_the_existing_frist_flag_meaning_without_neu(
+        self, pfade, tmp_path
+    ):
+        """`--frist NR --datum ...` (ohne --neu) bleibt unveraendert (#2592 K4)."""
+        ledger = tmp_path / "l.json"
+        ledger.write_text(
+            json.dumps(_ledger(_v(nr=7, bucket="owner"), naechste=8)), "utf-8"
+        )
+        rc = board.main(
+            ["--ledger", str(ledger), "--frist", "7", "--datum", "2026-09-30"]
+        )
+        assert rc == 0
+        assert json.loads(ledger.read_text())["vorgaenge"][0]["frist"] == "2026-09-30"
+
+
+class TestErledigtVerlangtAnker:
+    """`--erledigt` verankert oder verweigert (V3, platform#3015 K4)."""
+
+    def _ledger_mit(self, tmp_path, notiz="", konto="hnu", **zusatz):
+        ledger = tmp_path / "l.json"
+        v = _v(nr=7, bucket="owner", kurz="K", konto=konto, notiz=notiz, **zusatz)
+        ledger.write_text(json.dumps(_ledger(v, naechste=8)), "utf-8")
+        return ledger
+
+    def test_should_close_when_an_anchor_already_exists(self, pfade, tmp_path):
+        """Die `pfade`-Fixture hinterlegt bereits einen Anker fuer Nummer 3."""
+        ledger = tmp_path / "l.json"
+        ledger.write_text(
+            json.dumps(_ledger(_v(nr=3, bucket="owner", kurz="K"), naechste=4)),
+            "utf-8",
+        )
+        rc = board.main(
+            ["--ledger", str(ledger), "--erledigt", "3", "--am", "2026-09-13"]
+        )
+        assert rc == 0
+        assert json.loads(ledger.read_text())["vorgaenge"][0]["bucket"] == "erledigt"
+
+    def test_should_auto_set_the_anchor_from_the_latest_reference_and_close(
+        self, pfade, tmp_path, monkeypatch
+    ):
+        notiz = "2026-09-01 EINGANG (Max Mustermann, INBOX #164024): 'X'. Offen."
+        ledger = self._ledger_mit(tmp_path, notiz=notiz)
+        aufrufe = []
+        monkeypatch.setattr(
+            board,
+            "setze_anker_aus_referenz",
+            lambda nr, konto, ordner, uid, anker_pfad: (
+                aufrufe.append((nr, konto, ordner, uid)) or True
+            ),
+        )
+        rc = board.main(
+            ["--ledger", str(ledger), "--erledigt", "7", "--am", "2026-09-13"]
+        )
+        assert rc == 0
+        assert aufrufe == [(7, "hnu", "INBOX", "164024")]
+        assert json.loads(ledger.read_text())["vorgaenge"][0]["bucket"] == "erledigt"
+
+    def test_should_refuse_and_leave_the_ledger_unchanged_when_no_anchor_can_be_set(
+        self, pfade, tmp_path, monkeypatch
+    ):
+        ledger = self._ledger_mit(tmp_path, notiz="")
+        monkeypatch.setattr(board, "setze_anker_aus_referenz", lambda *a: False)
+        vorher = ledger.read_text()
+        rc = board.main(
+            ["--ledger", str(ledger), "--erledigt", "7", "--am", "2026-09-13"]
+        )
+        assert rc == 1
+        assert ledger.read_text() == vorher
+
+    def test_should_close_anyway_with_ohne_anker_and_mark_the_entry(
+        self, pfade, tmp_path
+    ):
+        ledger = self._ledger_mit(tmp_path, notiz="")
+        rc = board.main(
+            [
+                "--ledger",
+                str(ledger),
+                "--erledigt",
+                "7",
+                "--am",
+                "2026-09-13",
+                "--ohne-anker",
+            ]
+        )
+        assert rc == 0
+        v = json.loads(ledger.read_text())["vorgaenge"][0]
+        assert v["bucket"] == "erledigt"
+        assert "(ohne Anker geschlossen)" in v["notiz"]
+
+    def test_should_not_require_an_anchor_to_close_an_already_closed_item(
+        self, pfade, tmp_path
+    ):
+        ledger = tmp_path / "l.json"
+        ledger.write_text(
+            json.dumps(
+                _ledger(
+                    _v(
+                        nr=7,
+                        bucket="erledigt",
+                        erledigt_am="2026-09-01",
+                        notiz="2026-09-01 ERLEDIGT (Owner): x",
+                    ),
+                    naechste=8,
+                )
+            ),
+            "utf-8",
+        )
+        rc = board.main(
+            ["--ledger", str(ledger), "--erledigt", "7", "--am", "2026-09-13"]
+        )
+        assert rc == 0

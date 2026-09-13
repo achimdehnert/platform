@@ -424,13 +424,20 @@ def offen(journal_pfad: Path, *, block: bool, ohne_gh: bool) -> tuple[str, int]:
 
 
 def _kommando_fuer_vorschlag(
-    vorschlag: dict[str, Any], ledger: Path | None = None
+    vorschlag: dict[str, Any],
+    ledger: Path | None = None,
+    anker: Path | None = None,
 ) -> list[str] | None:
     aktion = vorschlag.get("aktion")
     nummer = vorschlag.get("nummer")
     if nummer is None:
         return None
     ledger_arg = ["--ledger", str(ledger)] if ledger else []
+    # --anker nur durchreichen, wenn ausdruecklich uebergeben (Tests,
+    # Trockenlauf) — sonst nimmt board.py seinen eigenen Default
+    # (mail-anker.json). Betrifft nur --erledigt, das seit V3
+    # (platform#3015 K4) einen Anker verlangt.
+    anker_arg = ["--anker", str(anker)] if anker else []
     if aktion == "erledigt":
         return [
             sys.executable,
@@ -440,6 +447,7 @@ def _kommando_fuer_vorschlag(
             "--grund",
             "Owner im Auftragsraum",
             *ledger_arg,
+            *anker_arg,
         ]
     if aktion == "frist":
         return [
@@ -457,7 +465,11 @@ def _kommando_fuer_vorschlag(
 
 
 def anwenden(
-    journal_pfad: Path, *, trocken: bool, ledger: Path | None = None
+    journal_pfad: Path,
+    *,
+    trocken: bool,
+    ledger: Path | None = None,
+    anker: Path | None = None,
 ) -> list[dict[str, str]]:
     eintraege = _journal_lesen(journal_pfad)
     ergebnisse: list[dict[str, str]] = []
@@ -467,7 +479,7 @@ def anwenden(
         if eintrag.get("klasse") != "kurzbefehl" or eintrag.get("bearbeitet_am"):
             continue
         vorschlag = eintrag.get("vorschlag") or {}
-        kommando = _kommando_fuer_vorschlag(vorschlag, ledger)
+        kommando = _kommando_fuer_vorschlag(vorschlag, ledger, anker)
         if kommando is None:
             ergebnisse.append(
                 {
@@ -494,9 +506,12 @@ def anwenden(
             eintrag["bearbeitet_am"] = _jetzt_iso()
             geaendert = True
             status = "angewendet"
-        elif rc == 2:
-            # board.py weist das Kommando ab (unbekannte Nummer, kaputtes Datum):
-            # der Vorschlag wird nicht als bearbeitet markiert, der Grund steht im Protokoll.
+        elif rc in (1, 2):
+            # board.py weist das Kommando ab: Exit 2 kennt die Nummer nicht oder
+            # das Datum ist kaputt; Exit 1 (V3, platform#3015 K4) heisst bei
+            # --erledigt "kein Anker und keiner setzbar". Beides ist eine
+            # Ablehnung nach Regel, keine Ausfuehrungsstoerung — der Vorschlag
+            # wird nicht als bearbeitet markiert, der Grund steht im Protokoll.
             grund = (err.strip().splitlines() or ["ohne Meldung"])[-1]
             status = f"abgewiesen (board.py: {grund})"
         else:
@@ -618,6 +633,12 @@ def main(argv: list[str] | None = None) -> int:
         help="anderen Ledger-Pfad an board.py durchreichen (Tests, Trockenlauf)",
     )
     p_anwenden.add_argument(
+        "--anker",
+        metavar="DATEI",
+        help="anderen Anker-Pfad an board.py durchreichen (Tests, Trockenlauf; "
+        "sonst mail-anker.json)",
+    )
+    p_anwenden.add_argument(
         "--trocken", action="store_true", help="nur zeigen, nichts ausfuehren/schreiben"
     )
 
@@ -662,7 +683,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.befehl == "anwenden":
         journal_pfad = Path(args.journal).expanduser()
         ledger = Path(args.ledger).expanduser() if args.ledger else None
-        ergebnisse = anwenden(journal_pfad, trocken=args.trocken, ledger=ledger)
+        anker = Path(args.anker).expanduser() if args.anker else None
+        ergebnisse = anwenden(
+            journal_pfad, trocken=args.trocken, ledger=ledger, anker=anker
+        )
         if not ergebnisse:
             print("keine offenen Kurzbefehl-Vorschlaege")
         for r in ergebnisse:
