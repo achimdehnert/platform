@@ -533,6 +533,8 @@ def test_should_book_draft_voucher_to_status_100_before_book_amount():
             )
         if pfad == "/Voucher/v1/bookAmount":
             assert zustand["status"] == "100"
+            # Ausgabenbeleg: Zahlung negativ (Echtprobe 2026-09-13, 25 Belege falsch)
+            assert json.loads(request.read().decode())["amount"] == -10.99
             zustand["paid"] = "10.99"
             return httpx.Response(200, json={"objects": {"ok": True}})
         if pfad == "/Voucher/v1":

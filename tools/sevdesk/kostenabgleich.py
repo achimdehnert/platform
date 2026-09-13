@@ -376,7 +376,11 @@ def buchen(client_, position: dict, heute: dt.date) -> dict:
     beleg = entwurf_buchen(client_, position["beleg"])
     checkaccount = position.get("checkAccount") or {}
     payload = {
-        "amount": voucher_offener_betrag(beleg),
+        # Ausgabenbeleg (creditDebit C): sevdesk erwartet die Zahlung NEGATIV.
+        # Mit positivem Betrag entstand am 2026-09-13 bei 25 Belegen paidAmount
+        # -x, Status 750 und "offen 2x" — alle per resetToOpen + Neubuchung
+        # repariert. Der Vorzeichen-Fehler war durch Fakes nicht sichtbar.
+        "amount": -abs(voucher_offener_betrag(beleg)),
         "date": _dd_mm_yyyy(heute),
         "type": "FULL_PAYMENT",
         "checkAccount": {"id": checkaccount.get("id"), "objectName": "CheckAccount"},
