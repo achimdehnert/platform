@@ -159,7 +159,9 @@ def main(argv: list[str] | None = None) -> int:
         "--pruefe", action="store_true", help="Trockenlauf: Kandidaten listen"
     )
     parser.add_argument(
-        "--schreibe", action="store_true", help="Alterung ausfuehren und Ledger schreiben"
+        "--schreibe",
+        action="store_true",
+        help="Alterung ausfuehren und Ledger schreiben",
     )
     parser.add_argument(
         "--zurueck", type=int, metavar="NR", help="Vorgang #NR zurueck nach 'owner'"
@@ -170,7 +172,10 @@ def main(argv: list[str] | None = None) -> int:
         help="Bezugsdatum statt heute (reproduzierbar)",
     )
     parser.add_argument(
-        "--tage", type=int, default=DEFAULT_TAGE, help=f"Ueberfaellig-Schwelle (Default {DEFAULT_TAGE})"
+        "--tage",
+        type=int,
+        default=DEFAULT_TAGE,
+        help=f"Ueberfaellig-Schwelle (Default {DEFAULT_TAGE})",
     )
     parser.add_argument("--ledger", metavar="DATEI", help="anderer Ledger-Pfad")
     args = parser.parse_args(argv)
@@ -185,12 +190,16 @@ def main(argv: list[str] | None = None) -> int:
         except ValueError as fehler:
             parser.error(str(fehler))
         if status == "bereits":
-            print(f"#{args.zurueck} '{vorgang.get('kurz')}': war schon bei 'owner' — keine Aenderung.")
+            print(
+                f"#{args.zurueck} '{vorgang.get('kurz')}': war schon bei 'owner' — keine Aenderung."
+            )
             return 0
         ledger_pfad.write_text(
             json.dumps(ledger, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
-        print(f"#{args.zurueck} '{vorgang.get('kurz')}': bucket={vorgang.get('bucket')!r}")
+        print(
+            f"#{args.zurueck} '{vorgang.get('kurz')}': bucket={vorgang.get('bucket')!r}"
+        )
         return 0
 
     stichtag = date.fromisoformat(args.stichtag) if args.stichtag else date.today()
@@ -200,9 +209,13 @@ def main(argv: list[str] | None = None) -> int:
             v for v in vorgaenge_von(ledger) if ist_kandidat(v, stichtag, args.tage)
         ]
         if not kandidaten:
-            print(f"Keine Kandidaten (Stichtag {stichtag.isoformat()}, {args.tage} Tage).")
+            print(
+                f"Keine Kandidaten (Stichtag {stichtag.isoformat()}, {args.tage} Tage)."
+            )
             return 0
-        print(f"{len(kandidaten)} Kandidat(en) (Stichtag {stichtag.isoformat()}, {args.tage} Tage):")
+        print(
+            f"{len(kandidaten)} Kandidat(en) (Stichtag {stichtag.isoformat()}, {args.tage} Tage):"
+        )
         for vorgang in kandidaten:
             print(_kandidaten_zeile(vorgang, stichtag))
         return 0
@@ -210,7 +223,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.schreibe:
         geaendert = altern(ledger, stichtag, args.tage)
         if not geaendert:
-            print(f"Keine Aenderung (Stichtag {stichtag.isoformat()}, {args.tage} Tage).")
+            print(
+                f"Keine Aenderung (Stichtag {stichtag.isoformat()}, {args.tage} Tage)."
+            )
             return 0
         ledger_pfad.write_text(
             json.dumps(ledger, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"

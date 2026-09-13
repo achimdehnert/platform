@@ -55,9 +55,7 @@ class TestAltern:
         assert vorgang["frist"] is None
         assert "2026-09-05" in vorgang["frist_grund"]
         assert vorgang["zustand"] == "ueberfaellig-seit-2026-09-05-owner-wort-offen"
-        assert vorgang["notiz"].endswith(
-            "Offen: Owner-Wort."
-        )
+        assert vorgang["notiz"].endswith("Offen: Owner-Wort.")
         assert "2026-09-12 (alterung.py)" in vorgang["notiz"]
 
     def test_should_not_move_a_candidate_only_six_days_overdue(self):
