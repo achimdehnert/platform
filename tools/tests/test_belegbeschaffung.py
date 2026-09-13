@@ -64,6 +64,16 @@ Hauptsitz Musterstadt, HRB 00000 · USt-IdNr.: DE000000000
 """
 
 
+PDF_RECHNUNG_NUR_DOMAIN = """
+Beispiel Modelle Inc.
+Receipt
+Date 2026-04-06
+Bill to: rechnung@iil.gmbh
+Amount paid $25.00 USD
+Total $25.00 USD
+"""
+
+
 # ── Register ───────────────────────────────────────────────────────────────
 
 
@@ -93,6 +103,16 @@ def register_datei(tmp_path) -> Path:
                         "betreff": "Rechnung",
                         "ordner": ["inbox"],
                         "taxrule": "9",
+                    },
+                    {
+                        "muster": "beispiel modelle",
+                        "weg": "mail",
+                        "lieferant": "Beispiel Modelle Inc.",
+                        "absender": "invoice@modelle.invalid",
+                        "betreff": "Your receipt",
+                        "ordner": ["Modellordner"],
+                        "ohne_abgang": True,
+                        "taxrule": "12",
                     },
                     {
                         "muster": "beispiel abo",
@@ -193,6 +213,17 @@ def test_should_ignore_vat_id_line_when_reading_the_tax_amount():
     Ausnahme wuerde die Identifikationsnummer zum Steuerbetrag."""
     feld = bb.pdf_lesen(PDF_RECHNUNG_EUR_KOMMA, "rechnung.pdf")
     assert feld["steuer"] == 19.00
+
+
+def test_should_read_spelled_out_month_dates():
+    """Rechnungen aus dem englischen Sprachraum schreiben den Monat aus; ohne
+    diese Schreibweise blieben sie ohne Datum und damit ohne Entwurf."""
+    englisch = (
+        "Invoice\nDate of issue May 13, 2026\nDate due June 12, 2026\nAmount due €12.00"
+    )
+    deutsch = "Rechnung\nRechnungsdatum 13. Mai 2026\nGesamtbetrag 12,00 EUR"
+    assert bb.pdf_lesen(englisch, "a.pdf")["datum"] == "2026-05-13"
+    assert bb.pdf_lesen(deutsch, "b.pdf")["datum"] == "2026-05-13"
 
 
 def test_should_fall_back_to_filename_when_no_invoice_number_in_text():
@@ -580,8 +611,13 @@ def test_should_render_all_four_lists_in_the_board(tmp_path, register_datei):
 def test_should_exit_2_and_write_journal_when_owner_move_is_open(
     tmp_path, register_datei, monkeypatch
 ):
+    # Kein Netz: der CLI-Pfad holt sich seine Postfach-Funktionen selbst —
+    # hier ein stummes Postfach ohne Treffer (der Register-Eintrag mit
+    # ohne_abgang wird trotzdem abgesucht).
     monkeypatch.setattr(
-        bb, "graph_funktionen", lambda konto: (_fehlschlag, _fehlschlag)
+        bb,
+        "graph_funktionen",
+        lambda konto: ((lambda *a, **k: []), (lambda *a, **k: [])),
     )
     code = bb.main(
         [
@@ -609,5 +645,63 @@ def test_should_exit_2_and_write_journal_when_owner_move_is_open(
     assert "Owner-Zug" in (tmp_path / "board.md").read_text(encoding="utf-8")
 
 
-def _fehlschlag(*args, **kwargs):
-    raise AssertionError("Postfach darf hier nicht angefasst werden")
+def test_should_detect_iil_mandant_from_mail_domain_alone():
+    """Rechnungen ohne Kontozeile nennen den Mandanten nur ueber die
+    Rechnungsadresse — die Domain reicht als Beleg."""
+    assert bb.empfaenger_bestimmen(PDF_RECHNUNG_NUR_DOMAIN) == "iil"
+
+
+def test_should_keep_foreign_billing_account_unklar_despite_own_mail_domain():
+    """Ein Zahlungsbeleg auf fremdes Konto bleibt Owner-Sache, auch wenn die
+    eigene Rechnungsmailadresse daneben steht (real so gesehen 2026-09-13)."""
+    text = PDF_RECEIPT_USD + "\nBilling email rechnung@iil.gmbh\n"
+    assert bb.empfaenger_bestimmen(text, ["iilkonto"]) == "unklar"
+
+
+def test_should_search_supplier_without_abgang_when_flag_is_set(
+    tmp_path, register_datei
+):
+    """Lieferant, der ueber ein anderes Konto bezahlt wird: kein Abgang, die
+    Rechnung liegt trotzdem im Postfach und soll ein Entwurf werden."""
+    postfach = _Postfach(
+        {"m9": ("Modellordner", "receipt.pdf", PDF_RECHNUNG_NUR_DOMAIN)}
+    )
+    anleger = _Anleger()
+    ergebnis = bb.lauf(
+        _args(tmp_path, register_datei, [], anlegen=True),
+        HEUTE,
+        suche_fn=postfach.suche_fn,
+        download_fn=postfach.download_fn,
+        anlegen_fn=anleger,
+        lese_fn=_lese_fn,
+    )
+    assert postfach.suchen, "Eintrag mit ohne_abgang muss abgesucht werden"
+    assert postfach.suchen[0][3] == "Modellordner"
+    assert postfach.suchen[0][2] == 120  # Fenster des Laufs, kein Abgang als Anker
+    assert len(ergebnis["pdf_ohne_abgang"]) == 1
+    assert ergebnis["pdf_ohne_abgang"][0]["beleg_id"] == "v-1"
+    assert ergebnis["entwuerfe"] == []
+
+
+def test_should_not_search_supplier_without_abgang_when_flag_is_missing(
+    tmp_path, register_datei
+):
+    """Ohne das Feld bleibt es beim alten Verhalten: kein Abgang, keine Suche
+    — sonst durchsucht jeder Lauf das Postfach nach jedem Register-Eintrag."""
+    register = json.loads(register_datei.read_text(encoding="utf-8"))
+    for eintrag in register["eintraege"]:
+        eintrag.pop("ohne_abgang", None)
+    register_datei.write_text(json.dumps(register), encoding="utf-8")
+    postfach = _Postfach(
+        {"m9": ("Modellordner", "receipt.pdf", PDF_RECHNUNG_NUR_DOMAIN)}
+    )
+    ergebnis = bb.lauf(
+        _args(tmp_path, register_datei, []),
+        HEUTE,
+        suche_fn=postfach.suche_fn,
+        download_fn=postfach.download_fn,
+        anlegen_fn=_Anleger(),
+        lese_fn=_lese_fn,
+    )
+    assert postfach.suchen == []
+    assert ergebnis["pdf_ohne_abgang"] == []

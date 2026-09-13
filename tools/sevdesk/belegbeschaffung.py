@@ -35,7 +35,9 @@ Vier Listen im Board:
 3. **intern (kein Lieferantenbeleg)** — mit Kontovorschlag aus dem Kostenabgleich.
 4. **PDF ohne Abgang** — Rechnung gefunden, aber kein passender Abgang im
    Fenster (anderes Konto, spaetere Abbuchung). Fuer den eigenen Mandanten
-   wird trotzdem ein Entwurf angelegt — der Beleg ist echt.
+   wird trotzdem ein Entwurf angelegt — der Beleg ist echt. Lieferanten, die
+   NIE ueber dieses Konto bezahlt werden, tragen im Register
+   ``"ohne_abgang": true`` und werden auch ohne Abgang abgesucht.
 
 Gates:
 
@@ -114,6 +116,52 @@ EIGENE_LOGINS: tuple[str, ...] = ()
 RE_ISO_DATUM = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b")
 RE_DMY_SLASH = re.compile(r"\b(\d{1,2})/(\d{1,2})/(\d{4})\b")
 RE_DMY_PUNKT = re.compile(r"\b(\d{1,2})\.(\d{1,2})\.(\d{4})\b")
+#: "May 13, 2026" / "13. Mai 2026" — Rechnungen aus dem englischen Sprachraum
+#: schreiben den Monat aus (Echtprobe 2026-09-13: zwei Anbieter, 16 Belege
+#: blieben ohne Datum und damit ohne Entwurf).
+RE_MONAT_ZUERST = re.compile(
+    r"\b([A-Za-zäöüÄÖÜ]{3,10})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b"
+)
+RE_TAG_ZUERST = re.compile(r"\b(\d{1,2})\.?\s+([A-Za-zäöüÄÖÜ]{3,10})\.?\s+(\d{4})\b")
+MONATE = {
+    "jan": 1,
+    "january": 1,
+    "januar": 1,
+    "jaen": 1,
+    "feb": 2,
+    "february": 2,
+    "februar": 2,
+    "mar": 3,
+    "march": 3,
+    "mrz": 3,
+    "maerz": 3,
+    "märz": 3,
+    "apr": 4,
+    "april": 4,
+    "may": 5,
+    "mai": 5,
+    "jun": 6,
+    "june": 6,
+    "juni": 6,
+    "jul": 7,
+    "july": 7,
+    "juli": 7,
+    "aug": 8,
+    "august": 8,
+    "sep": 9,
+    "sept": 9,
+    "september": 9,
+    "oct": 10,
+    "okt": 10,
+    "october": 10,
+    "oktober": 10,
+    "nov": 11,
+    "november": 11,
+    "dec": 12,
+    "dez": 12,
+    "december": 12,
+    "dezember": 12,
+}
 RE_ZAHL = re.compile(r"\d[\d.,]*\d|\d")
 RE_ACCOUNT_BILLED = re.compile(r"account billed\s+([A-Za-z0-9_.\-]+)", re.IGNORECASE)
 RE_NUMMER = re.compile(
@@ -231,8 +279,13 @@ def _letzte_zahl(zeile: str) -> float | None:
     return werte[-1] if werte else None
 
 
+def _monat_nummer(wort: str) -> int | None:
+    return MONATE.get((wort or "").strip(".").lower())
+
+
 def _datum_aus(zeile: str) -> str | None:
-    """ISO zuerst, dann DD/MM/YYYY, dann DD.MM.YYYY — alle drei real gesehen."""
+    """ISO, DD/MM/YYYY, DD.MM.YYYY, "May 13, 2026", "13. Mai 2026" — alle
+    fuenf Schreibweisen real gesehen (2026-09-13)."""
     m = RE_ISO_DATUM.search(zeile)
     if m:
         return _iso_bauen(m.group(1), m.group(2), m.group(3))
@@ -240,6 +293,12 @@ def _datum_aus(zeile: str) -> str | None:
         m = muster.search(zeile)
         if m:
             return _iso_bauen(m.group(3), m.group(2), m.group(1))
+    m = RE_MONAT_ZUERST.search(zeile)
+    if m and _monat_nummer(m.group(1)):
+        return _iso_bauen(m.group(3), str(_monat_nummer(m.group(1))), m.group(2))
+    m = RE_TAG_ZUERST.search(zeile)
+    if m and _monat_nummer(m.group(2)):
+        return _iso_bauen(m.group(3), str(_monat_nummer(m.group(2))), m.group(1))
     return None
 
 
@@ -256,6 +315,20 @@ def empfaenger_bestimmen(text: str, eigene_logins=EIGENE_LOGINS) -> str:
     Die Reihenfolge ist die Lehre aus der Echtprobe (2026-09-13): eine
     Rechnung im IIL-Postfach war an den zweiten Mandanten adressiert. Wer den
     Empfaenger aus dem Postfach schliesst, legt sie beim falschen an.
+
+    Die Pruefreihenfolge ist bewusst so und nicht anders:
+
+    1. ``EDV Beratung`` schlaegt alles — der zweite Mandant wird nie
+       stillschweigend zum eigenen.
+    2. ``Account billed <login>`` gewinnt vor dem Domain-Marker. Ein
+       Zahlungsbeleg sagt damit ausdruecklich, WELCHES Konto belastet wurde;
+       ein fremdes Konto bleibt ``unklar``, auch wenn als Rechnungsadresse
+       eine eigene Mailadresse daneben steht (real so gesehen 2026-09-13 —
+       vier Belege auf ein privates Konto mit IIL-Rechnungsmail). Diese
+       Entscheidung gehoert dem Owner, nicht dem Parser.
+    3. Domain-/Namensmarker (``iil.gmbh``, ``iil-institut``, ``IIL`` als
+       eigenes Wort) tragen alles uebrige — Rechnungen ohne Kontozeile, die
+       nur die Rechnungsadresse nennen.
     """
     flach = " ".join((text or "").split()).lower()
     if re.search(r"edv[\s\-]?beratung", flach):
@@ -263,6 +336,8 @@ def empfaenger_bestimmen(text: str, eigene_logins=EIGENE_LOGINS) -> str:
     m = RE_ACCOUNT_BILLED.search(flach)
     if m:
         return "iil" if m.group(1) in {s.lower() for s in eigene_logins} else "unklar"
+    if "iil.gmbh" in flach or "iil-institut" in flach:
+        return "iil"
     if re.search(r"\biil\b", flach):
         return "iil"
     return "unklar"
@@ -512,16 +587,22 @@ def belege_beschaffen(
     download_fn,
     heute: dt.date,
     lese_fn=None,
+    tage: int | None = None,
 ) -> tuple[list[dict], list[str]]:
     """PDFs eines ``mail``-Lieferanten holen und lesen — einmal je Register-
     Eintrag, nicht je Abgang.
+
+    ``tage`` setzt das Suchfenster von aussen; ohne Angabe rechnet es
+    ``suchfenster`` aus den Abgaengen. Fuer Lieferanten ohne Abgang
+    (``ohne_abgang``) gibt es keinen Ankerpunkt — dort gilt das Fenster des
+    Laufs (``--tage``).
 
     Idempotenz auf Postfach-Seite: eine Nachricht, die schon im Index steht,
     wird nicht erneut heruntergeladen; ihre bereits abgelegten Dateien werden
     trotzdem gelesen (sonst verschwaende der zweite Lauf den ersten).
     """
     lese_fn = lese_fn or pdf_text
-    tage = suchfenster(abgaenge, heute)
+    tage = tage if tage is not None else suchfenster(abgaenge, heute)
     ziel = ablage / re.sub(
         r"[^A-Za-z0-9_.\-]+", "_", eintrag.get("lieferant") or "unbekannt"
     )
@@ -761,8 +842,13 @@ def lauf(
                 "hinweis": f"--anlegen nur fuer Mandant {ANLEGE_MANDANT} (platform#3112) — Vorschau",
             }
         )
+    ohne_abgang_eintraege = [
+        e
+        for e in register
+        if e.get("weg") == "mail" and e.get("ohne_abgang") and not gruppen.get(id(e))
+    ]
     if suche_fn is None or download_fn is None:
-        if gruppen:
+        if gruppen or ohne_abgang_eintraege:
             suche_fn, download_fn = graph_funktionen(args.konto)
         else:
             suche_fn, download_fn = (lambda *a, **k: []), (lambda *a, **k: [])
@@ -771,11 +857,22 @@ def lauf(
 
     pdf_gefunden = 0
     for eintrag in register:
-        teil = gruppen.get(id(eintrag))
-        if not teil:
+        teil = gruppen.get(id(eintrag)) or []
+        if not teil and eintrag not in ohne_abgang_eintraege:
             continue
+        # Ohne Abgang gibt es keinen Ankerpunkt fuer das Fenster — dann gilt
+        # das Fenster des Laufs (Lieferanten, die ein anderes Konto bezahlt,
+        # deren Rechnung aber hier liegt: Register-Feld "ohne_abgang").
         belege, fehler = belege_beschaffen(
-            eintrag, teil, ablage, index, suche_fn, download_fn, heute, lese_fn
+            eintrag,
+            teil,
+            ablage,
+            index,
+            suche_fn,
+            download_fn,
+            heute,
+            lese_fn,
+            tage=None if teil else int(args.tage),
         )
         pdf_gefunden += len(belege)
         for text in fehler:

@@ -202,7 +202,10 @@ python3 tools/sevdesk/belegbeschaffung.py --json                # maschinenlesba
    Eigenuebertraege, jeweils mit Kontovorschlag aus dem Kostenabgleich.
 4. **PDF ohne Abgang** — Rechnung gefunden, kein passender Abgang im Fenster.
    Fuer den eigenen Mandanten wird trotzdem ein Entwurf angelegt; der Abgang
-   kommt spaeter oder lief ueber ein anderes Konto.
+   kommt spaeter oder lief ueber ein anderes Konto. Lieferanten, die **nie**
+   ueber dieses Konto bezahlt werden (andere Zahlungsart), tragen im Register
+   `"ohne_abgang": true` und werden auch ohne Abgang abgesucht — Fenster ist
+   dann `--tage`.
 
 ### Gates
 
@@ -228,7 +231,10 @@ python3 tools/sevdesk/belegbeschaffung.py --json                # maschinenlesba
   wird deshalb aus dem PDF-Text gelesen, nie aus dem Postfach geschlossen.
   Zahlungsbelege ohne Empfaengerzeile (nur `Account billed <login>`) gelten
   nur fuer die im Register hinterlegten eigenen Logins als eigener Mandant,
-  sonst als "Empfaenger unklar".
+  sonst als "Empfaenger unklar" — und zwar auch dann, wenn daneben eine
+  eigene Rechnungsmailadresse steht: welches Konto belastet wurde, sagt die
+  Kontozeile, nicht die Adresse. Rechnungen **ohne** Kontozeile erkennt das
+  Werkzeug an `iil.gmbh`, `iil-institut` oder `IIL` als eigenem Wort.
 - **Fremdwaehrung**: Der Abgang steht in EUR, das Receipt in USD. Eine solche
   Zuordnung ist nie "sicher", sondern `fremdwaehrung` — den Stichtagskurs
   setzt sevdesk selbst (`propertyForeignCurrencyDeadline`).

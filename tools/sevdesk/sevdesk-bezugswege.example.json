@@ -12,7 +12,8 @@
     "waehrung": "Waehrung der Rechnung (EUR, USD) — nur Erwartung, gelesen wird sie aus dem PDF",
     "konto": "Kontovorschlag zur Anzeige; gesetzt wird er NIE automatisch (Owner bestaetigt in sevdesk)",
     "url": "Abrufseite (nur weg=portal)",
-    "grund": "Warum dieser Weg — steht im Board"
+    "grund": "Warum dieser Weg — steht im Board",
+    "ohne_abgang": "optional: true = dieser Lieferant wird auch dann abgesucht, wenn kein Abgang zu ihm passt (bezahlt ueber ein anderes Konto); Fenster ist dann --tage"
   },
   "eintraege": [
     {
@@ -21,8 +22,13 @@
       "lieferant": "GitHub Inc.",
       "absender": "noreply@github.com",
       "betreff": "Payment Receipt",
-      "ordner": ["Github", "inbox"],
-      "eigene_logins": ["<eigener-konto-login>"],
+      "ordner": [
+        "Github",
+        "inbox"
+      ],
+      "eigene_logins": [
+        "<eigener-konto-login>"
+      ],
       "taxrule": "12",
       "waehrung": "USD",
       "konto": "",
@@ -34,7 +40,9 @@
       "lieferant": "Microsoft",
       "absender": "microsoft-noreply@microsoft.com",
       "betreff": "Rechnung",
-      "ordner": ["inbox"],
+      "ordner": [
+        "inbox"
+      ],
       "taxrule": "9",
       "waehrung": "EUR",
       "konto": "",
@@ -46,11 +54,46 @@
       "lieferant": "IONOS SE",
       "absender": "noreply@ionos.de",
       "betreff": "Rechnung",
-      "ordner": ["IIL.Lieferanten/Hosting"],
+      "ordner": [
+        "IIL.Lieferanten/Hosting"
+      ],
       "taxrule": "9",
       "waehrung": "EUR",
       "konto": "",
       "grund": "Hosting-Rechnung als PDF-Anhang im Lieferantenordner"
+    },
+    {
+      "muster": "anthropic",
+      "weg": "mail",
+      "lieferant": "Anthropic, PBC",
+      "absender": "invoice+statements@mail.anthropic.com",
+      "betreff": "Your receipt from Anthropic",
+      "ordner": [
+        "inbox",
+        "IIL.Finanzen/Rechnungen"
+      ],
+      "ohne_abgang": true,
+      "taxrule": "12",
+      "waehrung": "USD",
+      "konto": "",
+      "grund": "wird nicht vom Geschaeftskonto bezahlt — Rechnung liegt trotzdem im Postfach"
+    },
+    {
+      "muster": "groq",
+      "weg": "mail",
+      "lieferant": "Groq LLC",
+      "absender": "groq.com",
+      "betreff": "Your Invoice from Groq",
+      "ordner": [
+        "inbox",
+        "Info",
+        "IIL.Finanzen/Rechnungen/01-in-sevdesk"
+      ],
+      "ohne_abgang": true,
+      "taxrule": "12",
+      "waehrung": "USD",
+      "konto": "",
+      "grund": "wird nicht vom Geschaeftskonto bezahlt — Rechnung liegt trotzdem im Postfach"
     },
     {
       "muster": "spotify",
@@ -74,7 +117,7 @@
       "grund": "keine Rechnungsmail — Beleg nur im Kundenkonto abrufbar"
     },
     {
-      "muster": "minijob|lohn|gehalt",
+      "muster": "minijob|lohn|gehalt|sammel-?ueberweisung|sammel-?überweisung",
       "weg": "intern",
       "lieferant": "Lohn",
       "grund": "Lohnabrechnung, kein Lieferantenbeleg — Buchung ueber die Lohnkonten"
@@ -86,7 +129,7 @@
       "grund": "Beitragsnachweis statt Rechnung"
     },
     {
-      "muster": "finanzkasse|finanzamt",
+      "muster": "finanzkasse|finanzamt|koerpst|koerperschaftsteuer|steuernr|steuernummer|umsatzsteuer-?vorauszahlung",
       "weg": "intern",
       "lieferant": "Finanzkasse",
       "grund": "Steuerzahlung, kein Lieferantenbeleg"

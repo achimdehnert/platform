@@ -72,7 +72,7 @@ Der Monatslauf startet am **10. jeden Monats um 07:30** als Benutzer-Timer (`sev
 | Dauerkunden-Datei | `~/.claude/sevdesk-dauerkunden.json`, geschrieben von `--kunden-ermitteln`, Modus 0600 | NIE im Repo, NIE mit echten Namen in Tests/Doku (platform ist öffentlich). Je Kunde zusätzlich `zustand` (`"aktiv"`/`"beendet"`, automatisch) und `aktiv` (Owner-Override, bleibt über Läufe hinweg erhalten) |
 | Versandlog | `~/.claude/sevdesk-versand-<von>.json` je Zeitraum-Start | macht `--senden --ja` über Tage hinweg idempotent (Mail-ID im Log oder Status ≠ 100 → überspringen) |
 | Lauf-Journal (K2) | `~/.claude/sevdesk-rechnungslauf-journal.jsonl`, vom Werkzeug selbst je Lauf angehängt | `messjournal.py --anwendung sevdesk` liest davon nur die jüngste Zeile |
-| Bezugswege-Register (K9) | `~/.claude/sevdesk-bezugswege.json`, vom Owner gepflegt | Vorlage im Repo; die echte Datei darf Ordnernamen, Portallinks und Muster mit Personennamen enthalten und bleibt deshalb lokal |
+| Bezugswege-Register (K9) | `~/.claude/sevdesk-bezugswege.json`, vom Owner gepflegt | Vorlage im Repo; die echte Datei darf Ordnernamen, Portallinks und Muster mit Personennamen enthalten und bleibt deshalb lokal. `"ohne_abgang": true` sucht einen Lieferanten auch dann ab, wenn kein Abgang zu ihm passt (Rechnung liegt im Postfach, bezahlt wird über ein anderes Konto) |
 | Rechnungs-PDFs (K9) | IIL-Postfach über Microsoft Graph (read-only), abgelegt unter `~/.claude/sevdesk-belege/<Lieferant>/` | nur `.pdf`-Anhänge; das Postfach wird nicht verändert (kein Verschieben, Markieren, Löschen) |
 | Postfach-Index (K9) | `~/.claude/sevdesk-belegbeschaffung-index.json` | bereits geholte Nachrichten-IDs — verhindert den zweiten Download derselben Mail |
 | Belegbeschaffungs-Journal (K9) | `~/.claude/sevdesk-belegbeschaffung-journal.jsonl`, je Lauf eine Zeile | nur Kennzahlen, keine Beträge Dritter |
@@ -184,7 +184,10 @@ Journal; als Vereinfachung dokumentiert, nicht stillschweigend gelassen
 - **Zahlungsbeleg statt Rechnung**: Manche Anbieter schicken nur ein Receipt
   ohne Empfängerzeile, dafür mit `Account billed <login>`. Nur die im
   Register hinterlegten eigenen Logins gelten als eigener Mandant — jeder
-  andere Login landet als "Empfänger unklar" beim Owner.
+  andere Login landet als "Empfänger unklar" beim Owner, auch wenn daneben
+  eine IIL-Mailadresse steht (real so gesehen 2026-09-13: vier Belege auf ein
+  privates Konto mit IIL-Rechnungsmail). Rechnungen ohne Kontozeile erkennt
+  das Werkzeug dagegen an `iil.gmbh` / `iil-institut` / `IIL`.
 - **Fremdwährung**: EUR-Abgang gegen USD-Receipt wird nur im Kursband
   0,80–1,00 und innerhalb von 40 Tagen zusammengeführt, und nie als "sicher".
   Den Stichtagskurs setzt sevdesk selbst.
