@@ -492,6 +492,19 @@ def empfaenger_bestimmen(text: str, logins=EIGENE_LOGINS) -> str:
         )
         mandant = zuordnung.get(m.group(1))
         return mandant if mandant in MANDANTEN_EINZELN else "unklar"
+    # 2b. Rechnungs-Layout ohne Kontozeile (Echtprobe 2026-09-13, GitHub
+    #     „INV…": der Login steht nur unter „BILL TO"): ein im Register
+    #     zugeordneter Login als eigenes Wort im Text traegt den Mandanten.
+    #     Nur Logins mit Zuordnung — unbekannte bleiben ``unklar``.
+    if isinstance(logins, dict):
+        for login, mandant in logins.items():
+            if mandant in MANDANTEN_EINZELN and re.search(
+                r"(?<![a-z0-9_.\-])"
+                + re.escape(str(login).lower())
+                + r"(?![a-z0-9_.\-])",
+                flach,
+            ):
+                return mandant
     if "iil.gmbh" in flach or "iil-institut" in flach:
         return "iil"
     if re.search(r"\biil\b", flach):
