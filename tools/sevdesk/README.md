@@ -184,11 +184,22 @@ python3 tools/sevdesk/belegbeschaffung.py --tage 60             # engeres Fenste
 python3 tools/sevdesk/belegbeschaffung.py --eingabe lauf.json   # Kostenabgleich-JSON statt Live-Lauf
 python3 tools/sevdesk/belegbeschaffung.py --anlegen             # Entwuerfe wirklich anlegen
 python3 tools/sevdesk/belegbeschaffung.py --json                # maschinenlesbar
+python3 tools/sevdesk/belegbeschaffung.py --ablage-inbox PFAD   # andere Owner-Ablage
 ```
 
 `make sevdesk-belegbeschaffung` ruft die Vorschau. Das Board liegt unter
 `~/.claude/boards/sevdesk-belegbeschaffung.md`, die PDFs unter
 `~/.claude/sevdesk-belege/<Lieferant>/`.
+
+**Zweite Quelle: die Owner-Ablage** `~/shared/inbox/invoices/`
+(`--ablage-inbox`, fehlender Ordner ist kein Fehler). Rechnungen, die der
+Owner von Hand aus einem Kundenkonto laedt und dort einstellt, gehen denselben
+Weg wie Postfach-PDFs; der Lieferant wird ueber den Dateinamen, sonst ueber
+den PDF-Text gegen das Register bestimmt, ohne Treffer ist es ein Owner-Zug.
+Die Dateien werden nie verschoben oder geloescht — ein angelegter Beleg wird
+im Index vermerkt, damit der naechste Lauf ihn nicht erneut anlegt.
+`intern`-Eintraege zaehlen dabei nicht als Treffer, damit ein Kontoauszug in
+der Ablage keinen Lieferantenbeleg ausloest.
 
 ### Die vier Listen
 

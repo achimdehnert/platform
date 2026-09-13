@@ -45,6 +45,7 @@ python3 tools/sevdesk/rechnungslauf.py --senden --monat 2026-09 --ja
 
 ```bash
 # Vorschau: was fehlt, woher käme es, was würde angelegt — legt NICHTS an
+# (liest Postfach UND Owner-Ablage ~/shared/inbox/invoices/)
 python3 tools/sevdesk/belegbeschaffung.py --tage 120
 
 # Reproduzierbar aus einem gespeicherten Kostenabgleich-Lauf
@@ -74,6 +75,7 @@ Der Monatslauf startet am **10. jeden Monats um 07:30** als Benutzer-Timer (`sev
 | Lauf-Journal (K2) | `~/.claude/sevdesk-rechnungslauf-journal.jsonl`, vom Werkzeug selbst je Lauf angehängt | `messjournal.py --anwendung sevdesk` liest davon nur die jüngste Zeile |
 | Bezugswege-Register (K9) | `~/.claude/sevdesk-bezugswege.json`, vom Owner gepflegt | Vorlage im Repo; die echte Datei darf Ordnernamen, Portallinks und Muster mit Personennamen enthalten und bleibt deshalb lokal. `"ohne_abgang": true` sucht einen Lieferanten auch dann ab, wenn kein Abgang zu ihm passt (Rechnung liegt im Postfach, bezahlt wird über ein anderes Konto) |
 | Rechnungs-PDFs (K9) | IIL-Postfach über Microsoft Graph (read-only), abgelegt unter `~/.claude/sevdesk-belege/<Lieferant>/` | nur `.pdf`-Anhänge; das Postfach wird nicht verändert (kein Verschieben, Markieren, Löschen) |
+| Owner-Ablage (K9) | `~/shared/inbox/invoices/` (`--ablage-inbox`), vom Owner per Hand befüllt | zweite Quelle für Rechnungen ohne Mailversand (Owner-Entscheid B 2026-08-07); Dateien werden gelesen, nie verschoben oder gelöscht — fehlender Ordner ist kein Fehler |
 | Postfach-Index (K9) | `~/.claude/sevdesk-belegbeschaffung-index.json` | bereits geholte Nachrichten-IDs — verhindert den zweiten Download derselben Mail |
 | Belegbeschaffungs-Journal (K9) | `~/.claude/sevdesk-belegbeschaffung-journal.jsonl`, je Lauf eine Zeile | nur Kennzahlen, keine Beträge Dritter |
 
@@ -103,7 +105,8 @@ liest NUR die jüngste Zeile und übernimmt fünf Kennzahlen:
 | Kennzahl | Bedeutung |
 |---|---|
 | `lieferanten_abgaenge` | Abgänge ohne Beleg, für die das Register einen Lieferantenweg (`mail`) kennt |
-| `pdf_gefunden` | gelesene Rechnungs-PDFs (neu geholt oder bereits in der Ablage) |
+| `pdf_gefunden` | Rechnungs-PDFs, die einem Register-Eintrag zugeordnet wurden |
+| `ablage_pdf` | aus der Owner-Ablage `~/shared/inbox/invoices/` gelesene Dateien — auch die ohne Zuordnung, die als Owner-Zug erscheinen |
 | `entwuerfe_angelegt` | neu angelegte Beleg-Entwürfe (nur mit `--anlegen`) |
 | `duplikate` | Belege, die es unter derselben Beschreibung schon gab |
 | `vorschau` | Entwürfe, die im Trockenlauf nur vorgemerkt wurden |

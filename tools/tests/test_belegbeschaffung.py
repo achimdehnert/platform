@@ -96,7 +96,9 @@ def register_datei(tmp_path) -> Path:
                         "waehrung": "USD",
                     },
                     {
-                        "muster": "beispiel cloud",
+                        # Muster toleriert Bindestrich: Dateinamen aus der
+                        # Owner-Ablage schreiben den Lieferanten so.
+                        "muster": "beispiel[ -]?cloud",
                         "weg": "mail",
                         "lieferant": "Beispiel Cloud",
                         "absender": "noreply@cloud.invalid",
@@ -393,6 +395,9 @@ def _args(tmp_path: Path, register_datei: Path, abgaenge: list[dict], **extra):
         "eingabe": str(_eingabe_datei(tmp_path, abgaenge)),
         "register": register_datei,
         "ablage": tmp_path / "ablage",
+        # Standard im Test: Ordner existiert nicht — die Owner-Ablage ist
+        # dann schlicht leer (kein Fehler).
+        "ablage_inbox": tmp_path / "inbox",
         "index": tmp_path / "index.json",
         "journal": tmp_path / "journal.jsonl",
         "konten": tmp_path / "konten.json",
@@ -633,6 +638,10 @@ def test_should_exit_2_and_write_journal_when_owner_move_is_open(
             str(tmp_path / "journal.jsonl"),
             "--ablage",
             str(tmp_path / "ablage"),
+            # NIE der Standardpfad: sonst liest der Test die echte
+            # Owner-Ablage der Maschine und zaehlt fremde Dateien mit.
+            "--ablage-inbox",
+            str(tmp_path / "inbox"),
             "--ziel",
             str(tmp_path / "board.md"),
             "--heute",
@@ -705,3 +714,98 @@ def test_should_not_search_supplier_without_abgang_when_flag_is_missing(
     )
     assert postfach.suchen == []
     assert ergebnis["pdf_ohne_abgang"] == []
+
+
+# ── Owner-Ablage (~/shared/inbox/invoices) ─────────────────────────────────
+
+
+def _ablage_ordner(tmp_path: Path) -> Path:
+    """Zwei abgelegte Rechnungen: eine mit Register-Treffer, eine ohne."""
+    ordner = tmp_path / "inbox"
+    ordner.mkdir()
+    (ordner / "beispiel-cloud-2026-04.pdf").write_text(
+        PDF_RECHNUNG_EUR_KOMMA, encoding="utf-8"
+    )
+    (ordner / "5000000000.pdf").write_text(
+        "Voellig Unbekannter Anbieter\nRechnungsdatum 04.04.2026\nGesamtbetrag 5,00 EUR",
+        encoding="utf-8",
+    )
+    return ordner
+
+
+def test_should_read_invoices_from_the_owner_dropbox(tmp_path, register_datei):
+    """Von Hand geladene Rechnungen gehen denselben Weg wie Postfach-PDFs —
+    Treffer ueber den Dateinamen, Rest als Owner-Zug mit Pfad."""
+    ordner = _ablage_ordner(tmp_path)
+    anleger = _Anleger()
+    ergebnis = bb.lauf(
+        _args(
+            tmp_path,
+            register_datei,
+            [_abgang("2026-04-07", "Beispiel Cloud Europe", 119.00)],
+            ablage_inbox=ordner,
+            anlegen=True,
+        ),
+        HEUTE,
+        suche_fn=lambda *a, **k: [],
+        download_fn=lambda *a, **k: [],
+        anlegen_fn=anleger,
+        lese_fn=_lese_fn,
+    )
+    assert ergebnis["kennzahlen"]["ablage_pdf"] == 2
+    assert len(ergebnis["entwuerfe"]) == 1
+    assert ergebnis["entwuerfe"][0]["beleg_id"] == "v-1"
+    assert any(
+        z["art"] == "Ablage: Lieferant unbekannt" and "5000000000" in str(z["hinweis"])
+        for z in ergebnis["owner"]
+    )
+
+
+def test_should_not_create_the_same_dropbox_invoice_twice(tmp_path, register_datei):
+    """Der Index merkt sich Pfad und Aenderungszeit — der zweite Lauf legt
+    dieselbe Datei nicht erneut an (die Datei bleibt liegen, ~/shared raeumt
+    der Owner selbst auf)."""
+    ordner = _ablage_ordner(tmp_path)
+    anleger = _Anleger()
+    args = _args(
+        tmp_path,
+        register_datei,
+        [_abgang("2026-04-07", "Beispiel Cloud Europe", 119.00)],
+        ablage_inbox=ordner,
+        anlegen=True,
+    )
+    fakes = {
+        "suche_fn": lambda *a, **k: [],
+        "download_fn": lambda *a, **k: [],
+        "anlegen_fn": anleger,
+        "lese_fn": _lese_fn,
+    }
+    bb.lauf(args, HEUTE, **fakes)
+    zweiter = bb.lauf(args, HEUTE, **fakes)
+    assert len(anleger.aufrufe) == 1
+    assert zweiter["kennzahlen"]["ablage_pdf"] == 1  # nur die ohne Zuordnung
+    assert (ordner / "beispiel-cloud-2026-04.pdf").exists()
+
+
+def test_should_treat_missing_dropbox_as_empty(tmp_path, register_datei):
+    ergebnis = bb.lauf(
+        _args(tmp_path, register_datei, [], ablage_inbox=tmp_path / "gibtsnicht"),
+        HEUTE,
+        suche_fn=lambda *a, **k: [],
+        download_fn=lambda *a, **k: [],
+        anlegen_fn=_Anleger(),
+        lese_fn=_lese_fn,
+    )
+    assert ergebnis["kennzahlen"]["ablage_pdf"] == 0
+    assert ergebnis["owner"] == []
+
+
+def test_should_not_match_internal_register_entry_for_a_dropbox_file():
+    """Ein Kontoauszug in der Ablage darf keinen Lieferantenbeleg ausloesen —
+    intern-Eintraege zaehlen nicht als Treffer."""
+    register = [
+        {"muster": "kontoauszug", "weg": "intern", "lieferant": "Bank"},
+        {"muster": "beispiel cloud", "weg": "mail", "lieferant": "Beispiel Cloud"},
+    ]
+    assert bb.eintrag_aus_ablage("kontoauszug-04.pdf", "", register) is None
+    assert bb.eintrag_aus_ablage("4711.pdf", "Beispiel Cloud", register) is not None

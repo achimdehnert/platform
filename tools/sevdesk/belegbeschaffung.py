@@ -20,6 +20,14 @@ Je Abgang ohne Beleg entscheidet ein lokales **Bezugswege-Register**
   Abgang zu.
 - ``portal``  — die Rechnung gibt es nur im Kundenkonto (Owner-Zug, mit Link).
 
+Zweite Quelle neben dem Postfach ist die **Owner-Ablage**
+``~/shared/inbox/invoices/`` (``--ablage-inbox``): Rechnungen, die der Owner
+von Hand aus einem Kundenkonto laedt und dort einstellt, gehen denselben Weg
+wie Postfach-PDFs. Der Lieferant wird ueber Dateiname, sonst ueber den
+PDF-Text gegen das Register bestimmt; ohne Treffer ist das ein Owner-Zug.
+Die Dateien werden nie verschoben oder geloescht — die Schleuse raeumt der
+Owner selbst auf.
+
     python3 tools/sevdesk/belegbeschaffung.py                      # Vorschau, legt NICHTS an
     python3 tools/sevdesk/belegbeschaffung.py --tage 60            # engeres Fenster
     python3 tools/sevdesk/belegbeschaffung.py --eingabe lauf.json  # Kostenabgleich-JSON statt Live-Lauf
@@ -89,6 +97,11 @@ from mandant import client, mandant_argument  # noqa: E402
 VORLAGE = Path(__file__).resolve().parent / "sevdesk-bezugswege.example.json"
 STANDARD_REGISTER = Path.home() / ".claude" / "sevdesk-bezugswege.json"
 STANDARD_ABLAGE = Path.home() / ".claude" / "sevdesk-belege"
+#: Zweite Quelle neben dem Postfach: Rechnungen, die der Owner von Hand aus
+#: einem Kundenkonto laedt und hier einstellt (Owner-Entscheid B 2026-08-07,
+#: Schleuse ``~/shared``). Fehlt der Ordner, ist das kein Fehler — dann gibt
+#: es eben nichts abzuholen.
+STANDARD_ABLAGE_INBOX = Path.home() / "shared" / "inbox" / "invoices"
 INDEX_DATEI = Path.home() / ".claude" / "sevdesk-belegbeschaffung-index.json"
 JOURNAL_DATEI = Path.home() / ".claude" / "sevdesk-belegbeschaffung-journal.jsonl"
 STANDARD_ZIEL = Path.home() / ".claude" / "boards" / "sevdesk-belegbeschaffung.md"
@@ -656,6 +669,79 @@ def belege_beschaffen(
     return belege, fehler
 
 
+# ── Owner-Ablage (~/shared/inbox/invoices) ─────────────────────────────────
+
+
+def eintrag_aus_ablage(dateiname: str, text: str, register: list[dict]) -> dict | None:
+    """Register-Eintrag zu einer abgelegten Datei — erst Dateiname, dann Text.
+
+    Der Dateiname wird zuerst geprueft, weil der Owner ihn beim Herunterladen
+    in der Hand hat; der PDF-Text ist die Rueckfallebene fuer Dateien, die
+    nur eine Nummer heissen. ``intern``-Eintraege zaehlen NICHT als Treffer:
+    fuer sie gibt es per Definition keinen Lieferantenbeleg, und ein
+    Kontoauszug in der Ablage soll keinen Beleg-Entwurf ausloesen.
+    """
+    for heuhaufen in (dateiname, text):
+        for eintrag in register:
+            if eintrag.get("weg") == "intern":
+                continue
+            try:
+                if re.search(eintrag["muster"], heuhaufen or "", re.IGNORECASE):
+                    return eintrag
+            except re.error:
+                continue
+    return None
+
+
+def _ablage_schluessel(pfad: Path) -> str:
+    """Pfad + Aenderungszeit — eine ersetzte Datei gilt als neue Datei."""
+    try:
+        stempel = int(pfad.stat().st_mtime)
+    except OSError:
+        stempel = 0
+    return f"ablage:{pfad}:{stempel}"
+
+
+def ablage_lesen(
+    ordner: Path, register: list[dict], index: dict, lese_fn=None
+) -> tuple[dict[int, list[dict]], list[dict], int]:
+    """PDFs aus der Owner-Ablage lesen und Register-Eintraegen zuordnen.
+
+    Rueckgabe: ``({id(eintrag): [beleg, ...]}, ohne_zuordnung, gelesen)``.
+    Dateien werden **nie** verschoben oder geloescht — ``~/shared`` ist die
+    Schleuse des Owners, das Aufraeumen bleibt bei ihm. Ein bereits
+    angelegter Beleg wird ueber den Index uebersprungen; der harte Schutz
+    gegen Doppelbelege bleibt der Dedup ueber die Rechnungsnummer.
+    """
+    lese_fn = lese_fn or pdf_text
+    if not ordner.exists():
+        return {}, [], 0
+    treffer: dict[int, list[dict]] = {}
+    offen: list[dict] = []
+    gelesen = 0
+    for pfad in sorted(ordner.glob("*.pdf")):
+        if _ablage_schluessel(pfad) in index:
+            continue
+        text = lese_fn(pfad)
+        gelesen += 1
+        eintrag = eintrag_aus_ablage(pfad.name, text, register)
+        if eintrag is None:
+            offen.append({"pfad": str(pfad), "dateiname": pfad.name})
+            continue
+        feld = pdf_lesen(text, pfad.name, eintrag.get("eigene_logins") or EIGENE_LOGINS)
+        feld.update(
+            {
+                "pfad": str(pfad),
+                "lieferant": eintrag.get("lieferant", ""),
+                "betreff": f"Ablage: {pfad.name}",
+                "quelle": "ablage",
+                "schluessel": _ablage_schluessel(pfad),
+            }
+        )
+        treffer.setdefault(id(eintrag), []).append(feld)
+    return treffer, offen, gelesen
+
+
 # ── Entwurf anlegen (ueber beleg_entwurf.py) ───────────────────────────────
 
 
@@ -842,6 +928,20 @@ def lauf(
                 "hinweis": f"--anlegen nur fuer Mandant {ANLEGE_MANDANT} (platform#3112) — Vorschau",
             }
         )
+    aus_ablage, ablage_offen, ablage_pdf = ablage_lesen(
+        Path(args.ablage_inbox), register, index, lese_fn
+    )
+    for offen in ablage_offen:
+        owner.append(
+            {
+                "art": "Ablage: Lieferant unbekannt",
+                "datum": heute.isoformat(),
+                "lieferant": kurz(offen["dateiname"], 24),
+                "betrag": 0.0,
+                "hinweis": offen["pfad"],
+            }
+        )
+
     ohne_abgang_eintraege = [
         e
         for e in register
@@ -858,22 +958,31 @@ def lauf(
     pdf_gefunden = 0
     for eintrag in register:
         teil = gruppen.get(id(eintrag)) or []
-        if not teil and eintrag not in ohne_abgang_eintraege:
+        abgelegte = aus_ablage.get(id(eintrag), [])
+        postfach_noetig = eintrag.get("weg") == "mail" and (
+            teil or eintrag in ohne_abgang_eintraege
+        )
+        if not (postfach_noetig or abgelegte):
             continue
         # Ohne Abgang gibt es keinen Ankerpunkt fuer das Fenster — dann gilt
         # das Fenster des Laufs (Lieferanten, die ein anderes Konto bezahlt,
         # deren Rechnung aber hier liegt: Register-Feld "ohne_abgang").
-        belege, fehler = belege_beschaffen(
-            eintrag,
-            teil,
-            ablage,
-            index,
-            suche_fn,
-            download_fn,
-            heute,
-            lese_fn,
-            tage=None if teil else int(args.tage),
+        belege, fehler = (
+            belege_beschaffen(
+                eintrag,
+                teil,
+                ablage,
+                index,
+                suche_fn,
+                download_fn,
+                heute,
+                lese_fn,
+                tage=None if teil else int(args.tage),
+            )
+            if postfach_noetig
+            else ([], [])
         )
+        belege += abgelegte
         pdf_gefunden += len(belege)
         for text in fehler:
             owner.append(
@@ -924,6 +1033,22 @@ def lauf(
             )
             pdf_ohne_abgang.append(zeile)
 
+    # Eine abgelegte Datei wird erst vermerkt, wenn wirklich ein Beleg daraus
+    # entstanden ist — so wird ein misslungener Lauf beim naechsten Mal erneut
+    # versucht, statt die Datei stillschweigend zu verlieren.
+    schluessel_je_pfad = {
+        b["pfad"]: b["schluessel"] for liste in aus_ablage.values() for b in liste
+    }
+    for zeile in entwuerfe + pdf_ohne_abgang:
+        schluessel = schluessel_je_pfad.get(zeile.get("pdf"))
+        if schluessel and zeile.get("ergebnis") == "angelegt":
+            index[schluessel] = {
+                "quelle": "ablage",
+                "pfad": zeile["pdf"],
+                "beleg_id": zeile.get("beleg_id"),
+                "zeit": heute.isoformat(),
+            }
+
     index_schreiben(Path(args.index), index)
 
     angelegt = sum(
@@ -937,7 +1062,11 @@ def lauf(
     )
     kennzahlen = {
         "lieferanten_abgaenge": sum(len(v) for v in gruppen.values()),
+        # pdf_gefunden = PDFs, die einem Register-Eintrag zugeordnet werden
+        # konnten; ablage_pdf = aus der Owner-Ablage gelesene Dateien, auch
+        # die ohne Zuordnung (die als Owner-Zug erscheinen).
         "pdf_gefunden": pdf_gefunden,
+        "ablage_pdf": ablage_pdf,
         "entwuerfe_angelegt": angelegt,
         "duplikate": duplikate,
         "vorschau": vorschau,
@@ -1000,7 +1129,8 @@ def render_markdown(ergebnis: dict, args) -> str:
     ]
     zeilen.append(
         f"\n{k['lieferanten_abgaenge']} Abgaenge mit Lieferantenbeleg-Weg — "
-        f"**{k['pdf_gefunden']} PDF gefunden** · "
+        f"**{k['pdf_gefunden']} PDF zugeordnet** · "
+        f"{k['ablage_pdf']} aus der Ablage gelesen · "
         f"**{k['entwuerfe_angelegt']} Entwuerfe angelegt** · "
         f"{k['vorschau']} Vorschau · {k['duplikate']} Duplikate · "
         f"**{k['owner_zug']} Owner-Zug** · {k['intern']} intern\n"
@@ -1099,6 +1229,16 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         default=STANDARD_ABLAGE,
         help="Ablage der PDFs je Lieferant",
+    )
+    p.add_argument(
+        "--ablage-inbox",
+        type=Path,
+        dest="ablage_inbox",
+        default=STANDARD_ABLAGE_INBOX,
+        help=(
+            "Owner-Ablage fuer von Hand geladene Rechnungen "
+            f"(Standard {STANDARD_ABLAGE_INBOX}); fehlender Ordner ist kein Fehler"
+        ),
     )
     p.add_argument(
         "--index",
