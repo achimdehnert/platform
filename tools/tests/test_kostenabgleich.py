@@ -480,3 +480,30 @@ def test_should_return_zero_positions_and_exit_0_when_nothing_open(
     ausgabe = capsys.readouterr().out
     assert code == 0
     assert "0 Abgaenge geprueft" in ausgabe
+
+
+def test_should_not_match_the_same_voucher_to_two_debits(monkeypatch):
+    """1:1 — ein Beleg deckt genau einen Abgang (Echtprobe 2026-09-13)."""
+    import datetime as dt
+
+    tx1 = _tx("t1", "2026-06-11", -10.99, "Abo Anbieter")
+    tx2 = _tx("t2", "2026-06-23", -10.99, "Abo Anbieter")
+    beleg = _beleg("v1", "2026-06-21", 10.99, "Abo Anbieter", status="50")
+    antworten = {
+        "/CheckAccountTransaction": [tx1, tx2],
+        "/Voucher": [beleg],
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        pfad = request.url.path.replace("/api/v1", "")
+        if pfad == "/ReceiptGuidance/forExpense":
+            return httpx.Response(200, json={"objects": []})
+        return httpx.Response(200, json={"objects": antworten.get(pfad, [])})
+
+    c = httpx.Client(
+        base_url="https://my.sevdesk.de/api/v1", transport=httpx.MockTransport(handler)
+    )
+    positionen = ka.positionen_ermitteln(c, dt.date(2026, 9, 13), 120, [])
+    stati = [p["status"] for p in positionen]
+    assert stati.count("sicher") == 1
+    assert [p["beleg"]["id"] for p in positionen if p["status"] == "sicher"] == ["v1"]

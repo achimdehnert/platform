@@ -434,6 +434,13 @@ def positionen_ermitteln(
             v for v in belege if abs(voucher_offener_betrag(v) - betrag) <= 0.01
         ]
         ergebnis = zuordnen_position(anzeige, betrag, datum, kandidaten)
+        if ergebnis["status"] == "sicher" and ergebnis.get("beleg"):
+            # 1:1 — ein Beleg deckt genau einen Abgang. Ohne diese Zeile traf
+            # ein Eigenbeleg zwei gleich hohe Abgaenge desselben Monats und
+            # waere mit --buchen --ja zweimal gebucht worden (Echtprobe
+            # 2026-09-13, Mandant edv).
+            benutzt = ergebnis["beleg"].get("id")
+            belege = [v for v in belege if v.get("id") != benutzt]
         vorschlag, vorschlag_grund = kontovorschlag(
             regeln, guidance, anzeige, zweck, betrag
         )
