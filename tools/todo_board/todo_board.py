@@ -1334,6 +1334,38 @@ def gruppiere_straenge(
     return ergebnis
 
 
+#: Rueckfall fuer das Datum, wenn der volle Kopf nicht passt (platform#3175 K5).
+#: Realfaelle Vorgang #128: "2026-09-14 WIEDER GEOEFFNET (Owner)" (Ereignis aus
+#: zwei Woertern, kein Doppelpunkt), "2026-09-07 (Owner-Frage '…'): …" (Klammer
+#: laenger als 40 Zeichen) und archivierte Eintraege mit "11.08. 13:49 …" ohne
+#: Jahr. Ohne Rueckfall standen sie als "ohne Datum" am Ende des Verlaufs.
+_DATUM_AM_ANFANG = re.compile(r"^(?:[A-ZÄÖÜ]{2,10}\s+)?(?P<datum>\d{4}-\d{2}-\d{2})\b")
+_DATUM_OHNE_JAHR = re.compile(r"^(?P<tag>\d{1,2})\.(?P<monat>\d{1,2})\.(?=\s|$)")
+
+
+def jahr_ergaenzen(eintraege: list[tuple]) -> list[tuple]:
+    """Datum ohne Jahr ("11.08.") mit dem Jahr des naechsten datierten Nachbarn fuellen.
+
+    Nachbar = der Eintrag mit der naechstliegenden Nummer, der ein volles Datum
+    traegt (Nummern zaehlen vom aeltesten Ende, benachbarte Eintraege liegen
+    zeitlich nah). Ohne datierten Nachbarn bleibt das Datum leer. Veraendert die
+    zerlegten dicts in place und gibt die Liste zurueck.
+    """
+    datiert = [
+        (n, t["datum"]) for n, t in eintraege if n is not None and t.get("datum")
+    ]
+    for nummer, t in eintraege:
+        teil = t.get("datum_ohne_jahr") or ""
+        if t.get("datum") or not teil or not datiert:
+            continue
+        if nummer is None:
+            jahr = datiert[0][1][:4]
+        else:
+            jahr = min(datiert, key=lambda nd: abs(nd[0] - nummer))[1][:4]
+        t["datum"] = f"{jahr}-{teil}"
+    return eintraege
+
+
 def zerlege_eintrag(roh: str) -> dict:
     """Einen Verlaufseintrag in Kopf, Deckung, Inhalt, Analyse und Action zerlegen.
 
@@ -1346,6 +1378,21 @@ def zerlege_eintrag(roh: str) -> dict:
         marken = kopf.groupdict()
     else:
         rest, marken = roh.strip(), {}
+    datum_ohne_jahr = ""
+    if not marken.get("datum"):
+        anfang = _DATUM_AM_ANFANG.match(roh.strip())
+        if anfang:
+            marken = {**marken, "datum": anfang.group("datum")}
+        else:
+            kurz = _DATUM_OHNE_JAHR.match(roh.strip())
+            if (
+                kurz
+                and 1 <= int(kurz.group("monat")) <= 12
+                and 1 <= int(kurz.group("tag")) <= 31
+            ):
+                datum_ohne_jahr = (
+                    f"{int(kurz.group('monat')):02d}-{int(kurz.group('tag')):02d}"
+                )
     saetze = [s.strip() for s in _SATZGRENZE.split(rest) if s.strip()]
     deckung: list[str] = []
     analyse: list[str] = []
@@ -1370,6 +1417,7 @@ def zerlege_eintrag(roh: str) -> dict:
         # keinen Satz" vakuos: der Test bestand, waehrend die Regex falsch lag.
         "saetze": saetze,
         "datum": marken.get("datum") or "",
+        "datum_ohne_jahr": datum_ohne_jahr,
         "zeit": marken.get("zeit") or "",
         "ereignis": marken.get("ereignis") or "",
         "quelle": marken.get("quelle") or "",
@@ -1421,6 +1469,7 @@ def verlauf(
         )
         for eintrag in eintraege
     ]
+    jahr_ergaenzen(geparst)
 
     def karte(nummer, t) -> str | None:
         bezug = links.get(str(nummer), {}) if nummer is not None else {}
