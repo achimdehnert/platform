@@ -9,7 +9,9 @@ Der Auftragsraum ist ein Chat-Raum (Matrix/Element, `chat-hub`), in den der Owne
 ## Einstiegskommando
 
 ```bash
-# Sortieren (im echten Betrieb: chat_lotse.py sync | auftragsraum.py sortieren)
+# Echter Betrieb: Wache-Lock kennen, sortieren, offen anzeigen — alles in einem Lauf
+bash tools/chat_agent/auftragsraum_sync.sh
+# Fixture/Test: Sortieren ohne chat_lotse.py
 python3 tools/chat_agent/auftragsraum.py sortieren --eingabe sync.jsonl
 # Offene Vorschlaege/Auftraege/Korrekturen zeigen
 python3 tools/chat_agent/auftragsraum.py offen
@@ -21,6 +23,12 @@ python3 tools/chat_agent/auftragsraum.py regel <nachricht_id> --why '…'
 
 Der Raum selbst (`chat_lotse.py room-create`) und die Morgen-Meldung (`digest_taeglich` → `chat_lotse.py send`) sind eigene Aufträge (KONZ-platform-059 MVC) — diese Akte beschreibt nur die platform-Seite: Sortierer, Journal, Regel-Artefakt, Kennzahlen, Verfallsignale.
 
+## Zusammenlegung 2026-09-14
+
+Die Räume „Briefing", „Mail" und „Aufträge Achim / Lotse" sind zu einem Raum **„Achim / Lotse"** zusammengelegt ([chat-hub#90](https://github.com/iilgmbh/chat-hub/issues/90)). Der Sortierer wird damit zum **Auffangnetz**: `tools/chat_agent/auftragsraum_sync.sh` ruft `chat_lotse.py sync` gegen dasselbe State-Dir wie die Raum-Wache auf. Zwei Sätze zur Token-Logik: `sync` und `watch` bewegen dasselbe Lesetoken (`state["since"]`) im selben `CHAT_LOTSE_STATE_DIR` — läuft die Wache, hält sie `sync.lock`, und das Auffangnetz meldet das als „nichts nachzuholen" (Exit 0), statt einen Fehler zu werfen. Läuft keine Wache, holt `sync` alles seit dem letzten Stand nach, genau einmal, weil beide Seiten dasselbe Token verbrauchen — nie doppelt.
+
+Die Owner-Env (`~/.claude/auftragsraum.env`) trägt seither zusätzlich `CHAT_LOTSE_STATE_DIR` (Zeiger auf `~/.local/share/chat-hub/lotse-achim`, außerhalb des Repos gepflegt). Das Kill-Gate 2026-10-08 (KONZ-platform-059) misst ab jetzt den zusammengelegten Raum — die alten Räume bleiben als Archiv (nie `leave`, nie `logout`).
+
 ## Datenwege
 
 | Was | Woher | Anmerkung |
@@ -31,6 +39,7 @@ Der Raum selbst (`chat_lotse.py room-create`) und die Morgen-Meldung (`digest_ta
 | Kurzbefehl-Übernahme | `board.py --frist` bzw. `board.py --erledigt` (seit [#3049](https://github.com/achimdehnert/platform/issues/3049)) | `anwenden` protokolliert einen abgewiesenen Aufruf (unbekannte Nummer; seit V3 [#3015](https://github.com/achimdehnert/platform/issues/3015) K4 auch „kein Anker setzbar") als „abgewiesen", markiert den Vorschlag nicht als bearbeitet, bricht nicht ab |
 | Auftrag-Zustand | GitHub-Issue, live per `gh issue view --json state` gelesen | Journal spiegelt den Zustand nie (D8) |
 | Regel-Artefakt | `~/.claude/auftragsraum-regeln/<datum>-<id>.md` | lokal, NICHT im Repo — Nachrichtentext darf dort stehen |
+| Sync-Token (State-Dir) | `CHAT_LOTSE_STATE_DIR` (Owner-Env), Default `~/.local/share/chat-hub/lotse` | seit 2026-09-14 dasselbe Verzeichnis wie die Raum-Wache — eine Heimat für `state["since"]`, keine zweite |
 
 ## Kennzahlen je Lauf (K2)
 
