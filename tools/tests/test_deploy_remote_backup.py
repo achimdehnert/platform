@@ -38,14 +38,33 @@ def _backup_condition() -> str:
     return match.group(1)
 
 
+def _outside_single_quotes(command: str) -> str:
+    """Einfach gequotete Teile (laufen per sh -c im Container) ausblenden."""
+    return re.sub(r"'[^']*'", "''", command)
+
+
 @pytest.mark.f1
 def test_should_not_expand_postgres_user_on_host():
     condition = _backup_condition()
-    outside_quotes = re.sub(r"'[^']*'", "''", condition)
-    assert not _HOST_EXPANSION.search(outside_quotes), (
+    assert not _HOST_EXPANSION.search(_outside_single_quotes(condition)), (
         "pg_dump bekommt POSTGRES_USER aus dem Host-Skript — dort ist er nie gesetzt "
         f"(platform#3159): {condition}"
     )
+
+
+@pytest.mark.f1
+def test_should_flag_host_expansion_in_old_backup_line():
+    """Gegenprobe: das Muster trifft die alte Zeile aus platform#3159, die neue nicht."""
+    old = (
+        'docker exec "$DB_CONTAINER" pg_dumpall -U "${POSTGRES_USER:-postgres}" '
+        '2>/dev/null | gzip > "$BACKUP_FILE"'
+    )
+    new = (
+        'docker exec "$DB_CONTAINER" sh -c \'pg_dumpall -U "${POSTGRES_USER:-postgres}"\' '
+        '2>"$BACKUP_ERR" | gzip > "$BACKUP_FILE"'
+    )
+    assert _HOST_EXPANSION.search(_outside_single_quotes(old))
+    assert not _HOST_EXPANSION.search(_outside_single_quotes(new))
 
 
 @pytest.mark.f1
