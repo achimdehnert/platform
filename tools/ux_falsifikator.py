@@ -26,15 +26,29 @@ dieses Werkzeug **dreimal** und legt die Streuung offen (Option B): `spruch`
 ist die Mehrheit, `einig` sagt, ob sie einstimmig war. Ein Aufruf ist kein
 Urteil, sondern ein Wurf — wer nur `spruch` liest, liest die Mehrheit.
 
+R7 (eingetreten 2026-08-30, erneut 2026-09-14 an apo-hub#110, platform#3168):
+das Feld `gegenprobe` traegt oft eine fuehrende Zahl, aber nicht immer die
+Absenz-Zahl — "8 DateInput-Definitionen ..." zaehlt die Kandidaten, nicht
+die Treffer fuer die behauptete Absenz ("0 davon mit format"). E18 ("Zahl
+zuerst") allein hilft dann nicht, weil die Zahl selbst mehrdeutig ist. Das
+optionale Feld `gegenprobe_treffer` (int) beseitigt die Mehrdeutigkeit
+strukturell: ist es gesetzt, entscheidet Regel 2 **deterministisch vor dem
+LLM-Aufruf** (`regel2_deterministisch`) — `> 0` -> widerlegt, `0` -> Regel 2
+greift nicht (der bisherige Pfad, inkl. LLM, entscheidet ueber die anderen
+Regeln). Fehlt das Feld, bleibt das Verhalten unveraendert (Abwaertskompatibel),
+aber die Ausgabe traegt `hinweis`: Regel 2 ist dann weiter LLM-gedeutet (R7).
+
 Aufruf:
     python3 tools/ux_falsifikator.py --datei befund.json
     python3 tools/ux_falsifikator.py < befund.json
     python3 tools/ux_falsifikator.py --datei befund.json --laeufe 1   # nur fuer Tests
 
 Eingabe (JSON): klasse, severity, symptom, station, antwortkoerper,
-gegenprobe, referenz, bekannt (bool).
+gegenprobe, referenz, bekannt (bool), gegenprobe_treffer (int, optional —
+Anzahl Treffer fuer genau das, was laut Befund fehlt; Pflicht bei
+Absenz-Befunden laut .windsurf/workflows/ux-review.md Step 5b).
 Ausgabe (JSON): spruch, begruendung, modell, geprueft_am, laeufe, einig,
-sprueche.
+sprueche, hinweis (nur wenn gegenprobe_treffer fehlt, R7).
 """
 
 from __future__ import annotations
@@ -63,6 +77,10 @@ KENNUNG = "iil-ux-falsifikator/1.0"
 # Felder, die nie an einen externen Anbieter gehen (E17).
 VERBOTENE_FELDER = ("screenshot", "screenshot_pfad", "bild", "bild_base64")
 
+# R7/E18-Praezisierung (platform#3168): fehlt gegenprobe_treffer, bleibt
+# Regel 2 LLM-gedeutet — die Ausgabe sagt das, statt es zu verschweigen.
+HINWEIS_R7 = "gegenprobe_treffer fehlt — Regel 2 ist LLM-gedeutet (R7)"
+
 SYSTEM = """Du pruefst einen einzelnen UX-Befund eines Browser-Durchlaufs.
 
 Du bist Pruefer, nicht Autor: du eroeffnest keinen eigenen Befund und schlaegst
@@ -75,7 +93,12 @@ Regeln, in dieser Reihenfolge:
 1. Der Befund behauptet eine Absenz ("fehlt", "kein", "nicht vorhanden") und
    das Feld gegenprobe ist leer oder fehlt -> widerlegt.
 2. Der Befund behauptet eine Absenz und die gegenprobe meldet Treffer
-   -> widerlegt (es ist eine Rendering-Bedingung, keine Absenz).
+   -> widerlegt (es ist eine Rendering-Bedingung, keine Absenz). Ist das
+   Feld gegenprobe_treffer vorhanden, gilt fuer diese Regel ausschliesslich
+   diese Zahl, nicht der Text in gegenprobe — eine fuehrende Zahl im Text
+   kann Kandidaten statt Treffer zaehlen (R7). Du siehst gegenprobe_treffer
+   hier nur als 0 (groesser als 0 wird vor diesem Aufruf entschieden); bei 0
+   greift Regel 2 nicht.
 3. severity ist "optimierung" und referenz ist leer -> widerlegt.
 4. bekannt ist true -> widerlegt (bekannte Befunde bekommen kein neues Issue).
 5. Das Symptom wird vom Feld antwortkoerper nicht gedeckt, oder antwortkoerper
@@ -98,6 +121,10 @@ def evidenz_block(befund: dict) -> str:
         ("referenz", befund.get("referenz", "")),
         ("bekannt", "true" if befund.get("bekannt") else "false"),
     ]
+    # Nur anhaengen, wenn gesetzt — R7/E18: hier kommt Regel 2 nur mit 0 an
+    # (>0 wird vor dem LLM-Aufruf entschieden, siehe regel2_deterministisch).
+    if befund.get("gegenprobe_treffer") is not None:
+        felder.append(("gegenprobe_treffer", str(befund["gegenprobe_treffer"])))
     return "\n".join(f"{name}: {wert}" for name, wert in felder)
 
 
@@ -109,6 +136,44 @@ def pruefe_eingabe(befund: dict) -> None:
             f"E17 verletzt: Feld(er) {', '.join(treffer)} duerfen nicht an den "
             f"Gegenpart gehen. Befund ohne Bildfeld uebergeben."
         )
+
+
+def regel2_deterministisch(befund: dict) -> dict | None:
+    """E18-Praezisierung (platform#3168): gegenprobe_treffer statt LLM-Deutung.
+
+    R7-Realfall apo-hub#110: die gegenprobe begann mit "8 DateInput-
+    Definitionen ..." — eine Zahl, die Kandidaten zaehlt, nicht die Absenz.
+    Der Gegenpart las das als Treffer und widerlegte einen reproduzierten
+    Datenverlust. Das strukturierte Feld `gegenprobe_treffer` zaehlt
+    ausschliesslich Treffer fuer genau das, was laut Befund fehlt, und
+    entscheidet Regel 2 hier deterministisch, ohne die Mehrdeutigkeit je an
+    ein LLM weiterzureichen.
+
+    Rueckgabe: fertiger Spruch-Satz, wenn `gegenprobe_treffer` gesetzt und
+    > 0 ist. `None`, wenn das Feld fehlt, nicht numerisch ist oder <= 0 ist
+    — dann entscheidet der bisherige (LLM-gestuetzte) Pfad ueber Regel 2.
+    """
+    roh = befund.get("gegenprobe_treffer")
+    if roh is None:
+        return None
+    try:
+        treffer = int(roh)
+    except (TypeError, ValueError):
+        return None
+    if treffer <= 0:
+        return None
+    return {
+        "spruch": "widerlegt",
+        "begruendung": (
+            f"Regel 2 (deterministisch, E18/R7): gegenprobe_treffer={treffer} "
+            "> 0 — die behauptete Absenz hat Treffer, es ist eine "
+            "Rendering-Bedingung, keine Absenz."
+        ),
+        "modell": "deterministisch (gegenprobe_treffer, kein LLM-Aufruf)",
+        "laeufe": 0,
+        "einig": True,
+        "sprueche": ["widerlegt"],
+    }
 
 
 def frage(befund: dict, schluessel: str, timeout: int = 60) -> dict:
@@ -232,6 +297,12 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(satz, ensure_ascii=False))
         return 0  # E16: der Spruch ist nie ein Gate
 
+    # E18-Praezisierung (R7, platform#3168): gegenprobe_treffer entscheidet
+    # Regel 2 vor jedem LLM-Aufruf — deterministisch, ohne Mehrdeutigkeit.
+    determiniert = regel2_deterministisch(befund)
+    if determiniert is not None:
+        return raus(determiniert)
+
     if args.echtdaten:
         return raus({"spruch": "uebersprungen", "begruendung": "Echtdaten-Lauf (E17)"})
 
@@ -263,7 +334,11 @@ def main(argv: list[str] | None = None) -> int:
             continue
         einzeln.append(lies_spruch(antwort))
 
-    return raus(mehrheit(einzeln))
+    ergebnis = mehrheit(einzeln)
+    if befund.get("gegenprobe_treffer") is None:
+        # Abwaertskompatibel: Regel 2 bleibt LLM-gedeutet, aber nicht verschwiegen.
+        ergebnis["hinweis"] = HINWEIS_R7
+    return raus(ergebnis)
 
 
 if __name__ == "__main__":

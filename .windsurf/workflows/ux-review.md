@@ -88,7 +88,9 @@ Alles hier ist PFLICHT/STOP — der Weg darf variieren, diese Punkte nicht.
 - **G12** JS-Fehler in der Konsole → Station `befund`, ohne Ausnahme. Diagnose aus dem Antwortkoerper,
   nie aus dem Statuscode (403 ist CSRF **und** Tenant-Sperre).
 - **G13** Absenz („fehlt") nur nach zweitem Suchpfad (`grep -rn` in templates/apps); Treffer =
-  Rendering-Bedingung mit `Datei:Zeile`. Feld `gegenprobe` beginnt mit einer Zahl (E18).
+  Rendering-Bedingung mit `Datei:Zeile`. Feld `gegenprobe` beginnt mit einer Zahl (E18) — die Zahl
+  der **Treffer fuer die Absenz**, nicht der Kandidaten; strukturiert dazu `gegenprobe_treffer`
+  setzen (Step 5b, E18-Praezisierung platform#3168).
 - **G14** Zaehler (Step 3b/4) bestehen Positiv- **und** Negativkontrolle; Kontrolle mit nicht existierendem
   Namen zaehlt nicht. Je Treffer eine Antwort — einhaengen oder entfernen —, nie keine.
 - **G15** Inhaltskriterien nur I1–I7 mit Referenz; Geschmack ist kein Befund (R3). I7 auf leerem Objekt
@@ -240,7 +242,12 @@ python3 <platform>/tools/ux_falsifikator.py --datei /tmp/befund.json [--echtdate
 Eingabe-Typen: `klasse`, `severity` (`fehler|optimierung`), `station`, `symptom`, `antwortkoerper`,
 `gegenprobe`, `referenz` — alle String; **`bekannt` ist Boolean** (`true|false`, nie `"nein"`: ein
 String ist truthy, das Werkzeug castet still und Regel 4 wertet einen echten Befund als `widerlegt`
-ab — Dogfood 2026-09-02, platform#2616). Schluessel-Zeiger `~/.secrets/groq_api_key`. Regeln G19–G21.
+ab — Dogfood 2026-09-02, platform#2616). `gegenprobe_treffer` (int, **Pflicht bei Absenz-Befunden**):
+Anzahl Treffer fuer genau das, was laut Befund fehlt, nicht die Zahl der Kandidaten — z. B. bei
+"Feld X fehlt in 6 Formularen" ist `gegenprobe_treffer` die Treffer fuer Feld X selbst (0 bei echter
+Absenz), nicht die 6 Formulare. Damit entscheidet Regel 2 deterministisch vor dem LLM-Aufruf (E18/R7,
+platform#3168); ohne das Feld bleibt Regel 2 LLM-gedeutet und der Bericht traegt `hinweis`.
+Schluessel-Zeiger `~/.secrets/groq_api_key`. Regeln G19–G21.
 
 ### Step 5c — Gegenchecks `-kd` / `-marker` (optional)
 
@@ -400,6 +407,10 @@ Zaehler: behoben <f> · offen <o> · hypothese <h> · Prod-Merge wartet <p>
 
 ## Changelog
 
+- 2026-09-14 (5, E18-Praezisierung an platform#3168, Nachtrag zu R7): apo-hub#110 wiederholte R7 — die
+  fuehrende Zahl in `gegenprobe` zaehlte Kandidaten statt Absenz. **G13** und Step 5b nennen jetzt
+  `gegenprobe_treffer` (int, Pflicht bei Absenz-Befunden); `tools/ux_falsifikator.py` entscheidet Regel 2
+  damit deterministisch vor dem LLM-Aufruf statt sie zu deuten.
 - 2026-09-02 (4, Revision nach Dogfood v2 an platform#2616): **G4** STOP nur bei fremdem Container/Prozess
   auf dem Dev-Port (Zuordnung per `docker ps`-Name), eigener Dev-Stack zulaessig; **G3** drei Anmeldewege
   (Zeiger, passwortloser Repo-Weg wie `make login`, `createsuperuser` nur im eigenen Stack) — `blind` erst
