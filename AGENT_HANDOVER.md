@@ -19,7 +19,7 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 
 **Erledigt:** Räume Mail/Briefing/Aufträge → „Achim / Lotse" ([chat-hub#90](https://github.com/iilgmbh/chat-hub/issues/90)), Auffangnetz `auftragsraum_sync.sh` (#3154), Sperre eine Session je Raum ([chat-hub#94](https://github.com/iilgmbh/chat-hub/issues/94)). news.iil.pet hinter Cloudflare Access (news-hub#54); Vertiefung je Thema per Knopf und Chat-Zuruf in Prod ([news-hub#52](https://github.com/achimdehnert/news-hub/issues/52)). Zurufe #3150/#3151 und Kapitel-Feedback (Ledger #138) gesendet.
 
-**Zielzustand:** #90, #94, news-hub#52/#54/#55 erreicht. **SA-4:** 5 Merges · 2 unnötige Einzel-Rückfragen · 0 Fehlanwendungen (ein unbegründeter Freigabe-Vermerk in #3162 vor dem Merge entfernt). **Offen:** laufende Raum-Session hält noch keine Sperre (vor #96 gestartet) — nächster Neustart vorher „Lotse stopp"; Sortierer-Lücken #3152.
+**Zielzustand:** #90, #94, news-hub#52/#54/#55 erreicht. **SA-4:** 5 eigene Merges unter Mandat (#3153, #3154, news-hub#56/#58/#59) · 2 unnötige Rückfragen · 0 Fehlanwendungen; eigene Fehler außerhalb SA-4 im Log, als Outline-Lessons 2026-09-14 verankert. **0h:** Abnahme 20/22 belegt, 2 nur Selbstauskunft (Briefing-Erstlauf, Bestätigung im Raum); Clear-Härte: SA-4 präzisiert, Checklisten abgehakt. **Offen:** laufende Raum-Session hält noch keine Sperre (vor #96 gestartet) — nächster Neustart vorher „Lotse stopp"; Sortierer-Lücken #3152.
 
 ## ⚡ Aktueller Stand (2026-09-14 — Secret-Leser Fleet, Groq rotiert, Gate-Revisionen, Räume; Sitzung 0117JBQX)
 
