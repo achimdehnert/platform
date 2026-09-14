@@ -66,6 +66,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from verankerung_pruefer import (  # noqa: E402
     GROQ_DEFAULT_MODELL,
     GROQ_ENDPOINT,
+    GROQ_KENNUNG,
     _groq_schluessel,
 )
 
@@ -83,6 +84,7 @@ RUECKFALL_TITEL = "Verlauf"
 
 #: Ein Aufruf darf die Seite nicht laenger blockieren als das (K3, platform#3175).
 TIMEOUT_SEKUNDEN = 60
+MAX_ANTWORT_TOKEN = 4000
 
 _PRAEFIX = re.compile(r"^(?:AW|RE|WG|FWD)\s*:\s*", re.IGNORECASE)
 
@@ -114,6 +116,11 @@ die Praefixe AW:/Re:/WG:/Fwd:. Zwei Sonderfaelle:
 * Ein Eintrag ohne erkennbaren Mail-Betreff (interne Notiz, Owner-Aufgabe ohne
   Mailbezug, ein blosses Zitat oder ein Dateiname OHNE zugehoerigen Betreff im
   selben Eintrag) gehoert in den Strang "Notizen".
+
+Ein Vorgang kann MEHRERE Mail-Ketten haben. Nennt ein Eintrag eine Mail mit
+anderem Betreff als der Hauptstrang (z. B. eine neue Mail mit eigenem Betreff,
+eine Antwort darauf, ihren Anhang), gehoert er in den Strang DIESES Betreffs —
+nicht in den Hauptstrang. Verwende den Betreff so, wie er im Eintrag steht.
 
 Bekannter Hauptstrang dieses Vorgangs (thread_key): "%s"
 
@@ -162,7 +169,11 @@ def _standard_klassifikator(vorgang: dict, eintraege: list[tuple[int, str]]) -> 
             "model": GROQ_DEFAULT_MODELL,
             "messages": [{"role": "user", "content": _prompt(vorgang, eintraege)}],
             "temperature": 0,
-            "max_tokens": 800,
+            # gpt-oss denkt vor der Antwort; 800 Token reichten bei Vorgang #128
+            # (24 Eintraege) nicht, Groq meldete json_validate_failed mit leerer
+            # Generation (2026-09-14). Mehr Budget, wenig Denkaufwand.
+            "max_tokens": MAX_ANTWORT_TOKEN,
+            "reasoning_effort": "low",
             "response_format": {"type": "json_object"},
         }
     ).encode()
@@ -172,6 +183,7 @@ def _standard_klassifikator(vorgang: dict, eintraege: list[tuple[int, str]]) -> 
         headers={
             "Content-Type": "application/json",
             "Authorization": f"Bearer {schluessel}",
+            "User-Agent": GROQ_KENNUNG,
         },
     )
     with urllib.request.urlopen(req, timeout=TIMEOUT_SEKUNDEN) as antwort:
@@ -321,21 +333,26 @@ def _vorwaermen(ledger_pfad: Path = LEDGER, cache_pfad: Path = CACHE_DATEI) -> i
     gefuellt = 0
     fehler = 0
     uebersprungen = 0
+    # Spaeter Import: todo_board importiert dieses Modul auf Modulebene.
+    import todo_board  # noqa: PLC0415
+
+    erster_fehler = ""
     for vorgang in vorgaenge:
-        eintraege_roh = [
-            t.strip() for t in str(vorgang.get("notiz") or "").split(" | ") if t.strip()
-        ]
-        if not eintraege_roh:
+        eintraege = [(n, t) for n, t in todo_board.strang_eingaben(vorgang) if t]
+        if not eintraege:
             continue
-        eintraege = list(enumerate(eintraege_roh, start=1))
         notiz = " | ".join(text for _nummer, text in eintraege)
         schluessel = _cache_schluessel(GROQ_DEFAULT_MODELL, notiz)
         if schluessel in _cache_laden(cache_pfad):
             uebersprungen += 1
             continue
-        ergebnis = _abrufen_und_validieren(vorgang, eintraege, None)
-        if ergebnis is None:
+        try:
+            ergebnis = _validiere(
+                vorgang, eintraege, _standard_klassifikator(vorgang, eintraege)
+            )
+        except Exception as exc:  # noqa: BLE001 — Kommando zaehlt und benennt, statt abzubrechen
             fehler += 1
+            erster_fehler = erster_fehler or f"{type(exc).__name__}: {str(exc)[:120]}"
             continue
         cache = _cache_laden(cache_pfad)
         cache[schluessel] = {str(n): t for n, t in ergebnis.items()}
@@ -344,6 +361,7 @@ def _vorwaermen(ledger_pfad: Path = LEDGER, cache_pfad: Path = CACHE_DATEI) -> i
     print(
         f"OK: {gefuellt} Vorgaenge neu im Cache, {uebersprungen} bereits vorhanden, "
         f"{fehler} Fehler."
+        + (f" Erster Fehler: {erster_fehler}" if erster_fehler else "")
     )
     return 1 if fehler else 0
 
