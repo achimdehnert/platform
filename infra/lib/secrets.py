@@ -177,6 +177,22 @@ def _entklammere(wert: str) -> str:
     return wert
 
 
+def ist_kv_zeile(name: str, wert: str) -> bool:
+    """True wenn ``name=wert`` als ``NAME=WERT``-Variable zaehlt.
+
+    Sonderregel: ein alphanumerischer nackter Wert mit ``=``-Auffuellung
+    (``ABC=`` / ``ABC==``) ist KEINE leere Variable, sondern base64-Padding
+    eines bare-Werts — im Zweifel bare, damit sich fuer bestehende Dateien
+    nichts aendert. Einzige Stelle, die diese Entscheidung trifft: ``_kv_paare``
+    hier UND ``tools/secrets_pruefen.py::erkenne_form`` verwenden sie, damit
+    Leser und Melder nie auseinanderlaufen (Refs #3155).
+    """
+    if not _NAME_MUSTER.match(name.strip()):
+        return False
+    wert = _entklammere(wert)
+    return bool(wert) and set(wert) != {"="}
+
+
 def _kv_paare(text: str) -> list[tuple[str, str]] | None:
     """``[(NAME, WERT), …]`` wenn ALLE Inhaltszeilen KV-Form haben, sonst None.
 
@@ -188,15 +204,9 @@ def _kv_paare(text: str) -> list[tuple[str, str]] | None:
     paare: list[tuple[str, str]] = []
     for zeile in zeilen:
         name, trenner, wert = zeile.strip().partition("=")
-        if not trenner or not _NAME_MUSTER.match(name.strip()):
+        if not trenner or not ist_kv_zeile(name, wert):
             return None
-        wert = _entklammere(wert)
-        if not wert or set(wert) == {"="}:
-            # ``ABC=`` / ``ABC==`` ist die Auffuellung eines nackten
-            # base64-Werts, keine leere Variable. Im Zweifel bare — fuer
-            # bestehende Dateien darf sich nichts aendern.
-            return None
-        paare.append((name.strip(), wert))
+        paare.append((name.strip(), _entklammere(wert)))
     return paare
 
 
