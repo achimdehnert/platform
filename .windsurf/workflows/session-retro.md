@@ -126,6 +126,14 @@ Ein Subagent sammelt **ausschließlich aus Artefakten** (kein Self-Report):
   `log --oneline --since='<YYYY-MM-DD> 00:00'` gegen `origin/<default-branch>` + `diff --stat`
 - CI/main-Status der Repos (`gh run list --branch main`)
 
+**Transkript-Kennzahlen per Skript, nicht per Sammler (Owner-Entscheid 2026-09-14, Streichkandidat
+`retro-phase1-sammler-transkriptauswertung`):** Ablehnungen, Fehlerläufe (auch ohne `is_error`),
+Silent-Reminder mit Abstand zum nächsten sichtbaren Text und Nutzer-Nachrichten liefert
+`python3 tools/retro_transkript_kennzahlen.py <transkript.jsonl> [--von ISO] [--bis ISO]`; vorher
+einmal `--selbsttest` (Positivkontrolle je Klasse). Der Sammler-Subagent bleibt auf gh/git beschränkt
+und bekommt die Skript-Ausgabe als Material — er wertet das JSONL nicht selbst aus. Realfall
+kbiAvn-incr: der Sammler meldete „0 Ablehnungen, 0 Fehler", tatsächlich 4 und 10.
+
 ⚠️ **`--since` immer MIT Uhrzeit** (`'<datum> 00:00'`) — sonst **null Treffer** trotz
 existierender Commits, und die stille Null wird als Faktum gemeldet.
 
@@ -437,6 +445,9 @@ ist selbst ein Befund — dieselbe Regel wie GATE-PFLICHT ≥2.
 
 Vollständige Historie: `docs/governance/session-skills-lehren/retro.md` § Changelog-Historie.
 
+- 2026-09-14: **Phase 1 Transkript-Kennzahlen per `tools/retro_transkript_kennzahlen.py`** (Owner-Entscheid
+  aus Retro kbiAvn-incr, Streichkandidat umgesetzt). Der Sammler-Agent wertet das JSONL nicht mehr aus;
+  das Skript fängt auch Fehler mit `is_error: False` und misst die Silent-Reminder-Lücken.
 - 2026-09-07: **Phase 6 bekommt einen Rückweg** (Owner-Vorgabe, Retro `c1ba5d`). Externe
   Antworten liegen als `…-extern1.md`/`-extern2.md` in `~/shared/` und sind Pflichtlektüre der
   nächsten Retro desselben Scopes (Verdikt je Punkt, Abschnitt `## Extern-Auswertung`). Der
