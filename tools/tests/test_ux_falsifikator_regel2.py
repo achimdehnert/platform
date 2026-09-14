@@ -79,9 +79,7 @@ def test_should_reach_llm_path_end_to_end_when_treffer_is_zero(monkeypatch, caps
     """Integrationspfad: treffer=0 -> Regel 2 greift nicht, LLM entscheidet regulaer."""
     monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(BEFUND_110)))
     monkeypatch.setattr(uf, "schluessel_lesen", lambda: "test")
-    monkeypatch.setattr(
-        uf, "frage", _drei("bestaetigt", "bestaetigt", "bestaetigt")
-    )
+    monkeypatch.setattr(uf, "frage", _drei("bestaetigt", "bestaetigt", "bestaetigt"))
     assert uf.main([]) == 0
     satz = json.loads(capsys.readouterr().out)
     assert satz["spruch"] == "bestaetigt"
@@ -98,11 +96,11 @@ def test_should_refute_deterministically_without_llm_call_when_treffer_positive(
 
     def zaehlend(*a, **k):
         aufrufe.append(1)
-        pytest.fail("Regel 2 haette deterministisch entscheiden muessen, kein LLM-Aufruf")
+        pytest.fail(
+            "Regel 2 haette deterministisch entscheiden muessen, kein LLM-Aufruf"
+        )
 
-    monkeypatch.setattr(
-        sys, "stdin", io.StringIO(json.dumps(BEFUND_ECHTER_FEHLBEFUND))
-    )
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(BEFUND_ECHTER_FEHLBEFUND)))
     monkeypatch.setattr(uf, "schluessel_lesen", lambda: "test")
     monkeypatch.setattr(uf, "frage", zaehlend)
 
@@ -128,7 +126,9 @@ def test_should_expose_deterministic_verdict_in_direct_call():
 def test_should_keep_llm_path_and_emit_r7_hinweis_when_field_missing(
     monkeypatch, capsys
 ):
-    befund_ohne_feld = {k: v for k, v in BEFUND_110.items() if k != "gegenprobe_treffer"}
+    befund_ohne_feld = {
+        k: v for k, v in BEFUND_110.items() if k != "gegenprobe_treffer"
+    }
     monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(befund_ohne_feld)))
     monkeypatch.setattr(uf, "schluessel_lesen", lambda: "test")
     monkeypatch.setattr(uf, "frage", _drei("widerlegt", "widerlegt", "widerlegt"))
@@ -143,3 +143,10 @@ def test_should_treat_non_numeric_treffer_as_absent():
     """Ein kaputtes Feld darf nicht wie ein Treffer aussehen."""
     kaputt = {**BEFUND_ECHTER_FEHLBEFUND, "gegenprobe_treffer": "drei"}
     assert uf.regel2_deterministisch(kaputt) is None
+
+
+@pytest.mark.f1
+def test_should_not_refute_when_treffer_is_boolean_true():
+    """Gegenprobe zur Cast-Klasse #2513: True ist kein Zaehlwert, int(True) waere 1."""
+    bool_feld = {**BEFUND_ECHTER_FEHLBEFUND, "gegenprobe_treffer": True}
+    assert uf.regel2_deterministisch(bool_feld) is None

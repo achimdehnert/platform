@@ -154,7 +154,9 @@ def regel2_deterministisch(befund: dict) -> dict | None:
     — dann entscheidet der bisherige (LLM-gestuetzte) Pfad ueber Regel 2.
     """
     roh = befund.get("gegenprobe_treffer")
-    if roh is None:
+    # bool ist eine int-Unterklasse: int(True) == 1 wuerde still "widerlegt"
+    # sprechen — dieselbe Cast-Klasse wie platform#2513 ("nein" als bekannt).
+    if roh is None or isinstance(roh, bool):
         return None
     try:
         treffer = int(roh)
