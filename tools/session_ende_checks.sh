@@ -329,11 +329,21 @@ fi
 # Tracking), `◌ NICHT PRUEFBAR` (kein Modell erreichbar) und `◌ … UNGEPRUEFT`
 # (Zeitbudget erschöpft). Der Runner reicht sie durch, er deutet sie nicht.
 VP="$PLATFORM_DIR/tools/verankerung_pruefer.py"
+# Provider (2026-09-14): Groq, wenn der Schluessel lesbar ist — PR-Texte dieses
+# Repos sind oeffentlich, Groq ist fuer Klassifikation freigegeben. Das lokale
+# qwen2.5:7b auf dev-desktop brauchte fuer EIN Segment laenger als das 80-s-Budget
+# (gemessen an #3179: "Zeitueberschreitung nach 80 s"), Groq 3 s fuer 6 Segmente.
+# Ohne Schluessel bleibt der bisherige Ollama-Weg.
+ZUSAGEN_PROVIDER="ollama"
+ZUSAGEN_GROQ_KEY="$("$PLATFORM_DIR/tools/secret_lesen.sh" groq_api_key 2>/dev/null || true)"
+if [ -n "$ZUSAGEN_GROQ_KEY" ]; then
+  ZUSAGEN_PROVIDER="groq"
+fi
 if [ ! -f "$VP" ]; then
   record "E.5 zusagen" "SKIP" "Werkzeug fehlt: tools/verankerung_pruefer.py" "$TARGET_REPO"
 elif ! command -v gh >/dev/null 2>&1 || [ -z "$OWNER" ]; then
   record "E.5 zusagen" "SKIP" "gh oder Owner nicht verfügbar" "$TARGET_REPO"
-elif ! curl -sf -m 5 "$OLLAMA_HOST/api/tags" >/dev/null 2>&1; then
+elif [ "$ZUSAGEN_PROVIDER" = "ollama" ] && ! curl -sf -m 5 "$OLLAMA_HOST/api/tags" >/dev/null 2>&1; then
   record "E.5 zusagen" "SKIP" "◌ NICHT PRUEFBAR — kein Klassifikator unter $OLLAMA_HOST" "$TARGET_REPO"
 else
   PRS=$(timeout 60 gh pr list --repo "$OWNER/$TARGET_REPO" --author @me --state all \
@@ -348,8 +358,9 @@ else
   else
     Z_OK=""; Z_WARN=""; Z_UNKLAR=""
     for nr in $PRS; do
-      Z_OUT=$(timeout "$((ZUSAGEN_BUDGET + 60))" python3 "$VP" --pr "$nr" \
-              --repo "$OWNER/$TARGET_REPO" --budget-sekunden "$ZUSAGEN_BUDGET" 2>&1)
+      Z_OUT=$(GROQ_API_KEY="$ZUSAGEN_GROQ_KEY" timeout "$((ZUSAGEN_BUDGET + 60))" \
+              python3 "$VP" --pr "$nr" --repo "$OWNER/$TARGET_REPO" \
+              --budget-sekunden "$ZUSAGEN_BUDGET" --provider "$ZUSAGEN_PROVIDER" 2>&1)
       case "$Z_OUT" in
         *"NICHT PRUEFBAR"*) Z_UNKLAR="$Z_UNKLAR #$nr:nicht-pruefbar" ;;
         *UNGEPRUEFT*)       Z_UNKLAR="$Z_UNKLAR #$nr:ungeprueft" ;;
