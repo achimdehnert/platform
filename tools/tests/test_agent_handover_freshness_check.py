@@ -249,3 +249,51 @@ def test_should_exit_usage_error_for_non_numeric_threshold(tmp_path):
     repo = _repo_mit_handover_und_n_commits(tmp_path, 1, "feat: x")
     res = _run("--commits-schwelle", "viel", "AGENT_HANDOVER.md", cwd=repo)
     assert res.returncode == 2
+
+
+# ── Rev 3 (2026-09-14, Retro oqu6Z6 Befund #22): Schwelle 0 + Beruehrung auf der Basis ──
+
+
+def test_should_fail_on_a_single_commit_with_threshold_zero(tmp_path):
+    """`--commits-schwelle 0` ist seither eine Schwelle, nicht mehr das Aus-Signal —
+    das Sitzungsende (session_ende_checks.sh E.3) braucht genau diese Strenge."""
+    repo = _repo_mit_handover_und_n_commits(tmp_path, 1, "feat: irgendwas")
+    res = _run("--commits-schwelle", "0", "AGENT_HANDOVER.md", cwd=repo)
+    assert res.returncode == 1, res.stdout + res.stderr
+    assert "1 Commits" in res.stdout
+
+
+def test_should_pass_with_threshold_zero_when_nothing_landed(tmp_path):
+    repo = _repo_mit_handover_und_n_commits(tmp_path, 0, "feat: irgendwas")
+    res = _run("--commits-schwelle", "0", "AGENT_HANDOVER.md", cwd=repo)
+    assert res.returncode == 0, res.stdout + res.stderr
+
+
+def test_should_measure_the_touch_on_the_basis_when_asked(tmp_path):
+    """Haupt-Tree hinter der Basis: auf der Basis liegt schon ein neuer Nachtrag.
+    Ohne `--beruehrung-auf-basis` zaehlt der Pruefer ihn als fehlend."""
+    repo = _repo_mit_handover_und_n_commits(tmp_path, 2, "feat: irgendwas")
+    subprocess.run(["git", "branch", "vorne"], cwd=repo, check=True)
+    subprocess.run(["git", "checkout", "-q", "vorne"], cwd=repo, check=True)
+    _commit(repo, "AGENT_HANDOVER.md", "docs(handover): Nachtrag", "2026-09-03")
+    subprocess.run(["git", "checkout", "-q", "-"], cwd=repo, check=True)
+    ohne = _run(
+        "--commits-schwelle", "0", "--basis", "vorne", "AGENT_HANDOVER.md", cwd=repo
+    )
+    mit = _run(
+        "--commits-schwelle",
+        "0",
+        "--basis",
+        "vorne",
+        "--beruehrung-auf-basis",
+        "AGENT_HANDOVER.md",
+        cwd=repo,
+    )
+    assert ohne.returncode == 1, ohne.stdout
+    assert mit.returncode == 0, mit.stdout + mit.stderr
+
+
+def test_should_reject_a_negative_threshold(tmp_path):
+    repo = _repo_mit_handover_und_n_commits(tmp_path, 1, "feat: x")
+    res = _run("--commits-schwelle", "-1", "AGENT_HANDOVER.md", cwd=repo)
+    assert res.returncode == 2

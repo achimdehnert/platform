@@ -105,6 +105,17 @@ jobs:
           private-key: ${{ secrets.RECONCILE_APP_PRIVATE_KEY }}
           owner: achimdehnert
 
+      # Fehlerpfad fuer den weichgestellten Token-Schritt (Gate
+      # ci-gate-maskiert-failure, Ausweitung 2026-09-14, Retro oqu6Z6 §5a): ohne
+      # diese Zeile fiele ein App-Ausfall still auf GITHUB_TOKEN zurueck, und das
+      # Urteil darunter entstuende blind. Rot mit benannter Ursache statt einer
+      # Inhaltsmeldung „nicht ermittelbar".
+      - name: App-Token-Ausfall melden
+        if: ${{ steps.app_token.outcome == 'failure' }}
+        run: |
+          echo "::error title=App-Token::create-github-app-token ist gescheitert — der Auslagerungs-Check liefe mit GITHUB_TOKEN und saehe die Hub-Repos nicht."
+          exit 1
+
       - name: Auslagerung pruefen
         env:
           # Der Check fragt den Zustand jeder verschwundenen Referenz ab, auch in

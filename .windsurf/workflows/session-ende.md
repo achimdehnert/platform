@@ -38,12 +38,12 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_ende_checks.sh" "$TARGE
 | `E.0 banner` | Platform-Version + Commit | — | Zahl in den Abschlussbericht |
 | `E.1 deploy-status` | `failure:` = Prod nicht live · `waiting:` = Run hängt am Gate | Repo ohne Deploy-Workflow | transienter Flake: `gh run rerun <id> --failed`; sonst Run-ID als offenen Punkt ins Handover |
 | `E.2 handover-prs` | >1 offener PR fasst `AGENT_HANDOVER.md` an | höchstens einer | Alt-Branch übernehmen ODER Alt-PR als „ersetzt durch #N" schließen, **vor** dem Push |
-| `E.3 handover-frische` | Stand älter als der letzte Commit der Datei | Exit 0 | Deutung in 0a-freshness |
+| `E.3 handover-frische` | ❌ Commits seit dem letzten Nachtrag und kein offener Handover-PR · ⚠️ Stand älter als der letzte Commit der Datei | Exit 0 oder Nachtrag offen als PR | Deutung in 0a-freshness |
 | `E.4 cross-repo-befunde` | Fremd-Repo-Befund ohne Artefakt oder Verzicht | Exit 0 | Deutung in 0f |
 | `E.5 zusagen` | Vertagung ohne Anker im Segment (advisory) | `✅` je Zusage | Deutung in 0g |
 | `E.6 template-drift` | Error-Drift gegen die Repo-Templates | 0 Errors | fixen oder Issue im betroffenen Repo |
 | `E.7 dirty-repos` | eigenes Repo mit uncommittetem Stand (Lease heute) | 0 eigene | in 3.1 committen; fremd dirty melden, nicht einsammeln |
-| `E.8 worktree-reap` | SKIP: räumt `session_start_checks.sh` 0.4.5 über alle Leases | immer | keiner — sonst dieselbe Mechanik doppelt |
+| `E.8 worktree-hygiene` | ❌ verknüpfter Baum älter als 14 Tage (`SESSION_ENDE_WORKTREE_MAX_TAGE`); `prunable`-Einträge räumt der Runner selbst | kein Baum über der Grenze | entfernen (`repo-session.sh reap` / `git worktree remove`) oder Grund in `<gitdir>/behalten` |
 | `E.9 dist-drift` | verteilte Skills weichen von `.windsurf/workflows/` ab | Lanes synchron | `cc-skill-dist/generate.py` laufen lassen, Diff committen |
 
 **Läuft der Runner nicht** (Shell blockiert, keine Ausgabe nach 5 s): Session neu starten;
@@ -84,6 +84,9 @@ Gemessen in `session_ende_checks.sh` **E.3**, gedeutet hier. Registry-`module`:
 `.github/workflows/handover-freshness-advisory.yml` bei **jedem** PR (Registry-Revision
 2026-08-20).
 
+- **❌ FAIL** (seit 2026-09-14, Retro oqu6Z6 #22) → seit dem letzten Nachtrag sind Commits
+  gelandet und kein Handover-PR ist offen. Der Nachtrag ist der letzte Schritt vor dem
+  Sitzungsende — auch wenn der letzte Stand von einer Parallelsitzung stammt.
 - **Exit 0** → frisch, weiter.
 - **Exit 1** → Stand-Abschnitt JETZT nachziehen (Datum + Prio-Zeilen), dann erneut prüfen.
   Ihn stehen zu lassen ist zulässig, braucht aber einen Satz mit Grund im Commit-/PR-Text —
@@ -311,8 +314,9 @@ git commit -m "session-ende($(basename $repo)): $(date +%Y-%m-%d) — <Beschreib
 
 `find ${GITHUB_DIR:-$HOME/github}/ -maxdepth 4 \( -name "*.fixed" -o -name "*.updated" -o
 -name "*.new" \)` → prüfen ob übernommen, dann löschen; sonst User warnen. Gemergte
-Session-Worktrees räumt `session_start_checks.sh` 0.4.5 über **alle** Leases ab (`E.8` steht
-deshalb auf SKIP). → `LEHREN#3.1c`
+Session-Worktrees räumt `session_start_checks.sh` 0.4.5 über **alle** Leases ab; `E.8` führt
+`git worktree prune` aus und macht jeden Baum über der Altersgrenze zum ❌ (seit 2026-09-14,
+Retro oqu6Z6 #21). → `LEHREN#3.1c`
 
 ### 3.2 Platform-Workflows + CC-Skills verteilen (IMMER — kein Conditional)
 

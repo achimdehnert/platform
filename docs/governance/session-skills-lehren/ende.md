@@ -509,7 +509,7 @@ Drei harte Lehren · PR-Kadenz session-retro 2026-07-02 · `[skip ci]`-Messung p
 
 ## 3.1c
 
-Worktree-Reaper, Retro 2026-06-14 · gestrichen 2026-09-02 (Streichkandidat S3: Gate-Registry `worktree-midsession-accumulation` `revision_note` vom 2026-08-20 und `session_start_checks.sh` Phase 0.4.5 räumen jedes Repo mit Lease; ein zweiter Lauf am Sitzungsende ist dieselbe Mechanik doppelt — Runner-Phase `E.8` steht deshalb bewusst auf SKIP mit Hinweis).
+Worktree-Reaper, Retro 2026-06-14 · gestrichen 2026-09-02 (Streichkandidat S3: Gate-Registry `worktree-midsession-accumulation` `revision_note` vom 2026-08-20 und `session_start_checks.sh` Phase 0.4.5 räumen jedes Repo mit Lease; ein zweiter Lauf am Sitzungsende ist dieselbe Mechanik doppelt — Runner-Phase `E.8` steht deshalb bewusst auf SKIP mit Hinweis). · wieder eingesetzt 2026-09-14 in anderer Form (Retro oqu6Z6 §5a / #21): nicht als zweiter Reaper-Lauf, sondern als `git worktree prune` plus Altersgrenze (FAIL) — die SKIP-Zeile hatte 13 Bäume, zwei davon `prunable`, folgenlos stehen lassen.
 
 > Ohne diesen Schritt akkumulieren Orphan-Worktrees über Tage (Retro 2026-06-14:
 > 9 dangling, davon 3 am selben Tag erzeugt + gemergt, nie gereapt). Der Reaper ist

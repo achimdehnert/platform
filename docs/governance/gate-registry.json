@@ -15,12 +15,13 @@
         "tools/claude-hooks/tests/test_evidence_claim_scanner_bypass.py",
         "tools/claude-hooks/tests/test_evidence_claim_scanner_vollzug.py",
         "tools/claude-hooks/tests/test_evidence_claim_scanner_entwurf.py",
-        "tools/claude-hooks/tests/test_evidence_claim_scanner_gate_wirkung.py"
+        "tools/claude-hooks/tests/test_evidence_claim_scanner_gate_wirkung.py",
+        "tools/claude-hooks/tests/test_evidence_claim_scanner_kriterium.py"
       ],
       "built": "2026-08-02",
       "ref": "platform#1643",
-      "revised": "2026-09-08",
-      "revision_note": "Rev 3, zwei Ausweitungen nach Retro fdd368 §5a (Owner-Entscheid 'ausweiten'). (1) SCHREIBWEISE: der Universal-Claim verlangte eine Ziffer — 'alle 7 Checks gruen' traf, 'alle sieben Checks gruen' verfehlte. Genau der zweite Satz stand am 2026-08-25 in einer Antwort, waehrend zwei Checks rot waren; der Owner sah es, das Gate nicht. Zahlwoerter bis zwoelf ergaenzt. Das ist zugleich der bis dahin ungegatete Slug gate-matches-spelling-not-substance (x5). (2) GEFILTERTER BELEG: die Korroboration fragte, OB ein Belegkommando lief, nicht ob dessen Ausgabe die Aussage tragen KONNTE. 'gh pr checks | tail -12' zeigte zwoelf gruene Zeilen, die zwei roten standen oben. Neu entwaffnet ein durch head/tail abgeschnittenes LISTEN-Kommando die Korroboration einer Allaussage; eine Gegenprobe im selben Zug (grep -v/-c, awk !=, wc -l, --jq) hebt das wieder auf. Bewusst eng: 'make test | tail -3' bleibt gueltig, weil pytest seine Summenzeile ans Ende schreibt. · Rev 4 (2026-08-28, Retro 62f875 §5a, Gate rueckfaellig ×70 → 'ausweiten'): (3) BYPASS-CLAIM: 'Admin-Merge'/'Ruleset-Bypass'/'--admin' in einem publizierten PR-/Issue-Body ist ein eigener Claim-Typ, den nur ein mergedBy-Beleg traegt — `state: MERGED` sagt nichts ueber den Merge-WEG (platform#2397: wirdigital hatte regulaer gemergt, der Bypass-Kommentar stand trotzdem). (4) KOMMENTAR-VOR-MERGE: ein Status-/Bypass-Kommentar, der in derselben Bash-Kette VOR `gh pr merge` abgesetzt wird, kann das Ergebnis nicht kennen — feuert unabhaengig vom Beleg. Drill: tests/test_evidence_claim_scanner_bypass.py (Realfall als Fixture, drei Nicht-Treffer daneben). · Rev 5 (2026-09-07, platform#2374, Gate rueckfaellig x4 -> 'schaerfen'): neue Trefferklasse VOLLZUGS-CLAIM im publizierten Body. Der vierte Rueckfall war der Escrow-Satz aus platform#2673 ('Der Escrow ist ausgefuehrt', gesichert war eine Datei mit einem ZEIGER statt dem Schluessel; #2675 belegte das 40 Minuten spaeter). Die Retro a6368d erklaerte den Durchlaeufer damit, dass ein Werkzeug lief, aber die falsche Ebene belegte. Am 2026-09-07 gegen die Muster selbst gegengeprueft: KEIN einziges CLAIM_PATTERN trifft diesen Satz -- weder 'ausgefuehrt' noch 'vollzogen', 'eingerichtet', 'gesichert' oder 'abgeschlossen' standen in der Liste. Der Body-Zweig hat also nie gefeuert, die Korroboration kam gar nicht zum Zug; die Diagnose der Retro war eine Ebene zu tief. Die Messung steht als erster Test im Drill, damit sie auffaellt, falls ein anderes Muster den Fall spaeter doch deckt. Bewusst NUR fuer publizierte Bodies und nur mit WIRKUNGS-GEGENSTAND (Escrow, Backup, Rotation, Migration, Deploy, ...): 'erledigt' und 'abgeschlossen' stehen in jeder zweiten Chat-Antwort, das Action Board fuehrt '✅ Erledigt' als Bucket-Ueberschrift. · Rev 6 (2026-09-07, platform#2924, eng begrenzte Ausweitung): die Ursache lag an der QUELLE, nicht am Muster — der Scanner prueft nur Chat-Text und den gh-Body-Carrier (`_GH_BODY_CARRIER_RE`); Mail-Entwuerfe laufen ueber `tools/mail_agent/draft_mail.py`/`graph_mail.py --body-file` und fielen deshalb durch JEDE Body-Extraktion. Realfall: ein Mail-Entwurf an einen Studierenden behauptete 'At 22 pages and roughly 7,800 words', `pdfinfo` sagte 23 Seiten; der Entwurf wurde abgelegt und vom Owner gesendet, ohne dass der Hook je die Zahl sah. Konsequenz: AUSWEITEN, eng begrenzt auf genau diesen Carrier. Neuer, enger Mail-Draft-Carrier (`_MAIL_DRAFT_CARRIER_RE`: draft_mail.py/graph_mail.py UND --body-file im selben Kommando) plus eigene Trefferklasse `entwurf-messzahl` (Zahl unmittelbar vor einer Masseinheit — Seiten/Woerter/Zeichen/Zeilen/Treffer — ohne ein zaehlendes Kommando wie pdfinfo/wc/grep -c im Turn). ADVISORY-SONDERWEG (Owner-Vorgabe #2924): diese Trefferart blockt NIE, auch nicht im blocking-Mode des Gates — sie laeuft immer als Warnzeile (additionalContext), der Entwurf wird trotzdem abgelegt; nur wenn gleichzeitig eine der haerteren Arten (unbelegt/bypass-claim/vollzugs-claim/...) feuert, greift wieder das normale blocking-Verhalten. Begruendung: ein Mail-Entwurf ist noch keine Aussage nach aussen, das Gate soll auf die Zahl aufmerksam machen, nicht den Entwurfsprozess stoppen. · Rev 7 (2026-09-08, Retro 61c35d §5a, Gate rueckfaellig einen Tag nach Rev 6 -> 'ausweiten'): neue Trefferklasse WIRKUNGS-CLAIM im publizierten Body. Der Rueckfall war platform#2954: „ein Gate erzwingt, dass sie stattgefunden hat\". Der Job war gebaut, lief, und wurde am Drill-PR #2955 auch wirklich rot -- er stand nur nicht in required_status_checks des Rulesets. Ein roter Check, der nicht required ist, blockiert keinen Merge. Warum keine vorhandene Art griff: der Turn war voll von Belegen (CI-Lauf, roter Check, gruene Tests), BODY_EVIDENCE_TOKENS waeren also zufrieden gewesen -- und genau darin liegt die Falle, dass ein Check FEUERT belegt nie, dass er SPERRT. Deshalb eine eigene, engere Korroboration (RULESET_READ_RE: rules/branches, /rulesets, required_status_checks, branch_protection); ein `gh pr checks`, `gh run list` oder `make test` entwaffnet ausdruecklich NICHT. Bewusst nur fuer publizierte Bodies: im Chat ist „der Check blockiert\" oft eine Absicht, im PR-Text ist es eine Zusage an den Leser. Gegengeprueft am 2026-09-08: weder ein CLAIM_PATTERN noch VOLLZUG_CLAIM_RE traf den Satz; beide Messungen stehen als erste Tests im Drill, damit sie auffallen, falls eine andere Art den Fall spaeter doch deckt.",
+      "revised": "2026-09-14",
+      "revision_note": "Rev 3, zwei Ausweitungen nach Retro fdd368 §5a (Owner-Entscheid 'ausweiten'). (1) SCHREIBWEISE: der Universal-Claim verlangte eine Ziffer — 'alle 7 Checks gruen' traf, 'alle sieben Checks gruen' verfehlte. Genau der zweite Satz stand am 2026-08-25 in einer Antwort, waehrend zwei Checks rot waren; der Owner sah es, das Gate nicht. Zahlwoerter bis zwoelf ergaenzt. Das ist zugleich der bis dahin ungegatete Slug gate-matches-spelling-not-substance (x5). (2) GEFILTERTER BELEG: die Korroboration fragte, OB ein Belegkommando lief, nicht ob dessen Ausgabe die Aussage tragen KONNTE. 'gh pr checks | tail -12' zeigte zwoelf gruene Zeilen, die zwei roten standen oben. Neu entwaffnet ein durch head/tail abgeschnittenes LISTEN-Kommando die Korroboration einer Allaussage; eine Gegenprobe im selben Zug (grep -v/-c, awk !=, wc -l, --jq) hebt das wieder auf. Bewusst eng: 'make test | tail -3' bleibt gueltig, weil pytest seine Summenzeile ans Ende schreibt. · Rev 4 (2026-08-28, Retro 62f875 §5a, Gate rueckfaellig ×70 → 'ausweiten'): (3) BYPASS-CLAIM: 'Admin-Merge'/'Ruleset-Bypass'/'--admin' in einem publizierten PR-/Issue-Body ist ein eigener Claim-Typ, den nur ein mergedBy-Beleg traegt — `state: MERGED` sagt nichts ueber den Merge-WEG (platform#2397: wirdigital hatte regulaer gemergt, der Bypass-Kommentar stand trotzdem). (4) KOMMENTAR-VOR-MERGE: ein Status-/Bypass-Kommentar, der in derselben Bash-Kette VOR `gh pr merge` abgesetzt wird, kann das Ergebnis nicht kennen — feuert unabhaengig vom Beleg. Drill: tests/test_evidence_claim_scanner_bypass.py (Realfall als Fixture, drei Nicht-Treffer daneben). · Rev 5 (2026-09-07, platform#2374, Gate rueckfaellig x4 -> 'schaerfen'): neue Trefferklasse VOLLZUGS-CLAIM im publizierten Body. Der vierte Rueckfall war der Escrow-Satz aus platform#2673 ('Der Escrow ist ausgefuehrt', gesichert war eine Datei mit einem ZEIGER statt dem Schluessel; #2675 belegte das 40 Minuten spaeter). Die Retro a6368d erklaerte den Durchlaeufer damit, dass ein Werkzeug lief, aber die falsche Ebene belegte. Am 2026-09-07 gegen die Muster selbst gegengeprueft: KEIN einziges CLAIM_PATTERN trifft diesen Satz -- weder 'ausgefuehrt' noch 'vollzogen', 'eingerichtet', 'gesichert' oder 'abgeschlossen' standen in der Liste. Der Body-Zweig hat also nie gefeuert, die Korroboration kam gar nicht zum Zug; die Diagnose der Retro war eine Ebene zu tief. Die Messung steht als erster Test im Drill, damit sie auffaellt, falls ein anderes Muster den Fall spaeter doch deckt. Bewusst NUR fuer publizierte Bodies und nur mit WIRKUNGS-GEGENSTAND (Escrow, Backup, Rotation, Migration, Deploy, ...): 'erledigt' und 'abgeschlossen' stehen in jeder zweiten Chat-Antwort, das Action Board fuehrt '✅ Erledigt' als Bucket-Ueberschrift. · Rev 6 (2026-09-07, platform#2924, eng begrenzte Ausweitung): die Ursache lag an der QUELLE, nicht am Muster — der Scanner prueft nur Chat-Text und den gh-Body-Carrier (`_GH_BODY_CARRIER_RE`); Mail-Entwuerfe laufen ueber `tools/mail_agent/draft_mail.py`/`graph_mail.py --body-file` und fielen deshalb durch JEDE Body-Extraktion. Realfall: ein Mail-Entwurf an einen Studierenden behauptete 'At 22 pages and roughly 7,800 words', `pdfinfo` sagte 23 Seiten; der Entwurf wurde abgelegt und vom Owner gesendet, ohne dass der Hook je die Zahl sah. Konsequenz: AUSWEITEN, eng begrenzt auf genau diesen Carrier. Neuer, enger Mail-Draft-Carrier (`_MAIL_DRAFT_CARRIER_RE`: draft_mail.py/graph_mail.py UND --body-file im selben Kommando) plus eigene Trefferklasse `entwurf-messzahl` (Zahl unmittelbar vor einer Masseinheit — Seiten/Woerter/Zeichen/Zeilen/Treffer — ohne ein zaehlendes Kommando wie pdfinfo/wc/grep -c im Turn). ADVISORY-SONDERWEG (Owner-Vorgabe #2924): diese Trefferart blockt NIE, auch nicht im blocking-Mode des Gates — sie laeuft immer als Warnzeile (additionalContext), der Entwurf wird trotzdem abgelegt; nur wenn gleichzeitig eine der haerteren Arten (unbelegt/bypass-claim/vollzugs-claim/...) feuert, greift wieder das normale blocking-Verhalten. Begruendung: ein Mail-Entwurf ist noch keine Aussage nach aussen, das Gate soll auf die Zahl aufmerksam machen, nicht den Entwurfsprozess stoppen. · Rev 7 (2026-09-08, Retro 61c35d §5a, Gate rueckfaellig einen Tag nach Rev 6 -> 'ausweiten'): neue Trefferklasse WIRKUNGS-CLAIM im publizierten Body. Der Rueckfall war platform#2954: „ein Gate erzwingt, dass sie stattgefunden hat\". Der Job war gebaut, lief, und wurde am Drill-PR #2955 auch wirklich rot -- er stand nur nicht in required_status_checks des Rulesets. Ein roter Check, der nicht required ist, blockiert keinen Merge. Warum keine vorhandene Art griff: der Turn war voll von Belegen (CI-Lauf, roter Check, gruene Tests), BODY_EVIDENCE_TOKENS waeren also zufrieden gewesen -- und genau darin liegt die Falle, dass ein Check FEUERT belegt nie, dass er SPERRT. Deshalb eine eigene, engere Korroboration (RULESET_READ_RE: rules/branches, /rulesets, required_status_checks, branch_protection); ein `gh pr checks`, `gh run list` oder `make test` entwaffnet ausdruecklich NICHT. Bewusst nur fuer publizierte Bodies: im Chat ist „der Check blockiert\" oft eine Absicht, im PR-Text ist es eine Zusage an den Leser. Gegengeprueft am 2026-09-08: weder ein CLAIM_PATTERN noch VOLLZUG_CLAIM_RE traf den Satz; beide Messungen stehen als erste Tests im Drill, damit sie auffallen, falls eine andere Art den Fall spaeter doch deckt. · Rev 8 (2026-09-14, Retro docs/retros/session-retro-2026-09-14-platform-oqu6Z6.md (platform#3156) §5a / Befund #4, M5, Owner-Entscheid 'g5a bestaetigt' (Kapitaens-Kanal, 2026-09-14); Gate rueckfaellig x3 nach Rev 7 -> 'ausweiten'): neue Trefferklasse KRITERIUMS-CLAIM im publizierten Body. Realfall platform#3015: 'Alle fuenf Kriterien sind erreicht und belegt'; K3 verlangte Verfallsignale 'mit Schwelle und Vorlauf', einen Melder, der feuert, 'bevor der Ausfall eintritt', und eine Positivkontrolle mit 'Beleg im Journal' — die Belegzeile nannte davon nur Schwelle und Positivkontrolle. Anders als die frueheren Rueckfaelle stand die Aussage in einem Traeger, den das Gate sieht: der alte Body-Zweig traf den Satz (`universal-claim`) und wurde von `gh issue view` im Turn entwaffnet — gelesen war das Kriterium, gegengehalten nicht. Neu: behauptet ein Body ein Kriterium mit Kennung (K1, K2, ...) als erreicht/erfuellt, wird sein Wortlaut im Turn gesucht; fehlt er, feuert die Art; steht er da, muss jeder Satzteil mit mindestens einem Inhaltswort in den Body-Zeilen dieser Kennung vorkommen. GRENZE, im Modul benannt: gemessen wird, ob jeder Satzteil ANGESPROCHEN ist, nicht ob der Beleg ihn traegt; Bodies ohne Kennung bleiben still. Gegenprobe am echten #3015-Abschluss 2026-09-14: K3 meldet genau 'Vorlauf; der Ausfall eintritt; Beleg im Journal'; dieselbe Pruefung markiert auch in K1/K4/K5 ausgelassene Satzteile — Kalibrierung ueber gate_hits (Fehlalarm-Quote), Wiedervorlage mit dem bestehenden Termin 2026-09-30.",
       "faengt": [
         {
           "fall": "pruefbare Behauptung im Turn ohne belegenden Werkzeuglauf",
@@ -53,6 +54,10 @@
         {
           "fall": "Sperrwirkung eines Gates/Checks/Rulesets im PR-/Issue-Body behauptet, ohne dass im Turn die Regel-Ebene gelesen wurde (platform#2954)",
           "probe": "gate-wirkungs-claim"
+        },
+        {
+          "fall": "Kriterium mit Kennung im PR-/Issue-Body als erreicht behauptet, ohne dass jeder Satzteil des gelesenen Wortlauts in der Belegzeile vorkommt (platform#3015 K3)",
+          "probe": "kriteriums-claim"
         }
       ],
       "zustand": "schranke",
@@ -72,37 +77,8 @@
         "entscheid_note": "Zweiter Anlauf erreichte am 2026-09-02 seine Mindestzahl (13 beurteilbare Zeilen seit 2026-08-23, Mindestzahl 10) und wurde vom Owner scharf geschaltet. Datenlage bei der Entscheidung, offen benannt: von den 12 beurteilbaren Zeilen (die erste trug einen leeren Ausschnitt) sehen nach Sichtung der Ausschnitte rund 4 wie Fehlalarme aus — Faelle, in denen der genannte Gegenstand vom Werkzeuglauf sehr wohl beruehrt war (Testlaeufe mit Summenzeile, eine Ankuendigung des Checks statt einer Behauptung). Diese Einstufung ist eine HYPOTHESE aus 230-Zeichen-Ausschnitten; ob ein belegender Lauf im Turn stand, laesst sich daraus nicht entscheiden — der billigste Check dafuer waeren die zugehoerigen Transkripte. Die Entscheidung stuetzt sich stattdessen auf die Messung aus #2374 Ziel B (134 Transkripte): die Klasse 'Werkzeug lief, traegt aber nicht' ist mit 13 % groesser als 'kein Werkzeug', und genau sie ist der Gegenstand der Subjektbindung. Wiedervorlage 2026-09-30: wenn die Fehlalarm-Quote im scharfen Betrieb spuerbar ueber einem Drittel liegt, gehoert der Modus zurueckgestuft."
       },
       "positivkontrolle": {
-        "ref": "tools/claude-hooks/tests/test_evidence_claim_scanner_gate_wirkung.py -- der Realfall-Satz aus platform#2954 laeuft durch main() und erzeugt 'gate-wirkungs-claim', solange der Turn nur den LAUF belegt (`gh pr checks 2955` mit rotem Ergebnis -- genau das Kommando aus dem Realfall); mit einem Lesen der REGEL-Ebene (`gh api repos/.../rules/branches/main`) bleibt derselbe Body still. Dazu zwei Messungen, aus denen Rev 7 folgt: vor Rev 7 traf weder ein CLAIM_PATTERN noch VOLLZUG_CLAIM_RE den Satz. Gegenproben daneben: ein reiner Laufstatus ohne Wirkungsverb und ein Wirkungsverb ohne Gate-Subjekt („Der Konflikt blockiert den Merge\") bleiben still.",
-        "datum": "2026-09-08"
-      }
-    },
-    {
-      "slug": "deferred-item-no-tracking-issue",
-      "mode": "advisory",
-      "owner": "achim",
-      "module": "tools/claude-hooks/deferred_item_scanner.py",
-      "drill": "tools/claude-hooks/tests/test_deferred_item_scanner.py",
-      "built": "2026-08-02",
-      "ref": "platform#1645",
-      "revised": "2026-09-03",
-      "revision_note": "KALIBRIERUNG 2026-09-03 (platform#2234, Owner-Entscheid '6 ja go'): generische Verneinungen feuern nicht mehr, wenn ihr direktes Objekt ein Code-Bezeichner in Backticks ist. Anlass: zwei gemessene Fehlalarme an einem Tag, beide auf dieselbe Wurzel -- das Muster traf VERNEINUNGEN, ohne zu unterscheiden, ob sie Arbeit oder eine technische Entscheidung betreffen ('bewusst nicht `gh api rate_limit`' ist eine Methodenwahl, keine Vertagung). Bewusst SEHR eng: ein erster, breiterer Entwurf verlangte irgendein Arbeitswort im Satz und liess prompt NEUN bestehende Drills durchfallen (deutsche Vertagungen stehen regelmaessig als Substantiv da) -- der Fehlversuch steht als Kommentar im Modul, damit ihn niemand wiederholt. Zweite Falle beim Bau: `normalisiere_zeilen` entfernt die Backticks vor dem Abgleich; die neue Regel prueft deshalb die ORIGINALZEILE. NICHT geloest und als Grenz-Test festgehalten: die objektlose Ueberschrift 'Was bewusst NICHT' (platform#2036) feuert weiter. · UMBAU als eigenes Gate (platform#2216, Owner-Entscheid 'umbauen' zu #2143). Der Wortlaut-Scanner war gegen 'ein Muster mehr' immun — belegt an zwei unabhaengigen Fehlermodi am Realfall PR #2007. Der Nachfolger `zusage-ohne-verankerung` klassifiziert den Zusage-TYP je Segment und prueft den Anker IM Segment; die Klasse `vertagung` deckt genau diesen Slug. Dieser Scanner laeuft advisory weiter (er hat den Befund am 2026-08-21 einmal gefangen), ist aber nicht mehr die Hauptantwort. Messpunkt deshalb ab 2026-08-23. AUSWEITUNG 2026-08-29 (Retro e70d11, Owner-Entscheid 'ausweiten'): zweite Trefferklasse `_board_befund_ohne_anker`. Der sechste Rueckfall nach Gate-Bau trug KEIN Vertagungs-Verb — drei in Prod gemessene Defekte standen als offene Board-Zeilen ('| 4 | Dubletten | a-hub | — | 🟢 Befund | fixen (ich) |') und existierten nur im Gespraechsverlauf. Ein offener Befund im Board IST die haeufigste Form aufgeschobener Arbeit in diesem Setup; er sagt nicht 'vertagt', sondern zeigt es. Bewusst eng: offener Status-Marker UND Befund-Wort UND kein Anker (URL oder #<nummer>) in derselben Zeile — sonst feuert jedes Statusboard.",
-      "faengt": [
-        {
-          "fall": "aufgeschobene Arbeit ohne Issue-Nummer im selben Zug",
-          "probe": "vertagt"
-        },
-        {
-          "fall": "offene Board-Zeile mit Befund-Charakter ohne Issue-Link im selben Zug",
-          "probe": "| 4 | Dubletten | a-hub | — | 🟢 Befund | fixen (ich) |"
-        }
-      ],
-      "zustand": "schranke",
-      "erzwungen_seit": "2026-08-02",
-      "expires": "2026-10-31",
-      "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet.",
-      "positivkontrolle": {
-        "ref": "platform#2234 -- beide Richtungen am ECHTEN Wortlaut des Vorfalls geprueft: 'Bewusst nicht `gh api rate_limit`: das misst das Primaerlimit' laeuft jetzt durch (✅), waehrend 'Die 39 Funde sind bewusst nicht mitgefixt: eigener Vorgang' weiter faellt (❌, Zeile 1). 44 Drills gruen, davon 9, die den zu breiten Erstentwurf widerlegt haben.",
-        "datum": "2026-09-03"
+        "ref": "tools/claude-hooks/tests/test_evidence_claim_scanner_kriterium.py -- der K3-Wortlaut und die K3-Belegzeile aus dem #3015-Abschluss laufen durch main() (Turn mit `gh issue view 3015` und `gh issue close --comment`) und erzeugen 'kriteriums-claim' mit den Satzteilen Vorlauf/Ausfall/Journal; eine Belegzeile, die jeden Satzteil anspricht, bleibt still. Die Messung, aus der Rev 8 folgt, steht als erster Test: der alte Body-Zweig traf nur `universal-claim`, und `gh issue view` entwaffnete ihn.",
+        "datum": "2026-09-14"
       }
     },
     {
@@ -183,11 +159,14 @@
       "owner": "achim",
       "module": "scripts/checks/agent_handover_freshness_check.py",
       "note": "Seit 2026-09-02 (platform#2690 K5) gemessen in tools/session_ende_checks.sh Phase E.3, gedeutet in .windsurf/workflows/session-ende.md Phase 0a-freshness. Der Skill ruft den Pruefer nicht mehr selbst auf: der Aufruf steht im Runner, die Exit-0/Exit-1-Deutung im Skill. Der Traeger .github/workflows/handover-freshness-advisory.yml aus der Revision 2026-08-20 bleibt davon unberuehrt.",
-      "drill": "tools/tests/test_agent_handover_freshness_check.py",
+      "drill": [
+        "tools/tests/test_agent_handover_freshness_check.py",
+        "tools/tests/test_session_ende_checks.py"
+      ],
       "built": "2026-08-02",
       "ref": "platform#1648",
-      "revised": "2026-09-07",
-      "revision_note": "Rev 2 (2026-09-07, platform#2374, Gate rueckfaellig x2 -> 'schaerfen'). Die bisherige Bedingung vergleicht die datierte Ueberschrift mit dem letzten Commit, der die DATEI beruehrt hat. Sie kann damit strukturell nur eine Fehlform sehen: 'Datei committet, ohne den Stand-Abschnitt mitzuziehen'. Die Fehlform, die den Slug x19 wiederkehren liess, ist die andere -- die Datei wird GAR NICHT angefasst. Realfall Retro 0f59ce #7 (2026-09-03): 13 Merges in 7 Repos, AGENT_HANDOVER.md auf dem Stand des Vortags; Ueberschrift 2026-09-02, letzter Datei-Commit 2026-09-02, Abstand 0 Tage, also PASS. Der Check war gruen, weil er die falsche Groesse mass. Neu zaehlt `--commits-schwelle N` die Commits seit der letzten Beruehrung der Datei (dieses Repo squasht beim Merge, ein Commit ist eine gemergte PR; `--merges` waere hier immer 0, gemessen 2026-09-07). Dependabot-Bumps zaehlen nicht mit, sonst misst die Zahl die Betriebsamkeit des Bots. Die Bedingung ist per Vorgabe AUS und nur dort eingeschaltet, wo das Ergebnis advisory ist (handover-freshness-advisory.yml, Schwelle 12, geeicht an der Realfall-Groesse 13 und an der eigenen Historie: von 24 Handover-Intervallen liegen 8 darueber). Die beiden blockierenden Zweige (handoff-banner-gate, regel-ritual) rufen das Skript unveraendert ohne Schwelle auf.",
+      "revised": "2026-09-14",
+      "revision_note": "Rev 2 (2026-09-07, platform#2374, Gate rueckfaellig x2 -> 'schaerfen'). Die bisherige Bedingung vergleicht die datierte Ueberschrift mit dem letzten Commit, der die DATEI beruehrt hat. Sie kann damit strukturell nur eine Fehlform sehen: 'Datei committet, ohne den Stand-Abschnitt mitzuziehen'. Die Fehlform, die den Slug x19 wiederkehren liess, ist die andere -- die Datei wird GAR NICHT angefasst. Realfall Retro 0f59ce #7 (2026-09-03): 13 Merges in 7 Repos, AGENT_HANDOVER.md auf dem Stand des Vortags; Ueberschrift 2026-09-02, letzter Datei-Commit 2026-09-02, Abstand 0 Tage, also PASS. Der Check war gruen, weil er die falsche Groesse mass. Neu zaehlt `--commits-schwelle N` die Commits seit der letzten Beruehrung der Datei (dieses Repo squasht beim Merge, ein Commit ist eine gemergte PR; `--merges` waere hier immer 0, gemessen 2026-09-07). Dependabot-Bumps zaehlen nicht mit, sonst misst die Zahl die Betriebsamkeit des Bots. Die Bedingung ist per Vorgabe AUS und nur dort eingeschaltet, wo das Ergebnis advisory ist (handover-freshness-advisory.yml, Schwelle 12, geeicht an der Realfall-Groesse 13 und an der eigenen Historie: von 24 Handover-Intervallen liegen 8 darueber). Die beiden blockierenden Zweige (handoff-banner-gate, regel-ritual) rufen das Skript unveraendert ohne Schwelle auf. · UMBAU Rev 3 (2026-09-14, Retro docs/retros/session-retro-2026-09-14-platform-oqu6Z6.md (platform#3156) §5a / Befund #22, M11, Owner-Entscheid 'g5a bestaetigt' (Kapitaens-Kanal, 2026-09-14); Gate rueckfaellig x2, letzter 2026-09-14). Ursache an der Quelle: die blockierenden Zweige haengen an einem PR, der AGENT_HANDOVER.md beruehrt; am Sitzungsende beruehrte ihn keiner — der letzte Nachtrag kam von der Parallelsitzung des Vortags (`c771e273`), danach landeten 10 Commits. Die Sitzungsende-Messung (tools/session_ende_checks.sh E.3) rief den Pruefer OHNE Schwelle und aus dem falschen Arbeitsverzeichnis auf, sah also nur das Datum. Neu: E.3 laeuft im Ziel-Repo mit `--commits-schwelle 0 --basis origin/main --beruehrung-auf-basis`; jeder Sitzungs-Commit seit dem letzten Nachtrag ohne offenen Handover-PR (E.2) ist FAIL (RESULT: FAIL = Sitzung nicht abschliessen), mit offenem PR PASS, bei nicht beurteilbarem E.2 WARN. Dafuer im Pruefer: `--commits-schwelle 0` ist eine Schwelle statt des Aus-Signals (Aus = Flag fehlt), und `--beruehrung-auf-basis` misst die letzte Beruehrung auf der Basis, damit ein hinterherhinkender Haupt-Tree keinen dort schon gemergten Nachtrag als fehlend zaehlt. Die PR-Zweige (advisory Schwelle 12, handoff-banner-gate, regel-ritual) bleiben unveraendert.",
       "faengt": [
         {
           "fall": "Handover ohne datierte Ueberschrift",
@@ -200,13 +179,17 @@
         {
           "fall": "Handover gar nicht angefasst, waehrend Merges auflaufen (Retro 0f59ce #7)",
           "probe": "commits-schwelle"
+        },
+        {
+          "fall": "Sitzungsende ohne Handover-PR, waehrend seit dem letzten Nachtrag Commits landeten (Retro oqu6Z6 #22)",
+          "probe": "no_pr_is_open"
         }
       ],
       "zustand": "schranke",
       "erzwungen_seit": "2026-08-02",
       "positivkontrolle": {
-        "ref": "Echter Lauf am 2026-09-07 gegen den platform-Arbeitsbaum: ohne Schwelle PASS (Altverhalten), mit `--commits-schwelle 12 --basis origin/main` FAIL mit 16 Commits seit der letzten Beruehrung -- derselbe Zustand, denselben Tag, zwei Verdikte. Gegenprobe mit Schwelle 99 wieder PASS. Drill: test_should_pass_without_flag_even_when_many_commits_landed haelt die Blindstelle der ersten Bedingung fest, test_should_fail_when_commits_since_touch_exceed_threshold ist die Positivkontrolle am nachgebauten Realfall (13 Commits).",
-        "datum": "2026-09-07"
+        "ref": "tools/tests/test_session_ende_checks.py::test_should_fail_when_commits_landed_after_the_handover_and_no_pr_is_open -- Ziel-Repo mit Nachtrag und drei Commits danach, gh-Stub ohne Handover-PR: E.3 = FAIL; gegen den Runner von origin/main gefahren am 2026-09-14 rot (E.3 PASS). Negativkontrollen im selben Drill: Nachtrag offen als PR -> PASS, keine Commits nach dem Nachtrag -> PASS. Pruefer-Seite: test_should_fail_on_a_single_commit_with_threshold_zero und test_should_measure_the_touch_on_the_basis_when_asked.",
+        "datum": "2026-09-14"
       }
     },
     {
@@ -403,13 +386,14 @@
       ],
       "drill": [
         "tools/tests/test_worktree_reaper.py",
-        "tools/claude-hooks/tests/test_hygiene_melder.py"
+        "tools/claude-hooks/tests/test_hygiene_melder.py",
+        "tools/tests/test_session_ende_checks.py"
       ],
       "built": "2026-06-01",
       "ref": "platform#1650 Nachmessung 2026-08-10 / ADR-233 / Umbau platform Retro 8d6869",
       "note": "Bestand seit cf9ccb48 (Reaper raeumt gemergte+cleane Session-Worktrees, via repo-session.sh reap + session-start 0.4.5), war aber nie registriert. Registriert 2026-08-12. | 2026-08-20 UMGEBAUT (Retro 8d6869, gate_wirkung.py meldete RUECKFAELLIG, 2 Vorkommen nach dem Bau): der Reaper lief nur fuer das Start-Repo. Worktrees entstehen mitten in der Sitzung und werden oft fremd gemergt — der naechste Start betraf dann ein anderes Repo. Zwei Aenderungen: (1) `repo-session.sh reap --alle` raeumt jedes Repo mit Lease, verdrahtet in session_start_checks.sh Phase 0.4.5. (2) Karenzregel im Reaper — die Lease-vor-Merge-Reihenfolge aus #1866 bleibt, gilt aber nicht mehr sieben Tage: ist der Baum sauber, sein PR gemergt und seit 12h (--karenz-stunden) kein Commit gefallen, wird geraeumt. Die eigentliche Ursache des Rueckfalls war (2), nicht (1): gemessen am 2026-08-20 hielt 'Lease aktiv bis +7 Tage' JEDEN gemergten Baum.",
-      "revised": "2026-09-07",
-      "revision_note": "UMBAU 2026-09-07 (platform#2374, Gate rueckfaellig x3). Das Gate hing an EINEM Modul mit der falschen Messgroesse. Der Reaper misst und entfernt richtig, aber er haelt einen gemergten Baum bewusst zurueck: aktives Lease plus Karenzfrist (12 h), damit niemandem der Boden weggezogen wird. Das ist richtig fuer das ENTFERNEN und falsch fuer das MELDEN. Der Melder daneben (hygiene_melder, SessionStart) zaehlte bis hierhin ABGELAUFENE Leases -- eine Sieben-Tage-Uhr. Die Fehlform spielt sich in Minuten ab: Retro fdd368 (17 Baeume eines Tages ungeraeumt), m1zgqt #14 (zwei Leases nach dem Merge nicht geschlossen), 0f59ce #8 (6 Baeume gemergter PRs offen bis zur Retro) -- alle drei mit GUELTIGEM Lease, fuer die alte Klasse also unsichtbar. Neu misst der Melder dieselbe Wahrheit ohne Karenz und ohne Lease-Uhr: PR gemergt und Baum noch da. Die Merge-Erkennung wird aus dem Reaper IMPORTIERT, nicht nachgebaut. Zwei Fallen beim Bau, beide durch einen echten Lauf gefunden: (a) das Lease traegt nur den nackten Repo-NAMEN ('wedding-hub'), `gh --repo wedding-hub` scheitert -- 85 Leases, 85x 'unknown', 0 Befunde, 3,8 s; der Owner kommt jetzt aus `git remote get-url origin` im Baum. (b) 'unknown' zaehlt seither als NICHT BEURTEILBAR und wird mitgemeldet, nicht als 'in Ordnung' verbucht. Nach der Reparatur: 46 gemergte Baeume offen; mit dem Frischefenster von 3 Tagen (aeltere sind Bestand und Sache des reap-Laufs) 23 Befunde in 12,9 s, innerhalb des Sitzungsstart-Budgets. Der echte Merge-MOMENT bleibt ein Owner-Zug: ein PostToolUse-Hook auf `gh pr merge` braucht eine Zeile in ~/.claude/settings.json, ausserhalb dieses Repos -- gefuehrt als Kandidat `worktree-end-on-merge`.",
+      "revised": "2026-09-14",
+      "revision_note": "UMBAU 2026-09-07 (platform#2374, Gate rueckfaellig x3). Das Gate hing an EINEM Modul mit der falschen Messgroesse. Der Reaper misst und entfernt richtig, aber er haelt einen gemergten Baum bewusst zurueck: aktives Lease plus Karenzfrist (12 h), damit niemandem der Boden weggezogen wird. Das ist richtig fuer das ENTFERNEN und falsch fuer das MELDEN. Der Melder daneben (hygiene_melder, SessionStart) zaehlte bis hierhin ABGELAUFENE Leases -- eine Sieben-Tage-Uhr. Die Fehlform spielt sich in Minuten ab: Retro fdd368 (17 Baeume eines Tages ungeraeumt), m1zgqt #14 (zwei Leases nach dem Merge nicht geschlossen), 0f59ce #8 (6 Baeume gemergter PRs offen bis zur Retro) -- alle drei mit GUELTIGEM Lease, fuer die alte Klasse also unsichtbar. Neu misst der Melder dieselbe Wahrheit ohne Karenz und ohne Lease-Uhr: PR gemergt und Baum noch da. Die Merge-Erkennung wird aus dem Reaper IMPORTIERT, nicht nachgebaut. Zwei Fallen beim Bau, beide durch einen echten Lauf gefunden: (a) das Lease traegt nur den nackten Repo-NAMEN ('wedding-hub'), `gh --repo wedding-hub` scheitert -- 85 Leases, 85x 'unknown', 0 Befunde, 3,8 s; der Owner kommt jetzt aus `git remote get-url origin` im Baum. (b) 'unknown' zaehlt seither als NICHT BEURTEILBAR und wird mitgemeldet, nicht als 'in Ordnung' verbucht. Nach der Reparatur: 46 gemergte Baeume offen; mit dem Frischefenster von 3 Tagen (aeltere sind Bestand und Sache des reap-Laufs) 23 Befunde in 12,9 s, innerhalb des Sitzungsstart-Budgets. Der echte Merge-MOMENT bleibt ein Owner-Zug: ein PostToolUse-Hook auf `gh pr merge` braucht eine Zeile in ~/.claude/settings.json, ausserhalb dieses Repos -- gefuehrt als Kandidat `worktree-end-on-merge`. · UMBAU 2026-09-14 (Retro docs/retros/session-retro-2026-09-14-platform-oqu6Z6.md (platform#3156) §5a / Befund #21, M11, Owner-Entscheid 'g5a bestaetigt' (Kapitaens-Kanal, 2026-09-14); Gate rueckfaellig x2, letzter 2026-09-14). Ausgang: `git worktree list` zeigte 13 Baeume, zwei mit dem Git-eigenen Etikett `prunable`, einige Wochen alt; der Melder zeigte an, gehandelt hat niemand, und Runner-Phase E.8 stand auf SKIP ('raeumt der naechste Sitzungsstart'). Neu als erzwungener Schritt des Sitzungsendes (tools/session_ende_checks.sh E.8 `worktree-hygiene`): `git worktree prune` wird ausgefuehrt (entfernt nur Eintraege ohne Verzeichnis), und jeder verknuepfte Baum, dessen letzter Commit UND dessen Anlage (HEAD-Datei im Verwaltungsverzeichnis) aelter als 14 Tage sind (`SESSION_ENDE_WORKTREE_MAX_TAGE`), ist FAIL — ausser mit Grund in `<gitdir>/behalten` (ausserhalb des Baums, nicht versehentlich committbar). Einschraenkung der Retro bleibt: viele Baeume stammen aus anderen Sitzungen; das FAIL zwingt zur Entscheidung (entfernen oder begruendet behalten), nicht zum Loeschen fremder Arbeit.",
       "faengt": [
         {
           "fall": "Baum der endenden Sitzung wird trotz aktiver Lease abgeraeumt",
@@ -426,13 +410,21 @@
         {
           "fall": "Merge-Zustand nicht beurteilbar wird nicht als 'in Ordnung' gewertet",
           "probe": "unknown"
+        },
+        {
+          "fall": "verwaister Verwaltungseintrag (prunable) bleibt nach dem Sitzungsende stehen (Retro oqu6Z6 #21)",
+          "probe": "prunable"
+        },
+        {
+          "fall": "verknuepfter Baum ueber der Altersgrenze ohne Grund bleibt stehen (Retro oqu6Z6 #21)",
+          "probe": "older_than_the_age_limit"
         }
       ],
       "zustand": "schranke",
       "erzwungen_seit": "2026-06-01",
       "positivkontrolle": {
-        "ref": "Echter Lauf am 2026-09-07 gegen 85 offene Leases: vor der Reparatur 0 Befunde (jede gh-Abfrage scheiterte still am nackten Repo-Namen), danach 46 gemergte Baeume offen, mit Frischefenster 23. Drill: test_should_flag_a_merged_branch_whose_worktree_is_still_open (gueltiges Lease, PR gemergt -> Befund) mit Gegenprobe test_should_stay_silent_for_an_open_pr und test_should_count_unknown_pr_state_as_unjudgeable.",
-        "datum": "2026-09-07"
+        "ref": "tools/tests/test_session_ende_checks.py -- test_should_fail_on_a_worktree_older_than_the_age_limit (Baum mit 60 Tage altem Commit und Anlage -> E.8 FAIL mit 'wt-alt(60d)', frischer Baum daneben nicht genannt) und test_should_prune_an_orphaned_worktree_entry (geloeschtes Verzeichnis -> vorher 'prunable', nachher nicht); beide gegen den Runner von origin/main gefahren am 2026-09-14 rot. Negativkontrolle: alter Baum mit <gitdir>/behalten -> PASS.",
+        "datum": "2026-09-14"
       }
     },
     {
@@ -482,8 +474,8 @@
       "built": "2026-07-31",
       "ref": "platform#1650 / Anlass Megatest-Stille 2026-07-31",
       "note": "Silent-Failure-Lint: continue-on-error braucht Begruendung, outputs-Konsum braucht outcome-Pfad. Verdrahtet als CI-Lauf in .github/workflows/silent-failure-lint.yml (Exit 1 bei Fund). Bestand seit d37acd9a, war aber nie registriert. Registriert 2026-08-12.",
-      "revised": "2026-08-20",
-      "revision_note": "Ausweitung um die zweite Familie (platform#2143): der Checker sah nur continue-on-error in Workflows. Die beiden juengsten Rueckfaelle lagen daneben — pytest hinter `| tee` ohne pipefail (Retro 932035) und `|| true` neben `grep -c` (Retro c45b39). `--shell` prueft jetzt Shell-Dateien darauf, advisory (keine False-Positive-Baseline, und der Checker selbst ist blockierend); `--shell-strict` zaehlt sie fuer den Exit-Code.",
+      "revised": "2026-09-14",
+      "revision_note": "Ausweitung um die zweite Familie (platform#2143): der Checker sah nur continue-on-error in Workflows. Die beiden juengsten Rueckfaelle lagen daneben — pytest hinter `| tee` ohne pipefail (Retro 932035) und `|| true` neben `grep -c` (Retro c45b39). `--shell` prueft jetzt Shell-Dateien darauf, advisory (keine False-Positive-Baseline, und der Checker selbst ist blockierend); `--shell-strict` zaehlt sie fuer den Exit-Code. · AUSWEITUNG 2026-09-14 (Retro docs/retros/session-retro-2026-09-14-platform-oqu6Z6.md (platform#3156) §5a, M4, Owner-Entscheid 'g5a bestaetigt' (Kapitaens-Kanal, 2026-09-14); Gate rueckfaellig x2, letzter 2026-09-10). Ursache an der Quelle: die Fehlerpfad-Pflicht fragte nur, ob ein spaeterer Schritt die Outputs eines weichgestellten Schritts im `if:` liest. Der Realfall `.github/workflows/handover-append-only.yml:101` las sie als WERT (`GH_TOKEN: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}`) im Schritt, der das Gate-Urteil faellt — die Begruendung ueber `continue-on-error` genuegte, der Lint meldete '73 Workflow(s) geprueft — kein stiller Fehlschlag', und ein App-Ausfall waere still zum Fallback geworden. Neu zaehlt jede Verwendung der Outputs in env/with/run eines SPAETEREN Schritts und in den Job-`outputs`; ohne `steps.<id>.outcome` im Job ist das ein Fund. Erster Lauf nach der Ausweitung: 6 Funde (handover-append-only.yml x1, handover-reconcile.yml x5), beide Workflows im selben PR mit Ausfall-Schritt nachgeruestet (append-only: rot mit benannter Ursache; reconcile-Nightly: Warn-Annotation, bleibt bewusst gruen).",
       "faengt": [
         {
           "fall": "continue-on-error maskiert einen Fehlschlag im Workflow",
@@ -492,10 +484,18 @@
         {
           "fall": "Fehlschlag bleibt in Shell-Code still",
           "probe": "still"
+        },
+        {
+          "fall": "Outputs eines weichgestellten Schritts fliessen als Wert (env/with/run, Job-outputs) in einen spaeteren Schritt, ohne outcome-Pfad (Retro oqu6Z6 §5a, handover-append-only.yml)",
+          "probe": "als Wert"
         }
       ],
       "zustand": "schranke",
-      "erzwungen_seit": "2026-07-31"
+      "erzwungen_seit": "2026-07-31",
+      "positivkontrolle": {
+        "ref": "tools/tests/test_silent_failures.py::test_should_flag_soft_step_whose_outputs_feed_the_gate_step_as_value -- der Realfall-Aufbau (begruendeter continue-on-error-Token-Schritt, Outputs als GH_TOKEN im urteilenden Schritt) erzeugt genau einen Fund 'Absturz bleibt still'; derselbe Workflow mit Ausfall-Schritt (`if: steps.app_token.outcome == 'failure'`) bleibt still (Negativkontrolle). Echter Lauf 2026-09-14 gegen .github/workflows auf origin/main: vorher 0 Funde, nach der Ausweitung 6, nach dem Nachruesten der zwei Workflows wieder 0.",
+        "datum": "2026-09-14"
+      }
     },
     {
       "slug": "autonomous-no-human-review",
@@ -906,11 +906,21 @@
         {
           "fall": "bash -x auf Skript, das Secrets liest oder erzeugt (Trace-Leak)",
           "probe": "xtrace"
+        },
+        {
+          "fall": "Sourcing (`.`/`source`) einer Datei im Secrets-Verzeichnis, auch in set -a, Subshell und bash -c (Retro oqu6Z6 #10)",
+          "probe": "sourcing"
         }
       ],
-      "last_drill_pass": "2026-08-31",
+      "last_drill_pass": "2026-09-14",
       "zustand": "schranke",
-      "erzwungen_seit": "2026-08-31"
+      "erzwungen_seit": "2026-08-31",
+      "revised": "2026-09-14",
+      "revision_note": "AUSWEITUNG v5 (2026-09-14, Retro docs/retros/session-retro-2026-09-14-platform-oqu6Z6.md (platform#3156) §5a / Befund #10, M6, Owner-Entscheid 'g5a bestaetigt' (Kapitaens-Kanal, 2026-09-14); erstes Vorkommen nach dem Bau). Ursache an der Quelle: der Guard prueft Kommando-ARGUMENTE von Readern/cut/awk/grep und `bash -x`; Sourcing (`. datei`, `source datei`) stand in keiner Liste. Am 2026-09-13 wurde eine bare-Datei aus dem Secrets-Verzeichnis gesourct, die Shell fuehrte den Wert als Kommando aus und schrieb ihn in ihre Fehlermeldung. Neu: `.`/`source` mit einem Pfad unter `.secrets/` -> deny, auch in `set -a; . ...; set +a`, in einer Subshell/`$(...)` und im Befehlstext von `bash|sh -c`. Bewusst ohne Blick in die Datei (auch eine heutige NAME=WERT-Datei kann bare werden; tools/secret_lesen.sh verbietet jedes Sourcing einer Secret-Datei). Nicht erfasst und im Kopf benannt: Sourcing von `.env`-Dateien und Var-Indirektion. Die Nebenbeobachtung der Retro (Issue-Text mit ZITIERTEM Kommando geblockt) betrifft die v3-Argumentpruefung; die neue Regel entscheidet nur an Kommando-Position, ein Zitat im --body bleibt frei (Negativkontrolle).",
+      "positivkontrolle": {
+        "ref": "tools/claude-hooks/tests/test_block_env_cat.py -- fuenf Sourcing-Formen (`. <dir>/x`, `source \"$HOME/...\"`, `set -a; . ...; set +a`, `bash -c '. ...'`, Subshell) werden deny; gegen die v4-Fassung von origin/main gefahren am 2026-09-14: alle fuenf allow (5 failed), mit v5 17/17 gruen. Negativkontrollen: Sourcing von .venv/bin/activate und ~/.bashrc, ein zitiertes Kommando im gh-Body und `WERT=$(tools/secret_lesen.sh ...)` bleiben allow.",
+        "datum": "2026-09-14"
+      }
     },
     {
       "slug": "blueprint-names-a-target-repo-in-an-instruction",
@@ -1373,6 +1383,37 @@
       "owner": "achim",
       "ref": "platform#2933 Retro robo-lab 6972fc Befund #3; Owner-Entscheid 2026-09-07, ratifiziert und gemergt in platform#2934",
       "reason": "Erwogen als Ausweitung von claim-before-cheapest-check auf Behauptungen ueber fremdes Verhalten in Datei-Kommentaren (Realfall robo-lab#68: ein Kommentar behauptete das Verhalten des Vendor-Trainers aus Beobachtung statt aus dem Quellcode, Fehlstart mit IndexError, Korrektur erst in robo-lab#70). Beim Bauen verworfen: die gute und die schlechte Form sind maschinell nicht trennbar. Der Soll-Ablauf derselben Retro verlangt ausdruecklich, die geprueft Fundstelle MIT Zeilennummer in den Kommentar zu schreiben — ein Scanner auf 'Kommentar nennt fremde Datei plus Zeile' wuerde also genau die richtige Praxis treffen und die falsche (Behauptung ohne Fundstelle) nur dann, wenn sie zufaellig dieselben Woerter benutzt. Hohe Fehlalarm-Quote am erwuenschten Verhalten; das Gate wuerde umgangen statt befolgt. Stattdessen Memory-Regel feedback_behauptung_ueber_fremdcode_im_kommentar_braucht_dieselbe_pruefung (Vorschlag in platform#2933 Paragraf 6). Das bestehende Gate bleibt unveraendert — es hat in derselben Sitzung zweimal gefangen (gates_caught) und wurde am selben Tag von einer anderen Sitzung auf Rev 5 gebracht; ein Rev 6 ohne Verhaltensaenderung waere reines Zuruecksetzen der Messung."
+    },
+    {
+      "slug": "deferred-item-no-tracking-issue",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/claude-hooks/deferred_item_scanner.py",
+      "drill": "tools/claude-hooks/tests/test_deferred_item_scanner.py",
+      "built": "2026-08-02",
+      "ref": "platform#1645 · gestrichen per Owner-Entscheid 'g5a bestaetigt' (Kapitaens-Kanal, 2026-09-14), Retro docs/retros/session-retro-2026-09-14-platform-oqu6Z6.md (platform#3156) Streichbahn / M12",
+      "revised": "2026-09-03",
+      "revision_note": "KALIBRIERUNG 2026-09-03 (platform#2234, Owner-Entscheid '6 ja go'): generische Verneinungen feuern nicht mehr, wenn ihr direktes Objekt ein Code-Bezeichner in Backticks ist. Anlass: zwei gemessene Fehlalarme an einem Tag, beide auf dieselbe Wurzel -- das Muster traf VERNEINUNGEN, ohne zu unterscheiden, ob sie Arbeit oder eine technische Entscheidung betreffen ('bewusst nicht `gh api rate_limit`' ist eine Methodenwahl, keine Vertagung). Bewusst SEHR eng: ein erster, breiterer Entwurf verlangte irgendein Arbeitswort im Satz und liess prompt NEUN bestehende Drills durchfallen (deutsche Vertagungen stehen regelmaessig als Substantiv da) -- der Fehlversuch steht als Kommentar im Modul, damit ihn niemand wiederholt. Zweite Falle beim Bau: `normalisiere_zeilen` entfernt die Backticks vor dem Abgleich; die neue Regel prueft deshalb die ORIGINALZEILE. NICHT geloest und als Grenz-Test festgehalten: die objektlose Ueberschrift 'Was bewusst NICHT' (platform#2036) feuert weiter. · UMBAU als eigenes Gate (platform#2216, Owner-Entscheid 'umbauen' zu #2143). Der Wortlaut-Scanner war gegen 'ein Muster mehr' immun — belegt an zwei unabhaengigen Fehlermodi am Realfall PR #2007. Der Nachfolger `zusage-ohne-verankerung` klassifiziert den Zusage-TYP je Segment und prueft den Anker IM Segment; die Klasse `vertagung` deckt genau diesen Slug. Dieser Scanner laeuft advisory weiter (er hat den Befund am 2026-08-21 einmal gefangen), ist aber nicht mehr die Hauptantwort. Messpunkt deshalb ab 2026-08-23. AUSWEITUNG 2026-08-29 (Retro e70d11, Owner-Entscheid 'ausweiten'): zweite Trefferklasse `_board_befund_ohne_anker`. Der sechste Rueckfall nach Gate-Bau trug KEIN Vertagungs-Verb — drei in Prod gemessene Defekte standen als offene Board-Zeilen ('| 4 | Dubletten | a-hub | — | 🟢 Befund | fixen (ich) |') und existierten nur im Gespraechsverlauf. Ein offener Befund im Board IST die haeufigste Form aufgeschobener Arbeit in diesem Setup; er sagt nicht 'vertagt', sondern zeigt es. Bewusst eng: offener Status-Marker UND Befund-Wort UND kein Anker (URL oder #<nummer>) in derselben Zeile — sonst feuert jedes Statusboard.",
+      "faengt": [
+        {
+          "fall": "aufgeschobene Arbeit ohne Issue-Nummer im selben Zug",
+          "probe": "vertagt"
+        },
+        {
+          "fall": "offene Board-Zeile mit Befund-Charakter ohne Issue-Link im selben Zug",
+          "probe": "| 4 | Dubletten | a-hub | — | 🟢 Befund | fixen (ich) |"
+        }
+      ],
+      "zustand": "schranke",
+      "erzwungen_seit": "2026-08-02",
+      "expires": "2026-10-31",
+      "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet.",
+      "positivkontrolle": {
+        "ref": "platform#2234 -- beide Richtungen am ECHTEN Wortlaut des Vorfalls geprueft: 'Bewusst nicht `gh api rate_limit`: das misst das Primaerlimit' laeuft jetzt durch (✅), waehrend 'Die 39 Funde sind bewusst nicht mitgefixt: eigener Vorgang' weiter faellt (❌, Zeile 1). 44 Drills gruen, davon 9, die den zu breiten Erstentwurf widerlegt haben.",
+        "datum": "2026-09-03"
+      },
+      "decided": "2026-09-14",
+      "reason": "Sunset, Belegart KEIN EFFEKT: aufschub-anker (blocking, tools/deferral_anchor_check.py, revised 2026-09-10) erzwingt dieselbe Wirkung am PR-/Issue-Text, zusage-ohne-verankerung (tools/verankerung_pruefer.py, Klasse `vertagung`) deckt den Session-Kontext. Die eigene revision_note nannte den Scanner schon 'nicht mehr die Hauptantwort'; blocking wurde er bis zur Frist (expires 2026-10-31, Auflage 'blocking oder gestrichen') nie. Rueckfaellig x2 nach der letzten Revision (letzter 2026-09-10), waehrend aufschub-anker die Klasse in derselben Sitzung 18-mal blockierend durchsetzte. Kein Aufruf in Workflows oder Makefile. Das Modul bleibt im Repo: tools/tests/test_verankerung_pruefer.py importiert DEFERRAL_PATTERNS als Gegenprobe; die Stop-Hook-Verdrahtung liegt in ~/.claude/settings.json ausserhalb des Repos (Austragen getrackt in platform#3158)."
     }
   ],
   "_widerrufen_doc": "Verzichte, die zurueckgenommen wurden. Sie stehen NICHT mehr in `declined` — sonst zaehlten `gate_deckung.py` und `retro_kpis.py` sie weiter als getroffene Entscheidung, und der Widerruf waere deklariert statt wirksam. Die Slugs sind damit wieder offen und erscheinen in der GATE-PFLICHT-Liste. Diese Sektion bewahrt, warum der Verzicht einmal galt und woran er gescheitert ist — die Widerlegung ist der wertvollere Teil.",

@@ -131,6 +131,30 @@ jobs:
           private-key: ${{ secrets.RECONCILE_APP_PRIVATE_KEY }}
           owner: bahn-sqf
 
+      # Fehlerpfad fuer die fuenf weichgestellten Token-Schritte (Gate
+      # ci-gate-maskiert-failure, Ausweitung 2026-09-14, Retro oqu6Z6 §5a): der
+      # Nightly bleibt bei einer fehlenden Installation bewusst gruen (Begruendung
+      # oben), aber der Ausfall steht als Annotation am Lauf — nicht nur im Report.
+      - name: Token-Ausfaelle sichtbar machen
+        if: >-
+          ${{ steps.tok_achimdehnert.outcome == 'failure'
+          || steps.tok_iilgmbh.outcome == 'failure'
+          || steps.tok_meiki_lra.outcome == 'failure'
+          || steps.tok_ttz_lif.outcome == 'failure'
+          || steps.tok_bahn_sqf.outcome == 'failure' }}
+        env:
+          OUT_ACHIMDEHNERT: ${{ steps.tok_achimdehnert.outcome }}
+          OUT_IILGMBH: ${{ steps.tok_iilgmbh.outcome }}
+          OUT_MEIKI_LRA: ${{ steps.tok_meiki_lra.outcome }}
+          OUT_TTZ_LIF: ${{ steps.tok_ttz_lif.outcome }}
+          OUT_BAHN_SQF: ${{ steps.tok_bahn_sqf.outcome }}
+        run: |
+          for paar in "achimdehnert=$OUT_ACHIMDEHNERT" "iilgmbh=$OUT_IILGMBH" \
+                      "meiki-lra=$OUT_MEIKI_LRA" "ttz-lif=$OUT_TTZ_LIF" "bahn-sqf=$OUT_BAHN_SQF"; do
+            [ "${paar#*=}" = "failure" ] && echo "::warning title=App-Token::Token fuer ${paar%%=*} gescheitert — Referenzen dieser Org stehen unter nicht pruefbar"
+          done
+          exit 0
+
       - name: Reconcile AGENT_HANDOVER.md (Stufe 1, report-only)
         env:
           GH_TOKEN: ${{ github.token }}

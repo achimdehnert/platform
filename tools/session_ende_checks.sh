@@ -19,8 +19,10 @@
 # Exit 0 = kein FAIL · Exit 1 = mind. 1 FAIL.
 #
 # Read-only. Der Runner committet nichts, pusht nichts, merged nichts und legt
-# keine Issues an; die einzige Schreiboperation ist der Journal-Eintrag am Ende
-# (Gedächtnis, kein Eingriff) — analog zum Start-Runner.
+# keine Issues an; Schreiboperationen sind der Journal-Eintrag am Ende
+# (Gedächtnis, kein Eingriff) und — seit 2026-09-14 — `git worktree prune` in E.8:
+# er entfernt nur Verwaltungseinträge, deren Verzeichnis schon fehlt (Git selbst
+# etikettiert sie `prunable`), nie einen Baum mit Inhalt.
 #
 # Kein `set -e`: einzelne Phasen dürfen scheitern, der Runner läuft immer bis
 # zur Summary durch.
@@ -203,6 +205,9 @@ EOF
   fi
 fi
 
+# E.3 braucht das Ergebnis von E.2: leer = nicht beurteilbar, sonst Anzahl.
+HO_PR_ANZAHL=""
+
 # ── E.2 Offene AGENT_HANDOVER.md-PRs (Skill-Phase 0a-handover-pr) ───────────
 # Lehre c494a2/2026-07-14: eine Sitzung ließ ihren Handover-PR offen, die
 # nächste schrieb einen zweiten — drei konkurrierende Stände. Der Suchlauf
@@ -236,6 +241,7 @@ else
   fi
   if [ "$E2_DONE" -eq 0 ]; then
     HPR_N=$(printf '%s' "$HPR" | grep -c . || true)
+    HO_PR_ANZAHL="${HPR_N:-0}"
     if [ "${HPR_N:-0}" -gt 1 ]; then
       record "E.2 handover-prs" "WARN" \
         "$HPR_N offene Handover-PRs ($(echo "$HPR" | tr '\n' ' ')) — konkurrierende Stände, vor 0b auflösen" \
@@ -255,10 +261,36 @@ if [ ! -f "$HO_CHECK" ]; then
 elif [ ! -f "$HO_FILE" ]; then
   record "E.3 handover-frische" "SKIP" "keine AGENT_HANDOVER.md in $TARGET_REPO" "$TARGET_REPO"
 else
-  HO_OUT=$(timeout 60 python3 "$HO_CHECK" "$HO_FILE" 2>&1)
+  # Umbau 2026-09-14 (Retro oqu6Z6 §5a / Befund #22, Gate handover-stale-vor-merge
+  # Rev 3): die Frage gehoert an das Sitzungsende, nicht an einen Handover-PR, der
+  # fehlen kann. Realfall: am Ende beruehrte KEIN PR die Datei — der letzte Nachtrag
+  # stammte von der Parallelsitzung des Vortags, danach landeten 10 Commits. Der
+  # Aufruf ohne Schwelle sah das nie (Rezenz-Check allein, Datum = letzter Commit).
+  # Jetzt: jeder Sitzungs-Commit seit der letzten Beruehrung auf der Basis zaehlt,
+  # und ohne offenen Handover-PR (E.2) ist das ein FAIL — der Nachtrag ist der
+  # letzte Schritt vor dem Sitzungsende. Aufruf im Ziel-Repo, sonst liefe `git log`
+  # im falschen Arbeitsbaum und degradierte still zu PASS.
+  HO_BASIS="HEAD"
+  git -C "$TARGET_DIR" rev-parse --verify -q origin/main >/dev/null 2>&1 && HO_BASIS="origin/main"
+  HO_SCHWELLE="${SESSION_ENDE_HANDOVER_SCHWELLE:-0}"
+  HO_OUT=$(cd "$TARGET_DIR" && timeout 60 python3 "$HO_CHECK" \
+    --commits-schwelle "$HO_SCHWELLE" --basis "$HO_BASIS" --beruehrung-auf-basis \
+    "$HO_FILE" 2>&1)
   HO_RC=$?
+  HO_COMMITS=$(printf '%s' "$HO_OUT" | grep -o 'sind [0-9]* Commits' | grep -o '[0-9]*' | head -1)
   if [ "$HO_RC" -eq 0 ]; then
     record "E.3 handover-frische" "PASS" "$(printf '%s' "$HO_OUT" | head -1 | cut -c1-120)" "$TARGET_REPO"
+  elif [ "$HO_RC" -eq 1 ] && [ -n "$HO_COMMITS" ]; then
+    if [ -z "$HO_PR_ANZAHL" ]; then
+      record "E.3 handover-frische" "WARN" \
+        "$HO_COMMITS Commits seit dem letzten Nachtrag ($HO_BASIS); ob ein Handover-PR offen ist, bleibt offen (E.2 nicht beurteilbar)" "$TARGET_REPO"
+    elif [ "$HO_PR_ANZAHL" -gt 0 ]; then
+      record "E.3 handover-frische" "PASS" \
+        "$HO_COMMITS Commits seit dem letzten Nachtrag, Nachtrag offen als PR (E.2: $HO_PR_ANZAHL)" "$TARGET_REPO"
+    else
+      record "E.3 handover-frische" "FAIL" \
+        "$HO_COMMITS Commits seit dem letzten Nachtrag ($HO_BASIS), kein offener Handover-PR — Stand nachziehen, bevor die Sitzung endet" "$TARGET_REPO"
+    fi
   elif [ "$HO_RC" -eq 1 ]; then
     record "E.3 handover-frische" "WARN" \
       "$(printf '%s' "$HO_OUT" | grep -m1 FAIL | cut -c1-140) — Stand vor dem Merge nachziehen" "$TARGET_REPO"
@@ -385,13 +417,56 @@ else
   record "E.7 dirty-repos" "PASS" "keine eigenen dirty Repos; fremd (nur Hinweis):${DIRTY_FREMD:- -}"
 fi
 
-# ── E.8 Worktree-Reaper (Skill-Phase 3.1c) — läuft im nächsten Sitzungsstart ─
-# Das Gate `worktree-midsession-accumulation` wurde am 2026-08-20 umgebaut:
-# `repo-session.sh reap --alle` läuft seither in `session_start_checks.sh`
-# Phase 0.4.5 über ALLE Repos mit Lease. Das Aufräumen ist damit vergeben, nicht
-# offen — hier steht nur der Hinweis, damit die Zeile in der Tabelle nicht fehlt.
-record "E.8 worktree-reap" "SKIP" \
-  "läuft im nächsten Sitzungsstart, Phase 0.4.5 über alle Leases (Gate worktree-midsession-accumulation, Revision 2026-08-20) — hier nur der Hinweis"
+# ── E.8 Worktree-Hygiene: prune + Altersgrenze (Skill-Phase 3.1c) ───────────
+# Umbau 2026-09-14 (Retro oqu6Z6 §5a / Befund #21, Gate
+# worktree-midsession-accumulation): bis hierhin stand E.8 auf SKIP mit Verweis auf
+# den naechsten Sitzungsstart. Der raeumt gemergte Baeume — aber `git worktree list`
+# zeigte 13 Baeume, zwei davon mit dem Git-eigenen Etikett `prunable`, einige
+# Wochen alt, und gehandelt hat niemand. Eine Anzeige ist keine Schranke. Jetzt:
+# (1) `git worktree prune` wird AUSGEFUEHRT (nur Eintraege ohne Verzeichnis);
+# (2) jeder verknuepfte Baum, dessen letzter Commit UND dessen Anlage (HEAD-Datei
+# im Verwaltungsverzeichnis) aelter als die Altersgrenze sind, ist ein FAIL —
+# entfernen oder mit Grund behalten: `echo "<Grund>" > "$(git -C <baum>
+# rev-parse --absolute-git-dir)/behalten"` (liegt ausserhalb des Baums, kann
+# nicht versehentlich committet werden).
+WT_MAX_TAGE="${SESSION_ENDE_WORKTREE_MAX_TAGE:-14}"
+if ! git -C "$TARGET_DIR" rev-parse --git-dir >/dev/null 2>&1; then
+  record "E.8 worktree-hygiene" "SKIP" "kein git-Repo: $TARGET_DIR" "$TARGET_REPO"
+else
+  WT_PRUNABLE=$(git -C "$TARGET_DIR" worktree list --porcelain 2>/dev/null | grep -c '^prunable' || true)
+  git -C "$TARGET_DIR" worktree prune 2>"$TMP_ERR"
+  WT_PRUNE_RC=$?
+  WT_JETZT=$(date +%s)
+  WT_GRENZE=$((WT_JETZT - WT_MAX_TAGE * 86400))
+  WT_ALT=""; WT_BEHALTEN=0; WT_N=0
+  while IFS= read -r WT_PFAD; do
+    [ -d "$WT_PFAD" ] || continue
+    WT_N=$((WT_N + 1))
+    WT_GITDIR=$(git -C "$WT_PFAD" rev-parse --absolute-git-dir 2>/dev/null) || continue
+    if [ -s "$WT_GITDIR/behalten" ]; then
+      WT_BEHALTEN=$((WT_BEHALTEN + 1)); continue
+    fi
+    WT_T_COMMIT=$(git -C "$WT_PFAD" log -1 --format=%ct 2>/dev/null || echo 0)
+    WT_T_ANLAGE=$(stat -c %Y "$WT_GITDIR/HEAD" 2>/dev/null || echo 0)
+    WT_T=$(( ${WT_T_COMMIT:-0} > ${WT_T_ANLAGE:-0} ? ${WT_T_COMMIT:-0} : ${WT_T_ANLAGE:-0} ))
+    if [ "$WT_T" -lt "$WT_GRENZE" ]; then
+      WT_ALT="$WT_ALT $(basename "$WT_PFAD")($(( (WT_JETZT - WT_T) / 86400 ))d)"
+    fi
+  done < <(git -C "$TARGET_DIR" worktree list --porcelain 2>/dev/null \
+             | awk '/^worktree /{print substr($0, 10)}' | tail -n +2)
+  if [ "$WT_PRUNE_RC" -ne 0 ]; then
+    record "E.8 worktree-hygiene" "WARN" \
+      "git worktree prune scheiterte (rc=$WT_PRUNE_RC): $(head -c 100 "$TMP_ERR")" "$TARGET_REPO"
+  elif [ -n "$WT_ALT" ]; then
+    record "E.8 worktree-hygiene" "FAIL" \
+      "aelter als $WT_MAX_TAGE Tage:$WT_ALT — entfernen (repo-session.sh reap / git worktree remove) oder mit Grund behalten (<gitdir>/behalten); prunable bereinigt: $WT_PRUNABLE" \
+      "$TARGET_REPO"
+  else
+    record "E.8 worktree-hygiene" "PASS" \
+      "$WT_N verknuepfte(r) Baum/Baeume, keiner aelter als $WT_MAX_TAGE Tage (behalten mit Grund: $WT_BEHALTEN); prunable bereinigt: $WT_PRUNABLE" \
+      "$TARGET_REPO"
+  fi
+fi
 
 # ── E.9 Skill-Verteilungs-Drift (dist-drift) ────────────────────────────────
 # Gleicher Aufruf wie Start-Phase 0.7.13, aber OHNE Selbstheilung: am
