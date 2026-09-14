@@ -364,3 +364,43 @@ class TestFixture128Aehnlich:
             "Ich werde mich" in t for t in titel
         )
         assert not any("Fristenmanagement.docx" in t for t in titel)
+
+
+# --- Datum-Rueckfall (platform#3175 K5) -----------------------------------
+
+
+def test_should_read_the_date_when_the_event_has_two_words():
+    from todo_board import zerlege_eintrag
+
+    assert (
+        zerlege_eintrag("2026-09-14 WIEDER GEOEFFNET (Owner)")["datum"] == "2026-09-14"
+    )
+
+
+def test_should_read_the_date_when_the_source_bracket_is_long():
+    from todo_board import zerlege_eintrag
+
+    roh = "2026-09-07 (Owner-Frage 'liegt eine neue Fassung vor, die ich noch nicht kenne?'): Nein."
+    assert zerlege_eintrag(roh)["datum"] == "2026-09-07"
+
+
+def test_should_fill_the_year_of_a_short_date_from_the_nearest_dated_entry():
+    from todo_board import jahr_ergaenzen, zerlege_eintrag
+
+    eintraege = [
+        (1, zerlege_eintrag("11.08. 13:49 fuenfte Fassung eingegangen.")),
+        (2, zerlege_eintrag("2026-08-13: Rueckmeldung gesendet.")),
+    ]
+    jahr_ergaenzen(eintraege)
+    assert eintraege[0][1]["datum"] == "2026-08-11"
+
+
+def test_should_not_invent_a_date_for_text_without_one():
+    from todo_board import jahr_ergaenzen, zerlege_eintrag
+
+    eintraege = [
+        (1, zerlege_eintrag("Freitext ohne jedes Datum.")),
+        (2, zerlege_eintrag("2026-08-13: x")),
+    ]
+    jahr_ergaenzen(eintraege)
+    assert eintraege[0][1]["datum"] == ""
