@@ -66,6 +66,11 @@ from referenzen import (
     schluessel_kandidaten,
 )
 
+# Strang-Zuordnung per LLM statt Regex (platform#3175) — siehe Modul-Docstring
+# von `straenge.py` fuer Prompt, Validierung, Cache und Rueckfall.
+from straenge import RUECKFALL_TITEL as _STRANG_RUECKFALL_TITEL
+from straenge import zuordnen
+
 LEDGER = Path.home() / ".claude" / "mail-vorgaenge.json"
 #: Vorgaenge, die `vorgaenge_archivieren.py` aus dem Ledger genommen hat. Sie
 #: verschwinden aus der LISTE, aber nicht aus dem Netz: ein Link, der gestern
@@ -1250,94 +1255,83 @@ def als_liste(text: str) -> list[str] | None:
     return None
 
 
-#: Ein im Eintrag in Anfuehrungszeichen genannter Betreff — beide im Bestand
-#: vorkommenden Schreibweisen: gerade Anfuehrungszeichen ("...") und die
-#: deutsche Form mit unten oeffnender Anfuehrung (%s...").
-_STRANG_ANFUEHRUNG = re.compile(r'["„]([^"„“”]{2,120})["“”]')
-#: Antwort-/Weiterleitungspraefixe vor einem zitierten Betreff — mehrfach
-#: moeglich ("AW: WG: Angebot"), darum in einer Schleife entfernt.
-_STRANG_PRAEFIX = re.compile(r"^(?:AW|RE|WG|FWD)\s*:\s*", re.IGNORECASE)
+def ordne_chronologisch(
+    eintraege: list[tuple], neueste_zuerst: bool = True
+) -> list[tuple]:
+    """Verlaufseintraege (nummer, zerlegt) chronologisch ordnen (K1, platform#3175).
 
-
-def strang_schluessel(eintrag: dict) -> str:
-    """Gruppierungs-Schluessel eines zerlegten Verlaufseintrags (`zerlege_eintrag`).
-
-    Reihenfolge (#2856): (1) ein im Eintrag in Anfuehrungszeichen genannter
-    Betreff — normalisiert (AW:/Re:/WG:/Fwd:-Praefixe entfernt, Kleinschreibung,
-    Whitespace vereinheitlicht), damit "AW: Angebot" und "Angebot" denselben
-    Strang treffen; (2) sonst das Ereignis bzw. die Quelle aus der Kopfzeile
-    (GESENDET, TELEFONAT, Owner, /mailcheck, …); (3) sonst "Sonstiges".
+    Sortiert wird nach dem Kopfzeilen-Datum (`t["datum"]`), bei Gleichstand nach
+    `nummer`. Eintraege OHNE lesbares Datum stehen IMMER hinter den datierten —
+    ein fehlendes Datum ist ein Pflegefehler, kein Signal dafuer, ob der
+    Eintrag "neu" oder "alt" ist. Innerhalb des undatierten Blocks entscheidet
+    weiterhin `nummer` (in der gewaehlten Richtung) — ohne jedes Datum bleibt
+    das der einzige verfuegbare Anhaltspunkt, und der `?alt=1`-Schalter soll
+    auch dann noch etwas drehen. Reine Funktion, ohne IO — der Aufrufer
+    markiert die undatierten Karten sichtbar.
     """
-    betreff = _strang_betreff(eintrag)
-    if betreff:
-        return betreff.lower()
-    return _strang_rueckfall(eintrag)
+    datiert = [p for p in eintraege if p[1].get("datum")]
+    undatiert = [p for p in eintraege if not p[1].get("datum")]
+    datiert.sort(
+        key=lambda p: (p[1]["datum"], p[0] if p[0] is not None else 0),
+        reverse=neueste_zuerst,
+    )
+    undatiert.sort(
+        key=lambda p: p[0] if p[0] is not None else 0, reverse=neueste_zuerst
+    )
+    return datiert + undatiert
 
 
-def _strang_betreff(eintrag: dict) -> str:
-    """Der in Anfuehrungszeichen genannte Betreff in ORIGINAL-Schreibweise,
-    ohne AW:/Re:/WG:/Fwd:-Praefixe und mit vereinheitlichtem Whitespace —
-    leer, wenn der Eintrag keinen Betreff nennt."""
-    text = " ".join(eintrag.get("saetze") or [])
-    treffer = _STRANG_ANFUEHRUNG.search(text)
-    if not treffer:
-        return ""
-    betreff = treffer.group(1).strip()
-    while True:
-        gekuerzt = _STRANG_PRAEFIX.sub("", betreff)
-        if gekuerzt == betreff:
-            break
-        betreff = gekuerzt
-    return re.sub(r"\s+", " ", betreff).strip()
+def gruppiere_straenge(
+    eintraege: list[tuple], vorgang: dict | None = None
+) -> list[tuple[str, list]]:
+    """Verlaufseintraege (bereits zerlegt) nach echtem Mail-Strang gruppieren.
 
+    Die Zuordnung Eintrag→Strang liefert `straenge.zuordnen()` per LLM
+    (platform#3175 K2) statt der frueheren Zitat-Regex — die hatte bei Vorgang
+    #128 Straenge wie ein Mail-Zitat oder einen Dateinamen erzeugt.
+    `eintraege` sind (nummer, zerlegt)-Paare; `vorgang` reicht `thread_key` als
+    bekannten Hauptstrang an das Modell weiter (und ist der Rueckfall-Titel,
+    wenn das Modell nicht erreichbar ist).
 
-def _strang_rueckfall(eintrag: dict) -> str:
-    ereignis = str(eintrag.get("ereignis") or "").strip()
-    if ereignis:
-        return ereignis
-    quelle = str(eintrag.get("quelle") or "").strip()
-    if quelle:
-        return quelle
-    return "Sonstiges"
-
-
-def strang_anzeige(eintrag: dict) -> str:
-    """Anzeigetitel eines Strangs aus einem seiner Eintraege: der Betreff in
-    Original-Schreibweise (#2858 — der Schluessel ist kleingeschrieben, damit
-    "AW: Angebot" und "angebot" zusammenfallen; angezeigt wird das Original)."""
-    return _strang_betreff(eintrag) or _strang_rueckfall(eintrag)
-
-
-def gruppiere_straenge(eintraege: list[tuple]) -> list[tuple[str, list]]:
-    """Verlaufseintraege (bereits zerlegt) nach Strang gruppieren.
-
-    `eintraege` sind (nummer, zerlegt)-Paare in CHRONOLOGISCHER Reihenfolge —
-    dieselbe Zaehlung wie im Rest der Vorgangsseite (aelteste Nummer zuerst).
-    Straenge werden nach ihrem juengsten enthaltenen Eintrag sortiert (neueste
-    zuerst); innerhalb eines Strangs steht die juengste Karte zuerst. Ein
-    Strang mit nur einer Karte bleibt ein Strang — kein Sonderfall (#2856).
+    Straenge werden nach dem JUENGSTEN Datum ihrer Karten sortiert (K1 —
+    nicht mehr nach der Nummer), Karten je Strang ebenso (`ordne_chronologisch`,
+    undatierte Karten am Ende). Ein Strang mit nur einer Karte bleibt ein
+    Strang — kein Sonderfall (#2856).
     """
+    vorgang = vorgang or {}
+    nummerierte = [(n, t) for n, t in eintraege if n is not None]
+    text_je_nummer = {n: " ".join(t.get("saetze") or []) for n, t in nummerierte}
+    zuordnung = (
+        zuordnen(vorgang, list(text_je_nummer.items())) if text_je_nummer else {}
+    )
+    rueckfall_titel = (
+        str(vorgang.get("thread_key") or "").strip() or _STRANG_RUECKFALL_TITEL
+    )
+
     gruppen: dict[str, list[tuple]] = {}
     reihenfolge: list[str] = []
     for eintrag in eintraege:
-        nummer, t = eintrag
-        schluessel = strang_schluessel(t)
-        if schluessel not in gruppen:
-            gruppen[schluessel] = []
-            reihenfolge.append(schluessel)
-        gruppen[schluessel].append(eintrag)
+        nummer, _t = eintrag
+        titel = (
+            zuordnung.get(nummer, rueckfall_titel)
+            if nummer is not None
+            else rueckfall_titel
+        )
+        if titel not in gruppen:
+            gruppen[titel] = []
+            reihenfolge.append(titel)
+        gruppen[titel].append(eintrag)
     ergebnis = [
-        (schluessel, sorted(gruppen[schluessel], key=lambda p: p[0] or 0, reverse=True))
-        for schluessel in reihenfolge
+        (titel, ordne_chronologisch(gruppen[titel], neueste_zuerst=True))
+        for titel in reihenfolge
     ]
-    ergebnis.sort(key=lambda kv: max((p[0] or 0) for p in kv[1]), reverse=True)
+    ergebnis.sort(
+        key=lambda kv: max(
+            (p[1].get("datum") or "", p[0] if p[0] is not None else 0) for p in kv[1]
+        ),
+        reverse=True,
+    )
     return ergebnis
-
-
-def _strang_titel(schluessel: str) -> str:
-    """Anzeigetitel eines Strangs — Grossschreibung des ersten Buchstabens."""
-    text = schluessel.strip()
-    return text[:1].upper() + text[1:] if text else "Sonstiges"
 
 
 def zerlege_eintrag(roh: str) -> dict:
@@ -1394,6 +1388,7 @@ def verlauf(
     nr=None,
     links: dict | None = None,
     anker: frozenset[str] | None = None,
+    thread_key: str = "",
 ) -> str:
     """Der Verlauf als nach Strang gruppierte Karten — Beiwerk eingeklappt.
 
@@ -1464,6 +1459,11 @@ def verlauf(
             marken.append(
                 f"<time class='eintrag-datum'>{html.escape(t['datum'] + zeit)}</time>"
             )
+        else:
+            # Sichtbare Marke (K1, platform#3175): ein Eintrag ohne lesbares
+            # Datum landet in der Sortierung am Ende — das soll auffallen,
+            # nicht nur stillschweigend gelten.
+            marken.append("<span class='eintrag-datum ohne-datum'>ohne Datum</span>")
         if t["ereignis"]:
             marken.append(f"<span class='ereignis'>{html.escape(t['ereignis'])}</span>")
         if t["quelle"]:
@@ -1522,11 +1522,11 @@ def verlauf(
 
     # gruppiere_straenge liefert Straenge neueste-zuerst, Karten je Strang
     # ebenso neueste-zuerst. Fuer `?alt=1` wird beides gedreht.
-    straenge = gruppiere_straenge(geparst)
+    straenge = gruppiere_straenge(geparst, {"thread_key": thread_key})
     if not neueste_zuerst:
         straenge = list(reversed(straenge))
     abschnitte: list[str] = []
-    for schluessel, karten_dieses_strangs in straenge:
+    for titel, karten_dieses_strangs in straenge:
         alt_zuerst = list(reversed(karten_dieses_strangs))
         karten = strang_karten(alt_zuerst)
         # `strang_karten` gibt chronologisch (aelteste zuerst) zurueck — das ist
@@ -1535,7 +1535,7 @@ def verlauf(
             karten = list(reversed(karten))
         abschnitte.append(
             "<section class='strang'>"
-            f"<h3 class='strang-kopf'>{html.escape(_strang_titel(strang_anzeige(alt_zuerst[0][1])))} "
+            f"<h3 class='strang-kopf'>{html.escape(titel)} "
             f"<span class='zahl'>{len(karten_dieses_strangs)}</span></h3>"
             f"{''.join(karten)}</section>"
         )
@@ -1644,6 +1644,7 @@ def detail(
         mail_basis,
         neueste_zuerst=not alt_zuerst,
         nr=v.get("nr"),
+        thread_key=str(v.get("thread_key") or ""),
     )
     schalter = (
         "<a class='reihenfolge' href='?'>neueste zuerst</a>"
