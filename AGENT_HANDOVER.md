@@ -15,6 +15,12 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 **Archiv älterer Stände und ausgelagerter Sektionen:**
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
 
+## ⚡ Aktueller Stand (2026-09-14 nachmittags — Räume zusammengelegt, Zeitungs-Vertiefung live; Sitzung d8da3b26)
+
+**Erledigt:** Räume Mail/Briefing/Aufträge → „Achim / Lotse" ([chat-hub#90](https://github.com/iilgmbh/chat-hub/issues/90)), Auffangnetz `auftragsraum_sync.sh` (#3154), Sperre eine Session je Raum ([chat-hub#94](https://github.com/iilgmbh/chat-hub/issues/94)). news.iil.pet hinter Cloudflare Access (news-hub#54); Vertiefung je Thema per Knopf und Chat-Zuruf in Prod ([news-hub#52](https://github.com/achimdehnert/news-hub/issues/52)). Zurufe #3150/#3151 und Kapitel-Feedback (Ledger #138) gesendet.
+
+**Zielzustand:** #90, #94, news-hub#52/#54/#55 erreicht. **SA-4:** 5 Merges · 2 unnötige Einzel-Rückfragen · 0 Fehlanwendungen (ein unbegründeter Freigabe-Vermerk in #3162 vor dem Merge entfernt). **Offen:** laufende Raum-Session hält noch keine Sperre (vor #96 gestartet) — nächster Neustart vorher „Lotse stopp"; Sortierer-Lücken #3152.
+
 ## ⚡ Aktueller Stand (2026-09-14 — Secret-Leser Fleet, Groq rotiert, Gate-Revisionen, Räume; Sitzung 0117JBQX)
 
 **Zeitanker:** HEAD `226e41c7` · `rev-list --count` 4468 · geschrieben 2026-09-14
