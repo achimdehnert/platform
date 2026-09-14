@@ -120,8 +120,8 @@ Invariante: 9 Soll-Schritte = 9 überlebende Befunde.
 
 | # | Item | Repo | PR/Issue/ADR | Status | Next Step |
 |---|---|---|---|---|---|
-| 1 | 0004 mit Verlaufseintrag | apo-hub | #138 | 🔵 ready | Migration anpassen (ich) |
-| 2 | #138 Nicht-verifiziert-Block | apo-hub | #138 | 🔵 ready | Body ergänzen (ich) |
+| 1 | 0004 mit Verlaufseintrag | apo-hub | apo-hub#138 | ✅ done | Merge durch Owner |
+| 2 | #138 Nicht-verifiziert-Block | apo-hub | apo-hub#138 | ✅ done | — |
 | 3 | Hook leere body-file | platform | — | 🟢 offen | Vorschlag freigeben (du) |
 | 4 | ux-review: Bündelregel | platform | — | 🟢 offen | Ausnahme ja/nein (du) |
 | 5 | Memory-Kandidaten #9/#13 | apo-hub | — | 🟢 offen | bestätigen (du) |
