@@ -89,8 +89,8 @@
       "drill": "tools/claude-hooks/tests/test_scope_checkpoint_scanner.py",
       "built": "2026-08-02",
       "ref": "platform#1646",
-      "revised": "2026-09-09",
-      "revision_note": "Rev 5, VIERTER AUSLOESER nach Retro a6edc6 Befund 11 (Gate RUECKFAELLIG, Ursache an der QUELLE): das Muster kannte nur das Abschalten fremder Dienste (stop|restart|disable|mask). Als in derselben Sitzung auf hetzner-prod ein Dienst SCHARFgeschaltet wurde (systemctl enable --now doc-hub-splitter.timer), schwieg es. Scharfschalten ist mindestens so weitreichend wie Stilllegen -- danach laeuft dauerhaft etwas, das vorher nicht lief. Ergaenzt: enable|start. BEKANNTE RESTLUECKE (nicht geschlossen): 'install ... /etc/systemd/system/', 'apt install' auf einem Fremdhost und 'docker exec ... manage.py' bleiben unsichtbar -- der Traeger dafuer waere ein Stop-Hook in ~/.claude/settings.json, siehe declined-Eintrag host-fix-not-mirrored-to-iac.",
+      "revised": "2026-09-14",
+      "revision_note": "Rev 6, Retro b7822e B7 (Gate RUECKFAELLIG, Ursache an der QUELLE): `_FREMDE_RESSOURCE` verlangte `systemctl` DIREKT gefolgt vom Verb und uebersah damit jede Option davor — real: `systemctl --user enable --now todo-x.timer` auf dem als Prod deklarierten todo-board-Host loeste den Checkpoint nicht aus. Fix: `\\bsystemctl(?:\\s+--?[\\w-]+(?:=\\S+)?)*\\s+(?:stop|restart|disable|mask|enable|start)\\b` laesst beliebig viele Optionen zwischen `systemctl` und dem Verb zu, ohne die Verb-Liste selbst auszuweiten — `status`/`is-active`/`list-timers`/`cat` bleiben unveraendert unerkannt.",
       "faengt": [
         {
           "fall": "drittes Repo beruehrt, Scope nicht durabel abgelegt",
@@ -114,8 +114,8 @@
       "expires": "2026-10-31",
       "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet.",
       "positivkontrolle": {
-        "ref": "tools/claude-hooks/tests/test_scope_checkpoint_scanner.py -- test_should_flag_enabling_a_service_on_a_foreign_host baut den Realfall a6edc6 nach (systemctl enable --now auf hetzner-prod); test_should_not_flag_reading_a_service_state ist die Gegenprobe, dass reines Nachsehen (is-active/list-timers/cat) NICHT feuert",
-        "datum": "2026-09-09"
+        "ref": "docs/retros/session-retro-2026-09-14-platform-b7822e.md",
+        "datum": "2026-09-14"
       }
     },
     {
