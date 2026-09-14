@@ -41,7 +41,7 @@ GATE_HEADER = {
     "slug": "claim-before-cheapest-check",
     "mode": "blocking",  # Laufzeit-Opt-out: state-Datei, s. _mode()
     "owner": "achim",
-    "last_drill_pass": "2026-09-07",  # Drill = test_should_block_* in tests/ + test_evidence_claim_scanner_bypass.py + _vollzug.py
+    "last_drill_pass": "2026-09-14",  # Drill = test_should_block_* in tests/ + test_evidence_claim_scanner_bypass.py + _vollzug.py + _kriterium.py
     "evidence": "tools/claude-hooks/tests/test_evidence_claim_scanner.py",
 }
 
@@ -683,6 +683,136 @@ RULESET_READ_RE = re.compile(
 )
 
 
+# --- Rev 8 (2026-09-14, Retro oqu6Z6 §5a / Befund #4, M5): KRITERIUMS-CLAIM ---
+#
+# platform#3015 wurde mit „Alle fünf Kriterien sind erreicht und belegt" geschlossen.
+# K3 verlangte Verfallsignale „mit Schwelle und Vorlauf", einen Melder, der feuert,
+# „bevor der Ausfall eintritt", und eine Positivkontrolle mit „Beleg im Journal". Die
+# Belegzeile des Abschluss-Kommentars gab das Kriterium verkuerzt wieder („Verfall-
+# signale mit Schwelle, Positivkontrolle") — Vorlauf, Ausfall und Journal kamen darin
+# nicht vor. Der Turn war voll von Artefakt-Links, keine vorhandene Art fragte, ob sie
+# JEDEN Satzteil des Kriteriums tragen.
+#
+# Die Pruefung: ein publizierter Body behauptet ein Kriterium als erreicht/erfuellt und
+# fuehrt Kriterien mit Kennung (K1, K2, …). Fuer jede Kennung wird der Wortlaut im Turn
+# gesucht (gelesenes Auftrags-Issue). Fehlt er, feuert die Art — der billigste Check ist
+# das Lesen des Kriteriums. Steht er da, wird er in Satzteile zerlegt; jeder Satzteil
+# muss mit mindestens einem seiner Inhaltswoerter in den Body-Zeilen dieser Kennung
+# vorkommen. GRENZE, bewusst benannt: gemessen wird, ob jeder Satzteil ANGESPROCHEN
+# ist, nicht ob der genannte Beleg ihn traegt — eine Belegzeile, die das Kriterium
+# nur abschreibt, kommt durch. Die Luecke des Realfalls war aber genau das Weglassen,
+# und Weglassen macht diese Pruefung sichtbar. Bodies ohne Kennungen bleiben still
+# („Akzeptanzkriterien erfuellt" in PR-Bodies waere sonst eine Fehlalarm-Flut).
+_KRIT_VERB = r"erreicht|erf(?:ü|ue)llt|nachgewiesen"
+KRITERIUM_CLAIM_RE = re.compile(
+    rf"(?:(?i:kriteri\w*)|\bK\d{{1,2}}\b)[^.!?\n]{{0,60}}(?i:{_KRIT_VERB})"
+    rf"|(?i:{_KRIT_VERB})[^.!?\n]{{0,60}}(?:(?i:kriteri\w*)|\bK\d{{1,2}}\b)"
+)
+_K_LABEL_RE = re.compile(r"\bK(\d{1,2})\b")
+_SATZTEIL_SPLIT_RE = re.compile(
+    r"[.;:,]|\s(?:und|mit|bevor|sowie|samt|inklusive|danach|dann)\s", re.I
+)
+_INHALTSWORT_RE = re.compile(r"[A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß-]{4,}")
+#: Woerter ohne Unterscheidungskraft — sie stehen in fast jeder Kriterien- und
+#: Belegzeile und wuerden einen Satzteil scheinbar decken.
+_KRIT_STOPP = frozenset(
+    {
+        "mindestens",
+        "beispiele",
+        "beispiel",
+        "beleg",
+        "belege",
+        "belegt",
+        "kriterium",
+        "kriterien",
+        "jeweils",
+        "werden",
+        "wird",
+        "einer",
+        "einem",
+        "eines",
+        "jeder",
+        "jedes",
+        "diese",
+        "dieser",
+        "dieses",
+        "immer",
+        "damit",
+        "nicht",
+        "ohne",
+        "durch",
+        "keine",
+        "einen",
+        "sind",
+    }
+)
+_STAMM = 6
+
+
+def _normiere(text: str) -> str:
+    t = (text or "").lower()
+    for a, b in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")):
+        t = t.replace(a, b)
+    return t
+
+
+def _kriterium_wortlaut(label: str, evidenz: str) -> str:
+    """Laengste Zeile im Turn-Beleg, die die Kennung traegt und danach wie ein
+    Kriterium aussieht (mindestens sechs Woerter). Leer = nicht gelesen."""
+    beste = ""
+    muster = re.compile(rf"\b{re.escape(label)}\b")
+    for zeile in evidenz.replace("\\n", "\n").splitlines():
+        m = muster.search(zeile)
+        if not m:
+            continue
+        rest = zeile[m.end() :]
+        if len(rest.split()) >= 6 and len(rest) > len(beste):
+            beste = rest
+    return beste
+
+
+def _satzteile(wortlaut: str) -> list[str]:
+    text = re.sub(r"^[^:]{0,60}:\**", "", wortlaut.strip(), count=1)  # Titel ab
+    # Klammern (Beispiele) und Code-Spannen (Pfade wie `docs/<x>.md`) sind keine
+    # Satzteile — ein Punkt im Dateinamen wuerde sonst einen Satz zerschneiden.
+    text = re.sub(r"`[^`]*`", " ", text)
+    text = re.sub(r"\([^)]*\)", " ", text.replace("**", "").replace("*", ""))
+    return [t.strip() for t in _SATZTEIL_SPLIT_RE.split(text) if t and t.strip()]
+
+
+def _kriteriums_luecken(bodies: list, evidenz: str) -> list[str]:
+    """→ ["K3: Vorlauf; der Ausfall eintritt", "K5: Wortlaut nicht gelesen", …].
+
+    Leer, wenn kein Body ein Kriterium als erreicht behauptet oder keine Kennung
+    fuehrt. Rein und ohne Seiteneffekt — der Drill ruft sie direkt."""
+    luecken: list[str] = []
+    body_text = "\n".join(bodies)
+    if not KRITERIUM_CLAIM_RE.search(body_text):
+        return luecken
+    zeilen_je_label: dict[str, list[str]] = {}
+    for zeile in body_text.splitlines():
+        for nummer in _K_LABEL_RE.findall(zeile):
+            zeilen_je_label.setdefault(f"K{nummer}", []).append(zeile)
+    for label in sorted(zeilen_je_label, key=lambda k: int(k[1:])):
+        wortlaut = _kriterium_wortlaut(label, evidenz)
+        if not wortlaut:
+            luecken.append(f"{label}: Wortlaut nicht im Turn gelesen")
+            continue
+        belegzeilen = _normiere(" ".join(zeilen_je_label[label]))
+        offen = []
+        for teil in _satzteile(wortlaut):
+            woerter = [
+                w
+                for w in (_normiere(x) for x in _INHALTSWORT_RE.findall(teil))
+                if w not in _KRIT_STOPP
+            ]
+            if woerter and not any(w[:_STAMM] in belegzeilen for w in woerter):
+                offen.append(teil)
+        if offen:
+            luecken.append(f"{label}: " + "; ".join(offen[:4]))
+    return luecken
+
+
 _GH_COMMENT_RE = re.compile(r"\bgh\s+(?:pr|issue)\s+comment\b")
 _GH_MERGE_RE = re.compile(r"\bgh\s+pr\s+merge\b")
 _STATUS_IN_COMMENT_RE = re.compile(
@@ -1104,6 +1234,22 @@ def main() -> int:
                 "behauptet, ohne dass im Turn das Ruleset gelesen wurde — ein roter "
                 "Check belegt, dass er laeuft, nicht dass er sperrt; Realfall "
                 "platform#2954: der Job stand nicht in required_status_checks)"
+            )
+
+    # Rev 8: Kriteriums-Claim im publizierten Body. Korroboration ist der
+    # Kriterien-WORTLAUT im Turn (ohne den Body selbst), nicht ein Werkzeuglauf —
+    # im Realfall platform#3015 lagen reichlich Artefakt-Links vor.
+    if bodies:
+        try:
+            _krit = _kriteriums_luecken(bodies, _ev_ohne_body)
+        except Exception:  # noqa: BLE001 — Scanner darf nie werfen
+            _krit = []
+        if _krit:
+            fired.append(
+                "kriteriums-claim (Kriterium als erreicht behauptet, aber nicht jeder "
+                "Satzteil hat eine Entsprechung in der Belegzeile — "
+                + " | ".join(_krit)[:300]
+                + "; Realfall platform#3015 K3)"
             )
 
     if _kommentar_vor_merge(tool_inputs):

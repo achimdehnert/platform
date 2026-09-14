@@ -5,7 +5,7 @@
 #   "slug": "secret-leak-via-safe-pattern"
 #   "mode": "blocking"
 #   "owner": "achim"
-#   "last_drill_pass": "2026-08-31"
+#   "last_drill_pass": "2026-09-14"
 #   "evidence": "tools/claude-hooks/tests/test_block_env_cat.py"
 #
 # Anlass: session-retro 2026-07-03 F1 (`cat .env` leakte DB_PASSWORD) +
@@ -26,6 +26,20 @@
 # schreibt jede expandierte Variable (also das Geheimnis) auf stdout. Erkannt wird
 # `bash|sh|dash|zsh -x <skript>`, wenn das Skript Secret-Pfade referenziert ODER
 # Geheimnisse erzeugt (openssl rand, pwgen, mkpasswd, /dev/urandom).
+#
+# v5 (2026-09-14, Retro oqu6Z6 §5a / Befund #10, M6 — Gate rueckfaellig): SOURCING.
+# Am 2026-09-13 wurde eine Datei aus dem Secrets-Verzeichnis per `. datei` gesourct.
+# Sie lag in bare-Form vor (ganze Datei = nackter Wert); die Shell fuehrte den Wert
+# als Kommando aus und schrieb ihn in ihre eigene Fehlermeldung. v4 pruefte nur
+# Kommando-ARGUMENTE von Readern/cut/awk/grep — `.`/`source` standen in keiner
+# Liste, der Guard sah den Fall nicht. Neu: `.`/`source` mit einem Pfad unter
+# `.secrets/` → deny, auch in `set -a; . …; set +a` (eigene Segmente) und in
+# `bash|sh -c '…'` (der Befehlstext wird rekursiv geprueft). Bewusst OHNE Blick in
+# die Datei: auch eine heutige NAME=WERT-Datei kann morgen bare sein, und
+# tools/secret_lesen.sh verbietet jedes Sourcing einer Secret-Datei ausdruecklich.
+# Der erlaubte Weg ist `WERT=$(tools/secret_lesen.sh <name>)`. Nicht erfasst:
+# Sourcing einer `.env`-Datei (legitimer Projektpfad) und Var-Indirektion
+# (`. "$DATEI"`) — der Pfad muss im Befehlstext stehen.
 #
 # Doktrin: bei Parse-Zweifel (JSON/Quoting) ALLOW — Hook darf Arbeit nicht fälschlich
 # blocken. BEWUSSTE AUSNAHME (Risiko-Umkehr, retro f4a546 #1/incr #5): (a) Globs über
@@ -67,26 +81,38 @@ ERZEUGER = re.compile(r'(openssl\s+rand|pwgen|mkpasswd|/dev/urandom)')
 def is_secret(tok: str) -> bool:
     return bool(SECRET.search(tok)) and not EXAMPLE.search(tok)
 
+# (v5) Sourcing einer Datei unter dem Secrets-Verzeichnis (retro oqu6Z6 #10).
+SOURCERS = {".", "source"}
+SECRETS_DIR = re.compile(r'(^|/)\.secrets(/|$)')
+
 # (a) Glob über Secrets-Dir + Reader/cut/awk irgendwo -> Loop-Leak-Vektor (Incident 07-10)
 if re.search(r'\.secrets/\*', cmd) and re.search(
         r'(^|[;&|\s])(cat|less|more|head|tail|bat|xxd|od|strings|cut|awk)(\s|$)', cmd):
     print("deny:cut"); sys.exit(0)
 
-try:
-    lex = shlex.shlex(cmd, posix=True, punctuation_chars=True)
-    lex.whitespace_split = True
-    toks = list(lex)
-except ValueError:
-    print("allow"); sys.exit(0)  # Parse-Zweifel -> ALLOW (Doktrin)
-
 SEPS = {"|", "||", "&&", ";", "&", "|&"}
-segments, cur, seps = [], [], []
-for t in toks:
-    if t in SEPS:
-        segments.append(cur); seps.append(t); cur = []
-    else:
-        cur.append(t)
-segments.append(cur); seps.append(None)
+
+def zerlege(text: str):
+    """(segments, seps) oder None bei Parse-Zweifel."""
+    try:
+        lex = shlex.shlex(text, posix=True, punctuation_chars=True)
+        lex.whitespace_split = True
+        toks = list(lex)
+    except ValueError:
+        return None
+    segs, cur, trenner = [], [], []
+    for t in toks:
+        if t in SEPS:
+            segs.append(cur); trenner.append(t); cur = []
+        else:
+            cur.append(t)
+    segs.append(cur); trenner.append(None)
+    return segs, trenner
+
+zerlegt = zerlege(cmd)
+if zerlegt is None:
+    print("allow"); sys.exit(0)  # Parse-Zweifel -> ALLOW (Doktrin)
+segments, seps = zerlegt
 
 def seg_parts(seg):
     """(cmd_word, args) — Env-Zuweisungen/Shell-Keywords überspringen, <-Redirect-Ziel als Arg."""
@@ -127,6 +153,28 @@ def skript_leakt(path: str):
         return False
     return bool(SECRET.search(inhalt) and not EXAMPLE.search(inhalt)) or bool(
         ERZEUGER.search(inhalt))
+
+def sourct_secret(segs, tiefe: int = 0) -> bool:
+    """True, wenn ein Segment `.`/`source` auf einen Pfad unter .secrets/ ausfuehrt —
+    direkt oder im Befehlstext von `bash|sh -c '…'` (hoechstens zwei Ebenen)."""
+    for seg in segs:
+        # Klammern (Subshell, `$(…)`) nur fuer diese Pruefung ausblenden: ein
+        # Sourcing in `x=$(. datei)` leakt ueber stderr genauso. Die Reader-Pruefung
+        # unten bleibt bei der v4-Segmentierung (dort waere `x=$(cat …)` sonst neu rot).
+        seg = [t for t in seg if t not in {"(", ")", "{", "}"}]
+        cmdw, args = seg_parts(seg)
+        if cmdw in SOURCERS and args and SECRETS_DIR.search(args[0]):
+            return True
+        if cmdw in SHELLS and tiefe < 2:
+            for k, a in enumerate(args):
+                if re.match(r'^-[A-Za-z]*c[A-Za-z]*$', a) and k + 1 < len(args):
+                    innen = zerlege(args[k + 1])
+                    if innen is not None and sourct_secret(innen[0], tiefe + 1):
+                        return True
+    return False
+
+if sourct_secret(segments):
+    print("deny:source"); sys.exit(0)
 
 for idx, seg in enumerate(segments):
     cmdw, args = seg_parts(seg)
@@ -178,6 +226,11 @@ JSON
   deny:cut)
     cat <<'JSON'
 {"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Secret-Leak-Guard (retro f4a546 #1, v3): cut/awk auf einer Secret-Datei OHNE verifizierbare KV-Struktur (oder Glob/Loop ueber ~/.secrets/*) gibt den Inhalt aus — so ist am 2026-07-10 ein Token ins Transkript geleakt. Erst Struktur pruefen (grep -c '=' <datei>), dann gezielt EINE bekannte KV-Datei anfassen; nie ueber ~/.secrets/* loopen. Key-Namen sicher: grep -oE '^[A-Za-z_][A-Za-z0-9_]*=' <datei>."}}
+JSON
+    ;;
+  deny:source)
+    cat <<'JSON'
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Secret-Leak-Guard (retro oqu6Z6 #10, v5): `.`/`source` auf eine Datei im Secrets-Verzeichnis fuehrt jede Zeile als Shell-Code aus — liegt die Datei in bare-Form vor, versucht die Shell den Wert als Kommando zu starten und schreibt ihn in ihre Fehlermeldung (so geschehen am 2026-09-13). Stattdessen gezielt EINEN Wert lesen: WERT=$(tools/secret_lesen.sh <name>) bzw. infra.lib.secrets.secret_wert in Python."}}
 JSON
     ;;
   deny:trace)

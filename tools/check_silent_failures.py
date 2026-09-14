@@ -29,6 +29,10 @@ Geprüft werden zwei Dinge:
 2. **Fehlerpfad.** Trägt der weichgestellte Schritt eine `id`, auf deren
    `outputs` ein späterer Schritt reagiert, muss irgendwo im selben Job auch
    auf `.outcome` reagiert werden — sonst ist Absturz gleich Stille.
+   „Reagiert" heißt seit 2026-09-14 nicht nur `if:`, sondern jede Verwendung
+   der Outputs in einem späteren Schritt (`env`, `with`, `run`) oder in den
+   Job-`outputs` — dort trägt der Wert das Urteil des Gates, und ein Ausfall
+   wird zum stillen Fallback (Retro oqu6Z6 §5a, M4).
 
 stdlib + PyYAML, keine weiteren Abhängigkeiten. Exit 1 bei Fund.
 """
@@ -50,7 +54,7 @@ GATE_HEADER = {
     "slug": "ci-gate-maskiert-failure",
     "mode": "blocking",
     "owner": "achim",
-    "last_drill_pass": "2026-08-12",
+    "last_drill_pass": "2026-09-14",
     "evidence": "tools/tests/test_silent_failures.py",
 }
 
@@ -167,7 +171,8 @@ def pruefe_datei(pfad: Path) -> list[Fund]:
         job_text = yaml.safe_dump(job, allow_unicode=True)
         reagiert_auf_outcome = set(_OUTCOME.findall(job_text))
 
-        for schritt in schritte:
+        job_outputs = yaml.safe_dump(job.get("outputs") or {}, allow_unicode=True)
+        for pos, schritt in enumerate(schritte):
             if (
                 not isinstance(schritt, dict)
                 or schritt.get("continue-on-error") is not True
@@ -193,6 +198,38 @@ def pruefe_datei(pfad: Path) -> list[Fund]:
                         f"`steps.{sid}.outputs.…` — aber niemand prüft "
                         f"`steps.{sid}.outcome`. Stürzt er ab, sind die Outputs leer, "
                         f"kein Folge-Schritt feuert, der Workflow bleibt grün.",
+                    )
+                )
+                continue
+            # Ausweitung 2026-09-14 (Retro oqu6Z6 §5a, M4): der Realfall
+            # `handover-append-only.yml` las die Outputs nicht im `if:`, sondern
+            # als Wert (`GH_TOKEN: ${{ steps.app_token.outputs.token || … }}`) im
+            # Schritt, der das Gate-Urteil faellt. Die Begruendung ueber dem
+            # `continue-on-error` genuegte dem Lint, der Fehlerpfad fehlte trotzdem:
+            # ein Ausfall wird zum Fallback, und niemand sieht, dass er eintrat.
+            liest_wert = any(
+                sid
+                in _OUTPUTS.findall(
+                    yaml.safe_dump(
+                        {k: v for k, v in anderer.items() if k != "if"},
+                        allow_unicode=True,
+                    )
+                )
+                for anderer in schritte[pos + 1 :]
+                if isinstance(anderer, dict)
+            ) or sid in _OUTPUTS.findall(job_outputs)
+            if liest_wert and sid not in reagiert_auf_outcome:
+                funde.append(
+                    Fund(
+                        pfad,
+                        job_name,
+                        schritt.get("name", sid),
+                        "Absturz bleibt still",
+                        f"Schritt `{sid}` ist weichgestellt, ein späterer Schritt "
+                        f"verwendet `steps.{sid}.outputs.…` als Wert (env/with/run) — "
+                        f"aber niemand prüft `steps.{sid}.outcome`. Stürzt er ab, läuft "
+                        f"der Folge-Schritt mit leerem Wert oder Fallback weiter, und "
+                        f"der Ausfall bleibt unsichtbar.",
                     )
                 )
     return funde

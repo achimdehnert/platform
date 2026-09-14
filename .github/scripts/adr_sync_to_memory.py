@@ -16,11 +16,11 @@ Wird von adr-nightly-metrics.yml nach dem metrics-Schritt aufgerufen.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
 import sys
-from datetime import date, datetime, timezone
 from pathlib import Path
 
 import yaml
@@ -36,7 +36,12 @@ def _get_conn():
     if not db_url:
         pw_file = Path.home() / ".secrets" / "orchestrator_mcp_db_password"
         if pw_file.exists():
-            pw = pw_file.read_text().strip()
+            # Toleranter Leser (bare + NAME=WERT, platform#3129) statt read_text().strip();
+            # Repo-Wurzel liegt zwei Ebenen ueber .github/scripts/.
+            sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+            from infra.lib.secrets import secret_wert  # noqa: PLC0415
+
+            pw = secret_wert(pw_file)
             db_url = f"postgresql://orchestrator:{pw}@127.0.0.1:15435/orchestrator_mcp"
     if not db_url:
         raise RuntimeError("No DB URL — set ORCHESTRATOR_MCP_MEMORY_DB_URL")
@@ -106,8 +111,6 @@ ON CONFLICT (id, tenant_id) DO UPDATE SET
   updated_at   = now()
 WHERE agent_memory_entries.content_hash != EXCLUDED.content_hash
 """
-
-import hashlib
 
 
 def _hash(content: str) -> str:
@@ -218,14 +221,14 @@ def main() -> int:
     if summary_path:
         critical = [aid for aid, d in inbound_map.items() if len(d) >= 3]
         with open(summary_path, "a") as f:
-            f.write(f"\n### ADR → pgvector Sync\n")
+            f.write("\n### ADR → pgvector Sync\n")
             f.write(f"- **{synced}** entries upserted\n")
             f.write(
                 f"- **{len(critical)}** critical nodes (≥3 inbound, half_life=365d)\n"
             )
-            f.write(f"- Graph edges encoded in `related_ids[]`\n")
+            f.write("- Graph edges encoded in `related_ids[]`\n")
             f.write(
-                f"- Claude kann jetzt: `agent_memory_context('ADR-022')` → vollständige Nachbarschaft\n"
+                "- Claude kann jetzt: `agent_memory_context('ADR-022')` → vollständige Nachbarschaft\n"
             )
 
     return 0

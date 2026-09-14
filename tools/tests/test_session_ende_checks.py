@@ -230,11 +230,169 @@ def test_should_skip_not_pass_when_a_tool_is_missing(umgebung):
     assert "HINWEIS:" in ergebnis.stdout, "SKIP-Zahl muss unter der Tabelle stehen"
 
 
-def test_should_mark_worktree_reaping_as_deliberately_skipped(umgebung):
-    """E.8 ist ein Streichkandidat mit Begruendung, kein vergessener Schritt."""
+# ── E.8 Worktree-Hygiene (Umbau 2026-09-14, Retro oqu6Z6 Befund #21) ────────
+#
+# Bis hierhin stand E.8 auf SKIP („raeumt der naechste Sitzungsstart"). Realfall:
+# 13 Baeume, zwei mit dem Git-eigenen Etikett `prunable`, einige Wochen alt —
+# angezeigt, nie behandelt. Jetzt wird geprunt, und die Altersgrenze ist ein FAIL.
+
+_ALT_TAGE = 60
+
+
+def _worktree(repo: pathlib.Path, name: str, *, alt: bool) -> pathlib.Path:
+    """Verknuepfter Baum `name` neben `repo`; `alt` datiert Commit UND Anlage zurueck."""
+    pfad = repo.parent / name
+    env = os.environ.copy()
+    env.update(
+        {
+            "GIT_AUTHOR_NAME": "test",
+            "GIT_AUTHOR_EMAIL": "test@example.invalid",
+            "GIT_COMMITTER_NAME": "test",
+            "GIT_COMMITTER_EMAIL": "test@example.invalid",
+        }
+    )
+    subprocess.run(
+        ["git", "worktree", "add", "-q", "-b", name, str(pfad)],
+        cwd=repo,
+        env=env,
+        check=True,
+        capture_output=True,
+    )
+    if alt:
+        datum = f"@{int(__import__('time').time()) - _ALT_TAGE * 86400} +0000"
+        env.update({"GIT_AUTHOR_DATE": datum, "GIT_COMMITTER_DATE": datum})
+        (pfad / f"{name}.txt").write_text("x\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=pfad, env=env, check=True)
+        subprocess.run(
+            ["git", "commit", "-q", "-m", "alt"], cwd=pfad, env=env, check=True
+        )
+        gitdir = subprocess.run(
+            ["git", "rev-parse", "--absolute-git-dir"],
+            cwd=pfad,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        stempel = __import__("time").time() - _ALT_TAGE * 86400
+        os.utime(pathlib.Path(gitdir) / "HEAD", (stempel, stempel))
+    return pfad
+
+
+def test_should_fail_on_a_worktree_older_than_the_age_limit(umgebung):
+    """POSITIVKONTROLLE: ein alter Baum ist ein FAIL, ein frischer daneben nicht."""
+    alpha = umgebung["github"] / "alpha"
+    _worktree(alpha, "wt-alt", alt=True)
+    _worktree(alpha, "wt-frisch", alt=False)
     ergebnis = _lauf(umgebung)
-    assert _summary_zeilen(ergebnis.stdout)["E.8"] == "SKIP"
-    assert "0.4.5" in ergebnis.stdout
+    assert _summary_zeilen(ergebnis.stdout)["E.8"] == "FAIL", ergebnis.stdout
+    zeile = next(z for z in ergebnis.stdout.splitlines() if z.startswith("| E.8"))
+    assert "wt-alt(60d)" in zeile, zeile
+    assert "wt-frisch" not in zeile, zeile
+    assert "RESULT: FAIL" in ergebnis.stdout
+
+
+def test_should_prune_an_orphaned_worktree_entry(umgebung):
+    """POSITIVKONTROLLE `prunable`: Verzeichnis weg, Eintrag bleibt — der Runner raeumt ihn."""
+    alpha = umgebung["github"] / "alpha"
+    verwaist = _worktree(alpha, "wt-verwaist", alt=False)
+    __import__("shutil").rmtree(verwaist)
+    vorher = subprocess.run(
+        ["git", "worktree", "list", "--porcelain"],
+        cwd=alpha,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert "prunable" in vorher
+    ergebnis = _lauf(umgebung)
+    nachher = subprocess.run(
+        ["git", "worktree", "list", "--porcelain"],
+        cwd=alpha,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert "prunable" not in nachher, nachher
+    assert _summary_zeilen(ergebnis.stdout)["E.8"] == "PASS", ergebnis.stdout
+    assert "prunable bereinigt: 1" in ergebnis.stdout
+
+
+def test_should_accept_an_old_worktree_kept_with_a_reason(umgebung):
+    """NEGATIVKONTROLLE: derselbe alte Baum mit Grund im Verwaltungsverzeichnis."""
+    alpha = umgebung["github"] / "alpha"
+    alt = _worktree(alpha, "wt-behalten", alt=True)
+    gitdir = subprocess.run(
+        ["git", "rev-parse", "--absolute-git-dir"],
+        cwd=alt,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    (pathlib.Path(gitdir) / "behalten").write_text(
+        "laufender Rebase\n", encoding="utf-8"
+    )
+    ergebnis = _lauf(umgebung)
+    assert _summary_zeilen(ergebnis.stdout)["E.8"] == "PASS", ergebnis.stdout
+    assert "behalten mit Grund: 1" in ergebnis.stdout
+
+
+# ── E.3 Handover-Frische am Sitzungsende (Umbau 2026-09-14, Befund #22) ─────
+
+_CHECKER = (
+    pathlib.Path(__file__).resolve().parents[2]
+    / "scripts"
+    / "checks"
+    / "agent_handover_freshness_check.py"
+)
+
+
+def _handover_umgebung(umgebung, commits_danach: int) -> None:
+    """Ziel-Repo `gamma` mit Handover-Nachtrag und `commits_danach` weiteren Commits;
+    PLATFORM_DIR bekommt den echten Pruefer."""
+    ziel = umgebung["platform"] / "scripts" / "checks"
+    ziel.mkdir(parents=True)
+    __import__("shutil").copy(_CHECKER, ziel / _CHECKER.name)
+    gamma = _repo(umgebung["github"], "gamma", dirty=False)
+    (gamma / "AGENT_HANDOVER.md").write_text(
+        f"# Handover\n\n## Aktueller Stand ({_HEUTE})\n\nStand.\n", encoding="utf-8"
+    )
+    _git(gamma, "add", "AGENT_HANDOVER.md")
+    _git(gamma, "commit", "-q", "-m", "docs(handover): Nachtrag")
+    for i in range(commits_danach):
+        (gamma / f"f{i}.txt").write_text("x\n", encoding="utf-8")
+        _git(gamma, "add", f"f{i}.txt")
+        _git(gamma, "commit", "-q", "-m", f"feat: Arbeit {i}")
+    _git(gamma, "remote", "add", "origin", "https://github.com/testorg/gamma.git")
+
+
+def test_should_fail_when_commits_landed_after_the_handover_and_no_pr_is_open(umgebung):
+    """POSITIVKONTROLLE am Realfall: Nachtrag von frueher, danach Commits, kein
+    Handover-PR — bisher PASS, weil E.3 ohne Schwelle nur das Datum pruefte."""
+    _handover_umgebung(umgebung, commits_danach=3)
+    ergebnis = _lauf(umgebung, "gamma")
+    assert _summary_zeilen(ergebnis.stdout)["E.3"] == "FAIL", ergebnis.stdout
+    assert "3 Commits seit dem letzten Nachtrag" in ergebnis.stdout
+
+
+def test_should_pass_when_the_handover_is_open_as_a_pr(umgebung):
+    """NEGATIVKONTROLLE: dieselben Commits, aber der Nachtrag liegt als PR offen."""
+    _handover_umgebung(umgebung, commits_danach=3)
+    (umgebung["bin"] / "gh").write_text(
+        _GH_STUB.replace(
+            '*"pr list"*)   : ;;', "*\"pr list\"*)   printf '#77@2026-09-14\\n' ;;"
+        ),
+        encoding="utf-8",
+    )
+    (umgebung["bin"] / "gh").chmod(0o755)
+    ergebnis = _lauf(umgebung, "gamma")
+    assert _summary_zeilen(ergebnis.stdout)["E.3"] == "PASS", ergebnis.stdout
+
+
+def test_should_pass_when_nothing_landed_after_the_handover(umgebung):
+    """NEGATIVKONTROLLE: Nachtrag ist der letzte Commit — kein Befund."""
+    _handover_umgebung(umgebung, commits_danach=0)
+    ergebnis = _lauf(umgebung, "gamma")
+    assert _summary_zeilen(ergebnis.stdout)["E.3"] == "PASS", ergebnis.stdout
 
 
 def test_should_read_touched_repos_from_todays_leases(umgebung):

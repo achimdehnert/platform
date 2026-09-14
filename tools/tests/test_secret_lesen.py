@@ -312,13 +312,37 @@ def sh_verstoesse(text: str) -> list[tuple[int, str]]:
     return treffer
 
 
-def scanne(wurzel: Path, verzeichnisse: tuple[str, ...]) -> list[str]:
+#: Verzeichnisnamen, die der Melder beim Lauf ueber den GANZEN Baum auslaesst.
+#: Ausweitung 2026-09-14 (Retro oqu6Z6 Befund #11, M9): der Melder kannte nur vier
+#: Wurzeln (tools/infra/scripts/deployment) — `.github/scripts/` las zwei Secret-
+#: Dateien weiterhin roh, ohne dass er es sehen konnte. Seither gilt: der ganze
+#: Baum, abzueglich dieser Liste. Eine neue Wurzel ist damit automatisch gedeckt;
+#: ausgenommen wird nur, was benannt ist.
+AUSSCHLUSS_VERZEICHNISSE = frozenset(
+    {
+        ".git",
+        "_ARCHIVED",
+        "fixtures",
+        "node_modules",
+        ".venv",
+        "venv",
+        "__pycache__",
+        "site-packages",
+        ".mypy_cache",
+        ".ruff_cache",
+        ".pytest_cache",
+    }
+)
+
+
+def scanne(wurzel: Path, verzeichnisse: tuple[str, ...] = (".",)) -> list[str]:
     befunde = []
     for verzeichnis in verzeichnisse:
         for datei in sorted((wurzel / verzeichnis).rglob("*")):
-            if datei.suffix not in (".py", ".sh"):
+            if datei.suffix not in (".py", ".sh") or not datei.is_file():
                 continue
-            if "_ARCHIVED" in datei.parts or "fixtures" in datei.parts:
+            teile = datei.relative_to(wurzel).parts
+            if AUSSCHLUSS_VERZEICHNISSE.intersection(teile):
                 continue
             relativ = datei.relative_to(wurzel).as_posix()
             if relativ in AUSNAHME_DATEIEN:
@@ -343,8 +367,36 @@ def test_should_find_the_planted_violation(tmp_path: Path) -> None:
     assert any(b.startswith("tools/boese.sh") for b in befunde), befunde
 
 
+def test_should_find_a_raw_reader_outside_the_former_roots(tmp_path: Path) -> None:
+    """Positivkontrolle der Ausweitung (Retro oqu6Z6 #11, M9): ein Roh-Leser in
+    `.github/scripts/` — genau der Ort der zwei Realfaelle — wird gefunden; mit den
+    alten vier Wurzeln bleibt derselbe Baum stumm."""
+    ziel = tmp_path / ".github" / "scripts"
+    ziel.mkdir(parents=True)
+    (ziel / "boese.py").write_text(
+        (FIXTURES / "secret_leser_verstoss_py.txt").read_text(), encoding="utf-8"
+    )
+    alte_wurzeln = ("tools", "infra", "scripts", "deployment")
+    for w in alte_wurzeln:
+        (tmp_path / w).mkdir()
+    assert scanne(tmp_path, alte_wurzeln) == []
+    befunde = scanne(tmp_path)
+    assert any(b.startswith(".github/scripts/boese.py") for b in befunde), befunde
+
+
+def test_should_skip_excluded_directories(tmp_path: Path) -> None:
+    """Negativkontrolle: derselbe Verstoss unter `_ARCHIVED/` und `.venv/` bleibt still."""
+    for ort in ("_ARCHIVED", ".venv/lib"):
+        ziel = tmp_path / ort
+        ziel.mkdir(parents=True)
+        (ziel / "boese.py").write_text(
+            (FIXTURES / "secret_leser_verstoss_py.txt").read_text(), encoding="utf-8"
+        )
+    assert scanne(tmp_path) == []
+
+
 def test_should_have_no_self_reading_secret_reader_left() -> None:
-    befunde = scanne(WURZEL, ("tools", "infra", "scripts", "deployment"))
+    befunde = scanne(WURZEL)
     assert not befunde, (
         "Diese Stellen lesen eine Secret-Datei selbst statt ueber "
         "infra.lib.secrets.secret_wert / tools/secret_lesen.sh:\n" + "\n".join(befunde)

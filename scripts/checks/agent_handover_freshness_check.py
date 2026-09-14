@@ -28,10 +28,18 @@ Deshalb zaehlt `--commits-schwelle N` die Commits, die seit der letzten Beruehru
 Datei auf dem Zweig gelandet sind (dieses Repo squasht beim Merge — ein Commit ist eine
 gemergte PR; `--merges` waere hier immer 0, gemessen 2026-09-07). Dependabot-Bumps zaehlen
 nicht mit: sie sind keine Sitzungsarbeit und wuerden die Zahl unabhaengig vom Handover
-treiben. Die Bedingung ist per Vorgabe AUS (`0`) und wird nur dort eingeschaltet, wo das
-Ergebnis advisory ist (`.github/workflows/handover-freshness-advisory.yml`) — die beiden
+treiben. Die Bedingung ist per Vorgabe AUS (Flag nicht gesetzt) und wird nur dort
+eingeschaltet, wo das Ergebnis advisory ist (`.github/workflows/handover-freshness-advisory.yml`)
+oder wo das Sitzungsende gemessen wird (`tools/session_ende_checks.sh` E.3) — die beiden
 blockierenden Zweige (handoff-banner-gate, regel-ritual) behalten ihr bisheriges Verhalten
 unveraendert.
+
+Rev 3 (2026-09-14, Retro oqu6Z6 §5a / Befund #22): `--commits-schwelle 0` ist seither eine
+gueltige Schwelle („jeder Sitzungs-Commit seit der letzten Beruehrung"), nicht mehr das
+Aus-Signal — das Sitzungsende braucht genau diese Strenge. `--beruehrung-auf-basis` misst
+die letzte Beruehrung auf der Basis statt auf HEAD: ein Haupt-Tree, dessen lokales `main`
+hinter `origin/main` liegt, zaehlte sonst einen dort schon gemergten Handover-Nachtrag als
+fehlend.
 
 Stattdessen: ein **Rezenz-Check**, der dialektunabhängig funktioniert — beide Konventionen
 tragen bereits ein YYYY-MM-DD-Datum in einer Markdown-Überschrift der ersten HEAD_LINES Zeilen.
@@ -39,6 +47,7 @@ Dieses Datum darf gegenüber dem letzten Commit, der die Datei berührt hat, hö
 alt sein; sonst wurde die Datei committet, ohne den Stand-Abschnitt mitzuziehen.
 
 Aufruf:  agent_handover_freshness_check.py [--commits-schwelle N] [--basis <ref>]
+                                          [--beruehrung-auf-basis]
                                           <AGENT_HANDOVER.md> [<datei> ...]
 Exit 0 = alle frisch (oder kein Git-Verlauf ermittelbar — degradiert zu PASS statt False-Positive)
 Exit 1 = mind. eine Datei ohne datierte Überschrift ODER mit zu alter Überschrift
@@ -82,7 +91,7 @@ HEADING_DATE_RE = re.compile(r"^#{1,6}\s.*?(\d{4}-\d{2}-\d{2})")
 #: gemessen: ueber die letzten 24 Handover-Intervalle dieses Repos liegen 8
 #: darueber, 16 darunter — die Bedingung meldet also eine Minderheit, nicht jeden
 #: PR. In den blockierenden Zweigen bleibt sie ungesetzt.
-DEFAULT_COMMIT_SCHWELLE = 0
+DEFAULT_COMMIT_SCHWELLE: int | None = None  # None = zweite Bedingung aus
 
 #: Abhaengigkeits-Bumps sind keine Sitzungsarbeit. Ohne diesen Filter treibt ein
 #: ruhiger Tag mit sechs Dependabot-PRs die Zahl genauso wie ein Arbeitstag —
@@ -151,11 +160,11 @@ def last_touch_date(path: Path) -> date | None:
         return None
 
 
-def last_touch_sha(path: Path) -> str | None:
-    """SHA des letzten Commits, der `path` beruehrt hat. None = nicht ermittelbar."""
+def last_touch_sha(path: Path, ref: str = "HEAD") -> str | None:
+    """SHA des letzten Commits auf `ref`, der `path` beruehrt hat. None = nicht ermittelbar."""
     try:
         result = subprocess.run(
-            ["git", "log", "-1", "--format=%H", "--", str(path)],
+            ["git", "log", "-1", "--format=%H", ref, "--", str(path)],
             capture_output=True,
             text=True,
             timeout=10,
@@ -176,14 +185,16 @@ def zaehle_sitzungs_commits(betreffs: list[str]) -> int:
     )
 
 
-def commits_seit_beruehrung(path: Path, basis: str = "HEAD") -> int | None:
+def commits_seit_beruehrung(
+    path: Path, basis: str = "HEAD", beruehrung_auf_basis: bool = False
+) -> int | None:
     """Sitzungs-Commits zwischen der letzten Beruehrung von `path` und `basis`.
 
     None = nicht ermittelbar (flaches Checkout, unbekannte Ref, neue Datei).
     Wie bei `last_touch_date` degradiert das zu PASS statt zu einem Fehlalarm:
     ein Melder, der bei fehlender Historie rot wird, wird abgeschaltet.
     """
-    sha = last_touch_sha(path)
+    sha = last_touch_sha(path, basis if beruehrung_auf_basis else "HEAD")
     if sha is None:
         return None
     try:
@@ -201,7 +212,10 @@ def commits_seit_beruehrung(path: Path, basis: str = "HEAD") -> int | None:
 
 
 def check(
-    path: Path, commit_schwelle: int = DEFAULT_COMMIT_SCHWELLE, basis: str = "HEAD"
+    path: Path,
+    commit_schwelle: int | None = DEFAULT_COMMIT_SCHWELLE,
+    basis: str = "HEAD",
+    beruehrung_auf_basis: bool = False,
 ) -> tuple[bool, str]:
     h = heading_date(path)
     if h is None:
@@ -212,19 +226,20 @@ def check(
     # Zweite Bedingung, nur wenn ausdruecklich eingeschaltet. Sie steht NACH der
     # ersten, damit ein Repo mit beiden Fehlformen den aelteren, praeziseren
     # Befund zuerst sieht.
-    if commit_schwelle > 0:
-        n = commits_seit_beruehrung(path, basis)
+    if commit_schwelle is not None:
+        n = commits_seit_beruehrung(path, basis, beruehrung_auf_basis)
         if n is not None and n > commit_schwelle:
             return False, FAIL_HINT_COMMITS % n
     return True, ""
 
 
-def _argumente(argv: list[str]) -> tuple[int, str, list[str]]:
-    """(commit_schwelle, basis, dateien). Handgeschrieben statt argparse, weil das
-    Modul in drei Workflows als nacktes Skript aufgerufen wird und seine bisherige
-    Aufrufform (`<datei> [...]`) unveraendert weiter gelten muss."""
+def _argumente(argv: list[str]) -> tuple[int | None, str, bool, list[str]]:
+    """(commit_schwelle, basis, beruehrung_auf_basis, dateien). Handgeschrieben statt
+    argparse, weil das Modul in drei Workflows als nacktes Skript aufgerufen wird und
+    seine bisherige Aufrufform (`<datei> [...]`) unveraendert weiter gelten muss."""
     schwelle = DEFAULT_COMMIT_SCHWELLE
     basis = "HEAD"
+    auf_basis = False
     dateien: list[str] = []
     rest = list(argv)
     while rest:
@@ -233,25 +248,29 @@ def _argumente(argv: list[str]) -> tuple[int, str, list[str]]:
             schwelle = int(rest.pop(0)) if rest else schwelle
         elif arg.startswith("--commits-schwelle="):
             schwelle = int(arg.split("=", 1)[1])
+        elif arg == "--beruehrung-auf-basis":
+            auf_basis = True
         elif arg == "--basis":
             basis = rest.pop(0) if rest else basis
         elif arg.startswith("--basis="):
             basis = arg.split("=", 1)[1]
         else:
             dateien.append(arg)
-    return schwelle, basis, dateien
+    if schwelle is not None and schwelle < 0:
+        raise ValueError("negative Schwelle")
+    return schwelle, basis, auf_basis, dateien
 
 
 def main(argv: list[str]) -> int:
     try:
-        schwelle, basis, dateien = _argumente(argv)
+        schwelle, basis, auf_basis, dateien = _argumente(argv)
     except ValueError:
         print("--commits-schwelle erwartet eine Zahl", file=sys.stderr)
         return 2
     if not dateien:
         print(
             "usage: agent_handover_freshness_check.py [--commits-schwelle N] "
-            "[--basis <ref>] <AGENT_HANDOVER.md> [...]",
+            "[--basis <ref>] [--beruehrung-auf-basis] <AGENT_HANDOVER.md> [...]",
             file=sys.stderr,
         )
         return 2
@@ -261,7 +280,7 @@ def main(argv: list[str]) -> int:
         if not path.is_file():
             print(f"SKIP  {name} (existiert nicht — vermutlich gelöscht)")
             continue
-        ok, hint = check(path, schwelle, basis)
+        ok, hint = check(path, schwelle, basis, auf_basis)
         if ok:
             print(f"PASS  {name}")
         else:
