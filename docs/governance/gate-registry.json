@@ -1258,6 +1258,38 @@
         "ref": "Zwei unabhaengige Belege. (1) RUECKWIRKEND: gegen den Commit von platform#2967 gerechnet (`verschwundene(git show 093a6aed^:AGENT_HANDOVER.md, git show 093a6aed:AGENT_HANDOVER.md)`) nennt der Check achimdehnert/robo-lab#66 und #81 - genau die beiden offenen Punkte, die dort wirklich verloren gingen (Befund platform#2974). (2) IM ECHTBETRIEB, wenige Stunden spaeter in platform#2983: beim Auslagern von Sitzung 8661c35d meldete er 19 verschwundene Referenzen, davon SIEBEN OPEN (billing-hub#52, odoo-hub#32, platform#2931/#2944/#2961/#2962/#2969); alle sieben wurden daraufhin als Faden 54-60 nachgetragen. Ohne den Check waeren sie still verschwunden. Gegenprobe: eine unveraenderte Datei und eine in die Fadenliste VERSCHOBENE Referenz erzeugen keinen Befund (test_should_stay_silent_when_the_reference_was_rescued_into_the_threads), und eine geschlossene Nummer darf mit dem Block gehen (test_should_let_a_closed_reference_go).",
         "datum": "2026-09-08"
       }
+    },
+    {
+      "slug": "cd-fehlschlag-kette-laeuft-weiter",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/claude-hooks/cd_fehlschlag_ketten_scanner.py",
+      "drill": "tools/claude-hooks/tests/test_cd_fehlschlag_ketten_scanner.py",
+      "built": "2026-09-14",
+      "ref": "docs/retros/session-retro-2026-09-14-platform-b7822e.md (B12, Recurrence Memory x3)",
+      "note": "Eine Bash-Kette wechselt per `cd <pfad-oder-$VAR>` in ein Worktree-/Variablen-Ziel und haengt weitere Befehle mit `;`/Zeilenumbruch an, ohne Abbruch bei fehlgeschlagenem `cd` (`|| exit`/`|| return`, `&&`-Verkettung, `set -e` am Anfang). Realfall: Worktree nach Merge geraeumt, `cd $W; git switch -c …` lief im platform-Haupt-Tree weiter; ein Guard fing dort zufaellig den HEAD-Wechsel ab. Drei Memory-Vorkommen (2026-09-04 x2, 2026-09-14), vorher KEIN Gate. Nur Worktree-/Variablen-Ziele zaehlen — `cd ~/github/platform && …` ist Alltag und kein raeumbares Ziel. PreToolUse(Bash), Klartext auf stdout statt hookSpecificOutput: PreToolUse kennt `additionalContext` nicht, nur `permissionDecision` (allow=stumm, ask=haelt an, deny=blockt) — Klartext ist der bereits belegte Weg (tools/hooks/foreign_clone_check.sh).",
+      "faengt": [
+        {
+          "fall": "cd $W; weiterer Befehl ohne Abbruch-Guard",
+          "probe": "test_should_flag_cd_without_abort_guard_into_worktree_target"
+        },
+        {
+          "fall": "cd \"$W\" || exit 1; … ist die sichere Form und darf nicht feuern",
+          "probe": "test_should_not_flag_cd_with_exit_guard"
+        },
+        {
+          "fall": "cd ~/github/platform && … (Haupt-Tree, kein raeumbares Ziel)",
+          "probe": "test_should_not_flag_literal_repo_path_target"
+        }
+      ],
+      "zustand": "schranke",
+      "erzwungen_seit": "2026-09-14",
+      "expires": "2026-10-31",
+      "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet.",
+      "positivkontrolle": {
+        "ref": "docs/retros/session-retro-2026-09-14-platform-b7822e.md",
+        "datum": "2026-09-14"
+      }
     }
   ],
   "_positivkontrolle_doc": "`positivkontrolle: {ref, datum}` je Gate: der Beleg, dass das Gate den Fall, gegen den es gebaut wurde, auch WIRKLICH getroffen hat — ein roter Lauf am Realfall, ein gefangener Fixture-Fall, eine benannte Fundstelle. Eingefuehrt 2026-09-02 (platform#2690 K4), gelesen von tools/gate_verankerung_check.py. ABGRENZUNG zu `faengt`: dessen Pruefer (gate_namensdeckung.py) zieht die Grenze im eigenen Kopf woertlich — 'Er misst NICHT, ob der Test den Fall wirklich abfaengt'. `faengt` belegt, dass der namensgebende Fall im Drill VORKOMMT; die Positivkontrolle belegt, dass das Gate bei diesem Fall ROT wurde. Zwei Aussagen, und die zweite fehlte im Schema. Ein Gate ohne sie ist ein Melder, der nie beweisen musste, dass er etwas finden kann. KEIN eigenes Feld bekommt dagegen der Messpunkt: gate_wirkung.py misst auf `slug` (gesucht in recurring_findings/gates_caught/SURVIVES-Zeilen) und `revised or built` — ein drittes Feld waere eine zweite Wahrheit ueber denselben Messpunkt. Bestandsschutz: die 30 am 2026-09-02 registrierten Alt-Gates tragen das Feld nicht; es wird beim naechsten Anfassen eingefordert (`--neu`), nicht per Sammel-Rot — das aktive Nachziehen ist getrackt in platform#2703.",
