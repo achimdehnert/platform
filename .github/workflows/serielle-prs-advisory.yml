@@ -104,8 +104,8 @@ jobs:
 
           if [ -n "$EXISTING_ID" ]; then
             gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$EXISTING_ID" \
-              -f body=@"$BODY_FILE"
+              -F body=@"$BODY_FILE"
           else
             gh api --method POST "repos/$GITHUB_REPOSITORY/issues/${{ github.event.pull_request.number }}/comments" \
-              -f body=@"$BODY_FILE"
+              -F body=@"$BODY_FILE"
           fi
