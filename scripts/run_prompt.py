@@ -69,7 +69,12 @@ def _schluessel_fuer(anbieter: str) -> str:
         return os.environ[var]
     datei = Path.home() / ".secrets" / _KEY_DATEI.get(anbieter, "")
     if _KEY_DATEI.get(anbieter) and datei.exists():
-        return datei.read_text().strip()
+        # Einziger Leser fuer Secret-Dateien — versteht bare UND NAME=WERT
+        # (platform#3129).
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+        from infra.lib.secrets import secret_wert  # noqa: PLC0415
+
+        return secret_wert(datei)
     return ""
 
 

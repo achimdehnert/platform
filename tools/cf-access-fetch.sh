@@ -57,6 +57,8 @@
 set -euo pipefail
 
 SECRET_DIR="${CF_SECRET_DIR:-$HOME/.secrets}"
+# Toleranter Leser (bare UND NAME=WERT, platform#3129) — nie selbst lesen.
+LESER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/secret_lesen.sh"
 ID_FILE="$SECRET_DIR/cf_svc_client_id"
 SECRET_FILE="$SECRET_DIR/cf_svc_client_secret"
 
@@ -89,8 +91,8 @@ config_datei() {
   datei="$(mktemp)"
   chmod 600 "$datei"
   {
-    printf 'header = "CF-Access-Client-Id: %s"\n' "$(tr -d '\r\n' <"$ID_FILE")"
-    printf 'header = "CF-Access-Client-Secret: %s"\n' "$(tr -d '\r\n' <"$SECRET_FILE")"
+    printf 'header = "CF-Access-Client-Id: %s"\n' "$("$LESER" "$ID_FILE")"
+    printf 'header = "CF-Access-Client-Secret: %s"\n' "$("$LESER" "$SECRET_FILE")"
   } >"$datei"
   echo "$datei"
 }

@@ -29,12 +29,12 @@ if [ "${1:-}" = "--selftest" ]; then
   exit 0
 fi
 
-LOKAL=$(python3 - <<'PY'
-import hashlib, pathlib
-v = (pathlib.Path.home() / ".secrets/orchestrator_mcp_api_key").read_text().strip()
-print(hashlib.sha256(v.encode()).hexdigest()[:12])
-PY
-) || { echo "nicht prüfbar: Schlüsselkasten nicht lesbar" >&2; exit 2; }
+# Toleranter Leser (bare UND NAME=WERT, platform#3129) — nie selbst lesen.
+LESER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/secret_lesen.sh"
+WERT=$("$LESER" orchestrator_mcp_api_key) \
+  || { echo "nicht prüfbar: Schlüsselkasten nicht lesbar" >&2; exit 2; }
+LOKAL=$(printf '%s' "$WERT" | sha256sum | cut -c1-12)
+unset WERT
 
 SERVER=$(ssh -o ConnectTimeout=10 hetzner-prod \
   "grep -m1 '^ORCHESTRATOR_MCP_API_KEY=' /opt/mcp-hub/.env.prod | cut -d= -f2- | tr -d '[:space:]' | sha256sum | cut -c1-12" \

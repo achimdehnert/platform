@@ -123,7 +123,12 @@ def _github_token() -> str:
     if not token:
         path = Path.home() / ".secrets" / "github_PAT"
         if path.exists():
-            token = path.read_text().strip()
+            # Einziger Leser fuer Secret-Dateien — versteht bare UND NAME=WERT
+            # (platform#3129).
+            sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+            from infra.lib.secrets import secret_wert  # noqa: PLC0415
+
+            token = secret_wert(path)
     if not token:
         print("WARN: Kein GitHub-Token — Rate-Limit trifft ggf. an", file=sys.stderr)
     return token or ""

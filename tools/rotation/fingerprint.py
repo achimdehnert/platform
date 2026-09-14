@@ -21,6 +21,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import os
+import sys
 from pathlib import Path
 
 #: Wandert in jede Log-Zeile. Bei Schluessel- oder Verfahrenswechsel hochzaehlen.
@@ -39,8 +40,13 @@ class SchluesselFehlt(RuntimeError):
 
 def lade_schluessel(pfad: Path | None = None) -> bytes:
     pfad = pfad or SCHLUESSEL_PFAD
+    # Einziger Leser fuer Secret-Dateien — versteht bare UND NAME=WERT
+    # (platform#3129). Bytes, weil der Schluessel Schluesselmaterial ist.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from infra.lib.secrets import secret_bytes
+
     try:
-        roh = pfad.read_bytes()
+        schluessel = secret_bytes(pfad)
     except OSError as fehler:
         raise SchluesselFehlt(
             f"HMAC-Schluessel nicht lesbar: {pfad}\n"
@@ -50,7 +56,6 @@ def lade_schluessel(pfad: Path | None = None) -> bytes:
             "alle bisherigen Fingerabdruecke unvergleichbar (Inventar-Eintrag "
             "platform.ROTATION_HMAC_KEY)."
         ) from fehler
-    schluessel = roh.strip()
     if len(schluessel) < 16:
         raise SchluesselFehlt(
             f"HMAC-Schluessel in {pfad} ist kuerzer als 16 Byte — zu schwach."

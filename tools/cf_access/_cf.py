@@ -25,7 +25,12 @@ TOKEN_DATEI = Path.home() / ".secrets" / "cloudflare_write_token"
 def token() -> str:
     if not TOKEN_DATEI.exists():
         sys.exit(f"FEHLER: {TOKEN_DATEI} fehlt — ohne Write-Token geht DNS nicht.")
-    wert = TOKEN_DATEI.read_text().split()
+    # Einziger Leser fuer Secret-Dateien — versteht bare UND NAME=WERT
+    # (platform#3129).
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from infra.lib.secrets import secret_wert
+
+    wert = secret_wert(TOKEN_DATEI).split()
     if not wert:
         sys.exit(f"FEHLER: {TOKEN_DATEI} ist leer.")
     return wert[0]
