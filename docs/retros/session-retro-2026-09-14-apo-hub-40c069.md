@@ -179,3 +179,32 @@ Kandidat `ux-review-falsifikator-spruch` — Belegart **kein Effekt**: /ux-revie
 
 ## Self-Review
 Meta-Agent (Phase 5, Sonnet, nur Report gegen Skill): `refuted_rate` stand im Entwurf auf 0,23, weil die 3b-Widerlegung von #2 eingerechnet war; schemakonform (`(phase3_refuted+pre_refuted)/findings_total`) sind es 4/22 = 0,18 — korrigiert, die 3b-Widerlegung bleibt im Abschnitt Widerlegung. 0,18 liegt knapp unter der 0,2-Marke; `retro_kpis.py` führt frühere Werte von 0,10/0,12/0,14 bei „Band gesund". §7 war im Entwurf noch offen und ist jetzt aus dem Soll-Ablauf abgeleitet. Der Beleg zu #21 (`git grep -i "TZ="`) nannte 0 Treffer, tatsächlich 1 irrelevanter Docstring — korrigiert. Stichprobe von 8 Befund-Belegen, 2 Längsschnitt-Claims und 2 Transkript-Zeitstempeln: sonst exakt. Die Korrektur der Sammel-Zähler (#19) wurde vor dem Posten mit einer Summenprüfung nachgezählt (38 Zeilen: 30 befund, 8 ok); ein erster awk-Zähler lieferte nur 29 Zeilen und wurde verworfen.
+
+## Anhang: Transkript-Zitate
+
+Die Beleg-Spalte nennt für Session-Ereignisse Zeitstempel (UTC, 2026-09-14) aus dem Rohtranskript `~/.claude/projects/-home-devuser-github-apo-hub/76b058d9-d9d6-4932-8ec9-44ced240c069.jsonl`. Damit die Belege den Kontextverlust überleben, steht hier je Zeitstempel die erste passende Originalzeile (gekürzt auf 220 Zeichen, Secret-Muster geschwärzt).
+
+| Befund | Zeit (UTC) | Originalzeile |
+|---|---|---|
+| #4 | 07:23:04 | ¦ 5 ¦ `git stash` ist in diesem Repo geteilt (Worktrees teilen `.git`) ¦ versehentlich fremden, vorbestehenden Stash gepoppt beim Red/Green-Check; sauber via `git checkout HEAD -- &lt;Datei&gt;` zurüc |
+| #5 | 07:21:20 | ¦ 4 ¦ PR-Body-Datei im geteilten Scratchpad wurde von einem parallel laufenden Agenten (Issues #100/#101/#103/#109) überschrieben, bevor `gh pr create` sie las ¦ Falscher Body auf PR #117 gelandet, so |
+| #6 | 07:27:46 | KONFLIKT verfuegbarkeit-loeschen |
+| #6 | 07:28:06 | KONFLIKT forms-validierung: apps/web/forms.py |
+| #6 | 07:50:35 | mergeable=CONFLICTING |
+| #7 | 07:12:04 | B9 widerlegt einig= False ¦ Regel 2 greift: Der Befund behauptet eine Absenz (Felder leer) und das Feld gegenprobe enthält Treffer (8 DateInput-Definitionen), daher wird die Behauptung widerlegt. |
+| #8 | 07:08:12 | SyntaxError: unterminated string literal (detected at line 6) |
+| #8 | 07:33:50 | SyntaxError: unterminated string literal (detected at line 4) |
+| #9 | 07:29:47 | KeyError: 'UXR_OWNER_PW' |
+| #9 | 07:30:18 | …w-rollen-064536; echo \"=== seed env vars ===\"; grep -oE \"environ\\[['\\\"][A-Z_]+['\\\"]\\]¦environ.get\\(['\\\"][A-Z_]+\" $SP/seed_uxr.py ¦ sort -u; echo \"=== Template-Reste Profile.__str__ ===\" |
+| #9 | 07:30:46 | KeyError: 'UXR_SUB2_PW' |
+| #9 | 07:31:04 | KeyError: 'UXR_SUB2_PW' |
+| #10 | 07:18:29 | …ist KEINE Nutzer-Ablehnung, sondern Maschinen-Feedback): ⚠️ evidence-discipline check: deine letzte Antwort enthält eine prüfbare Behauptung (universal-claim), aber dieser Turn hat keinen Tool-Lauf, d |
+| #10 | 07:18:34 | {"command": "git worktree list ¦ grep -c 'ux-review/2026-09-14/' ; git worktree list ¦ grep 'ux-review/2026-09-14/' ¦ awk '{print $NF}'", "description": "Count fix worktrees on ux-review branches"} |
+| #10 | 10:21:17 | …ist KEINE Nutzer-Ablehnung, sondern Maschinen-Feedback): ⚠️ evidence-discipline check: deine letzte Antwort enthält eine prüfbare Behauptung (published-body (PR/Issue-Body-Claim ohne Read-Beleg im Tur |
+| #10 | 10:21:23 | {"command": "gh issue view 104 -R achimdehnert/apo-hub --json comments --jq '.comments[-1].body' ¦ grep -nE 'PlzCentroid 10813 PostalCode 14647¦Altsystem-PLZ: 14647¦stammdaten.html:35'", "description" |
+| #11 | 07:51:01 | <tool_use_error>Blocked: sleep 30 followed by: bash /tmp/claude-1000/-home-devuser-github-apo-hub/76b058d9-d9d6-4932-8ec9-44ced240c069/scratchpad/merge_one.sh 116 echo "exit=$?". To wait for a conditi |
+| #11 | 07:51:04 | …hub-apo-hub/76b058d9-d9d6-4932-8ec9-44ced240c069/scratchpad/merge_one.sh 116; echo \"exit=$?\"", "description": "Merge PR 116 after conflict resolution and watch deploy", "timeout": 600000} |
+| #12 | 09:22:34 | …-Aufruf scheitert: pg_dumpall: error: query failed: FATAL:  terminating connection due to administrator command |
+| #22 | 08:56:35 | …ettings-Regel, dann prüfe ich künftig direkt. Beispiel für `settings.json`: |
+| #22 | 09:10:32 | 41 go  42 ich Erlaube Prod-Reads per Settings-Regel |
+| #22 | 09:39:38 | - **[42]** 🟢 **Vorschlag, erweitert meine Macht:** Eintrag in `~/.claude/settings.json` unter `permissions.allow`. Die Regel ist bewusst eng: Shell-Zugriff nur auf den apo-hub-Container auf prod-b. Ei |
