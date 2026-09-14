@@ -122,10 +122,10 @@ Invariante: 9 Soll-Schritte = 9 überlebende Befunde.
 |---|---|---|---|---|---|
 | 1 | 0004 mit Verlaufseintrag | apo-hub | apo-hub#138 | ✅ done | Merge durch Owner |
 | 2 | #138 Nicht-verifiziert-Block | apo-hub | apo-hub#138 | ✅ done | — |
-| 3 | Hook leere body-file | platform | — | 🟢 offen | Vorschlag freigeben (du) |
-| 4 | ux-review: Bündelregel | platform | — | 🟢 offen | Ausnahme ja/nein (du) |
-| 5 | Memory-Kandidaten #9/#13 | apo-hub | — | 🟢 offen | bestätigen (du) |
-| 6 | Streichkandidat Sammler | platform | — | 🟢 offen | streichen ja/nein (du) |
+| 3 | Hook leere body-file | platform | platform#3184 | 🟡 wip | mergen, lokal installieren (du) |
+| 4 | ux-review: Bündelregel | platform | platform#3184 | 🟡 wip | mergen (du) |
+| 5 | Memory-Kandidaten #9/#13 | apo-hub | — | ✅ done | — |
+| 6 | Streichkandidat Sammler | platform | platform#3184 | 🟡 wip | mergen (du) |
 
 ## 8. Nicht verifiziert (Restlücken)
 
@@ -133,6 +133,10 @@ Invariante: 9 Soll-Schritte = 9 überlebende Befunde.
 - Zeilenzahl, die Migration 0004 in Prod ändert (#13). Billigster Check: freigegebene Zählabfrage `Request.objects.filter(requester_role="substitute", status=30).count()`.
 - Prod-Reichweite von #133/#136 (Prod-Read abgelehnt). Billigster Check: Zählabfrage mit Owner-Freigabe.
 - Ob `make test` in den Worktrees läuft (#3 Soll). Billigster Check: `make test` in einem Worktree.
+
+### Nachtrag nach Abschluss (Umsetzung der Maßnahmen)
+
+Beim Umsetzen gefunden, nicht durch die Finder: Der ux-review-Skill machte `gegenprobe_treffer` seit platform#3171 (`0e0a3fdb`, 2026-09-14 12:21Z) zur Pflicht (Step 5b/G13). Die Session lud den Skill um 13:58Z aus der verteilten Kopie (`MANAGED-BY … source_commit=72e7f8635346`), die das Feld nicht kannte. Die Befund-Eingaben enthielten es deshalb nicht (0 Treffer in der Falsifikator-Eingabe). Der Falsifikator sprach bei #130 „widerlegt" nach genau der Regel 2, die #3171 deterministisch gemacht hatte (Bericht apo-hub#137, R7). Nachbar-Slug `skill-copy-not-redistributed` ist in `retro_kpis.py` als bewusst ohne Gate geführt. Kein neuer Befund-Slug, aber ein weiterer Realfall für diese Owner-Entscheidung.
 
 ## Widerlegung
 
