@@ -460,3 +460,43 @@ Bei Nightly-Läufen: Report nur bei FAIL oder Abweichung >10 % zum Vortag eskali
   wächst von 3 auf 7: + `risk-hub:ADR-049`, `pptx-hub:ADR-004`, `writing-hub:ADR-184`,
   `writing-hub:ADR-197`. Beleg als Kommentar an
   [platform#1733](https://github.com/achimdehnert/platform/issues/1733).
+- 2026-09-14: **Manueller Lauf (Session risk-hub), Step 0 gefahren.** fetch + ff-only über
+  alle 25 Repos: 24 bereits auf `origin/main`, writing-hub 2 Commits fast-forwarded (kein
+  Diff in `klickdummy/` oder `docs/adr/`), dev-hub weiter Nicht-ff (48 Commits hinter,
+  9 dirty Dateien, platform#2865 offen). Quelländerung seit dem 13.09.-Report (`git log
+  --since` über `klickdummy/` + `docs/adr/`, alle 25 Repos): **keine** ⇒ Erwartung
+  0 `written: true`. R3 PASS: 176/176 `ok`, 0 failed, 25 Repos, Producer `iil-klickdummy
+  1.35.0`, 176 Zeilen = 176 unique `entry_key`, Schema-WARNs 177 unverändert (pg-hub 110,
+  design-hub 36, nl2iot-hub 31, alle getrackt). Discovery 28, frist-hub/meiki-hub/ttz-hub
+  gov-ausgeschlossen (E3) → 25. 6 Sonnet-Worker à 27 Entries, 14 Entries inline
+  (7 `\n\n` + 7 Kipp-Entries laut 13.09.).
+  **`written: true` = 7, davon 0 legitim.**
+  (a) **Die 5 Inline-Kipper sind exakt die 5 Entries, die am 13.09. inline korrigiert
+  wurden** (`risk-hub:ADR-049`, `pptx-hub:ADR-004`, `writing-hub:ADR-184`/`190`/`197`);
+  die 9 übrigen Inline-Entries (zuletzt vor dem 08.09. oder nie korrigiert) kamen als
+  dedup zurück. 5 von 5 gegen 0 von 9 ist keine Zufallsverteilung: der Inline-Schrieb vom
+  13.09. und der von heute liefern für dieselbe unveränderte Quelle verschiedene Bytes.
+  Für `writing-hub:ADR-190` ist das der dritte Tag in Folge (12.→13.→14.09.). Sichtprüfung
+  des heutigen Store-Stands an allen bekannten Kipp-Stellen (U+201E + ASCII `"`, Umbrüche
+  nach `und`/`der`/`ein`, Ellipse `…`, Tail `\n`): keine Abweichung sichtbar — wie am
+  13.09., wo das ebenfalls nichts bewies. **Konsequenz:** die „feste Inline-Liste"
+  (12./13.09.) ist kein Fix, sondern verschiebt den Fehler vom Worker auf das Hauptmodell;
+  jede Inline-„Korrektur" ist selbst der Kandidat für das nächste `written: true`, und
+  ohne `content_hash` im Search-Ergebnis ist nicht entscheidbar, welcher von zwei Ständen
+  der richtige ist. platform#2462 (Transport ohne LLM) ist damit der einzige verbleibende
+  Weg, nicht eine Option.
+  (b) Worker 2 meldete 2 Abweichungen selbst, per `diff` gegen den JSON-dekodierten Text
+  belegt — **siebte und achte Variante:** `risk-hub:ADR-057` (Backticks um `hub` in
+  `` `hub`-Screen-Badge `` verloren, dazu Großschreibung), `risk-hub:ADR-058`
+  (`"Option A — additive"` → `additiv`, die englische Endung der Quelle „korrigiert").
+  Beide an Stellen, die „falsch aussehen". Korrektur inline (2× `written: true`).
+  Nebenbefund: Worker 3, 4 und 5 dekodierten das NDJSON per `python3 json.loads` in
+  Einzeldateien statt manuell — 0 Abweichungen bei 81 Entries; Worker 2 (manuelles
+  Decoding) 2 von 27. Ein Lauf, kein Beweis, aber der billigste nächste Hebel für den
+  Worker-Brief.
+  **Log-Befund:** `~/logs/klickdummy-pgvector-sync.log` trägt für 12.09. und 13.09.
+  **keinen** Report-Block, nur je eine Abschlusszeile („warte auf Merge-Status von
+  PR #3114") — der Changelog hat beide Läufe, das Log nicht. Die Referenz-Regel vom
+  23.08. („richtige Referenz ist der letzte Report-Block im Log") lief damit an zwei
+  Tagen leer; heute wurde gegen den Changelog gemessen. Beleg als Kommentar an
+  [platform#1733](https://github.com/achimdehnert/platform/issues/1733).
