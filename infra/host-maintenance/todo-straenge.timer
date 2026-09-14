@@ -1,0 +1,10 @@
+[Unit]
+Description=Strang-Cache des todo-boards alle 15 Minuten nachziehen
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=15min
+Persistent=false
+
+[Install]
+WantedBy=timers.target

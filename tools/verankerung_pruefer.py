@@ -138,6 +138,11 @@ GROQ_DEFAULT_MODELL = "openai/gpt-oss-120b"
 #: Zweifel bis zum Kontextende weiter — auf einer Maschine ohne GPU kostet das
 #: Minuten je Segment, ohne dass ein besseres Urteil dabei herauskommt.
 MAX_ANTWORT_TOKEN = 160
+#: Groq-Pfad: gpt-oss denkt vor der Antwort. Mit 160 Token blieb die Generation
+#: leer und Groq antwortete 400 json_validate_failed (gemessen 2026-09-14, PR
+#: #3179, dasselbe Muster wie tools/todo_board/straenge.py). Die Antwort selbst
+#: bleibt kurz — das Budget ist fuer den Denkschritt.
+GROQ_MAX_ANTWORT_TOKEN = 4000
 #: Je Segment im Stapel; der Deckel waechst mit der Stapelgroesse.
 STAPEL_ANTWORT_TOKEN = 96
 #: Wie viele Segmente in EINEN Aufruf gehen. 0 schaltet den Stapel ab.
@@ -537,7 +542,8 @@ def groq_klassifikator(
                 "model": modell,
                 "messages": [{"role": "user", "content": PROMPT % text}],
                 "temperature": 0,
-                "max_tokens": MAX_ANTWORT_TOKEN,
+                "max_tokens": GROQ_MAX_ANTWORT_TOKEN,
+                "reasoning_effort": "low",
                 "response_format": {"type": "json_object"},
             }
         ).encode()
@@ -594,7 +600,8 @@ def groq_bestaetiger(
                     }
                 ],
                 "temperature": 0,
-                "max_tokens": MAX_ANTWORT_TOKEN,
+                "max_tokens": GROQ_MAX_ANTWORT_TOKEN,
+                "reasoning_effort": "low",
                 "response_format": {"type": "json_object"},
             }
         ).encode()
