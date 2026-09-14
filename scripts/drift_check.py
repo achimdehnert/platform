@@ -240,7 +240,14 @@ def _github_token() -> str:
         if v := os.environ.get(env_var):
             return v
     path = Path.home() / ".secrets" / "github_PAT"
-    return path.read_text().strip() if path.exists() else ""
+    if not path.exists():
+        return ""
+    # Einziger Leser fuer Secret-Dateien — versteht bare UND NAME=WERT
+    # (platform#3129).
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from infra.lib.secrets import secret_wert  # noqa: PLC0415
+
+    return secret_wert(path)
 
 
 def _api_get(path: str, token: str) -> dict | list | None:

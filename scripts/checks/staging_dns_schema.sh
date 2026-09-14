@@ -3,7 +3,9 @@
 # Fails if any *-staging.iil.pet record exists in CF zone iil.pet.
 set -euo pipefail
 
-TOKEN=${CLOUDFLARE_WRITE_TOKEN:-$(cat ~/.secrets/cloudflare_write_token 2>/dev/null || true)}
+# Toleranter Leser (bare UND NAME=WERT, platform#3129) — nie selbst lesen.
+LESER="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/tools/secret_lesen.sh"
+TOKEN=${CLOUDFLARE_WRITE_TOKEN:-$("$LESER" cloudflare_write_token 2>/dev/null || true)}
 [ -n "$TOKEN" ] || { echo "R1 SKIP: no cloudflare token"; exit 0; }
 
 ZONE_ID=$(curl -fsS -H "Authorization: Bearer $TOKEN" \

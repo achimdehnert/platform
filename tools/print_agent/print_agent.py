@@ -322,10 +322,16 @@ def get_secret(name: str) -> str | None:
     val = os.environ.get(name.upper())
     if val:
         return val
+    # infra/lib/secrets.py ist der einzige Leser fuer Secret-Dateien —
+    # er versteht bare UND NAME=WERT (platform#3129). Lokaler Import, weil
+    # dieses Modul sonst nur schwere Abhaengigkeiten zieht.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from infra.lib.secrets import secret_wert
+
     for base in SECRETS_DIRS:
         path = base / name.lower()
         if path.exists():
-            return path.read_text().strip()
+            return secret_wert(path)
     return None
 
 

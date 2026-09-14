@@ -158,7 +158,12 @@ def schluessel_lesen() -> str:
     if aus_env:
         return aus_env
     if SCHLUESSEL_DATEI.exists():
-        return SCHLUESSEL_DATEI.read_text("utf-8").strip()
+        # Einziger Leser fuer Secret-Dateien — versteht bare UND NAME=WERT
+        # (platform#3129).
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+        from infra.lib.secrets import secret_wert  # noqa: PLC0415
+
+        return secret_wert(SCHLUESSEL_DATEI)
     return ""
 
 
