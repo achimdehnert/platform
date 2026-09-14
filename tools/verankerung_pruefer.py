@@ -122,6 +122,12 @@ DEFAULT_HOST = "http://127.0.0.1:11434"
 
 #: Groq-Endpunkt (OpenAI-kompatibel) fuer ``--provider groq``.
 GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
+#: Eigene Kennung fuer jeden Groq-Aufruf. Ohne sie antwortet Cloudflare vor
+#: Groq mit HTTP 403 "error code: 1010" — die Standard-Kennung von urllib steht
+#: dort auf der Sperrliste. Gemessen 2026-09-14 (todo-board --vorwaermen: 101 von
+#: 101 Aufrufen 403/1010); Muster wie secrets_pruefen.USER_AGENT und
+#: ux_falsifikator.KENNUNG. Memory: feedback_provider_403_1010_is_cloudflare_not_the_key.
+GROQ_KENNUNG = "iil-platform/1.0 (+https://github.com/achimdehnert/platform)"
 #: T1a auf Groq lt. ``~/.claude/policies/llm-routing.md`` (Stand 2026-08-29,
 #: „Verified available"-Abschnitt): die Groq-Katalog-ID lautet
 #: ``openai/gpt-oss-120b`` — NICHT die Cerebras-Schreibweise ``gpt-oss-120b``
@@ -541,6 +547,7 @@ def groq_klassifikator(
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {schluessel}",
+                "User-Agent": GROQ_KENNUNG,
             },
         )
         try:
@@ -597,6 +604,7 @@ def groq_bestaetiger(
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {schluessel}",
+                "User-Agent": GROQ_KENNUNG,
             },
         )
         try:

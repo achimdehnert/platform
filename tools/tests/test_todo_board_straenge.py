@@ -404,3 +404,75 @@ def test_should_not_invent_a_date_for_text_without_one():
     ]
     jahr_ergaenzen(eintraege)
     assert eintraege[0][1]["datum"] == ""
+
+
+# --- Groq-Kennung und Cache-Treffer nach dem Vorwaermen (2026-09-14) -------
+
+
+def test_should_send_an_own_user_agent_to_groq(monkeypatch):
+    """Ohne eigene Kennung antwortet Cloudflare vor Groq mit 403/1010."""
+    gesehen = {}
+
+    class _Antwort:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return json.dumps(
+                {
+                    "choices": [
+                        {"message": {"content": '{"zuordnung": {"1": "Notizen"}}'}}
+                    ]
+                }
+            ).encode()
+
+    def _urlopen(req, timeout=None):
+        gesehen["ua"] = req.get_header("User-agent")
+        return _Antwort()
+
+    monkeypatch.setenv("GROQ_API_KEY", "dummy-fuer-den-test")
+    monkeypatch.setattr(straenge.urllib.request, "urlopen", _urlopen)
+
+    straenge._standard_klassifikator({"thread_key": "Angebot"}, [(1, "Text")])
+
+    assert gesehen["ua"] and "urllib" not in gesehen["ua"].lower()
+
+
+def test_should_hit_the_cache_on_render_after_warming(monkeypatch, tmp_path):
+    """Vorwaermen und Rendern bauen denselben Schluessel — sonst ist der Cache wertlos."""
+    vorgang = {
+        "nr": 901,
+        "thread_key": "Angebot Beispiel GmbH",
+        "notiz": "2026-08-01: Anfrage 'Angebot Beispiel GmbH' eingegangen. | 2026-08-03 GESENDET (Owner): Antwort raus.",
+    }
+    ledger = tmp_path / "ledger.json"
+    ledger.write_text(json.dumps({"vorgaenge": [vorgang]}), encoding="utf-8")
+    cache = tmp_path / "cache.json"
+    monkeypatch.setattr(straenge, "CACHE_DATEI", cache)
+    monkeypatch.setattr(
+        tb,
+        "_archiv_eintraege",
+        lambda nr, pfad=None: ["11.07. 09:00 Erstkontakt 'Angebot Beispiel GmbH'."],
+    )
+    aufrufe = []
+
+    def _klassifikator(v, eintraege):
+        aufrufe.append(len(eintraege))
+        return {"zuordnung": {str(n): "Angebot Beispiel GmbH" for n, _t in eintraege}}
+
+    monkeypatch.setattr(straenge, "_standard_klassifikator", _klassifikator)
+    assert straenge._vorwaermen(ledger, cache) == 0
+    assert aufrufe == [3]
+
+    def _darf_nicht(v, e):
+        raise AssertionError("Render darf nach dem Vorwaermen kein Modell aufrufen")
+
+    ergebnis = straenge.zuordnen(
+        vorgang, tb.strang_eingaben(vorgang), klassifikator=_darf_nicht
+    )
+
+    assert set(ergebnis.values()) == {"Angebot Beispiel GmbH"}
+    assert len(ergebnis) == 3

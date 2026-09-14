@@ -969,6 +969,23 @@ def _eintrag_links(nr, pfad: Path | None = None) -> dict:
     return eintrag if isinstance(eintrag, dict) else {}
 
 
+def strang_eingaben(v: dict) -> list[tuple[int, str]]:
+    """(nummer, text)-Paare, wie `gruppiere_straenge` sie an `straenge.zuordnen` gibt.
+
+    EINE Quelle fuer Rendern und `straenge.py --vorwaermen` (platform#3175): der
+    Cache-Schluessel haengt am exakten Text. Bis 2026-09-14 waermte das Kommando
+    mit dem Rohtext nur des aktiven Verlaufs vor, die Seite fragte mit dem
+    zerlegten Satztext inklusive Archiv — kein einziger Treffer moeglich.
+    """
+    roh = _archiv_eintraege(v.get("nr")) + [
+        t.strip() for t in str(v.get("notiz") or "").split(" | ") if t.strip()
+    ]
+    return [
+        (nummer, " ".join(zerlege_eintrag(text).get("saetze") or []))
+        for nummer, text in enumerate(roh, start=1)
+    ]
+
+
 def _archiv_eintraege(nr, pfad: Path | None = None) -> list[str]:
     """Der ausgelagerte Teil des Verlaufs — leer, wenn es kein Archiv gibt.
 
