@@ -3607,3 +3607,8 @@ gemeldet, per resetToOpen + Neubuchung repariert, jeder Beleg verifiziert; Fix i
 Vorzeichen-Test; Regel im Memory: erste Echtbuchung eines Schreibpfads an EINEM Beleg.
 Danach IIL: ein Beleg einzeln, dann fuenf weitere. Gesamt 31 Zuordnungen gebucht.
 Anker: pgvector `session:platform:20260913:20260913-b5c8d6c1` (Mittag), Issue-Kommentar #3102.
+
+## 2026-09-14 — Auftrag #3149: Secret-Leser Fleet, Groq rotiert, Gate-Revisionen, Räume (Sitzung 0117JBQX)
+
+Mailcheck 13.09. (97 Vorgänge, 6 neu, Ablage 7, Rausch-Regeln 66 → 225 Mails abgelegt), V1–V10 gebaut und gemergt, #3015 geschlossen und nach Retro-Befund zu K3 wieder geöffnet, Akte korrigiert (news-hub#51), erneut geschlossen. Groq-Schlüssel: Leck durch Sourcing einer bare-Datei, Owner rotiert, Verteilskript mit gepinnten Image-Tags und Schutz gegen Stack-Neuerzeugung; Variablenkonflikt im ersten Lauf, zweiter Lauf vollständig; Canary 200, Tageslauf 4 Themen, alte Schlüssel 401. S2: toleranter Leser platform #3141, 10 Fleet-PRs, Nachzügler, Schlüsseldateien bare 56 → 0, Hooks neu verteilt. Retro deep #3156 fand stillen Fehler in 5 Kopien → Fixture #3157 + 9 Kopien; Staging-Gate fing Startabbruch (risk-hub#753) und minio-Pull (#754). Gate-Revisionen #3160. Matrix: Räume zusammengelegt, Termine integriert mit Kalender anlegen/löschen (chat-hub#93, platform#3163); doppelte Raum-Session beendet → chat-hub#94. Worktree-Aufräumen per Datum traf fremde Worktrees; fsck-Positivkontrolle zeigte blinden deutschen Filter; nichts verloren (#3164). Zwei alte fremde Worktrees mit ungesicherter Arbeit behalten (Grund in `<gitdir>/behalten`).
+Anker: pgvector `session:platform:20260914:0117jbqx`; Outline-Lessons 2026-09-13 (Sourcing-Leck, Deploy vor Build) und 2026-09-14 (Worktree/fsck, Settings-Pfad-Fehler).

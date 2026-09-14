@@ -2524,3 +2524,28 @@ Wiedervorlage 14.09.) bleibt oben als Kurzzeile mit Anker auf den Schluss-Kommen
 **Befund Werkzeug:** beide Session-Worktrees dieser Sitzung wurden ueber Nacht entfernt (Leases `.closed`), obwohl ein PR offen (#3071) bzw. Commits ungepusht waren; Branches blieben erhalten, kein Verlust. Ursache nicht ermittelt — Reaper-Log ohne Eintrag.
 
 **Zielzustand:** Sitzungsziel „weiter mit Chat- und App-Funktionen" — **nicht erreicht** (Chat-Rundlauf negativ), **verschoben mit Tracking** (#3011 Entscheidung, mcp-hub#264 Befund). Go-Punkte: erreicht bis auf 39/40/41/28 (Owner-Zug). **SA-4:** 0 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen. **SA-M:** 3 eigene Merges (#3068 M1 mit Owner-Zitat, #2984 M2, alle W1). **Scope-Checkpoint:** in #3011 festgehalten. **0h fremder Blick:** 0d — alle fünf Kriterien ERFÜLLT mit Beleg (Grauton: D2 stand formal noch auf „entschieden“, jetzt „revision offen“); 0e — drei JA (0h-Ergebnis fehlte im Log, Sitzungs-ID ohne Anker, Fäden 22/24 ohne Link), alle drei im selben Zug behoben ([#3090](https://github.com/achimdehnert/platform/issues/3090)). **Dauerhafte Anker der Sitzung:** pgvector `session:platform:20260911:577a8b8c`, Outline-Lesson `2026-09-10-gateway-galt-als-deployt-…-ZqOAZ2fog7`, Konzept `…-058-spbZ8iixmq` (Stand 2026-09-11).
+
+<!-- ausgelagert 2026-09-14 aus AGENT_HANDOVER.md (Sitzung 0117JBQX): Stand-Bloecke 2026-09-13 und 2026-09-12, Byte-Deckel 20 kB -->
+## ⚡ Stand (2026-09-13 — sevdesk-Belegstrecke K9 gebaut und im Echtlauf, EDV-Rechnungen fortgeschrieben)
+
+**Zeitanker:** HEAD `46261dd7` · `rev-list --count` 4435 · geschrieben 2026-09-13
+
+**K9 Belegbeschaffung ([#3102](https://github.com/achimdehnert/platform/issues/3102)):** `tools/sevdesk/belegbeschaffung.py` holt Rechnungs-PDFs aus dem IIL-Postfach und der Owner-Ablage `~/shared/inbox/invoices/`, ordnet sie Bankabgaengen zu und legt Beleg-Entwuerfe in beiden Mandanten an (PRs #3117/#3119/#3120/#3121; Register lokal unter `~/.claude/`). Mittag: 20 Entwuerfe, 11 Eigenbelege (Scribd), 9 IIL-Eingangsbelege der EDV-Rechnungen (5900); Owner-Regeln (6837, Mandant edv fuer KI-Abos/Bibliocad/GitHub-privat, Spotify privat) im Register. Versand per API geblockt — Owner sendet selbst.
+
+**EDV → IIL:** 23 Rechnungen seit 04/2024 geprueft, Monatspaket 2.350 EUR netto war bis 30.11.2025 abgerechnet; RE-1024–RE-1032 (Dez 2025–Aug 2026) angelegt, 8 vom Owner versendet, RE-1028 noch Entwurf; 5 Rechnungen aus 2025 (RE-1018–1022, 47.957 EUR) unbezahlt. edv verlangt `invoice[taxRate]` (#3112).
+
+**Befunde:** [#3115](https://github.com/achimdehnert/platform/issues/3115) origin-tls gpu-ollama nicht messbar · [#3116](https://github.com/achimdehnert/platform/issues/3116) Auftragsraum zaehlt `?` als Wort · #3118 Parser-Nachlauf (geschlossen) · Merge-502 mit Commit auf main, Pipe-maskierter Format-Check, erfundene Issue-Nummer im Subagent-Commit (alle im Memory/Log).
+
+**Nachmittag (abends):** EDV-Konto erstmals abgeglichen, Register 39 Eintraege (Mail/intern/Portal). Werkzeuge: `--ohne-dokument` (#3133), Parser + Kostenabgleich 1:1 (#3134), Login ohne Kontozeile (#3131), Entwuerfe buchen + `--nicht-buchen` (#3136), Vorzeichen-Fix (#3138 — erste Echtbuchung uebergab den Zahlbetrag positiv, 25 Belege repariert und verifiziert). Angelegt edv 71 / iil 11, **gebucht edv 25 / iil 6**. Owner-Reste im [#3102-Kommentar](https://github.com/achimdehnert/platform/issues/3102#issuecomment-5652883200); Test-Leak [#3135](https://github.com/achimdehnert/platform/issues/3135); Memory `feedback_bookamount_ausgabe_negativ_fakes_verdecken_vorzeichen`.
+
+**Zielzustand:** K9 Werkzeug-Kriterien erfuellt (fremder Blick 0d: 6 von 7 mit Beleg), Massstab **nicht erreicht** — 2/17 Lieferanten-Abgaenge mit Beleg, beide vorbestehend, weil die fehlenden Rechnungen nicht im Postfach liegen (Belegquelle, nicht Werkzeug); Owner-Reste (RE-1028, GitHub Mai–Juli, Microsoft Juni/Juli, Dashlane, Newshosting, 20.000 hin/zurueck) im [#3102-Kommentar](https://github.com/achimdehnert/platform/issues/3102#issuecomment-5652883200) getrackt. **SA-4:** 4 Anwendungen (Merges unter SA-M W1/M1) · 0 Einzel-OK · 0 Fehlanwendungen. **0h fremder Blick:** siehe Log. Anker: pgvector `session:platform:20260913:20260913-b5c8d6c1`.
+
+## ⚡ Stand (2026-09-12 abends — Auftragsraum fertig, fav0 live, sevdesk-Routinen #3102)
+
+**Zeitanker:** HEAD `442d4269` · `rev-list --count` 4428 · geschrieben 2026-09-12
+
+**Auftragsraum Stufe 1** ([#3079](https://github.com/achimdehnert/platform/issues/3079)): Werkzeug (#3087), `--erledigt` (#3085), Skill-Zeilen (#3088), `chat_lotse.py history` (chat-hub#88, #3086 zu). **Morgen-Zeitung:** zweite Quelle fav0.com (news-hub#44, deployt, Tageslauf verdrahtet, [news-hub#45](https://github.com/achimdehnert/news-hub/issues/45)).
+
+**sevdesk-Routinen [#3102](https://github.com/achimdehnert/platform/issues/3102)** (SA-4): Rechnungslauf mit Versand-Gate (#3105), Timer am 10. (#3107), Zahlungsabgleich (#3103), Kostenabgleich + `--mandant` (#3108), Eingangsbelege (#3104), Fixes (#3109). Owner-Befunde in Ledger 210/211.
+
+**Zielzustand:** #3015 und #3079 Stufe 1 erreicht; #3102 K1–K5, K7 erreicht; K6/K8 verschoben mit Tracking (#3112, Akte); Drill K5 am 2026-10-10. **SA-4:** 0 Fehlanwendungen. **SA-M:** 8 eigene Merges (M1/M2), news-hub#44/chat-hub#88 M3.
