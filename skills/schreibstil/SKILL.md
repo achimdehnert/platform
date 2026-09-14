@@ -206,6 +206,8 @@ Drei Regeln dazu:
 
 - 2026-09-11 · hnu · gestrichen: „Was ocos von uns zurückbekommt: Vorgangs-ID, Status und Zeitstempel, sobald das Dokument einer Akte zugeordnet und im DMS abgelegt ist." (ganzer Absatz, Schnittstellen-Anfrage an ocos) · Grund (Hypothese, Owner nannte keinen): die erste Anfrage legt nur fest, was wir **brauchen**; ein Rückkanal ist eine eigene Zusage an die Gegenseite und gehört erst in die Mail, wenn er entschieden ist — **eine Anfrage, eine Richtung**
 
+- 2026-09-14 · hnu · gekürzt: Kapitel-Feedback zu einer Abschlussarbeit 1.012 → 376 Wörter, aus fünf Abschnitten mit Herleitung, Zitaten und Satzreparaturen wurden fünf nummerierte nächste Schritte, Kleinkram als Seitenliste · Grund: „antwort kürzen (max 1 page) als feedback zur arbeit mit next steps“ — eine Rückmeldung zur Arbeit ist ein Arbeitsauftrag; die Begründung, warum ein Punkt zählt, kürzt sich auf einen Satz je Schritt, die Belegkette gehört ins Gespräch
+
 ## 7 — Verhältnis zu anderen Regeln
 
 Dieser Skill ist die **kanonische Quelle für den Stil**. Die vier Repo-Memories
