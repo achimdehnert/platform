@@ -182,7 +182,9 @@ def test_should_exit_2_when_kennung_not_found(tmp_path, monkeypatch):
     acc = "achim.dehnert@iil.gmbh"
     cfg = _cfg(tmp_path, [acc])
     monkeypatch.setattr(mc, "get_access_token", lambda cfg, a: "tok")
-    monkeypatch.setattr(mc.requests, "get", lambda *a, **k: _FakeResp(200, {"value": []}))
+    monkeypatch.setattr(
+        mc.requests, "get", lambda *a, **k: _FakeResp(200, {"value": []})
+    )
     with pytest.raises(SystemExit) as exc:
         mc.cmd_delete(cfg, acc, _delete_args("000000000000"))
     assert exc.value.code == 2
