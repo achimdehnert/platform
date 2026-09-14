@@ -45,6 +45,9 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from infra.lib.secrets import ist_kv_zeile  # noqa: E402
+
 SECRETS = Path.home() / ".secrets"
 
 USER_AGENT = "secrets_pruefen/1"
@@ -69,6 +72,13 @@ def erkenne_form(inhalt: str) -> tuple[str, list[tuple[str | None, str]]]:
 
     ``werte`` ist eine Liste aus ``(name, wert)`` — bei ``bare`` ist der Name
     ``None``. Leere Zeilen und ``#``-Kommentare zaehlen nicht als Inhalt.
+
+    Ob eine Zeile ``kv`` oder ``bare`` ist, entscheidet ``ist_kv_zeile`` aus
+    ``infra.lib.secrets`` — dieselbe Regel wie ``secret_wert``. Ein
+    alphanumerischer nackter Wert mit ``=``-Auffuellung (``ABC=``/``ABC==``)
+    zaehlt dort als ``bare``, nicht als leere Variable; ohne diese
+    Wiederverwendung haetten Melder und Leser hier zwei verschiedene
+    Meinungen ueber dieselbe Datei bilden koennen (Refs #3155).
     """
     zeilen = [
         z for z in inhalt.splitlines() if z.strip() and not z.strip().startswith("#")
@@ -81,9 +91,10 @@ def erkenne_form(inhalt: str) -> tuple[str, list[tuple[str | None, str]]]:
     for z in zeilen:
         if "=" in z:
             name, _, wert = z.partition("=")
-            kv.append((name.strip(), wert))
-        else:
-            bare.append((None, z))
+            if ist_kv_zeile(name, wert):
+                kv.append((name.strip(), wert))
+                continue
+        bare.append((None, z))
 
     if kv and not bare:
         return "kv", kv

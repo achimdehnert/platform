@@ -44,6 +44,30 @@ def test_should_detect_bare_form_when_single_line_without_equals():
     assert werte == [(None, "ghp_geheimerwert")]
 
 
+def test_should_detect_bare_form_for_single_equals_padding():
+    # Refs #3155: "Abc123xyz=" ist die base64-Auffuellung eines nackten
+    # Werts, keine leere Variable "Abc123xyz=<leer>" — dieselbe Regel wie
+    # infra.lib.secrets.secret_wert.
+    form, werte = sp.erkenne_form("Abc123xyz=\n")
+
+    assert form == "bare"
+    assert werte == [(None, "Abc123xyz=")]
+
+
+def test_should_detect_bare_form_for_double_equals_padding():
+    form, werte = sp.erkenne_form("Abc123xyz==\n")
+
+    assert form == "bare"
+    assert werte == [(None, "Abc123xyz==")]
+
+
+def test_should_detect_bare_form_for_base64_value_with_slash_and_plus():
+    form, werte = sp.erkenne_form("ab+cd/ef==\n")
+
+    assert form == "bare"
+    assert werte == [(None, "ab+cd/ef==")]
+
+
 def test_should_detect_gemischt_form_when_kv_and_bare_lines_mix():
     form, _ = sp.erkenne_form("A=1\nnackter-wert\n")
 
