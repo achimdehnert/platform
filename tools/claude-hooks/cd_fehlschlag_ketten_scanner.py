@@ -61,7 +61,7 @@ GATE_HEADER = {
 
 #: Nur diese Ziele zaehlen als "gefaehrlich raeumbar": eine Variable (traegt
 #: ueblicherweise einen Worktree-Pfad) oder ein woertlicher Worktree-Pfad.
-#: ~/github/<repo> (Haupt-Tree) ist ausdruecklich NICHT enthalten — das ist der
+#: ~/github/<repo> (Haupt-Tree) gehoert absichtlich nicht zur Muster-Liste — das ist der
 #: stabile Ort, in den eine gescheiterte Kette im Realfall zurueckfaellt, aber
 #: fuer sich genommen kein raeumbares Ziel.
 _WORKTREE_ZIEL = re.compile(
