@@ -2549,3 +2549,13 @@ Wiedervorlage 14.09.) bleibt oben als Kurzzeile mit Anker auf den Schluss-Kommen
 **sevdesk-Routinen [#3102](https://github.com/achimdehnert/platform/issues/3102)** (SA-4): Rechnungslauf mit Versand-Gate (#3105), Timer am 10. (#3107), Zahlungsabgleich (#3103), Kostenabgleich + `--mandant` (#3108), Eingangsbelege (#3104), Fixes (#3109). Owner-Befunde in Ledger 210/211.
 
 **Zielzustand:** #3015 und #3079 Stufe 1 erreicht; #3102 K1–K5, K7 erreicht; K6/K8 verschoben mit Tracking (#3112, Akte); Drill K5 am 2026-10-10. **SA-4:** 0 Fehlanwendungen. **SA-M:** 8 eigene Merges (M1/M2), news-hub#44/chat-hub#88 M3.
+
+## 2026-09-15 — ausgelagert bei Sitzung ee405591 (Herkunft: AGENT_HANDOVER.md, Deckel: aktueller + ein vorheriger Stand)
+
+## ⚡ Stand (2026-09-14 — Secret-Leser Fleet, Groq rotiert, Gate-Revisionen, Räume; Sitzung 0117JBQX)
+
+**Zeitanker:** HEAD `226e41c7` · `rev-list --count` 4468 · geschrieben 2026-09-14
+
+**Auftrag [#3149](https://github.com/achimdehnert/platform/issues/3149) geschlossen:** Groq rotiert und verteilt, Zeitung liefert (news-hub#46); Schlüsseldateien bare 56 → 0 über toleranten Leser (#3141 + 10 Fleet-PRs, [#3129](https://github.com/achimdehnert/platform/issues/3129)); Fixture #3157 + 9 Kopien (#3155); Staging-Gate fing risk-hub#753/#754, Prod unberührt; Retro #3156, Gate-Revisionen #3160; Kalender-Löschen #3163; Termine in „Achim / Lotse" (chat-hub#93). Eigene Fehler gemeldet und verankert (Sourcing-Leck, Deploy vor Build, Worktree-Aufräumen per Datum → #3164). Älterer Stand 2026-09-12/13 im Archiv; der Referenz-Parser liest dort news-hub#44/chat-hub#88 als achimdehnert/hub#88 und chat-hub#88 ohne Org (#3165).
+
+**Zielzustand #3149:** K1–K6 erfüllt (fremder Blick 0d: K2 „teilweise", Gegenprobe über PR-Text und Issue-Body: vollständig). **SA-4:** 27 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen. **0h:** beide Agenten gelaufen, Lücken aus 0e geschlossen. Anker: pgvector `session:platform:20260914:0117jbqx`.
