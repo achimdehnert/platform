@@ -45,7 +45,7 @@ Fix-PR mit Gate-Test behoben oder als Hypothese/offen getrackt.
 - **A6 Bericht = Sammel-Issue** mit Stationstabelle (drei Zustaende + Datenlage), Zaehler
   `befund/ok/blind/bekannt`, Falsifikator-Spalte **neben** der Rohzahl, `Nicht verifiziert`.
   *Pruefung:* Output-Format bis `Nicht verifiziert` eingehalten.
-- **A7 Beheben (ohne `--nur-melden`):** je `fehler` ein Fix-PR mit Ursache `Datei:Zeile`, Gate-Test
+- **A7 Beheben (ohne `--nur-melden`):** je `fehler` ein Fix-PR (Buendelung nur nach Step 8 „Buendel-Ausnahme") mit Ursache `Datei:Zeile`, Gate-Test
   `test_should_…` (ohne Fix rot, mit Fix gruen — beides gemessen), Nachlauf klick-only mit derselben
   Datenlage; `--nur-melden` und Default liefern denselben Rohbericht. *Pruefung:* Block `Behoben`;
   `diff` beider Berichte bis `Nicht verifiziert` = 0 Zeilen.
@@ -291,6 +291,15 @@ Fix + Gate-Test (G27) → Nachlauf (G28) → PR `fix(<app>): <klasse> an <statio
 Merge (G29). `optimierung` nur bei benannter Referenz und kleinem Diff (ein Template/eine View), sonst
 `offen`. Mit `--no-issues` gibt es kein Issue zum Schliessen — der PR verlinkt Bericht und Tracking-Issue.
 
+**Buendel-Ausnahme (Owner-Entscheid 2026-09-14, Retro kbiAvn-incr #5):** Mehrere `fehler` duerfen in EINEN
+Fix-PR, wenn ein technischer Zwang sie verbindet — gemeinsame Migrationskette (sonst Nummern-Kollision),
+dieselbe Single-Source (z. B. FSM-YAML) oder derselbe Gate-Test. Pflicht dann: (1) der Grund steht
+**vor** dem ersten Commit als Kommentar im Sammel-Issue, (2) der PR fuehrt je Befund eine Zeile
+`#<n> · Ursache Datei:Zeile · Gate-Test` und ein eigenes „Nicht verifiziert", (3) die Commits bleiben je
+Befund-Gruppe getrennt. Bequemlichkeit oder „weniger Merges" sind kein Grund — ohne Zwang gilt je
+`fehler` ein PR. Realfall: apo-hub#138 buendelte sechs Befunde wegen Migrationen 0004–0006 und derselben
+FSM-YAML, der Grund stand aber nur im PR-Text.
+
 ## Klassen-Katalog (Gate-Vorlagen)
 
 | Klasse | Symptom | Klassen-Gate (Vorlage) · Realfall |
@@ -407,6 +416,9 @@ Zaehler: behoben <f> · offen <o> · hypothese <h> · Prod-Merge wartet <p>
 
 ## Changelog
 
+- 2026-09-14 (6, Owner-Entscheid aus Retro kbiAvn-incr #5): **A7/Step 8 Buendel-Ausnahme** — mehrere
+  `fehler` in einem Fix-PR nur bei technischem Zwang (Migrationskette, Single-Source, gemeinsamer
+  Gate-Test), Grund vorab im Sammel-Issue, je Befund Zeile + „Nicht verifiziert" im PR.
 - 2026-09-14 (5, E18-Praezisierung an platform#3168, Nachtrag zu R7): apo-hub#110 wiederholte R7 — die
   fuehrende Zahl in `gegenprobe` zaehlte Kandidaten statt Absenz. **G13** und Step 5b nennen jetzt
   `gegenprobe_treffer` (int, Pflicht bei Absenz-Befunden); `tools/ux_falsifikator.py` entscheidet Regel 2
