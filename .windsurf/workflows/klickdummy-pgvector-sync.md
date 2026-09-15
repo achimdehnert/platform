@@ -500,3 +500,52 @@ Bei Nightly-Läufen: Report nur bei FAIL oder Abweichung >10 % zum Vortag eskali
   23.08. („richtige Referenz ist der letzte Report-Block im Log") lief damit an zwei
   Tagen leer; heute wurde gegen den Changelog gemessen. Beleg als Kommentar an
   [platform#1733](https://github.com/achimdehnert/platform/issues/1733).
+- 2026-09-15: **Nightly-Lauf (03:17 UTC), Step 0 gefahren.** fetch + ff-only über alle
+  25 Repos: 21 bereits auf `origin/main`, 4 fast-forwarded (risk-hub 2, ausschreibungs-hub 2,
+  illustration-hub 1, writing-hub 26 Commits — keiner mit Diff in `klickdummy/` oder
+  `docs/adr/`), dev-hub weiter Nicht-ff (50 Commits hinter, 9 dirty Dateien, platform#2865
+  offen). Quelländerung seit dem 14.09.-Report (`git log --since` über `klickdummy/` +
+  `docs/adr/`, alle 25 Repos): **keine** ⇒ Erwartung 0 `written: true`. R3 PASS: 176/176
+  `ok`, 0 failed, 25 Repos, Producer `iil-klickdummy 1.35.0`, 176 Zeilen = 176 unique
+  `entry_key`, Schema-WARNs 177 unverändert (pg-hub 110, design-hub 36, nl2iot-hub 31, alle
+  getrackt). Discovery 28, frist-hub/meiki-hub/ttz-hub gov-ausgeschlossen (E3) → 25.
+  14 Entries inline (7 `\n\n` + 7 Kipp-Liste laut 13./14.09.), 162 an 6 Worker à 27.
+  **Worker-Befund — 5 von 6 Sonnet-Workern vom Modell-Safeguard abgebrochen** (`[cyber]`,
+  jeweils vor dem ersten Upsert; Worker 2 lief durch: 27× dedup). Neustart der fünf mit
+  `model: opus`, identischer Brief: 135 Entries, 133× dedup, 2× `written: true` (s. u.).
+  Vermutlich lösen die ADR-Inhalte selbst aus (Token, HMAC, Kill-Switch, Prod-Guards) —
+  nicht geprüft. Konsequenz: Sonnet ist für diesen Skill als Worker-Tier nicht verlässlich;
+  Delegation ab sofort mit `model: opus`.
+  **`written: true` = 7 — und erstmals ist entscheidbar, welcher Stand richtig ist: der
+  heutige.** Die 7 sind exakt die 7 am 14.09. inline „korrigierten" Entries (Inline-Pfad:
+  `risk-hub:ADR-049`, `writing-hub:ADR-184/190/197`, `pptx-hub:ADR-004`; Opus-Worker:
+  `risk-hub:ADR-057/058`), 0 von 169 übrigen. **Byte-Vergleich ohne Sprachmodell:** der
+  Orchestrator-MCP ist per Streamable-HTTP direkt aus Bash erreichbar (Key aus
+  `~/.claude.json`; Cloudflare antwortet mit Error 1010 auf den urllib-User-Agent — UA
+  setzen genügt), `agent_memory_search` liefert `content` vollständig, `==` gegen die
+  NDJSON-Zeile. Ergebnis: **alle 7 heutigen Schreibstände byte-gleich mit der Quelle**,
+  insgesamt 87/176 verifiziert (76 `decision` + 11 `repo_context`). Damit waren die
+  Inline-Korrekturen vom 13./14.09. die fehlerhaften Stände, nicht die Worker-Stände, die
+  sie ersetzten — die „feste Inline-Liste" (12./13.09.) hat den Fehler täglich neu erzeugt
+  und ist **aufgehoben**. Neue Regel für Step 3/4: kein Entry mehr fest inline; Worker mit
+  `model: opus`; jedes `written: true` und die 7 `\n\n`-Entries danach per
+  `platform/tools/klickdummy_pgvector_bytecheck.py <ndjson> <keys…>` byte-prüfen statt
+  lesend zu sichten. Beleg: platform#1733; Vorschlag für den Schreibpfad ohne LLM
+  (derselbe HTTP-Weg trägt `agent_memory_upsert`): platform#2462.
+  **NEUER BEFUND — 89 der 100 `repo_context`-Entries sind für die Suche unsichtbar.**
+  Auffindbar sind nur die 11 seit ~17.08. geschriebenen oder geänderten Specs; `sitemap`
+  mit `limit=50` liefert 5 von 24. Code-gestützte Hypothese (mcp-hub
+  `orchestrator_mcp/memory/`): `HALF_LIFE_DEFAULTS["repo_context"] = 7` Tage, `gc()`
+  setzt `is_active = FALSE` bei Decay < 0,05 (≈ 30 Tage), die Suche filtert
+  `is_active = TRUE`, und der Upsert-Dedup-Zweig setzt `is_active` nicht zurück — der
+  Sync bestätigt die 89 seit Wochen mit `written: false`, ohne sie zu reaktivieren.
+  Store-seitig nicht verifiziert (billigster Check: `SELECT is_active, count(*) …
+  WHERE id LIKE 'klickdummy:%'`). `decision` (180 Tage) ist nicht betroffen. Konsequenz
+  für K1 (risk-hub#717): `/klickdummy-search` misst gegen 11 % des Bestands. Getrackt:
+  [achimdehnert/mcp-hub#273](https://github.com/achimdehnert/mcp-hub/issues/273).
+  Nebenbefund: jede Suche antwortet `search_mode: fulltext` (Embedding-Fallback), obwohl
+  `session_stats` 1151 OpenAI-Embeddings zählt — Ursache nicht geprüft.
+  **Betriebs-Nebenbefund:** dieser Lauf hielt sich bis 03:39 UTC für eine manuelle Session
+  („Log endet auf 14.09."), obwohl er selbst der Cron-Prozess war (`cron → sh → claude -p`
+  seit 03:17:01) — dritte Wiederholung der Fehldiagnose vom 23.08./11.09. `date -u` gegen
+  den Cron-Zeitpunkt gehört an den Anfang von Step 0, nicht ans Ende.
