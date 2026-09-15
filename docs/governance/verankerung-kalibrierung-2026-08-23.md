@@ -554,3 +554,21 @@ Zeitbudget. Der `--provider groq`-Weg verlangt den Schluessel in der Umgebung un
 faellt nicht auf Ollama zurueck — in einer Shell ohne gesetzten Schluessel meldet er
 `NICHT PRUEFBAR` statt langsam zu rechnen. Das ist richtig so, macht den Melder aber
 in genau den Sitzungen unbenutzbar, in denen mehrere PRs entstehen.
+
+## Nachtrag 2026-09-15 (decks-hub, Sitzung ee405591)
+
+### Der Fehlalarm
+
+`session_ende_checks.sh` E.5 meldete **decks-hub#108** als „Zusage ohne Tracking". Der einzige vertagende Satz im PR-Text lautet:
+
+> »neue Prio 3: Presenter mit Clicker gegenprüfen (#105, Owner: später)«
+
+Das Tracking-Issue steht **in derselben Zeile** (#105, offen, mit Owner-Kommentar „später — bewusst zurückgestellt, Issue bleibt offen als Tracking"). Die Zusage ist verankert; die Meldung ist ein Fehlalarm.
+
+**Muster:** Die Issue-Nummer steht in einer Klammer zusammen mit dem Vertagungswort („Owner: später"). Offenbar wertet der Klassifikator das Klammer-Innere als Nebeninformation statt als Anker.
+
+### Nebenbefund: dasselbe Segment, zwei Urteile
+
+Der erste E.5-Lauf derselben Sitzung (vor dem Handover-Nachtrag) meldete für denselben, unveränderten PR-Text **„✅ jede erkannte Zusage verankert: #108 #107 #106"**. Der zweite Lauf rund 20 Minuten später meldete #108 als unverankert. Der Melder ist bei identischer Eingabe nicht deterministisch. Ein einzelner `⚠️` ist deshalb erst nach einem zweiten Lauf ein Befund.
+
+**Stand damit: 28 Meldungen · 5 richtig · 23 Fehlalarme (Präzision 0,179).** Die Zahl geprüfter Texte ist nicht fortgeschrieben: Wie viele Segmente die beiden Läufe tatsächlich angesehen haben, zeigt der Runner nicht.
