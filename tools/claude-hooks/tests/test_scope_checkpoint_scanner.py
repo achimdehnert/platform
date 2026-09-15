@@ -544,7 +544,9 @@ def test_should_flag_enabling_a_service_on_a_foreign_host():
 
 
 def test_should_flag_starting_a_service_on_a_foreign_host():
-    treffer = scanner._FREMDE_RESSOURCE.search("ssh hetzner-prod 'systemctl start doc-hub-splitter'")
+    treffer = scanner._FREMDE_RESSOURCE.search(
+        "ssh hetzner-prod 'systemctl start doc-hub-splitter'"
+    )
     assert treffer is not None
 
 
@@ -556,3 +558,32 @@ def test_should_not_flag_reading_a_service_state():
         "systemctl cat doc-hub-splitter.service",
     ):
         assert scanner._FREMDE_RESSOURCE.search(harmlos) is None, harmlos
+
+
+# --- Rev 6 (2026-09-14, Retro b7822e B7): Optionen VOR dem Verb -------------
+#
+# Realfall: `systemctl --user enable --now todo-x.timer` auf dem als Prod
+# deklarierten todo-board-Host loeste den Checkpoint nicht aus — Rev 5 kannte
+# nur `systemctl <verb>` ohne Optionen dazwischen.
+
+
+def test_should_flag_systemctl_user_enable_with_option_before_verb():
+    treffer = scanner._FREMDE_RESSOURCE.search(
+        "systemctl --user enable --now todo-x.timer"
+    )
+    assert treffer is not None
+
+
+def test_should_still_not_flag_status_with_option_before_verb():
+    """`status` steht nicht in der Verb-Liste — bleibt unerkannt, auch mit Option davor."""
+    assert (
+        scanner._FREMDE_RESSOURCE.search("systemctl --user status todo-x.timer") is None
+    )
+
+
+def test_should_still_flag_ssh_prefixed_case_from_rev5():
+    """Bestehender Rev-5-Fall (ssh-Praefix, kein Optionen-vor-Verb-Fall) bleibt erkannt."""
+    treffer = scanner._FREMDE_RESSOURCE.search(
+        "ssh hetzner-prod 'systemctl enable --now doc-hub-splitter.timer'"
+    )
+    assert treffer is not None

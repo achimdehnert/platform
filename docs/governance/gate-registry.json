@@ -89,8 +89,8 @@
       "drill": "tools/claude-hooks/tests/test_scope_checkpoint_scanner.py",
       "built": "2026-08-02",
       "ref": "platform#1646",
-      "revised": "2026-09-09",
-      "revision_note": "Rev 5, VIERTER AUSLOESER nach Retro a6edc6 Befund 11 (Gate RUECKFAELLIG, Ursache an der QUELLE): das Muster kannte nur das Abschalten fremder Dienste (stop|restart|disable|mask). Als in derselben Sitzung auf hetzner-prod ein Dienst SCHARFgeschaltet wurde (systemctl enable --now doc-hub-splitter.timer), schwieg es. Scharfschalten ist mindestens so weitreichend wie Stilllegen -- danach laeuft dauerhaft etwas, das vorher nicht lief. Ergaenzt: enable|start. BEKANNTE RESTLUECKE (nicht geschlossen): 'install ... /etc/systemd/system/', 'apt install' auf einem Fremdhost und 'docker exec ... manage.py' bleiben unsichtbar -- der Traeger dafuer waere ein Stop-Hook in ~/.claude/settings.json, siehe declined-Eintrag host-fix-not-mirrored-to-iac.",
+      "revised": "2026-09-14",
+      "revision_note": "Rev 6, Retro b7822e B7 (Gate RUECKFAELLIG, Ursache an der QUELLE): `_FREMDE_RESSOURCE` verlangte `systemctl` DIREKT gefolgt vom Verb und uebersah damit jede Option davor — real: `systemctl --user enable --now todo-x.timer` auf dem als Prod deklarierten todo-board-Host loeste den Checkpoint nicht aus. Fix: `\\bsystemctl(?:\\s+--?[\\w-]+(?:=\\S+)?)*\\s+(?:stop|restart|disable|mask|enable|start)\\b` laesst beliebig viele Optionen zwischen `systemctl` und dem Verb zu, ohne die Verb-Liste selbst auszuweiten — `status`/`is-active`/`list-timers`/`cat` bleiben unveraendert unerkannt.",
       "faengt": [
         {
           "fall": "drittes Repo beruehrt, Scope nicht durabel abgelegt",
@@ -114,8 +114,8 @@
       "expires": "2026-10-31",
       "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet.",
       "positivkontrolle": {
-        "ref": "tools/claude-hooks/tests/test_scope_checkpoint_scanner.py -- test_should_flag_enabling_a_service_on_a_foreign_host baut den Realfall a6edc6 nach (systemctl enable --now auf hetzner-prod); test_should_not_flag_reading_a_service_state ist die Gegenprobe, dass reines Nachsehen (is-active/list-timers/cat) NICHT feuert",
-        "datum": "2026-09-09"
+        "ref": "docs/retros/session-retro-2026-09-14-platform-b7822e.md",
+        "datum": "2026-09-14"
       }
     },
     {
@@ -1162,7 +1162,10 @@
       "mode": "advisory",
       "owner": "achim",
       "module": "tools/session_abgleich.py",
-      "drill": "tools/tests/test_session_abgleich.py",
+      "drill": [
+        "tools/tests/test_session_abgleich.py",
+        "tools/tests/test_serielle_prs_advisory_workflow.py"
+      ],
       "built": "2026-09-07",
       "ref": "platform#2234 Zeile 3/2, platform#2374",
       "covers": [
@@ -1184,11 +1187,11 @@
       "expires": "2026-10-31",
       "expires_note": "blocking oder gestrichen bis dahin - Owner-Entscheid E4 (platform#2606).",
       "positivkontrolle": {
-        "ref": "tools/tests/test_session_abgleich.py::TestBefundeSerienFuerPr::test_should_flag_overlapping_hunks_against_another_open_pr (rot); Gegenprobe ::test_should_report_clean_line_when_hunks_are_disjoint. Echtprobe 2026-09-10: --pr 3042 --autor achimdehnert --seit 2026-09-10 -> Befund #3042+#3034 auf tools/tests/test_todo_board.py.",
-        "datum": "2026-09-10"
+        "ref": "docs/retros/session-retro-2026-09-14-platform-b7822e.md",
+        "datum": "2026-09-14"
       },
-      "revised": "2026-09-10",
-      "revision_note": "UMBAU zu spaet -> beim PR am 2026-09-10 (Retro oqu6Z6 §5a, Owner-Wort '51 go autonom', platform#3060): der Melder lief nur am Sitzungsende (Runner-Phase E.10), also nach allen Merges; #3034 und #3042 gingen nacheinander auf tools/tests/test_todo_board.py (Hunks 467-531 vs 526-542, ueberlappend), ohne dass er lief. Neu: session_abgleich.py --pr N vergleicht nur diesen PR gegen offene + heute gemergte PRs desselben Autors; Workflow serielle-prs-advisory.yml (pull_request, continue-on-error) schreibt Step-Summary und bei Befund einen aktualisierten PR-Kommentar. Falsifikationsregel (disjunkte Hunks -> 'kein Befund'-Zeile) unveraendert. Umsetzung platform#3062 (Governance-Pfad, Owner-Approval). Der Sitzungsende-Lauf bleibt."
+      "revised": "2026-09-14",
+      "revision_note": "Ausgang seit Bau defekt: Kommentar enthielt Pfad statt Text (-f statt -F), 46 Kommentare; Retro b7822e B14. Fix: `.github/workflows/serielle-prs-advisory.yml:107,110` auf `gh api -F body=@\"$BODY_FILE\"` umgestellt (`-f` haengt den literalen `@pfad`-String an, nur `-F/--field` liest die Datei — `gh api --help`: '-F, --field key=value ... (use \"@<path>\" or \"@-\" to read value from file or stdin)'). Neuer Drill test_serielle_prs_advisory_workflow.py prueft die Invariante ueber ALLE .github/workflows/*.yml (kein `-f key=@datei`)."
     },
     {
       "slug": "ci-gate-narrower-than-local-test",
@@ -1254,6 +1257,38 @@
       "positivkontrolle": {
         "ref": "Zwei unabhaengige Belege. (1) RUECKWIRKEND: gegen den Commit von platform#2967 gerechnet (`verschwundene(git show 093a6aed^:AGENT_HANDOVER.md, git show 093a6aed:AGENT_HANDOVER.md)`) nennt der Check achimdehnert/robo-lab#66 und #81 - genau die beiden offenen Punkte, die dort wirklich verloren gingen (Befund platform#2974). (2) IM ECHTBETRIEB, wenige Stunden spaeter in platform#2983: beim Auslagern von Sitzung 8661c35d meldete er 19 verschwundene Referenzen, davon SIEBEN OPEN (billing-hub#52, odoo-hub#32, platform#2931/#2944/#2961/#2962/#2969); alle sieben wurden daraufhin als Faden 54-60 nachgetragen. Ohne den Check waeren sie still verschwunden. Gegenprobe: eine unveraenderte Datei und eine in die Fadenliste VERSCHOBENE Referenz erzeugen keinen Befund (test_should_stay_silent_when_the_reference_was_rescued_into_the_threads), und eine geschlossene Nummer darf mit dem Block gehen (test_should_let_a_closed_reference_go).",
         "datum": "2026-09-08"
+      }
+    },
+    {
+      "slug": "cd-fehlschlag-kette-laeuft-weiter",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/claude-hooks/cd_fehlschlag_ketten_scanner.py",
+      "drill": "tools/claude-hooks/tests/test_cd_fehlschlag_ketten_scanner.py",
+      "built": "2026-09-14",
+      "ref": "docs/retros/session-retro-2026-09-14-platform-b7822e.md (B12, Recurrence Memory x3)",
+      "note": "Eine Bash-Kette wechselt per `cd <pfad-oder-$VAR>` in ein Worktree-/Variablen-Ziel und haengt weitere Befehle mit `;`/Zeilenumbruch an, ohne Abbruch bei fehlgeschlagenem `cd` (`|| exit`/`|| return`, `&&`-Verkettung, `set -e` am Anfang). Realfall: Worktree nach Merge geraeumt, `cd $W; git switch -c …` lief im platform-Haupt-Tree weiter; ein Guard fing dort zufaellig den HEAD-Wechsel ab. Drei Memory-Vorkommen (2026-09-04 x2, 2026-09-14), vorher KEIN Gate. Nur Worktree-/Variablen-Ziele zaehlen — `cd ~/github/platform && …` ist Alltag und kein raeumbares Ziel. PreToolUse(Bash), Klartext auf stdout statt hookSpecificOutput: PreToolUse kennt `additionalContext` nicht, nur `permissionDecision` (allow=stumm, ask=haelt an, deny=blockt) — Klartext ist der bereits belegte Weg (tools/hooks/foreign_clone_check.sh).",
+      "faengt": [
+        {
+          "fall": "cd $W; weiterer Befehl ohne Abbruch-Guard",
+          "probe": "test_should_flag_cd_without_abort_guard_into_worktree_target"
+        },
+        {
+          "fall": "cd \"$W\" || exit 1; … ist die sichere Form und darf nicht feuern",
+          "probe": "test_should_not_flag_cd_with_exit_guard"
+        },
+        {
+          "fall": "cd ~/github/platform && … (Haupt-Tree, kein raeumbares Ziel)",
+          "probe": "test_should_not_flag_literal_repo_path_target"
+        }
+      ],
+      "zustand": "schranke",
+      "erzwungen_seit": "2026-09-14",
+      "expires": "2026-10-31",
+      "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet.",
+      "positivkontrolle": {
+        "ref": "docs/retros/session-retro-2026-09-14-platform-b7822e.md",
+        "datum": "2026-09-14"
       }
     },
     {

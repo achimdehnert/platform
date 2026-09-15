@@ -170,9 +170,17 @@ _WIRKUNGS_FLAGGE = re.compile(
 #: `session-retro-2026-09-09-doc-hub-a6edc6.md` Befund 11.
 #: Bewusst eng: nur das An- und Abschalten fremder Prozesse und Dienste. `docker compose
 #: up/down` auf den eigenen Stack ist Alltag und faellt absichtlich nicht darunter.
+#:
+#: Rev 6 (2026-09-14, Retro b7822e B7): das Muster verlangte `systemctl` DIREKT
+#: gefolgt vom Verb und uebersah damit jede Option davor — real:
+#: `systemctl --user enable --now todo-x.timer` auf dem als Prod deklarierten
+#: todo-board-Host lief durch, ohne den Checkpoint auszuloesen. `(?:\s+--?[\w-]+
+#: (?:=\S+)?)*` laesst beliebig viele Optionen (`--user`, `-l`, `--type=service`, …)
+#: zwischen `systemctl` und dem Verb zu, ohne die Verb-Liste selbst zu erweitern —
+#: `status`/`is-active`/`list-timers`/`cat` bleiben unveraendert unerkannt.
 _FREMDE_RESSOURCE = re.compile(
     r"\bkill\s+(?:-\w+\s+)?\d{2,}\b|\bpkill\b|\bkillall\b"
-    r"|\bsystemctl\s+(?:stop|restart|disable|mask|enable|start)\b"
+    r"|\bsystemctl(?:\s+--?[\w-]+(?:=\S+)?)*\s+(?:stop|restart|disable|mask|enable|start)\b"
     r"|\bdocker\s+(?:kill|stop)\s+\S",
     re.I,
 )
