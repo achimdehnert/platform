@@ -171,3 +171,191 @@ Checkliste (1–8, session-retro-Skill Phase 5, sonnet-Meta-Agent): alle 8 Punkt
 - angenommen: Skill-Stand `origin/main` von platform zum Zeitpunkt der Skeptiker-Läufe.
 - nicht verifizierbar: siehe §8.
 - offen geblieben: Maßnahmen 1–6.
+
+## Anhang: Transkript-Zitate (Clear-Härte, session-ende 0h)
+
+Wörtliche Auszüge aus `4d84e05f-a7ee-4f38-913a-e16ff40a5956.jsonl` für die Befunde, deren Beleg nur ein Zeitstempel war. Das Transkript liegt nicht im Repo; dieser Anhang hält die Evidenz, falls es rotiert. Gekürzt, keine Secrets (Muster-Schwärzung).
+
+### #1 (REFUTED) — Freigabe-Bitte nach Merge-Block
+
+Assistant-Text `2026-09-14T14:46:55.588Z` (Auszug):
+
+> Den Rest von #125 habe ich geprüft: 8 Fehler gefunden und behoben, CI ist grün. Aktiv ist davon noch nichts, weil der Merge und damit der Prod-Deploy bei dir liegt. Mein `gh pr merge` hat der Auto-Mode-Classifier trotz deines Go blockiert.
+> 
+> ## Stand
+> 
+> - **[7]** ✅ Bericht, 27 Stationen — https://github.com/achimdehnert/apo-hub/issues/137
+> - **[8]** ✅ 8 Befunde, ab — https://github.com/achimdehnert/apo-hub/issues/129
+> - **[9]** ✅ Fix Anfrage/Bedarf — https://github.com/achimdehnert/apo-hub/pull/138
+> - **[10]** ✅ Fix Mails/Admin — https://github.com/achimdehnert/apo-hub/pull/139
+> - **[11]** ✅ Handover ergänzt — https://github.com/achimdehnert/apo-hub/pull/127
+> - **[12]** ⚠️ #125-Text gelöscht, repari
+
+### #3 — rohes pytest
+
+**Beispiel** — Aufruf `2026-09-14T14:25:36.792Z` (Bash):
+
+```
+SP=/tmp/claude-1000/-home-devuser-github-apo-hub/4d84e05f-a7ee-4f38-913a-e16ff40a5956/scratchpad; N=~/.repo-session/worktrees/apo-hub/2026-09-14-achim-dehnert-fsm-bewerbung-annahme-141816; A=~/.repo-session/worktrees/apo-hub/2026-09-14-achim-dehnert-fehlerseiten-debug-false-125852
+mkdir -p $SP/pt && …
+```
+
+Ergebnis `2026-09-14T14:25:57.620Z`:
+
+```
+installed
+== main (ohne Fix) ==
+FAILED tests/test_matching_gate.py::test_should_match_substitute_with_bookings_before_and_after_search
+FAILED tests/test_matching_gate.py::test_should_not_offer_filled_ …
+```
+
+Zählung bis 16:03Z: Bash-Aufrufe mit `pytest` 20, mit `make test` 0.
+
+### #6 — #125-Body zweimal geleert
+
+**Versuch 1** — Aufruf `2026-09-14T14:33:18.513Z` (Bash):
+
+```
+cd /tmp/claude-1000/-home-devuser-github-apo-hub/4d84e05f-a7ee-4f38-913a-e16ff40a5956/scratchpad && gh issue view 125 --json body --jq .body > i125.md && python3 - <<'EOF'
+p='i125.md'; s=open(p).read()
+def rep(a,b):
+    global s
+    assert s.count(a)==1, a
+    s=s.replace(a,b)
+rep("- [ ] Fehlerseiten mit `DEBUG=False` (der Lauf lief mit `DEBUG=True`)","- [x] Fehlerseiten mit `DEBUG=False` — Templates in #128; 404/CSRF im Browser geprüft (#137), 500 nur per Test")
+rep("- [ ] POST-Aktionen:","- [x] POST-Aktionen — geklickt in #137 (27 Stationen, 8 Befunde #129–#136, Fixes #138/#139):")
+rep("- [ ] E-Mail-Versand (Console-Backend)","- [x] E-Mail-Versand (Console-Backend) — #137, Platzhalter-Befund #136; SMTP in Prod nicht verifiziert")
+rep("- [ ] Django-Admin (`/admin/`, übersprungen)","- [x] Django-Admin — #137, Link-Befund #132; als Superuser nicht geprüft")
+open(p,'w').write(s)
+EOF
+gh issue edit 125 -R achimdehnert/apo-hub --body-file i125.md >/dev/null && gh issue view 125 --json body --jq .body | grep -c "\[x\]"
+```
+
+Ergebnis `2026-09-14T14:33:21.337Z`:
+
+```
+failed to run git: fatal: Kein Git-Repository (oder irgendeines der Elternverzeichnisse): .git
+
+failed to run git: fatal: Kein Git-Repository (oder irgendeines der Elternverzeichnisse): .git
+
+0
+```
+
+**Versuch 2** — Aufruf `2026-09-14T14:33:28.462Z` (Bash):
+
+```
+cd /tmp/claude-1000/-home-devuser-github-apo-hub/4d84e05f-a7ee-4f38-913a-e16ff40a5956/scratchpad && gh issue view 125 -R achimdehnert/apo-hub --json body --jq .body > i125.md && python3 - <<'EOF'
+p='i125.md'; s=open(p).read()
+def rep(a,b):
+    global s
+    assert s.count(a)==1, a
+    s=s.replace(a,b)
+rep("- [ ] Fehlerseiten mit `DEBUG=False` (der Lauf lief mit `DEBUG=True`)","- [x] Fehlerseiten mi …
+```
+
+Ergebnis `2026-09-14T14:33:32.100Z`:
+
+```
+Traceback (most recent call last):
+  File "<stdin>", line 6, in <module>
+  File "<stdin>", line 4, in rep
+AssertionError: - [ ] Fehlerseiten mit `DEBUG=False` (der Lauf lief mit `DEBUG=True`)
+0
+```
+
+**Diagnose** — Aufruf `2026-09-14T14:33:36.295Z` (Bash):
+
+```
+cd /tmp/claude-1000/-home-devuser-github-apo-hub/4d84e05f-a7ee-4f38-913a-e16ff40a5956/scratchpad && wc -c i125.md; head -c 600 i125.md; echo; gh issue view 125 -R achimdehnert/apo-hub --json state,body --jq '.state, (.body|length)'
+```
+
+Ergebnis `2026-09-14T14:33:38.413Z`:
+
+```
+1 i125.md
+
+
+OPEN
+0
+Shell cwd was reset to /home/devuser/github/apo-hub
+```
+
+### #9 — Silent-Reminder ohne sichtbaren Text
+
+Silent-Reminder: `2026-09-14T12:58:37.314Z`, `2026-09-14T12:59:19.446Z`, `2026-09-14T13:00:47.436Z`, `2026-09-14T13:59:18.297Z`, `2026-09-14T14:00:10.560Z`, `2026-09-14T14:00:51.802Z`
+
+Sichtbare Assistant-Texte bis 16:03Z: `2026-09-14T13:03:55.853Z`, `2026-09-14T14:46:55.588Z`, `2026-09-14T14:47:07.945Z`
+
+### #10 — Vordergrund-Watch bis Timeout
+
+**Aufruf** — Aufruf `2026-09-14T14:35:05.075Z` (Bash):
+
+```
+sleep 5; gh pr checks 139 -R achimdehnert/apo-hub --watch >/dev/null 2>&1; gh pr checks 139 -R achimdehnert/apo-hub 2>&1 | awk -F'\t' '{print $2}' | sort | uniq -c; gh pr checks 127 -R achimdehnert/apo-hub --watch >/dev/null 2>&1; echo "PR 127:"; gh pr checks 127 -R achimdehnert/apo-hub 2>&1 | awk - …
+```
+
+Ergebnis `2026-09-14T14:45:06.509Z`:
+
+```
+Exit code 143
+Command timed out after 10m 0s
+```
+
+### #11 — Playwright-MCP-Grenzen
+
+**Versuch 1** — Aufruf `2026-09-14T14:00:49.699Z` (mcp__playwright__browser_run_code_unsafe):
+
+```
+/tmp/claude-1000/-home-devuser-github-apo-hub/4d84e05f-a7ee-4f38-913a-e16ff40a5956/scratchpad/login_SUB.js
+```
+
+Ergebnis `2026-09-14T14:00:51.796Z`:
+
+```
+### Error
+Error: File access denied: /tmp/claude-1000/-home-devuser-github-apo-hub/4d84e05f-a7ee-4f38-913a-e16ff40a5956/scratchpad/login_SUB.js is outside allowed roots. Allowed roots: /home/devuser/github/apo-hub/.playwright-mcp, /home/devuser/githu …
+```
+
+**Versuch 2** — Aufruf `2026-09-14T14:01:01.549Z` (mcp__playwright__browser_run_code_unsafe):
+
+```
+/home/devuser/github/apo-hub/.playwright-mcp/login_SUB.js
+```
+
+Ergebnis `2026-09-14T14:01:03.062Z`:
+
+```
+### Error
+ReferenceError: require is not defined
+```
+
+### #12 — Klick-Kette bricht ab
+
+**Aufruf** — `2026-09-14T14:02:29.161Z` (Bash):
+
+```
+cd /tmp/claude-1000/-home-devuser-github-apo-hub/4d84e05f-a7ee-4f38-913a-e16ff40a5956/scratchpad && date -u +%FT%TZ > t_anfrage && set -a && . ./creds.env && set +a && python3 uxk.py anfrage 2>&1 | python3 -c "
+import sys,json
+raw=sys.stdin.read()
+print(raw[-6000:])"
+```
+
+Ergebnis `2026-09-14T14:03:03.617Z` (Auszug):
+
+```
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-devuser-github-apo-hub/4d84e05f-a7ee-4f38-913a-e16ff40a5956/scratchpad/uxk.py", line 86, in <module>
+  File "/tmp/claude-1000/-home-devuser-github-apo-hub/4d84e05f-a7ee-4f38-913a-e16ff40a5956/scratchpad/uxk.py", line 79, in main
+    __import__("uxk_ketten").KETTEN[kette](b, Lauf)
+  File "/tmp/claude-1000/-home-devuser-github-apo-hub/4d84e05f-a7ee-4f38-913a-e16ff40a5956/scratchpad/uxk_ketten.py", line 20, in anfrage
+  File "/tmp/claude-1000/-home-devuser-github-apo-hub/4d84e05f-a7ee-4f38-913a-e16ff40a5956/scratchpad/uxk.py", line 50, in klick
+playwright._impl._errors.TimeoutError: Locator.click: Timeout 30000ms exceeded.
+  - wa
+```
+
+### Owner-Freigaben (wörtlich, für Clear-Härte)
+
+- `2026-09-14T13:58:05Z` „4 go 5 go 6 go  alles maximal autonom" (4 = #127/#128 mergen, 5 = Rest #125 per /ux-review, 6 = mergen, Deploy prüfen, #125 abhaken)
+- `2026-09-14T17:53:23.617Z` Auswahl (AskUserQuestion) zu den Retro-Vorschlägen: „Hook leere body-file, Memory-Einträge schreiben, Skill: Bündelregel, Streichkandidat umsetzen"
+- `2026-09-15T04:53:42Z` „37 38 done ; 39 done ; 40-44 go" (40–43 = apo-hub #128/#138/#139/#127 mergen, 44 = Deploy prüfen, #125 schließen)
+- `2026-09-15T06:12:51Z` „46 go 47 go" (46 = Prod-Checks #140 lesend, 47 = Handover beim Session-Ende)
