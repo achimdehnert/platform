@@ -1,0 +1,9 @@
+{
+  "slug": "issue-not-reconciled-after-cross-repo-fix",
+  "declined_am": "2026-08-12",
+  "widerrufen_am": "2026-09-02",
+  "owner": "achim",
+  "ref": "Owner-Entscheid 2026-09-02 ('40 widerrufen') · platform#2234 Kommentar 2026-09-02 · platform#2374 Ziel A Pruefdatensatz",
+  "damalige_begruendung": "Cross-Repo-Zustand, den kein lokaler Hook sieht; Automatisierung waere ein permanenter Repo-Crawler — Aufwand deutlich groesser als der Schaden (2 Vorkommen). Abgedeckt durch die Issue-Reconcile-Phase der /session-ende-Checkliste.",
+  "widerlegung": "Seit dem Verzicht dreimal als SURVIVES-Befund wiedergekehrt (chat-hub b62038 2026-08-21: #27 blieb OPEN trotz Kommentar 'alle fuenf Punkte erledigt'; ausschreibungs-hub b82988 2026-08-23: #184 durch #195 erfuellt, offen; writing-hub 3106ae 2026-08-25: fuenf geloeste Issues OPEN, 9 von 10 PR-Texten 'Refs #N' statt 'Closes'). Beide Praemissen tragen nicht: (1) alle drei Faelle sind SAME-REPO — die erledigende PR lag im Repo des Issues; ein lokaler Check am Sitzungsende (je gemergter Session-PR die referenzierten Issues abfragen, offene melden) reicht, kein Crawler. (2) Die genannte 'Issue-Reconcile-Phase der /session-ende-Checkliste' existiert nicht: die Ueberschriften von session-ende.md kennen 0a-freshness, 0f Cross-Repo-Befunde und 'Schritt 3: Issues erstellen'; das Wort 'Reconcile' steht genau einmal, in einem Beleg-Text (Z. 945). Die Deckung war eine Annahme. Ansatz mit Messpunkt: Anzahl offener Issues, deren erledigende PR gemergt ist, am Sitzungsende = 0; zweiter Messpunkt: 'Refs #N' in einer PR, die das Issue erledigt, ist selbst der Befund."
+}

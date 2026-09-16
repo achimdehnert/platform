@@ -5,7 +5,7 @@
 
 Der Retro-Loop hatte bis hierhin drei Messpunkte und eine Luecke:
 
-- `docs/governance/gate-registry.json` sagt, ein Gate ist **gebaut**.
+- `docs/governance/gates/` sagt, ein Gate ist **gebaut**.
 - `tools/gate_drill_check.py` sagt, es **feuert** (Drill gruen).
 - `tools/retro_kpis.py` zaehlt, wie oft ein Slug **insgesamt** wiederkehrt.
 
@@ -59,6 +59,9 @@ import re
 import sys
 from datetime import datetime, timedelta, timezone
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import gate_registry  # noqa: E402  (Einzeldateien, #1944 K7)
+
 # Maschinenlesbarer Kopf (KONZ-038 D8) — steht im Modul, nicht nur in der Registry,
 # damit `gate_drill_check.py` ihn gegen die Registry pruefen kann.
 GATE_HEADER = {
@@ -70,7 +73,7 @@ GATE_HEADER = {
 }
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DEFAULT_REGISTRY = os.path.join(REPO_ROOT, "docs", "governance", "gate-registry.json")
+DEFAULT_REGISTRY = gate_registry.DEFAULT_PFAD
 
 # Mindestzahl Retros NACH dem Bau-Datum, bevor ueber ein Gate geurteilt wird.
 # 3 ist bewusst niedrig: es geht um den Unterschied "hatte ueberhaupt Gelegenheit"
@@ -524,7 +527,7 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        registry = json.load(open(args.registry, encoding="utf-8"))
+        registry = gate_registry.laden(args.registry)
         gates = registry.get("gates", [])
     except (OSError, ValueError) as fehler:
         # Fail-open: ein Melder, der den Sitzungsstart aufhaelt, wird abgeschaltet

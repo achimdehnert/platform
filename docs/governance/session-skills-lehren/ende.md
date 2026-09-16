@@ -237,7 +237,7 @@ platform#2690 K4, 2026-09-02.
 > etwas finden kann.** Gemessen am 2026-09-02: 14 von 33 Gates sind rückfällig
 > (#2374, #2678); von 31 Registry-Einträgen trug **keiner** einen Beleg, dass er den
 > Fall, gegen den er gebaut wurde, je getroffen hat. Der Eintrag in
-> `docs/governance/gate-registry.json` ist eine Behauptung über Wirkung — bis hierhin
+> ein Eintrag unter `docs/governance/gates/` ist eine Behauptung über Wirkung — bis hierhin
 > konnte sie jeder aufstellen, der eine Zeile JSON schreibt.
 
 **`faengt` ist kein Ersatz für die Positivkontrolle.** Es belegt, dass der Fall im Drill

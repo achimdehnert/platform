@@ -61,11 +61,11 @@ def test_should_speak_up_when_the_registry_is_corrupt(werkzeug, tmp_path):
     """Der realistische Fall: die Registry wird von Hand editiert.
 
     Eine fehlende Datei ist selten, ein abgeschnittenes oder syntaktisch kaputtes
-    JSON nach einer Handaenderung nicht — `gate-registry.json` waechst mit jeder
-    Retro.
+    JSON nach einer Handaenderung nicht — die Eintraege unter
+    `docs/governance/gates/` wachsen mit jeder Retro.
     """
     kaputt = tmp_path / "halb.json"
-    echte = WURZEL / "docs" / "governance" / "gate-registry.json"
+    echte = WURZEL / "docs" / "governance" / "gates" / "_meta.json"
     kaputt.write_text(echte.read_text(encoding="utf-8")[:400], encoding="utf-8")
     lauf = _lauf(werkzeug, kaputt)
     assert "misst nichts" in lauf.stdout
@@ -89,7 +89,7 @@ def test_should_not_cry_wolf_on_the_real_registry(werkzeug):
     Ohne diesen Test wuerde ein Werkzeug, das die Zeile IMMER druckt, alle Tests
     oben bestehen — und der Sitzungsstart haette drei Dauer-WARNs.
     """
-    lauf = _lauf(werkzeug, WURZEL / "docs" / "governance" / "gate-registry.json")
+    lauf = _lauf(werkzeug, WURZEL / "docs" / "governance" / "gates")
     assert "misst nichts" not in lauf.stdout
 
 

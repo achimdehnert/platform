@@ -276,7 +276,7 @@ Danach in fester Reihenfolge:
   `<auto-memory>/MEMORY.md` abgleichen — Existenz per `grep` prüfen, nicht erinnern.
 - **5a. Rückfall-Prüfung — hat ein GEBAUTES Gate versagt? (PFLICHT)** `python3 tools/gate_wirkung.py`
   trennt Vorkommen **vor** dem Bau eines Gates von denen **danach**. **Regel:** Kehrt ein Slug
-  wieder, für den bereits ein Gate in `docs/governance/gate-registry.json` steht, ist der Befund
+  wieder, für den bereits ein Gate unter `docs/governance/gates/gates/` steht, ist der Befund
   **nicht** „Slug X zum N-ten Mal", sondern **„Gate X ist rückfällig"** — eigene Klasse, eigener
   Slug (`gate-<name>-wirkungslos`), drei zulässige Antworten: **ausweiten** (sieht die Familie
   nicht) · **umbauen** (zu spät/falscher Pfad) · **herabstufen** (begründet in `declined`). Ein

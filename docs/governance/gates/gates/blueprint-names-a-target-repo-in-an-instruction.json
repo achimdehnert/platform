@@ -1,0 +1,14 @@
+{
+  "slug": "blueprint-names-a-target-repo-in-an-instruction",
+  "mode": "gate",
+  "owner": "achim",
+  "module": "tools/blaupause_check.py",
+  "drill": "tools/tests/test_blaupause_check.py",
+  "built": "2026-09-01",
+  "ref": "platform#2560 (KONZ-051 K6, Owner-Entscheid 2026-09-01: Weg (a) Scope eingrenzen)",
+  "positivkontrolle": {
+    "ref": "platform#2560 — Registry-weiter Lauf beim Bau fand `aifw` in Step 1, eine Stelle, die der vorherige 4-Namen-grep nicht sehen konnte",
+    "datum": "2026-09-01"
+  },
+  "note": "K6 verlangte, dass die ux-review-Blaupause keinen Ziel-Repo-Namen in einer Anweisung traegt, war mit dem eigenen grep aber nicht entscheidbar: er zaehlte Changelog, Dogfood-Tests und Realfall-Blockquotes mit (die per Konstruktion nie verschwinden) und fing mit 'meiki' die Org meiki-lra statt eines Repos. Drei Praezisierungen: Scope nur auf Anweisungs-Abschnitte (fail-closed — ein neuer Abschnitt gilt als Anweisung), Namen aus registry/canonical.yaml statt vier handgetippten und nur mit Oberflaechen-Typ (django/fastapi/static; eine Bibliothek ist nie Ziel eines Klick-Laufs), und Pruefung auf Block- statt Zeilenebene — der Beleg steht regelmaessig eine Zeile unter dem Namen, den er belegt. Positivkontrolle beim Bau: der Registry-weite Lauf fand sofort eine Stelle, die der 4-Namen-grep nicht sehen konnte (aifw in Step 1). Der Drill haelt zu jedem gruenen Fall die Gegenprobe daneben, damit die Null nicht aus dem eigenen Filter stammt."
+}

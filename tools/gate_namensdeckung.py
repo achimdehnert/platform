@@ -38,6 +38,9 @@ import json
 import os
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import gate_registry  # noqa: E402  (Einzeldateien, #1944 K7)
+
 GATE_HEADER = {
     "slug": "gate-modul-prueft-weniger-als-sein-name",
     "mode": "advisory",
@@ -47,7 +50,7 @@ GATE_HEADER = {
 }
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DEFAULT_REGISTRY = os.path.join(REPO_ROOT, "docs", "governance", "gate-registry.json")
+DEFAULT_REGISTRY = gate_registry.DEFAULT_PFAD
 
 
 def _lies(repo: str, rel: str) -> str:
@@ -181,9 +184,8 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     try:
-        with open(args.registry, encoding="utf-8") as f:
-            gates = json.load(f).get("gates", [])
-    except (OSError, ValueError) as fehler:
+        gates = gate_registry.laden(args.registry).get("gates", [])
+    except (OSError, ValueError, RuntimeError) as fehler:
         # `--kurz` schrieb diese Zeile bisher gar nicht, und im Nicht-kurz-Fall
         # ging sie nach stderr. Der Sitzungsstart ruft `--kurz 2>/dev/null` auf:
         # beide Unterdrueckungen zugleich. Leere Ausgabe liest der Runner als

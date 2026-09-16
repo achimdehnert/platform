@@ -1,0 +1,24 @@
+{
+  "slug": "parallel-session-pr-collision",
+  "mode": "process",
+  "owner": "achim",
+  "module": "tools/repo-session.sh",
+  "drill": "tools/tests/test_repo_session_offene_prs.py",
+  "built": "2026-07-03",
+  "ref": "platform#1650 Nachmessung 2026-08-10 / ADR-233 R-6",
+  "note": "Bestand seit 5cefbb0a (harter Block bei offenem PR mit gleichem Task-Slug), war aber nie registriert — ein unregistriertes Gate drillt niemand, es kann still kaputtgehen. Registriert 2026-08-12.",
+  "revised": "2026-09-10",
+  "revision_note": "UMBAU Regel -> Werkzeug am 2026-09-10 (Retro oqu6Z6 Befund 10, Owner-Wort '51 go autonom', platform#3060): #3030 und #3033 loesten dieselbe Ursache im selben Workflow acht Minuten auseinander; check_pr_collision blockt nur bei identischem Task-Slug, thematische Ueberlappung sah niemand. Neu: tools/repo_session_offene_prs.py, von repo-session.sh start nach Branch/Pfad/Lease aufgerufen — offene PRs seit heute mit Titel, Autor und bis zu fuenf Pfaden, --pfade markiert gleiche Dateien; advisory, fail-open. Umsetzung platform#3057 (gemergt 2026-09-10). Grenze: zeigt Kandidaten, entscheidet nicht — die Falsifikation (gleiche Datei, disjunkte Bereiche) liegt beim Gate serielle-prs-auf-derselben-datei. | VORHER: check_pr_collision in repo-session.sh (Commit 1ba83e91) — harter Block beim Abzweigen, wenn zum selben Task-Slug schon ein offener PR existiert. Kam NACH dem letzten gemessenen Rueckfall (2026-07-31).",
+  "faengt": [
+    {
+      "fall": "zweiter Worktree zum selben Task-Slug bei offenem PR",
+      "probe": "kollision"
+    }
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-07-03",
+  "positivkontrolle": {
+    "ref": "tools/tests/test_repo_session_offene_prs.py::test_should_mark_pr_with_shared_path (zwei PRs, gemeinsamer Pfad -> Markierung 'gleiche Datei'); Gegenprobe ::test_should_report_keine_for_empty_list. Echtprobe 2026-09-10: 'Offene PRs seit 2026-09-10: 2' (#3056, #3041) mit Pfaden.",
+    "datum": "2026-09-10"
+  }
+}

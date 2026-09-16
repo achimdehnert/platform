@@ -1,0 +1,36 @@
+{
+  "slug": "serielle-prs-auf-derselben-datei",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": "tools/session_abgleich.py",
+  "drill": [
+    "tools/tests/test_session_abgleich.py",
+    "tools/tests/test_serielle_prs_advisory_workflow.py"
+  ],
+  "built": "2026-09-07",
+  "ref": "platform#2234 Zeile 3/2, platform#2374",
+  "covers": [
+    "same-file-serial-prs"
+  ],
+  "note": "x9 aufgetreten. Mindestens zwei gemergte PRs desselben Autors, dieselbe Datei, innerhalb von 24 h. FALSIFIKATION ist Pflicht und im Werkzeug gebaut: sind die beruehrten Zeilenbereiche disjunkt, ist es kein Befund. Stehen die Hunks nicht zur Verfuegung, wird der Fall ausdruecklich als NICHT FALSIFIZIERBAR gefuehrt (Hinweis, nicht Befund) statt still als Treffer verbucht. Advisory bleibt es, weil gate-erzwungene Serien legitim sind: der zweite PR korrigiert dann, was ein Gate am ersten beanstandet hat. Erzwingungspunkt: Runner-Phase E.10.",
+  "faengt": [
+    {
+      "fall": "zwei gemergte PRs desselben Autors auf ueberlappende Zeilen derselben Datei",
+      "probe": "serie"
+    },
+    {
+      "fall": "disjunkte Hunks sind kein Befund",
+      "probe": "disjoint"
+    }
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-09-07",
+  "expires": "2026-10-31",
+  "expires_note": "blocking oder gestrichen bis dahin - Owner-Entscheid E4 (platform#2606).",
+  "positivkontrolle": {
+    "ref": "docs/retros/session-retro-2026-09-14-platform-b7822e.md",
+    "datum": "2026-09-14"
+  },
+  "revised": "2026-09-14",
+  "revision_note": "Ausgang seit Bau defekt: Kommentar enthielt Pfad statt Text (-f statt -F), 46 Kommentare; Retro b7822e B14. Fix: `.github/workflows/serielle-prs-advisory.yml:107,110` auf `gh api -F body=@\"$BODY_FILE\"` umgestellt (`-f` haengt den literalen `@pfad`-String an, nur `-F/--field` liest die Datei — `gh api --help`: '-F, --field key=value ... (use \"@<path>\" or \"@-\" to read value from file or stdin)'). Neuer Drill test_serielle_prs_advisory_workflow.py prueft die Invariante ueber ALLE .github/workflows/*.yml (kein `-f key=@datei`)."
+}

@@ -52,6 +52,10 @@ import os
 import re
 import subprocess
 from collections import Counter, defaultdict
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import gate_registry  # noqa: E402  (Einzeldateien, #1944 K7)
 
 # `repo_scope` steht hier BEWUSST NICHT (platform#1840, Owner-Entscheid B): das Feld
 # wurde geparst und formgeprüft, aber von keinem Konsumenten gelesen — der Schlüssel
@@ -204,12 +208,7 @@ def load_reports(directories) -> list[dict]:
     return reports
 
 
-GATE_REGISTRY = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "docs",
-    "governance",
-    "gate-registry.json",
-)
+GATE_REGISTRY = gate_registry.DEFAULT_PFAD  # Einzeldateien, #1944 K7
 
 
 def registry_coverage(path: str = GATE_REGISTRY) -> set[str] | None:
@@ -225,9 +224,8 @@ def registry_coverage(path: str = GATE_REGISTRY) -> set[str] | None:
     stillschweigend "alles gedeckt" (ein Fetch-Fehler ist kein grüner Zustand).
     """
     try:
-        with open(path, encoding="utf-8") as fh:
-            reg = json.load(fh)
-    except (OSError, json.JSONDecodeError):
+        reg = gate_registry.laden(path)
+    except (OSError, ValueError, RuntimeError):
         return None
     covered: set[str] = set()
     for g in reg.get("gates", []):
@@ -248,9 +246,8 @@ def registry_declined(path: str = GATE_REGISTRY) -> set[str] | None:
     None = Registry nicht lesbar (gleiche Semantik wie registry_coverage).
     """
     try:
-        with open(path, encoding="utf-8") as fh:
-            reg = json.load(fh)
-    except (OSError, json.JSONDecodeError):
+        reg = gate_registry.laden(path)
+    except (OSError, ValueError, RuntimeError):
         return None
     return {
         d["slug"]
@@ -830,9 +827,9 @@ def main() -> int:
                     f"{', '.join(ohne_gate)}"
                 )
                 print(
-                    "     → Gate bauen + in docs/governance/gate-registry.json "
+                    "     → Gate bauen + als docs/governance/gates/gates/<slug>.json "
                     "registrieren, oder die bewusste Nicht-Gate-Entscheidung "
-                    "dort in der declined-Liste dokumentieren."
+                    "als docs/governance/gates/declined/<slug>.json dokumentieren."
                 )
             else:
                 print(
