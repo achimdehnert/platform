@@ -610,11 +610,7 @@ def test_should_give_every_advisory_gate_in_the_real_registry_an_expiry():
     """Die eigentliche Zusage aus E4 — gemessen an der ECHTEN Registry, nicht an
     einer Attrappe: kein advisory-Gate ohne Frist, sonst ist `advisory` wieder
     ein Endzustand statt eines Zwischenschritts."""
-    registry = json.loads(
-        (_QUELLE.parents[1] / "docs" / "governance" / "gate-registry.json").read_text(
-            encoding="utf-8"
-        )
-    )
+    registry = gw.gate_registry.laden()
     ohne = [
         g["slug"]
         for g in registry["gates"]

@@ -1,0 +1,20 @@
+{
+  "slug": "gate-pflicht-nie-eingeloest",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": "tools/gate_deckung.py",
+  "drill": "tools/tests/test_gate_deckung.py",
+  "built": "2026-08-20",
+  "ref": "platform#2164",
+  "note": "Misst die vierte Achse: fuer wie viele Befunde wurde je etwas gebaut. retro_kpis zaehlt die GATE-PFLICHT, niemand ihre Einloesung — 16 Slugs sind >=2x aufgetreten und tragen weder Gate noch declined-Eintrag.",
+  "faengt": [
+    {
+      "fall": "Slug >=2x aufgetreten, weder Gate noch declined-Eintrag",
+      "probe": "declined"
+    }
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-08-20",
+  "expires": "2026-10-31",
+  "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
+}

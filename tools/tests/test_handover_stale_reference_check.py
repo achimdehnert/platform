@@ -237,11 +237,10 @@ def test_should_not_let_a_settled_word_bleed_into_a_neighbouring_reference():
 
 def test_should_register_the_gate_header_slug_in_the_registry():
     """KONZ-038 D8: der Kopf gehört ins Modul, und sein Slug muss der registrierte sein."""
-    import json
+    sys.path.insert(0, str(REPO_ROOT / "tools"))
+    import gate_registry
 
-    reg = json.loads(
-        (REPO_ROOT / "docs" / "governance" / "gate-registry.json").read_text("utf-8")
-    )
+    reg = gate_registry.laden()
     slugs = {g["slug"] for g in reg["gates"]}
     assert hsrc.GATE_HEADER["slug"] in slugs
 

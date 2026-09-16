@@ -1,0 +1,34 @@
+{
+  "slug": "aufschub-anker",
+  "mode": "blocking",
+  "owner": "achim",
+  "module": "tools/deferral_anchor_check.py",
+  "drill": "tools/tests/test_deferral_anchor_check.py",
+  "built": "2026-08-10",
+  "ref": "platform#1650",
+  "covers": [
+    "workaround-without-tracking-anchor",
+    "planned-phase-no-issue",
+    "tracking-doc-stale-after-new-occurrence",
+    "deferred-item-no-tracking-issue"
+  ],
+  "note": "EIN Gate fuer vier Slugs (covers, gespiegelt aus GATE_HEADER.covers). Das Werkzeug lag seit ceb90db0 gebaut und getestet im Repo, aber mit NULL Aufrufern — verdrahtet erst in .github/workflows/aufschub-anker-gate.yml. Deshalb steht `built` auf dem Verdrahtungs-, nicht auf dem Schreibdatum: ein Gate ohne Aufrufer ist nicht gebaut.",
+  "faengt": [
+    {
+      "fall": "Aufschub im PR-Text ohne Anker",
+      "probe": "anker"
+    },
+    {
+      "fall": "blocking: Fund macht den Workflow-Job rot statt ihn nur zu kommentieren",
+      "probe": "blocking"
+    }
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-09-02",
+  "revised": "2026-09-10",
+  "revision_note": "AUSWEITUNG (Quelle) am 2026-09-10 (Retro oqu6Z6 Befund 3, Owner-Wort '51 go autonom', platform#3060): das Gate las nur PR-Text; sechs Aufschuebe standen als Prosa in Sachstand-Kommentaren des Auftrags-Issues #3015 ('Kandidat', 'bleibt offen', 'Folge-PR') — kein Anker, kein Alarm. Neu: deferral_anchor_check.py --issue N [--repo] prueft Body + alle Kommentare mit derselben ANKER-Regex (Checkbox-Zeilen mit Anker gelten als gedeckt), plus Advisory-Schritt in aufschub-anker-gate.yml, der die erste 'Refs #N' des PR-Bodys nachprueft (continue-on-error, Step-Summary). Umsetzung platform#3059 (Governance-Pfad, Owner-Approval). Das Gate hat am selben Tag auf zwei der Umsetzungs-PRs selbst gefeuert (#3057, #3059: 'Registry-Eintrag folgt gesondert' ohne Anker) — behoben durch #3060 als Anker. | VORHER: SCHARFSCHALTUNG advisory -> blocking am 2026-09-02 (Owner-Entscheid E4, platform#2606, eigener PR gemaess frozen_note). Kalibrierfenster 2026-08-10 bis 2026-09-02: EIN echter Treffer, null Fehlalarme — und der getroffene PR (#2607) wurde drei Minuten spaeter gemergt. Null FP UND null Wirkung: ein Melder, den man ueberholen kann, waehrend er meldet, ist keine Schranke. Ein Fund laesst den Job in .github/workflows/aufschub-anker-gate.yml jetzt FEHLSCHLAGEN (Exit 1 statt nur Kommentar); der Werkzeugfehler-Zweig (Exit 2) bleibt davon getrennt und bekommt einen eigenen Kommentar, damit ein Absturz nicht als Aufschub-Vorwurf gelesen wird. REICHWEITEN-GRENZE, ausdruecklich: platform hat keinen Aggregator-Check; der rote Job blockt den Merge erst, wenn der Kontext \"Aufgeschobene Arbeit braucht einen Anker\" im Ruleset main-required-checks (ID 17621471, heute drei Kontexte) steht — das ist Owner-Recht und im PR als Owner-Punkt benannt. Bis dahin: roter, sichtbarer Check, kein bindendes Gate.",
+  "positivkontrolle": {
+    "ref": "tools/tests/test_deferral_anchor_check.py::test_should_flag_a_deferral_in_an_issue_comment_without_an_anchor (Kommentar mit 'bleibt offen' ohne Anker -> Fund); Gegenproben ::test_should_accept_the_same_comment_with_an_issue_anchor und ::test_should_treat_a_checkbox_line_with_an_anchor_as_covered. Echtfall 2026-09-10: PR #3057 Zeile 10 'Registry-Eintrag folgt gesondert' -> Required Check rot (Run 34478380848).",
+    "datum": "2026-09-10"
+  }
+}

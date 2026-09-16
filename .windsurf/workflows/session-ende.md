@@ -188,7 +188,7 @@ Präzision des Melders unbekannt (Quote im Start als `0.7.19`, ab drei Urteilen)
 
 **Rückfällige Gates aus Start-Phase 0.7.7** (Gate `gate-rueckfall-unbemerkt`,
 Registry-`module` `tools/gate_wirkung.py`): genau zwei zulässige Abschlüsse — **behandelt**
-(Gate ausgeweitet/umgebaut/herabgestuft, `docs/governance/gate-registry.json` im selben PR
+(Gate ausgeweitet/umgebaut/herabgestuft, der Eintrag unter `docs/governance/gates/` im selben PR
 nachgezogen, bei Herabstufung `declined` mit Begründung) **oder Verzicht mit Grund**. Die
 Zeile stehen zu lassen ist keine dritte Antwort. → `LEHREN#0f`
 

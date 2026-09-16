@@ -1,0 +1,38 @@
+{
+  "slug": "lint-failure-no-local-gate",
+  "mode": "blocking",
+  "owner": "achim",
+  "module": "tools/claude-hooks/block_unformatted_push.sh",
+  "drill": "tools/claude-hooks/tests/test_block_unformatted_push_suite.py",
+  "built": "2026-08-04",
+  "ref": "platform#1650 Nachmessung 2026-08-10",
+  "note": "Bestand seit ff2981b0 (PreToolUse-Hook blockt push mit unformatiertem Stand), war aber nie registriert. `blocking` ist hier keine Eskalation, sondern der Ist-Zustand des Hooks seit Einbau. Registriert 2026-08-12. · 2026-08-23 (platform#2234): `local-test-gate-narrower-than-ci` gehoert hierher — dieselbe Naht (lokal gruen, CI rot), nur fuer Tests statt Lint. Realfall 2026-07-27: ein Test las das echte Home-Verzeichnis. Ausweitung noch NICHT gebaut, der Slug ist hier verankert statt in einem zweiten Gate.",
+  "covers": [
+    "local-test-gate-narrower-than-ci"
+  ],
+  "faengt": [
+    {
+      "fall": "Import nach Modul-Zuweisung (ruff E402) — Linter-Regel, kein Layout",
+      "probe": "e402"
+    },
+    {
+      "fall": "nicht ruff-formatierte Datei (Layout)",
+      "probe": "unformatiert"
+    },
+    {
+      "fall": "infra/hosts.yaml im Diff, hosts_audit rot",
+      "probe": "T12"
+    },
+    {
+      "fall": "tools/*.py im Diff, pytest tools/tests rot",
+      "probe": "T14"
+    }
+  ],
+  "drill_extra": [
+    "tools/claude-hooks/tests/test_block_unformatted_push.sh"
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-08-04",
+  "revised": "2026-08-28",
+  "revision_note": "Rev 2 (2026-08-28, Retro 62f875 §5a, Gate rueckfaellig 2× seit Bau → 'ausweiten'): pfadgetriggerte Zusatzpruefungen VOR dem Push — `infra/hosts.yaml` im Diff → `infra/scripts/hosts_audit.py` (rc 1 = deny), `tools/*.py` im Diff → `pytest tools/tests -q -x` (rc 1 = deny; rc >1 fail-open). Realfall platform#2397: Schema-Fund (runner.host ohne Host-Block) und Zeitbomben-Test gingen in CI rot, obwohl beide Werkzeuge lokal in Sekunden laufen. Drill T12–T14 in test_block_unformatted_push.sh (Stub-hosts_audit exit 1/0, roter tools-Test)."
+}

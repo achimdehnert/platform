@@ -1,0 +1,76 @@
+{
+  "slug": "claim-before-cheapest-check",
+  "mode": "blocking",
+  "owner": "achim",
+  "module": "tools/claude-hooks/evidence_claim_scanner.py",
+  "drill": [
+    "tools/claude-hooks/tests/test_evidence_claim_scanner.py",
+    "tools/claude-hooks/tests/test_evidence_claim_scanner_bypass.py",
+    "tools/claude-hooks/tests/test_evidence_claim_scanner_vollzug.py",
+    "tools/claude-hooks/tests/test_evidence_claim_scanner_entwurf.py",
+    "tools/claude-hooks/tests/test_evidence_claim_scanner_gate_wirkung.py",
+    "tools/claude-hooks/tests/test_evidence_claim_scanner_kriterium.py"
+  ],
+  "built": "2026-08-02",
+  "ref": "platform#1643",
+  "revised": "2026-09-14",
+  "revision_note": "Rev 3, zwei Ausweitungen nach Retro fdd368 §5a (Owner-Entscheid 'ausweiten'). (1) SCHREIBWEISE: der Universal-Claim verlangte eine Ziffer — 'alle 7 Checks gruen' traf, 'alle sieben Checks gruen' verfehlte. Genau der zweite Satz stand am 2026-08-25 in einer Antwort, waehrend zwei Checks rot waren; der Owner sah es, das Gate nicht. Zahlwoerter bis zwoelf ergaenzt. Das ist zugleich der bis dahin ungegatete Slug gate-matches-spelling-not-substance (x5). (2) GEFILTERTER BELEG: die Korroboration fragte, OB ein Belegkommando lief, nicht ob dessen Ausgabe die Aussage tragen KONNTE. 'gh pr checks | tail -12' zeigte zwoelf gruene Zeilen, die zwei roten standen oben. Neu entwaffnet ein durch head/tail abgeschnittenes LISTEN-Kommando die Korroboration einer Allaussage; eine Gegenprobe im selben Zug (grep -v/-c, awk !=, wc -l, --jq) hebt das wieder auf. Bewusst eng: 'make test | tail -3' bleibt gueltig, weil pytest seine Summenzeile ans Ende schreibt. · Rev 4 (2026-08-28, Retro 62f875 §5a, Gate rueckfaellig ×70 → 'ausweiten'): (3) BYPASS-CLAIM: 'Admin-Merge'/'Ruleset-Bypass'/'--admin' in einem publizierten PR-/Issue-Body ist ein eigener Claim-Typ, den nur ein mergedBy-Beleg traegt — `state: MERGED` sagt nichts ueber den Merge-WEG (platform#2397: wirdigital hatte regulaer gemergt, der Bypass-Kommentar stand trotzdem). (4) KOMMENTAR-VOR-MERGE: ein Status-/Bypass-Kommentar, der in derselben Bash-Kette VOR `gh pr merge` abgesetzt wird, kann das Ergebnis nicht kennen — feuert unabhaengig vom Beleg. Drill: tests/test_evidence_claim_scanner_bypass.py (Realfall als Fixture, drei Nicht-Treffer daneben). · Rev 5 (2026-09-07, platform#2374, Gate rueckfaellig x4 -> 'schaerfen'): neue Trefferklasse VOLLZUGS-CLAIM im publizierten Body. Der vierte Rueckfall war der Escrow-Satz aus platform#2673 ('Der Escrow ist ausgefuehrt', gesichert war eine Datei mit einem ZEIGER statt dem Schluessel; #2675 belegte das 40 Minuten spaeter). Die Retro a6368d erklaerte den Durchlaeufer damit, dass ein Werkzeug lief, aber die falsche Ebene belegte. Am 2026-09-07 gegen die Muster selbst gegengeprueft: KEIN einziges CLAIM_PATTERN trifft diesen Satz -- weder 'ausgefuehrt' noch 'vollzogen', 'eingerichtet', 'gesichert' oder 'abgeschlossen' standen in der Liste. Der Body-Zweig hat also nie gefeuert, die Korroboration kam gar nicht zum Zug; die Diagnose der Retro war eine Ebene zu tief. Die Messung steht als erster Test im Drill, damit sie auffaellt, falls ein anderes Muster den Fall spaeter doch deckt. Bewusst NUR fuer publizierte Bodies und nur mit WIRKUNGS-GEGENSTAND (Escrow, Backup, Rotation, Migration, Deploy, ...): 'erledigt' und 'abgeschlossen' stehen in jeder zweiten Chat-Antwort, das Action Board fuehrt '✅ Erledigt' als Bucket-Ueberschrift. · Rev 6 (2026-09-07, platform#2924, eng begrenzte Ausweitung): die Ursache lag an der QUELLE, nicht am Muster — der Scanner prueft nur Chat-Text und den gh-Body-Carrier (`_GH_BODY_CARRIER_RE`); Mail-Entwuerfe laufen ueber `tools/mail_agent/draft_mail.py`/`graph_mail.py --body-file` und fielen deshalb durch JEDE Body-Extraktion. Realfall: ein Mail-Entwurf an einen Studierenden behauptete 'At 22 pages and roughly 7,800 words', `pdfinfo` sagte 23 Seiten; der Entwurf wurde abgelegt und vom Owner gesendet, ohne dass der Hook je die Zahl sah. Konsequenz: AUSWEITEN, eng begrenzt auf genau diesen Carrier. Neuer, enger Mail-Draft-Carrier (`_MAIL_DRAFT_CARRIER_RE`: draft_mail.py/graph_mail.py UND --body-file im selben Kommando) plus eigene Trefferklasse `entwurf-messzahl` (Zahl unmittelbar vor einer Masseinheit — Seiten/Woerter/Zeichen/Zeilen/Treffer — ohne ein zaehlendes Kommando wie pdfinfo/wc/grep -c im Turn). ADVISORY-SONDERWEG (Owner-Vorgabe #2924): diese Trefferart blockt NIE, auch nicht im blocking-Mode des Gates — sie laeuft immer als Warnzeile (additionalContext), der Entwurf wird trotzdem abgelegt; nur wenn gleichzeitig eine der haerteren Arten (unbelegt/bypass-claim/vollzugs-claim/...) feuert, greift wieder das normale blocking-Verhalten. Begruendung: ein Mail-Entwurf ist noch keine Aussage nach aussen, das Gate soll auf die Zahl aufmerksam machen, nicht den Entwurfsprozess stoppen. · Rev 7 (2026-09-08, Retro 61c35d §5a, Gate rueckfaellig einen Tag nach Rev 6 -> 'ausweiten'): neue Trefferklasse WIRKUNGS-CLAIM im publizierten Body. Der Rueckfall war platform#2954: „ein Gate erzwingt, dass sie stattgefunden hat\". Der Job war gebaut, lief, und wurde am Drill-PR #2955 auch wirklich rot -- er stand nur nicht in required_status_checks des Rulesets. Ein roter Check, der nicht required ist, blockiert keinen Merge. Warum keine vorhandene Art griff: der Turn war voll von Belegen (CI-Lauf, roter Check, gruene Tests), BODY_EVIDENCE_TOKENS waeren also zufrieden gewesen -- und genau darin liegt die Falle, dass ein Check FEUERT belegt nie, dass er SPERRT. Deshalb eine eigene, engere Korroboration (RULESET_READ_RE: rules/branches, /rulesets, required_status_checks, branch_protection); ein `gh pr checks`, `gh run list` oder `make test` entwaffnet ausdruecklich NICHT. Bewusst nur fuer publizierte Bodies: im Chat ist „der Check blockiert\" oft eine Absicht, im PR-Text ist es eine Zusage an den Leser. Gegengeprueft am 2026-09-08: weder ein CLAIM_PATTERN noch VOLLZUG_CLAIM_RE traf den Satz; beide Messungen stehen als erste Tests im Drill, damit sie auffallen, falls eine andere Art den Fall spaeter doch deckt. · Rev 8 (2026-09-14, Retro docs/retros/session-retro-2026-09-14-platform-oqu6Z6.md (platform#3156) §5a / Befund #4, M5, Owner-Entscheid 'g5a bestaetigt' (Kapitaens-Kanal, 2026-09-14); Gate rueckfaellig x3 nach Rev 7 -> 'ausweiten'): neue Trefferklasse KRITERIUMS-CLAIM im publizierten Body. Realfall platform#3015: 'Alle fuenf Kriterien sind erreicht und belegt'; K3 verlangte Verfallsignale 'mit Schwelle und Vorlauf', einen Melder, der feuert, 'bevor der Ausfall eintritt', und eine Positivkontrolle mit 'Beleg im Journal' — die Belegzeile nannte davon nur Schwelle und Positivkontrolle. Anders als die frueheren Rueckfaelle stand die Aussage in einem Traeger, den das Gate sieht: der alte Body-Zweig traf den Satz (`universal-claim`) und wurde von `gh issue view` im Turn entwaffnet — gelesen war das Kriterium, gegengehalten nicht. Neu: behauptet ein Body ein Kriterium mit Kennung (K1, K2, ...) als erreicht/erfuellt, wird sein Wortlaut im Turn gesucht; fehlt er, feuert die Art; steht er da, muss jeder Satzteil mit mindestens einem Inhaltswort in den Body-Zeilen dieser Kennung vorkommen. GRENZE, im Modul benannt: gemessen wird, ob jeder Satzteil ANGESPROCHEN ist, nicht ob der Beleg ihn traegt; Bodies ohne Kennung bleiben still. Gegenprobe am echten #3015-Abschluss 2026-09-14: K3 meldet genau 'Vorlauf; der Ausfall eintritt; Beleg im Journal'; dieselbe Pruefung markiert auch in K1/K4/K5 ausgelassene Satzteile — Kalibrierung ueber gate_hits (Fehlalarm-Quote), Wiedervorlage mit dem bestehenden Termin 2026-09-30.",
+  "faengt": [
+    {
+      "fall": "pruefbare Behauptung im Turn ohne belegenden Werkzeuglauf",
+      "probe": "unbelegt"
+    },
+    {
+      "fall": "Werkzeug lief, beruehrt aber nicht den genannten Gegenstand (Subjektbindung)",
+      "probe": "subjekt"
+    },
+    {
+      "fall": "CI-/Hintergrund-Status nach push/dispatch behauptet, ohne dass DANACH ein gh-Check lief",
+      "probe": "ci-status"
+    },
+    {
+      "fall": "Bypass-Kommentar ohne mergedBy-Beleg (platform#2397)",
+      "probe": "bypass-claim"
+    },
+    {
+      "fall": "gh pr comment mit Statuswort VOR gh pr merge in einer Kette",
+      "probe": "comment-before-merge"
+    },
+    {
+      "fall": "Vollzug eines Wirkungsschritts im PR-/Issue-Body ohne Lesen am Ziel (platform#2673)",
+      "probe": "vollzugs-claim"
+    },
+    {
+      "fall": "Maßzahl in einem Mail-Entwurf (draft_mail.py/graph_mail.py --body-file) ohne zaehlendes Kommando im Turn (platform#2924, advisory-Sonderweg)",
+      "probe": "entwurf-messzahl"
+    },
+    {
+      "fall": "Sperrwirkung eines Gates/Checks/Rulesets im PR-/Issue-Body behauptet, ohne dass im Turn die Regel-Ebene gelesen wurde (platform#2954)",
+      "probe": "gate-wirkungs-claim"
+    },
+    {
+      "fall": "Kriterium mit Kennung im PR-/Issue-Body als erreicht behauptet, ohne dass jeder Satzteil des gelesenen Wortlauts in der Belegzeile vorkommt (platform#3015 K3)",
+      "probe": "kriteriums-claim"
+    }
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-08-02",
+  "kalibrierfenster_abgeschlossen": {
+    "klasse": "kinds=subjekt-unbelegt-kalibrierung",
+    "seit": "2026-08-23",
+    "bis": "2026-09-20",
+    "min_beurteilbar": 10,
+    "scharf_per": "EVIDENCE_SCANNER_SUBJEKTBINDUNG=scharf",
+    "note": "Zweiter Anlauf. Die erste Frist (2026-09-03, gesetzt am 2026-08-20) lief ins Leere, und zwar aus zwei Gruenden gleichzeitig: (1) `gate_hits.notiere()` wurde ohne `turn=` gerufen, jede Zeile trug einen leeren Ausschnitt — behoben in platform#2226, aber in der aktiven Hook-Kopie erst am 2026-08-23 12:17 wirksam, als 0.7.5 die Verteil-Drift heilte; (2) die Klasse feuerte in drei Tagen genau EINMAL (2026-08-23 03:32). 59 Zeilen standen im Protokoll, aber sie gehoerten dem regulaeren Treffer, nicht dem Kalibrierfall — die Zahl beschrieb nie das Fenster. Am 2026-08-23 gegengeprobt: der Scanner schreibt seither einen gefuellten Ausschnitt (synthetischer Stop-Event gegen die AKTIVE Kopie). Deshalb zaehlt jetzt eine Mindestzahl beurteilbarer Zeilen, nicht ein Datum allein: bei 1 Zeile / 3 Tagen waere auch der 2026-09-20 mit ~10 Zeilen erreicht — kommt weniger zusammen, ist das selbst der Befund und das Fenster gehoert aufgegeben statt verlaengert. Stand 2026-08-23 (Ziel #2143): dieses Gate bleibt als einziges der vier BEWUSST offen. Die Antwort ('ausweiten') ist gegeben und umgesetzt; was fehlt, sind Daten. Ein `revised`-Datum ohne Verhaltensaenderung waere hier reines Zuruecksetzen der Messung — genau die Steigerbarkeit durch Neubauen, gegen die gate_wirkung.py seine Ehrlichkeits-Sperren hat.",
+    "entschieden": "2026-09-02",
+    "entscheid": "scharf",
+    "entschieden_von": "owner",
+    "beurteilbar_bei_entscheid": 13,
+    "wirksam_per": "~/.claude/settings.json env EVIDENCE_SCANNER_SUBJEKTBINDUNG=scharf",
+    "entscheid_note": "Zweiter Anlauf erreichte am 2026-09-02 seine Mindestzahl (13 beurteilbare Zeilen seit 2026-08-23, Mindestzahl 10) und wurde vom Owner scharf geschaltet. Datenlage bei der Entscheidung, offen benannt: von den 12 beurteilbaren Zeilen (die erste trug einen leeren Ausschnitt) sehen nach Sichtung der Ausschnitte rund 4 wie Fehlalarme aus — Faelle, in denen der genannte Gegenstand vom Werkzeuglauf sehr wohl beruehrt war (Testlaeufe mit Summenzeile, eine Ankuendigung des Checks statt einer Behauptung). Diese Einstufung ist eine HYPOTHESE aus 230-Zeichen-Ausschnitten; ob ein belegender Lauf im Turn stand, laesst sich daraus nicht entscheiden — der billigste Check dafuer waeren die zugehoerigen Transkripte. Die Entscheidung stuetzt sich stattdessen auf die Messung aus #2374 Ziel B (134 Transkripte): die Klasse 'Werkzeug lief, traegt aber nicht' ist mit 13 % groesser als 'kein Werkzeug', und genau sie ist der Gegenstand der Subjektbindung. Wiedervorlage 2026-09-30: wenn die Fehlalarm-Quote im scharfen Betrieb spuerbar ueber einem Drittel liegt, gehoert der Modus zurueckgestuft."
+  },
+  "positivkontrolle": {
+    "ref": "tools/claude-hooks/tests/test_evidence_claim_scanner_kriterium.py -- der K3-Wortlaut und die K3-Belegzeile aus dem #3015-Abschluss laufen durch main() (Turn mit `gh issue view 3015` und `gh issue close --comment`) und erzeugen 'kriteriums-claim' mit den Satzteilen Vorlauf/Ausfall/Journal; eine Belegzeile, die jeden Satzteil anspricht, bleibt still. Die Messung, aus der Rev 8 folgt, steht als erster Test: der alte Body-Zweig traf nur `universal-claim`, und `gh issue view` entwaffnete ihn.",
+    "datum": "2026-09-14"
+  }
+}

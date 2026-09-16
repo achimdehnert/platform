@@ -1,0 +1,18 @@
+{
+  "slug": "skill-copy-not-redistributed",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": "tools/cc-skill-dist/doctor.py",
+  "drill": "tools/tests/test_doctor.py",
+  "built": "2026-08-23",
+  "ref": "platform#2143 (gate_deckung.py: 3x aufgetreten, nie gegated) · gestrichen per Owner-Entscheid E4 (platform#2606)",
+  "note": "Kein Neubau, sondern ein fehlender LESER: `doctor.py` prueft die Lanes `skills` und `commands` seit Monaten read-only, mit Drill und Exit-Code-Vertrag — im Sitzungs-Loop rief es niemand. Verdrahtet als Runner-Phase 0.7.13. 0.7.5 deckt ausdruecklich NUR die Lane `claude-hooks`; die Schwester-Lane war die Luecke (selbst ein Fall von `partial-fix-not-generalized-to-sibling-artifacts`). Geurteilt wird am DRIFT-SCORE, nicht am Exit-Code. Positivkontrolle 2026-08-23: Drift im Koerper einer Skill-Kopie -> Score 1, unveraenderte Kopie -> Score 0. Bekannte Grenze: `strip_managed_footer()` schneidet ab dem MANAGED-BY-Marker bis Dateiende, angehaengter Text HINTER dem Footer bleibt unsichtbar (getrackt: platform#2235).",
+  "faengt": [
+    {
+      "fall": "aktive Skill-Kopie weicht von der Quelle ab (Drift-Score > 0)",
+      "probe": "drift"
+    }
+  ],
+  "decided": "2026-09-02",
+  "reason": "Selbstheilend wie die Schwester-Lane: Runner-Phase 0.7.13 ruft doctor.py und verteilt neu. Melder bleibt (module/drill unveraendert); als Schranke gestrichen. Die bekannte Grenze aus dem Eintrag (Text hinter dem MANAGED-BY-Footer) bleibt getrackt in platform#2235 — sie ist ein Melder-, kein Gate-Befund."
+}

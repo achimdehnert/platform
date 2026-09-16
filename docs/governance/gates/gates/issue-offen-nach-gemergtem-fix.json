@@ -1,0 +1,33 @@
+{
+  "slug": "issue-offen-nach-gemergtem-fix",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": "tools/session_abgleich.py",
+  "drill": "tools/tests/test_session_abgleich.py",
+  "built": "2026-09-07",
+  "ref": "platform#2234 (Widerruf 2026-09-02), platform#2374",
+  "covers": [
+    "issue-not-reconciled-after-cross-repo-fix",
+    "issue-open-after-its-fix-merged",
+    "dod-reinterpreted-only-in-pr-body"
+  ],
+  "note": "Loest den am 2026-09-02 widerrufenen Verzicht `issue-not-reconciled-after-cross-repo-fix` ein (x8) und deckt zwei Slugs derselben Naht mit: ein Issue bleibt offen, obwohl die erledigende PR gemergt ist (x3), und ein geschlossenes Issue traegt noch unangehakte DoD-Kaestchen (x2). Der Verzicht war mit zwei Praemissen begruendet, beide widerlegt: die drei Vorkommen waren SAME-repo (kein Crawler noetig), und die angeblich deckende Issue-Reconcile-Phase in session-ende gibt es nicht. Messpunkt wie im Widerruf beschrieben: je gemergter Session-PR die referenzierten Issues (Closes|Fixes|Resolves|Refs) abfragen. Erzwingungspunkt: Runner-Phase E.10 in tools/session_ende_checks.sh. Bekanntes Rueckfall-Muster: `Refs #N` statt `Closes #N` (writing-hub, 9 von 10 PR-Texten).",
+  "faengt": [
+    {
+      "fall": "gemergte PR, referenziertes Issue noch OPEN (ausschreibungs-hub #184/#195)",
+      "probe": "still_open"
+    },
+    {
+      "fall": "durch die PR geschlossenes Issue mit unangehakten DoD-Kaestchen (chat-hub #27)",
+      "probe": "unchecked_box"
+    }
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-09-07",
+  "expires": "2026-10-31",
+  "expires_note": "blocking oder gestrichen bis dahin - Owner-Entscheid E4 (platform#2606).",
+  "positivkontrolle": {
+    "ref": "tools/tests/test_session_abgleich.py::test_should_flag_issue_still_open_after_its_fix_merged (ausschreibungs-hub #184 OPEN neben gemergtem #195), ::test_should_flag_refs_instead_of_closes (writing-hub) und ::test_should_flag_closed_issue_with_unchecked_dod_boxes (chat-hub #27) - je mit gruener Gegenprobe. Dazu ein echter Lauf am 2026-09-07 gegen dieses Repo: Issue #2895 ist OPEN, obwohl der zugehoerige PR #2905 MERGED ist (Refs statt Closes) - ein wahrer Treffer aus dem Bestand, nicht aus einer Fixture.",
+    "datum": "2026-09-07"
+  }
+}

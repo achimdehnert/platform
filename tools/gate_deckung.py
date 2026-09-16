@@ -6,7 +6,7 @@
 Der Loop hat drei Messpunkte und eine Luecke — dieselbe Konstruktion wie bei
 `gate_wirkung.py`, nur eine Ebene davor:
 
-- `docs/governance/gate-registry.json` sagt, ein Gate ist **gebaut**.
+- `docs/governance/gates/` sagt, ein Gate ist **gebaut**.
 - `tools/gate_drill_check.py` sagt, es **feuert**.
 - `tools/gate_wirkung.py` sagt, ob es **wirkt** (Rueckfaelle nach dem Bau).
 - **Keiner** sagt, fuer wie viele Befunde ueberhaupt je etwas gebaut wurde.
@@ -55,6 +55,9 @@ from collections import Counter
 from datetime import datetime, timezone
 from statistics import median
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import gate_registry  # noqa: E402  (Einzeldateien, #1944 K7)
+
 # Maschinenlesbarer Kopf (KONZ-038 D8)
 GATE_HEADER = {
     "slug": "gate-pflicht-nie-eingeloest",
@@ -65,7 +68,7 @@ GATE_HEADER = {
 }
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DEFAULT_REGISTRY = os.path.join(REPO_ROOT, "docs", "governance", "gate-registry.json")
+DEFAULT_REGISTRY = gate_registry.DEFAULT_PFAD
 
 # Ab so vielen Vorkommen gilt ein ungedeckter Slug als Befund. Deckungsgleich mit
 # der GATE-PFLICHT-Schwelle in retro_kpis.py — zwei Werkzeuge duerfen sich hier
@@ -254,7 +257,7 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        registry = json.load(open(args.registry, encoding="utf-8"))
+        registry = gate_registry.laden(args.registry)
     except (OSError, ValueError) as fehler:
         # Fail-open wie die Geschwister-Werkzeuge: ein Melder, der den
         # Sitzungsstart aufhaelt, wird abgeschaltet und meldet danach gar nichts.

@@ -3,7 +3,7 @@
 
 Dieses eine Modul traegt DREI registrierte Slugs. `tools/gate_drill_check.py`
 liest den maschinenlesbaren Kopf (GATE_HEADER) und findet dort den ERSTEN;
-`docs/governance/gate-registry.json` nennt das Modul dreimal — einmal je Slug.
+`docs/governance/gates/` nennt das Modul dreimal — einmal je Slug.
 Zuordnung Slug → Funktion (die Registry-Zeilen zeigen auf dieselbe Datei):
 
   1. `issue-offen-nach-gemergtem-fix`   → befunde_issues()
@@ -83,7 +83,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # Maschinenlesbarer Kopf (KONZ-038 D8) — von tools/gate_drill_check.py gegen
-# docs/governance/gate-registry.json abgeglichen. Der Kopf traegt den ERSTEN
+# docs/governance/gates/ abgeglichen. Der Kopf traegt den ERSTEN
 # der drei Slugs; die beiden anderen stehen im Docstring oben.
 GATE_HEADER = {
     "slug": "issue-offen-nach-gemergtem-fix",

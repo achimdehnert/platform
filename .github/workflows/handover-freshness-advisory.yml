@@ -29,7 +29,7 @@ jobs:
     # stale Handover ist ein Hinweis an den, der gerade mergt — kein Grund, einen
     # unbeteiligten PR anzuhalten. Wird der Hinweis wiederholt ignoriert, ist das
     # ein Retro-Befund, und ob er scharf gestellt wird, entscheidet die
-    # Gate-Registry (docs/governance/gate-registry.json).
+    # Gate-Registry (docs/governance/gates/).
     continue-on-error: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

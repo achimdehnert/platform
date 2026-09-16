@@ -31,7 +31,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 # Maschinenlesbarer Kopf (KONZ-038 D8) — von tools/gate_drill_check.py gegen
-# docs/governance/gate-registry.json abgeglichen. Der Reaper ist das Gate gegen
+# docs/governance/gates/ abgeglichen. Der Reaper ist das Gate gegen
 # das Retro-Muster `worktree-midsession-accumulation` (Worktrees sammeln sich an,
 # bis der naechste Merge kollidiert): aufgerufen via `repo-session.sh reap` und
 # session-start Phase 0.4.5. Bestand seit cf9ccb48, registriert erst 2026-08-12
