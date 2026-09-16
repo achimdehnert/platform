@@ -407,6 +407,7 @@ Memory-Upserts deduplizieren per `content_hash`.
 | 22 | Gate verankert? `gate_verankerung_check.py --neu` grün, sonst Kandidat (0f-verankerung) | ☐ |
 | 23 | Ab `full`: 0d und 0e von je einem fremden Agenten gegengelesen (0h) | ☐ |
 | 24 | Auftragsraum: `offen --block` Exit 0, oder je Korrektur `regel` bzw. Verzicht mit Grund (0i) | ☐ |
+| 25 | `E.10 session-abgleich`: Exit 0, oder je Befund Issue bzw. notierter Fehlalarm | ☐ |
 
 **Neue Pflicht-Phase ⇒ Checklisten-Zeile im selben PR**; Auswahl über
 `grep -n "^## \|^### "` und Einzelbeurteilung, **nicht** über das Wort „PFLICHT".
