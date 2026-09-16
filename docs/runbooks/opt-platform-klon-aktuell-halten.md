@@ -16,6 +16,16 @@ einem git-Klon auf dem Prod-Host:
 in `/etc/cron.d/`, keiner in `/opt/scripts/`, keine systemd-Unit. Der einzige
 Cron, der `/opt/platform` überhaupt anfasst (`adr-outline-sync`), liest nur.
 
+> **Der Cron `adr-outline-sync` (Stand 2026-09-16, platform#2353):** `/etc/cron.d/adr-outline-sync`
+> ruft täglich 04:00 `. /etc/adr-outline-sync.env && /opt/platform/scripts/sync_adrs_to_outline.sh`.
+> Die Env-Datei (`root`, 0600) trägt `OUTLINE_URL`, `OUTLINE_API_TOKEN`, `OUTLINE_COLLECTION_ADR_MIRROR`
+> als `export`-Zeilen — der Token steht **nur dort**, nie in der Cron-Zeile (so lag er bis 2026-08-27).
+> Beide Dateien haben keine Quelle in `platform/infra`; dieser Absatz ist ihre Beschreibung.
+> **Rotation:** Outline 1.6.0 erlaubt `apiKeys.create`/`delete` nicht per API-Key; der Weg ist eine
+> Hash-Zeile in `apiKeys` (`sha256`, `last4`) und der Soft-Delete des alten Keys — Skriptmuster in
+> #2353 (2026-09-16). Konsumenten des Tokens: diese Env-Datei und `~/.secrets/outline_api_token`
+> (MCP `outline-knowledge`, `mcp-hub/scripts/start-outline-mcp.sh`).
+
 Das Reflog zeigt ausschließlich Pulls zu unregelmäßigen Uhrzeiten (05:01, 09:47,
 06:01, 07:02, 15:12 UTC) — das sind Handgriffe aus Sessions, kein Zeitplan.
 Zwischen dem 2026-07-02 und dem 2026-07-29 lag eine Lücke von **27 Tagen**.
