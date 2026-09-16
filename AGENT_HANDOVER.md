@@ -44,7 +44,6 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 0. Freigabe-Zeile je Prod-Schritt als Regel bestaetigen — aus dem Stand vom 2026-09-09 abends gerettet (Owner-Entscheid).
 
 - **[3164]** Retro-Restlücken: Anker-Gate-Fehlläufe, weitere Roh-Leser (6 Repos ohne Stufe-2-PR), Rettungs-Branch — https://github.com/achimdehnert/platform/issues/3164
-- **[chat-hub#94]** Raum-Session: zweiter Start muss mechanisch scheitern (Sperre in lotse_session.sh) — https://github.com/iilgmbh/chat-hub/issues/94
 - **[3158]** Stop-Hook `deferred_item_scanner` aus `~/.claude/settings.json` austragen (Owner, nach Sunset in #3160) — https://github.com/achimdehnert/platform/issues/3158
 - **[3129]** Melder `secrets_pruefen --alle`: `gemischt` als eigene Stufe statt Exit 1 — https://github.com/achimdehnert/platform/issues/3129
 - **[3050]** Waisen-Melder: Repo→Host-Zuordnung kippt still (Rest aus dem geschlossenen #3015) — https://github.com/achimdehnert/platform/issues/3050
@@ -92,7 +91,7 @@ Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Histor
 20. GX10-Training: 4090 bleibt fuehrend bis 16.384 Umgebungen, darueber traegt nur der GX10: https://github.com/achimdehnert/robo-lab/issues/58
 53. Kaufberatung zweites Geraet — Empfehlung abgelegt, Kenntnisnahme offen: https://github.com/achimdehnert/platform/issues/2978
 21. Mail-Ansicht: leerer Körper braucht „Inhalt im Anhang": https://github.com/achimdehnert/platform/issues/2597
-22. Owner: die 20 mechanisch gesetzten `frist_grund`-Texte auf `todo.iil.pet` sichten (Spalte Frist) — mechanisch je Bucket gesetzt, nicht redigiert: https://github.com/achimdehnert/platform/issues/3015
+22. Owner: die 20 mechanisch gesetzten `frist_grund`-Texte auf `todo.iil.pet` sichten (Spalte Frist) — mechanisch je Bucket gesetzt, nicht redigiert: https://github.com/achimdehnert/platform/issues/3203
 23. Megatest-Erstlauf, 15 Befunde unbearbeitet und ohne Tracking-Issue ([Lauf 30619024656](https://github.com/achimdehnert/platform/actions/runs/30619024656), 2026-08-02) — vor Wiederaufnahme neu messen.
 24. Gegenprobe Wochenlauf `ttz-hub`: beim nächsten Lauf, der ttz-hub wirklich ändert, müssen Checks am erzeugten PR erscheinen: https://github.com/achimdehnert/platform/issues/3090
 25. Session-Skills modellfest (#2690): Drill-Vorlage #2719, Backfill Positivkontrolle #2703, Ruleset-Entscheid bis 2026-10-02: https://github.com/achimdehnert/platform/issues/2690

@@ -80,3 +80,54 @@ def test_should_collect_lines_with_line_numbers():
     assert all(isinstance(n, int) and n > 0 for n, _ in lines)
     joined = "\n".join(t for _, t in lines)
     assert "Owner-Block" in joined and "Erledigt" not in joined
+
+
+# ── ID im Zeilentext neben voller URL (platform#3204, 2026-09-16) ───────────
+#
+# Das Hausformat schreibt `- **[12]** Kurztext — <URL>` vor. Die eckige Klammer
+# bildet dort KEINEN Markdown-Link, `_MD_LINK` greift also nicht. Vor dem Fix
+# bekam das Label den Default-Owner, obwohl die richtige URL danebenstand.
+
+ID_NEBEN_URL = """# Agent Handover
+
+## Offene Punkte
+
+- **[chat-hub#94]** Raum-Session sperren — https://github.com/iilgmbh/chat-hub/issues/94
+- **[3050]** Waisen-Melder — https://github.com/achimdehnert/platform/issues/3050
+- **[frist-hub#117]** BRMS-Recht — https://github.com/iilgmbh/frist-hub/issues/117
+"""
+
+
+def test_should_prefer_url_owner_over_bracketed_id_label():
+    refs, _ = extract_refs(ID_NEBEN_URL, OWNER, REPO)
+    nums = {(r.owner, r.repo, r.number) for r in refs}
+    assert ("iilgmbh", "chat-hub", 94) in nums, "URL-Owner muss gewinnen"
+    assert (OWNER, "chat-hub", 94) not in nums, (
+        "Label-Owner geraten, obwohl die URL auf derselben Zeile steht — "
+        "genau der 404, an dem das Auslagerungs-Gate abbrach (platform#3204)"
+    )
+    assert ("iilgmbh", "frist-hub", 117) in nums
+    assert (OWNER, "frist-hub", 117) not in nums
+
+
+def test_should_keep_guessed_owner_when_no_url_on_the_line():
+    """Ohne URL auf der Zeile bleibt der Default-Owner die einzige Lesart."""
+    refs, _ = extract_refs(
+        "## Offene Punkte\n\n- shared-ci#20 ohne Link\n", OWNER, REPO
+    )
+    nums = {(r.owner, r.repo, r.number) for r in refs}
+    assert (OWNER, "shared-ci", 20) in nums
+    assert all(not r.owner_explizit for r in refs if r.repo == "shared-ci")
+
+
+def test_should_not_drop_distinct_numbers_on_the_same_line():
+    """Die Regel gilt je Nummer, nicht je Zeile — #77 darf nicht mitverschwinden."""
+    refs, _ = extract_refs(
+        "## Offene Punkte\n\n- #77 offen, siehe "
+        "https://github.com/iilgmbh/chat-hub/issues/94\n",
+        OWNER,
+        REPO,
+    )
+    nums = {(r.owner, r.repo, r.number) for r in refs}
+    assert (OWNER, REPO, 77) in nums
+    assert ("iilgmbh", "chat-hub", 94) in nums
