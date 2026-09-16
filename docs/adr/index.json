@@ -3430,7 +3430,7 @@
         "ADR-208",
         "dev-hub#39"
       ],
-      "implementation_status": "in_progress"
+      "implementation_status": "partial  # 2026-09-16: Statusline/Stop-Hook deployed; Amendment-Punkte 2 (lokales Ledger) und 3 (Pricing-Resolver) nicht umgesetzt, s. Changelog"
     },
     {
       "number": 202,
