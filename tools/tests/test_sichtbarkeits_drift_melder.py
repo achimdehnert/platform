@@ -211,3 +211,33 @@ def test_should_origin_main_und_nicht_die_arbeitskopie_lesen(tmp_path):
         "uses: achimdehnert/platform/.github/actions/x@main\n"
     )
     assert scanne_lokal(tmp_path) == {}
+
+
+def test_should_uses_nur_unter_github_als_aufrufer_zaehlen(tmp_path):
+    """Realfall mcp-hub: `uses: achimdehnert/platform/...` in docs/ADR-160 ist Doku."""
+    _klon(
+        tmp_path,
+        "m-hub",
+        "achimdehnert/m-hub",
+        {
+            "docs/ADR-160.md": "uses: achimdehnert/platform/.github/workflows/_x.yml@v1\n"
+        },
+    )
+    assert scanne_lokal(tmp_path) == {}
+
+
+def test_should_archivierte_konsumenten_aussortieren(monkeypatch):
+    monkeypatch.setattr(
+        sdm, "ist_archiviert", lambda repo: repo == "achimdehnert/research-hub"
+    )
+    lebend, archiviert = sdm.ohne_archivierte(
+        {
+            "achimdehnert/research-hub": {
+                "aufruf": [".github/workflows/x.yml"],
+                "raw": [],
+            },
+            "achimdehnert/bfagent": {"aufruf": [".github/workflows/ci.yml"], "raw": []},
+        }
+    )
+    assert list(lebend) == ["achimdehnert/bfagent"]
+    assert archiviert == ["achimdehnert/research-hub"]

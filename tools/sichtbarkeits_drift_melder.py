@@ -156,7 +156,8 @@ def scanne_lokal(
         alter = fetch_alter_tage(d)
         if alter is not None:
             FETCH_ALTER[repo] = max(FETCH_ALTER.get(repo, 0), alter)
-        aufruf = _grep(d, AUFRUF_MUSTER) + _grep(d, KLON_MUSTER)
+        aufruf = [p for p in _grep(d, AUFRUF_MUSTER) if p.startswith(".github/")]
+        aufruf += _grep(d, KLON_MUSTER)
         raw = _grep(d, RAW_MUSTER)
         if aufruf or raw:
             eintrag = treffer.setdefault(repo, {"aufruf": [], "raw": []})
@@ -195,10 +196,33 @@ def scanne_netz() -> dict[str, dict[str, list[str]]]:
         for repo, pfad in suche_code(abfrage):
             if repo == SELBST:
                 continue
+            # Ein `uses:` in Doku (Realfall mcp-hub docs/ADR-160) ist kein Aufrufer.
+            if klasse == "aufruf" and not pfad.startswith(".github/"):
+                continue
             e = treffer.setdefault(repo, {"aufruf": [], "raw": []})
             if pfad not in e[klasse]:
                 e[klasse].append(pfad)
     return treffer
+
+
+def ist_archiviert(repo: str) -> bool | None:
+    """None = nicht messbar (offline)."""
+    out = _gh("repo", "view", repo, "--json", "isArchived", "--jq", ".isArchived")
+    return None if out is None else out.strip() == "true"
+
+
+def ohne_archivierte(
+    konsumenten: dict[str, dict[str, list[str]]],
+) -> tuple[dict[str, dict[str, list[str]]], list[str]]:
+    """Archivierte Repos sind read-only: ihre CI laeuft nicht mehr, ihr Verweis
+    kann nicht mehr umgehaengt werden (Realfall research-hub 2026-09-16)."""
+    lebend, archiviert = {}, []
+    for repo, e in konsumenten.items():
+        if ist_archiviert(repo):
+            archiviert.append(repo)
+        else:
+            lebend[repo] = e
+    return lebend, sorted(archiviert)
 
 
 def zaehle_kopien() -> list[str] | None:
@@ -363,13 +387,18 @@ def main(argv: list[str] | None = None) -> int:
     netz = {} if a.offline else scanne_netz()
     kopien = None if a.offline else zaehle_kopien()
     sicht = None if a.offline else sichtbarkeit()
+    konsumenten = vereinige(lokal, netz)
+    archiviert: list[str] = []
+    if not a.offline:
+        konsumenten, archiviert = ohne_archivierte(konsumenten)
     ergebnis = bewerte(
-        vereinige(lokal, netz),
+        konsumenten,
         kopien,
         abgelaufene_fristen(Path(a.konzepte_dir), heute),
         sicht,
     )
     ergebnis["quellen"] = {"lokal": len(lokal), "netz": len(netz)}
+    ergebnis["archiviert_ignoriert"] = archiviert
     ergebnis["fetch_alter_tage_max"] = max(FETCH_ALTER.values(), default=None)
     ergebnis["klone_ohne_fetch_7d"] = sorted(
         r for r, t in FETCH_ALTER.items() if t >= 7
