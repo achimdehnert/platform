@@ -183,9 +183,21 @@ def scanne_netz() -> dict[str, dict[str, list[str]]]:
 
 
 def zaehle_kopien() -> list[str] | None:
-    """Repos, die mindestens einen `_*.yml`-Baustein halten. None = nicht messbar."""
+    """Repos, die mindestens einen `_*.yml`-Baustein halten. None = nicht messbar.
+
+    Archivierte Repos zaehlen nicht: ein eingefrorenes Duplikat kann nicht mehr
+    divergieren, und genau die Divergenz misst K3. achimdehnert/shared-ci wurde am
+    2026-09-16 mit Tombstone archiviert (#2113) — ohne diese Regel bliebe Kopien = 3.
+    """
     halter = []
     for repo in KOPIEN_KANDIDATEN:
+        archiviert = _gh(
+            "repo", "view", repo, "--json", "isArchived", "--jq", ".isArchived"
+        )
+        if archiviert is None:
+            return None
+        if archiviert.strip() == "true":
+            continue
         out = _gh("api", f"repos/{repo}/contents/.github/workflows", "--jq", ".[].name")
         if out is None:
             return None

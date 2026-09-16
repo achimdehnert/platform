@@ -11,6 +11,7 @@ from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import sichtbarkeits_drift_melder as sdm  # noqa: E402
 from sichtbarkeits_drift_melder import (  # noqa: E402
     abgelaufene_fristen,
     bewerte,
@@ -156,3 +157,23 @@ def test_should_kurz_offline_lauf_ergebnisdatei_schreiben(tmp_path, capsys):
     # Ein lokaler Treffer ist WARN, auch offline — nur die Netz-Zaehler bleiben ◌.
     assert "Aufrufer 1" in out and "Kopien ◌" in out
     assert ziel.is_file()
+
+
+def test_should_archivierte_repos_nicht_als_kopie_zaehlen(monkeypatch):
+    """Ein eingefrorenes Duplikat kann nicht mehr divergieren — K3 misst Divergenz."""
+    antworten = {
+        ("repo", "view", "achimdehnert/platform"): "false\n",
+        ("repo", "view", "achimdehnert/shared-ci"): "true\n",
+        ("repo", "view", "iilgmbh/shared-ci"): "false\n",
+        (
+            "api",
+            "repos/achimdehnert/platform/contents/.github/workflows",
+        ): "_a.yml\nci.yml\n",
+        ("api", "repos/iilgmbh/shared-ci/contents/.github/workflows"): "_a.yml\n",
+    }
+
+    def fake_gh(*args):
+        return antworten.get(args[:3] if args[0] == "repo" else args[:2])
+
+    monkeypatch.setattr(sdm, "_gh", fake_gh)
+    assert sdm.zaehle_kopien() == ["achimdehnert/platform", "iilgmbh/shared-ci"]
