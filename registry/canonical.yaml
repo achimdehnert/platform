@@ -38,6 +38,12 @@ meta:
     # "meiki-"-Präfix), daher fiel er ohne dieses Override auf den
     # achimdehnert-Default zurück → deploy-failure-monitor 404 im Fleet-Scan.
     frist-hub: meiki-lra
+    # 2026-09-16 (Z1 #3226): post-hub und schreib-hub liegen real unter meiki-lra —
+    # verifiziert ueber `gh api repos/meiki-lra/<repo> -q .owner.login`. Kein
+    # "meiki-"-Praefix, daher fielen sie seit der Registrierung (2026-09-11) auf den
+    # achimdehnert-Default → deploy-failure-monitor 404, Lauf auf main rot.
+    post-hub: meiki-lra
+    schreib-hub: meiki-lra
     # 2026-09-09 (meiki-hub#374): chat-hub liegt real unter iilgmbh — verifiziert
     # ueber `gh api repos/iilgmbh/chat-hub -q .owner.login` (nicht ueber den
     # angefragten Pfad, s. ADR-297 unten). Es steht nicht in `repos` und matcht
