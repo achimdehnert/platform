@@ -1,15 +1,20 @@
-"""Render-freie Tests fuer das Lizenz-Gate je Asset-Bereich (asset_gate).
+"""Lizenz-Gate des Print-Agents je Asset-Bereich — CI-gegatet.
 
-Anders als test_profile_license_gate.py braucht diese Datei WEDER WeasyPrint
-noch litellm und laeuft deshalb in `make test` (= CI). Sie bewacht die
-Lizenz-Invariante selbst; die Verdrahtung in print_agent pruefen die
-Render-Tests, sobald WeasyPrint da ist.
+**Warum hier und nicht in ``tools/print_agent/tests/``:** derselbe Grund wie bei
+``test_print_agent_llm_gate.py`` — jener Testort laeuft in keinem Workflow, und
+seine Faelle importieren ``print_agent`` samt WeasyPrint. ``asset_gate`` kommt
+mit der Standardbibliothek aus und ist von hier aus echt pruefbar.
+
+Kern-Invariante: ein Logo oder eine Schrift wird nur eingebettet, wenn das
+Profil den Asset-BEREICH freigibt, in dem die Datei liegt — nicht pauschal
+ueber ``db``. Die Verdrahtung in ``print_agent`` pruefen die Render-Tests in
+``tools/print_agent/tests/test_profile_license_gate.py``.
 """
 
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "print_agent"))
 from asset_gate import asset_freigegeben, bild_mime  # noqa: E402
 
 
