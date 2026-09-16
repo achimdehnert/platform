@@ -407,3 +407,10 @@ def test_should_not_put_a_ci_skip_marker_into_the_commit_message():
     ]
     assert commit_zeilen, "Commit-Message-Zeile nicht gefunden"
     assert all(marke not in z for z in commit_zeilen)
+
+
+def test_should_render_local_path_from_registry_github_base_not_cascadeprojects():
+    """#1860: der Pfad in project-facts.md kommt aus server.github_base."""
+    base = ppf._github_base()
+    assert "CascadeProjects" not in base
+    assert base in ("~/github", "$GITHUB_DIR")
