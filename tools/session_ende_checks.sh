@@ -60,6 +60,12 @@ case "$TARGET_REPO" in
     fi
     TARGET_DIR="$(cd "$TARGET_REPO" && pwd -P)"
     TARGET_REPO="$(basename "$TARGET_DIR")"
+    # Session-Worktree (ADR-233): der Ordnername ist ein Zeitstempel-Slug, das
+    # Repo heisst wie der Haupt-Tree, dem das gemeinsame .git gehoert.
+    COMMON_GIT="$(git -C "$TARGET_DIR" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"
+    case "$COMMON_GIT" in
+      */.git) TARGET_REPO="$(basename "$(dirname "$COMMON_GIT")")" ;;
+    esac
     ;;
   *)
     TARGET_DIR="$GITHUB_DIR/$TARGET_REPO"
@@ -256,7 +262,38 @@ fi
 # ── E.3 Handover-Frische (Skill-Phase 0a-freshness, Gate handover-stale-vor-merge) ──
 HO_CHECK="$PLATFORM_DIR/scripts/checks/agent_handover_freshness_check.py"
 HO_FILE="$TARGET_DIR/AGENT_HANDOVER.md"
-if [ ! -f "$HO_CHECK" ]; then
+FRAG_DIR_REL="docs/handover.d"
+if [ -d "$TARGET_DIR/$FRAG_DIR_REL" ]; then
+  # Fragment-Modus (#1944 K6, KONZ-027): die Sitzung schreibt ihr EIGENES Fragment,
+  # die geteilte Datei bleibt unberuehrt. Frisch ist die Sitzung, wenn ihr Fragment
+  # auf main liegt oder in einem offenen PR steckt — Commits anderer Sitzungen
+  # zaehlen nicht mehr.
+  if [ -z "$SESSION_ID" ]; then
+    record "E.3 handover-frische" "WARN" \
+      "Fragment-Modus: ohne --session-id nicht pruefbar — Runner mit --session-id aufrufen" "$TARGET_REPO"
+  else
+    # [.] statt \. — jq (gh --jq) kennt die Escape-Sequenz \. nicht.
+    # Am Zeitstempel verankert: sonst gaelte "auf-main" als Fragment der Sitzung "main".
+    FRAG_RE="Z-${SESSION_ID}(-[0-9]+)?[.]md\$"
+    FRAG_MAIN=$(git -C "$TARGET_DIR" ls-tree --name-only "origin/main:$FRAG_DIR_REL" 2>/dev/null \
+      | grep -E -- "$FRAG_RE" | head -1)
+    FRAG_PR=""
+    if [ -z "$FRAG_MAIN" ] && command -v gh >/dev/null 2>&1 && [ -n "$OWNER" ]; then
+      FRAG_PR=$(timeout 90 gh pr list --repo "$OWNER/$TARGET_REPO" --state open \
+        --json number,files \
+        --jq ".[] | select(any(.files[]?; .path | test(\"^docs/handover[.]d/.*$FRAG_RE\"))) | \"#\\(.number)\"" \
+        2>/dev/null | head -3 | tr '\n' ' ')
+    fi
+    if [ -n "$FRAG_MAIN" ]; then
+      record "E.3 handover-frische" "PASS" "Fragment der Sitzung liegt auf main: $FRAG_MAIN" "$TARGET_REPO"
+    elif [ -n "$FRAG_PR" ]; then
+      record "E.3 handover-frische" "PASS" "Fragment der Sitzung offen als PR ${FRAG_PR% }" "$TARGET_REPO"
+    else
+      record "E.3 handover-frische" "FAIL" \
+        "kein Fragment fuer Sitzung $SESSION_ID auf main oder in offenem PR — fragments.py neu --session-id $SESSION_ID" "$TARGET_REPO"
+    fi
+  fi
+elif [ ! -f "$HO_CHECK" ]; then
   record "E.3 handover-frische" "SKIP" "Werkzeug fehlt: scripts/checks/agent_handover_freshness_check.py" "$TARGET_REPO"
 elif [ ! -f "$HO_FILE" ]; then
   record "E.3 handover-frische" "SKIP" "keine AGENT_HANDOVER.md in $TARGET_REPO" "$TARGET_REPO"

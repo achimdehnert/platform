@@ -2,6 +2,7 @@
 
 import datetime as dt
 import importlib.util
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -121,3 +122,69 @@ def test_should_flag_edit_of_fragment_already_on_base(tmp_path):
     assert fr.geaenderte_bestandsfragmente(tmp_path, "main") == [
         str(pfad.relative_to(tmp_path))
     ]
+
+
+def test_should_read_fragments_from_git_ref_not_worktree(tmp_path):
+    def git(*a):
+        subprocess.run(
+            ["git", "-C", str(tmp_path), *a], check=True, capture_output=True
+        )
+
+    git("init", "-q", "-b", "main")
+    git("config", "user.email", "t@t")
+    git("config", "user.name", "t")
+    _fragment(tmp_path, "gemergt", JETZT)
+    git("add", "-A")
+    git("commit", "-qm", "basis")
+    _fragment(tmp_path, "nur-lokal", JETZT)
+    ids = [f.kopf["session_id"] for f in fr.alle(tmp_path, "main")]
+    assert ids == ["gemergt"]
+
+
+def test_should_map_graphql_states_and_default_to_unknown(monkeypatch):
+    antwort = {
+        "data": {
+            "r0": {"i1": {"state": "OPEN"}, "i2": {"state": "MERGED"}, "i3": None},
+            "r1": None,
+        }
+    }
+
+    def lauf(cmd, **kw):
+        return subprocess.CompletedProcess(cmd, 0, stdout=json.dumps(antwort))
+
+    monkeypatch.setattr(fr.subprocess, "run", lauf)
+    urls = [
+        ISSUE.format(1),
+        ISSUE.format(2),
+        ISSUE.format(3),
+        "https://github.com/o/x/issues/9",
+    ]
+    t = fr.gh_zustaende(urls)
+    assert t[("achimdehnert", "platform", 1)] == "offen"
+    assert t[("achimdehnert", "platform", 2)] == "zu"
+    assert t[("achimdehnert", "platform", 3)] == "unbekannt"
+    assert t[("o", "x", 9)] == "unbekannt"
+
+
+def test_should_fall_back_to_unknown_when_gh_times_out(monkeypatch):
+    def lauf(cmd, **kw):
+        raise subprocess.TimeoutExpired(cmd, 1)
+
+    monkeypatch.setattr(fr.subprocess, "run", lauf)
+    assert fr.gh_zustaende([ISSUE.format(1)]) == {
+        ("achimdehnert", "platform", 1): "unbekannt"
+    }
+
+
+def test_should_flag_session_id_that_is_only_a_prefix_of_the_file_name(tmp_path):
+    pfad = fr.neu(tmp_path, "auf-main", "T", None, JETZT)
+    pfad.write_text(pfad.read_text().replace("session_id: auf-main", "session_id: auf"))
+    assert "session_id im Kopf passt nicht zum Dateinamen" in fr.fehler(
+        fr.alle(tmp_path)[0]
+    )
+
+
+def test_should_accept_suffixed_file_of_same_session(tmp_path):
+    fr.neu(tmp_path, "s", "T", None, JETZT)
+    fr.neu(tmp_path, "s", "T", None, JETZT)
+    assert [fr.fehler(f) for f in fr.alle(tmp_path)] == [[], []]

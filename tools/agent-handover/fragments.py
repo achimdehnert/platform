@@ -26,7 +26,7 @@ zeigen als Arbeit still verlieren (L6).
 Aufruf
 ------
   fragments.py neu --session-id ID --titel TEXT [--ziel TEXT]
-  fragments.py render [--out PFAD] [--offline] [--heute YYYY-MM-DD]
+  fragments.py render [--out PFAD] [--offline] [--heute YYYY-MM-DD] [--ref REF]
   fragments.py pruefen [--basis origin/main]
 """
 
@@ -86,8 +86,10 @@ def _kopf_lesen(text: str) -> tuple[dict, str]:
     return kopf, text[ende + 5 :]
 
 
-def lesen(pfad: Path) -> Fragment:
-    kopf, rumpf = _kopf_lesen(pfad.read_text(encoding="utf-8"))
+def lesen(pfad: Path, text: Optional[str] = None) -> Fragment:
+    if text is None:
+        text = pfad.read_text(encoding="utf-8")
+    kopf, rumpf = _kopf_lesen(text)
     abschnitte: dict[str, str] = {}
     aktuell = None
     for zeile in rumpf.splitlines():
@@ -100,11 +102,35 @@ def lesen(pfad: Path) -> Fragment:
     return Fragment(pfad, kopf, {k: v.strip() for k, v in abschnitte.items()})
 
 
-def alle(wurzel: Path) -> list[Fragment]:
-    ordner = wurzel / FRAGMENT_DIR
-    if not ordner.is_dir():
+def alle(wurzel: Path, ref: Optional[str] = None) -> list[Fragment]:
+    """Alle Fragmente — aus dem Arbeitsbaum oder, mit ``ref``, aus einem Git-Ref.
+
+    Der Start-Hook liest aus ``origin/main``: ein Worktree, der hinter main liegt,
+    saehe sonst die Fragmente der inzwischen gemergten Parallelsitzungen nicht.
+    """
+    if ref is None:
+        ordner = wurzel / FRAGMENT_DIR
+        if not ordner.is_dir():
+            return []
+        return [lesen(p) for p in sorted(ordner.glob("*.md")) if NAME_RE.match(p.name)]
+    r = subprocess.run(
+        ["git", "-C", str(wurzel), "ls-tree", "--name-only", f"{ref}:{FRAGMENT_DIR}"],
+        capture_output=True,
+        text=True,
+    )
+    if r.returncode != 0:
         return []
-    return [lesen(p) for p in sorted(ordner.glob("*.md")) if NAME_RE.match(p.name)]
+    out = []
+    for name in sorted(r.stdout.split()):
+        if NAME_RE.match(name):
+            text = subprocess.run(
+                ["git", "-C", str(wurzel), "show", f"{ref}:{FRAGMENT_DIR}/{name}"],
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout
+            out.append(lesen(FRAGMENT_DIR / name, text))
+    return out
 
 
 def fehler(fr: Fragment) -> list[str]:
@@ -119,7 +145,7 @@ def fehler(fr: Fragment) -> list[str]:
     if (
         m
         and fr.kopf.get("session_id")
-        and not m.group(2).startswith(fr.kopf["session_id"])
+        and not re.fullmatch(re.escape(fr.kopf["session_id"]) + r"(-\d+)?", m.group(2))
     ):
         out.append("session_id im Kopf passt nicht zum Dateinamen")
     try:
@@ -135,22 +161,54 @@ def fehler(fr: Fragment) -> list[str]:
     return out
 
 
-def gh_zustand(owner: str, repo: str, nummer: int) -> str:
+def gh_zustaende(urls: list[str], timeout: int = 20) -> dict[tuple[str, str, int], str]:
+    """Zustand aller URLs in EINER GraphQL-Abfrage; Fehler ergeben "unbekannt".
+
+    Der Session-Start-Hook rendert bei jedem Start — eine Abfrage je Issue
+    kostete bei 60 Offen-Punkten eine halbe Minute.
+    """
+    repos: dict[tuple[str, str], set[int]] = {}
+    for u in urls:
+        m = URL_RE.search(u)
+        if m:
+            repos.setdefault((m.group(1), m.group(2)), set()).add(int(m.group(4)))
+    if not repos:
+        return {}
+    teile = []
+    for ri, ((owner, repo), nummern) in enumerate(repos.items()):
+        felder = " ".join(
+            f"i{n}: issueOrPullRequest(number: {n}) "
+            "{ ... on Issue { state } ... on PullRequest { state } }"
+            for n in sorted(nummern)
+        )
+        teile.append(
+            f"r{ri}: repository(owner: {json.dumps(owner)}, name: {json.dumps(repo)}) {{ {felder} }}"
+        )
     try:
         r = subprocess.run(
-            ["gh", "api", f"repos/{owner}/{repo}/issues/{nummer}", "--jq", ".state"],
+            ["gh", "api", "graphql", "-f", "query={ " + " ".join(teile) + " }"],
             capture_output=True,
             text=True,
-            timeout=20,
+            timeout=timeout,
         )
-    except (OSError, subprocess.TimeoutExpired):
-        return "unbekannt"
-    state = r.stdout.strip()
-    return (
-        {"open": "offen", "closed": "zu"}.get(state, "unbekannt")
-        if r.returncode == 0
-        else "unbekannt"
-    )
+        daten = json.loads(r.stdout or "{}").get("data") or {}
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        daten = {}
+    out = {}
+    for ri, ((owner, repo), nummern) in enumerate(repos.items()):
+        for n in nummern:
+            state = ((daten.get(f"r{ri}") or {}).get(f"i{n}") or {}).get("state")
+            if state == "OPEN":
+                out[(owner, repo, n)] = "offen"
+            elif state in ("CLOSED", "MERGED"):
+                out[(owner, repo, n)] = "zu"
+            else:
+                out[(owner, repo, n)] = "unbekannt"
+    return out
+
+
+def zustand_aus(tabelle: dict) -> ZustandLeser:
+    return lambda owner, repo, n: tabelle.get((owner, repo, n), "unbekannt")
 
 
 def offline_zustand(owner: str, repo: str, nummer: int) -> str:
@@ -274,6 +332,12 @@ def main(argv: Optional[list[str]] = None) -> int:
     b.add_argument("--out", type=Path)
     b.add_argument("--offline", action="store_true")
     b.add_argument("--heute")
+    b.add_argument(
+        "--ref", help="Fragmente aus diesem Git-Ref lesen (z.B. origin/main)"
+    )
+    b.add_argument(
+        "--timeout", type=int, default=20, help="Sekunden fuer die Statusabfrage"
+    )
     c = sub.add_parser("pruefen")
     c.add_argument("--basis", default="origin/main")
     args = ap.parse_args(argv)
@@ -294,9 +358,13 @@ def main(argv: Optional[list[str]] = None) -> int:
             if args.heute
             else dt.datetime.now(dt.timezone.utc).date()
         )
-        text = render(
-            alle(args.wurzel), heute, offline_zustand if args.offline else gh_zustand
-        )
+        fragmente = alle(args.wurzel, args.ref)
+        if args.offline:
+            zustand = offline_zustand
+        else:
+            offen = [p for f in fragmente for p in f.punkte("Offen")]
+            zustand = zustand_aus(gh_zustaende(offen, args.timeout))
+        text = render(fragmente, heute, zustand)
         if args.out:
             args.out.parent.mkdir(parents=True, exist_ok=True)
             args.out.write_text(text, encoding="utf-8")

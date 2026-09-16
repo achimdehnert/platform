@@ -667,6 +667,14 @@ Retro `session-retro-2026-07-15-platform-c494a2`, Befund #8.
 
 Alle Einträge vor 2026-08-30; die letzten drei stehen im Skill (Policy seit platform#2696).
 
+- 2026-09-02: **Phase 0h Fremder Blick (PFLICHT ab `full`) + Checklisten-Zeile 23** (#2036) —
+  Owner-Freigabe für Subagenten in den Session-Skills, ausdrücklich **selbstbetreffend**.
+  Nur 0d und 0e bekommen fremden Kontext; der mechanische Rest bleibt Skript. Der Zweig
+  stammt vom 2026-08-17 und hieß dort `0g`; `main` vergab denselben Buchstaben inzwischen
+  an #2211, deshalb `0h` und Zeile 23. Beim Nachziehen **neu geschrieben** statt gemergt:
+  `main` hatte die Datei zwischenzeitlich von 55 auf 20 kB gekürzt, ein Merge hätte das
+  zurückgedreht. Herleitung in `LEHREN#0h`.
+
 - 2026-08-20: **Phase 0f um rückfällige Gates erweitert** + Checklisten-Zeile 17. Ein vom
   Session-Start gemeldetes rückfälliges Gate braucht denselben Abschluss wie ein
   Fremd-Repo-Befund: behandelt (Registry im selben PR nachgezogen) oder Verzicht mit Grund.
