@@ -2,110 +2,196 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "description": "IIL Platform — zentrale Renovate-Konfiguration (SSoT für alle Repos)",
   "extends": [
-    "config:base",
+    "config:recommended",
     ":dependencyDashboard",
     ":semanticCommits",
     ":separatePatchReleases",
     "group:allNonMajor"
   ],
-
   "commitMessagePrefix": "chore(deps):",
   "commitMessageAction": "update",
-  "labels": ["dependencies", "renovate"],
+  "labels": [
+    "dependencies",
+    "renovate"
+  ],
   "reviewers": [],
   "assignees": [],
   "timezone": "Europe/Berlin",
-  "schedule": ["before 8am on weekdays"],
+  "schedule": [
+    "before 8am every weekday"
+  ],
   "prHourlyLimit": 5,
   "prConcurrentLimit": 12,
   "rebaseWhen": "behind-base-branch",
   "automerge": false,
-
   "packageRules": [
     {
       "description": "iil-Packages: SOFORT (internes Ökosystem — kein Wochentag-Gate)",
-      "matchPackagePatterns": ["^iil-", "^aifw$", "^promptfw$", "^authoringfw$", "^weltenfw$", "^nl2cadfw$"],
       "groupName": null,
       "automerge": false,
-      "schedule": ["at any time"],
+      "schedule": [
+        "at any time"
+      ],
       "minimumReleaseAge": "0 days",
-      "labels": ["dependencies", "renovate", "iil-package"],
+      "labels": [
+        "dependencies",
+        "renovate",
+        "iil-package"
+      ],
       "prPriority": 10,
-      "commitMessageSuffix": "(iil-ecosystem)"
+      "commitMessageSuffix": "(iil-ecosystem)",
+      "matchPackageNames": [
+        "/^iil-/",
+        "/^aifw$/",
+        "/^promptfw$/",
+        "/^authoringfw$/",
+        "/^weltenfw$/",
+        "/^nl2cadfw$/"
+      ]
     },
     {
       "description": "Django + Django-Pakete: eigene Gruppe (breaking changes mit Major)",
-      "matchPackagePatterns": ["^[Dd]jango", "^django-"],
-      "matchUpdateTypes": ["minor", "patch"],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
       "groupName": "Django packages (non-major)",
       "automerge": false,
-      "labels": ["dependencies", "renovate", "django"]
+      "labels": [
+        "dependencies",
+        "renovate",
+        "django"
+      ],
+      "matchPackageNames": [
+        "/^[Dd]jango/",
+        "/^django-/"
+      ]
     },
     {
       "description": "Django MAJOR — niemals auto, eigener PR mit Warnung",
-      "matchPackagePatterns": ["^[Dd]jango$"],
-      "matchUpdateTypes": ["major"],
+      "matchUpdateTypes": [
+        "major"
+      ],
       "automerge": false,
-      "labels": ["dependencies", "renovate", "django", "breaking-change"],
-      "prBodyNotes": "⚠️ **Django Major Update** — Migrations + deprecated APIs prüfen!"
+      "labels": [
+        "dependencies",
+        "renovate",
+        "django",
+        "breaking-change"
+      ],
+      "prBodyNotes": "⚠️ **Django Major Update** — Migrations + deprecated APIs prüfen!",
+      "matchPackageNames": [
+        "/^[Dd]jango$/"
+      ]
     },
     {
       "description": "pytest-Ecosystem: zusammen gruppieren",
-      "matchPackagePatterns": ["^pytest", "^coverage", "^factory.boy$"],
-      "matchUpdateTypes": ["minor", "patch"],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
       "groupName": "pytest ecosystem",
-      "automerge": false
+      "automerge": false,
+      "matchPackageNames": [
+        "/^pytest/",
+        "/^coverage/",
+        "/^factory.boy$/"
+      ]
     },
     {
       "description": "Sicherheits-Patches: sofort als PR — kein Warten auf Montag",
-      "matchDepTypes": ["dependencies"],
-      "matchUpdateTypes": ["patch"],
-      "schedule": ["at any time"],
+      "matchDepTypes": [
+        "dependencies"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "schedule": [
+        "at any time"
+      ],
       "prPriority": 20,
-      "labels": ["dependencies", "renovate", "security"],
+      "labels": [
+        "dependencies",
+        "renovate",
+        "security"
+      ],
       "automerge": false
     },
     {
       "description": "pytest/test-Packages Patch: automerge (kein Risiko, hoher Nutzen)",
-      "matchPackagePatterns": ["^pytest", "^coverage", "^factory.boy$", "^beautifulsoup4$"],
-      "matchUpdateTypes": ["patch"],
+      "matchUpdateTypes": [
+        "patch"
+      ],
       "automerge": true,
       "automergeType": "pr",
-      "labels": ["dependencies", "renovate", "automerge"]
+      "labels": [
+        "dependencies",
+        "renovate",
+        "automerge"
+      ],
+      "matchPackageNames": [
+        "/^pytest/",
+        "/^coverage/",
+        "/^factory.boy$/",
+        "/^beautifulsoup4$/"
+      ]
     },
     {
       "description": "GitHub Actions: alle zusammen, wöchentlich (stabil, kein Risiko)",
-      "matchManagers": ["github-actions"],
+      "matchManagers": [
+        "github-actions"
+      ],
       "groupName": "GitHub Actions",
-      "schedule": ["before 8am on Monday"],
+      "schedule": [
+        "before 8am on Monday"
+      ],
       "automerge": false,
-      "labels": ["dependencies", "renovate", "github-actions"]
+      "labels": [
+        "dependencies",
+        "renovate",
+        "github-actions"
+      ]
     },
     {
       "description": "Docker Base Images: eigener PR",
-      "matchManagers": ["dockerfile"],
+      "matchManagers": [
+        "dockerfile"
+      ],
       "automerge": false,
-      "labels": ["dependencies", "renovate", "docker"]
+      "labels": [
+        "dependencies",
+        "renovate",
+        "docker"
+      ]
     },
     {
       "description": "Python Version in CI: niemals auto-update",
-      "matchPackageNames": ["python"],
-      "matchManagers": ["github-actions"],
+      "matchPackageNames": [
+        "python"
+      ],
+      "matchManagers": [
+        "github-actions"
+      ],
       "enabled": false
     }
   ],
-
   "vulnerabilityAlerts": {
     "enabled": true,
-    "schedule": ["at any time"],
-    "labels": ["security", "renovate", "CVE"],
+    "schedule": [
+      "at any time"
+    ],
+    "labels": [
+      "security",
+      "renovate",
+      "CVE"
+    ],
     "automerge": false
   },
-
   "pip_requirements": {
-    "fileMatch": ["(^|/)requirements.*\\.txt$"]
+    "managerFilePatterns": [
+      "/(^|/)requirements.*\\.txt$/"
+    ]
   },
-
   "ignorePaths": [
     "**/node_modules/**",
     "**/.venv/**",
@@ -113,13 +199,13 @@
     "**/dist/**",
     "**/__pycache__/**"
   ],
-
   "ignoreDeps": [],
-
   "onboarding": true,
   "onboardingConfig": {
     "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-    "extends": ["github>achimdehnert/platform//renovate.json"]
+    "extends": [
+      "github>achimdehnert/platform//renovate.json"
+    ]
   },
   "onboardingCommitMessage": "chore(deps): renovate.json hinzufügen (IIL Platform Preset)",
   "onboardingPrTitle": "chore(deps): Renovate Bot aktivieren — IIL Platform Preset"
