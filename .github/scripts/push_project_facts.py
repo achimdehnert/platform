@@ -115,6 +115,25 @@ def _kanon_owner(repo: str) -> str | None:
     return registry_api.owner(repo)
 
 
+@functools.cache
+def _github_base() -> str:
+    """`server.github_base` aus der Registry (`~/github`), nie `~/CascadeProjects`.
+
+    #1860: die erzeugte Datei behauptete seit dem Umzug einen Pfad, den es auf
+    keiner Maschine mehr gibt; ein Agent, der ihm folgt, landet im Leeren.
+    Ohne Registry (kein PyYAML) bleibt `$GITHUB_DIR` als Platzhalter stehen.
+    """
+    try:
+        if str(TOOLS_DIR) not in sys.path:
+            sys.path.insert(0, str(TOOLS_DIR))
+        import registry_api  # noqa: PLC0415
+
+        base = registry_api.flat().get("server", {}).get("github_base")
+    except ImportError:
+        base = None
+    return str(base).replace("/home/devuser", "~") if base else "$GITHUB_DIR"
+
+
 def gh_slug(repo: str) -> str:
     """`owner/repo` wie es HEUTE heißt — nicht wie es in der Registry steht.
 
@@ -566,10 +585,10 @@ def build_project_facts(
         "",
         "## Lokale Umgebung (Dev Desktop — adehnert)",
         "",
-        f"- **Pfad**: `~/CascadeProjects/{repo}` → `$GITHUB_DIR` = `~/CascadeProjects`",
+        f"- **Pfad**: `{_github_base()}/{repo}` → `$GITHUB_DIR` = `{_github_base()}`",
         f"- **src_root**: {src_root_display} — `manage.py` liegt dort",
         f"- **pythonpath**: `{pythonpath}/`",
-        f"- **Venv**: `~/CascadeProjects/{repo}/.venv/bin/python`",
+        f"- **Venv**: `{_github_base()}/{repo}/.venv/bin/python`",
         "- **MCP aktiv**: `mcp0_` = github · `mcp1_` = orchestrator",
         "",
         "## Settings",
