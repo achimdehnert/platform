@@ -16,16 +16,16 @@ sys.path.insert(0, str(REPO_ROOT / "tools"))
 
 from skill_phasen_deckung import ungedeutet, warn_phasen  # noqa: E402
 
-RUNNER = '''
+RUNNER = """
 record "0.1 probe" "PASS" "alles gut"
 record "0.7.4 prio-referenzen" "WARN" "zeigt auf Erledigtes"
 record "0.7.9 gate-deckung" "WARN" "ungedeckt"
 record "E.10 abgleich" "JUDGMENT" "urteilen"
-'''
+"""
 
 
 def test_should_collect_only_warn_capable_phases():
-    """PASS-only-Phasen sind bewusst nicht deutungspflichtig."""
+    """Nur PASS-faehige Phasen liegen ausserhalb des Pruefbereichs."""
     assert warn_phasen(RUNNER) == ["0.7.4", "0.7.9", "E.10"]
 
 
@@ -51,7 +51,9 @@ def test_should_be_green_on_the_real_repo():
 
 def test_should_fail_loudly_when_a_phase_is_removed_from_the_skill():
     """Gegenprobe: nimmt man die Zeile weg, muss der Prüfer sie vermissen."""
-    runner = (REPO_ROOT / "tools" / "session_start_checks.sh").read_text(encoding="utf-8")
+    runner = (REPO_ROOT / "tools" / "session_start_checks.sh").read_text(
+        encoding="utf-8"
+    )
     skill = (REPO_ROOT / ".windsurf" / "workflows" / "session-start.md").read_text(
         encoding="utf-8"
     )

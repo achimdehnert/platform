@@ -31,7 +31,8 @@ Für jedes Paar (Runner-Skript, Skill-Dokument):
 
 1. Phasen sammeln, die im Runner mit `record "<phase>" "WARN"` (bzw.
    `"JUDGMENT"`) belegt sind — also alles, was dem Leser je als Befund
-   begegnen kann. PASS-only-Phasen sind bewusst NICHT gefordert.
+   begegnen kann. Phasen, die nur PASS melden koennen, bleiben ausserhalb
+   des Pruefbereichs — sie haben keinen Befund, der gedeutet werden muesste.
 2. Prüfen, ob die Phasen-Kennung im Skill-Dokument vorkommt.
 3. Fehlende auflisten. Exit 1, wenn eine fehlt.
 
@@ -91,13 +92,17 @@ def main(argv: list[str] | None = None) -> int:
     if a.kurz:
         if offen:
             namen = ", ".join(n for _, _, f in befunde for n in f)
-            print(f"skill-deckung: {offen}/{geprueft} WARN-Phase(n) ungedeutet — {namen}")
+            print(
+                f"skill-deckung: {offen}/{geprueft} WARN-Phase(n) ungedeutet — {namen}"
+            )
         else:
             print(f"skill-deckung: alle {geprueft} WARN-Phasen im Skill gedeutet")
         return 1 if offen else 0
 
     if not befunde:
-        print(f"✅ alle {geprueft} WARN-fähigen Phasen sind im zugehörigen Skill erwähnt")
+        print(
+            f"✅ alle {geprueft} WARN-fähigen Phasen sind im zugehörigen Skill erwähnt"
+        )
         return 0
 
     print(f"⛔ {offen} von {geprueft} WARN-fähigen Phasen ohne Zeile im Skill:")
