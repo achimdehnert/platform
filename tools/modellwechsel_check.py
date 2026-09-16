@@ -239,7 +239,49 @@ def resolve_running_model(
     )
 
 
+#: Erklärtes Standard-Sitzungsmodell. Ohne diese Zeile leitet der Check sein
+#: „bewertet" aus der MEHRHEIT der `assessed_with`-Köpfe ab — und vermischt damit
+#: zwei verschiedene Dinge:
+#:
+#:   (a) `assessed_with` je Regel: „gegen welches Modell wurde DIESE Regel zuletzt
+#:       geprüft?" — bewusst gestaffelt, mit eigenem `reassess_by` (KONZ-038 D4);
+#:   (b) das Standard-Sitzungsmodell: „womit fahren wir?" — eine einzige Tatsache.
+#:
+#: Die Mehrheit über (a) als Antwort auf (b) zu nehmen, erzeugt einen Dauerbefund:
+#: solange 12 Policy-Köpfe `claude-fable-5` tragen und die Sitzung auf
+#: `claude-opus-5` läuft, meldet der Start bei JEDEM Lauf MAJOR — ohne dass
+#: irgendetwas passiert wäre. Ein Melder, der immer feuert, meldet nichts mehr
+#: (dieselbe Klasse wie der blinde Deploy-Monitor, platform#1508).
+#:
+#: Die Erklärung trennt beides: sie beantwortet (b) und lässt (a) in Ruhe. Die
+#: Staffelung von `reassess_by` bleibt damit ehrlich — ein Massen-Flip der Köpfe
+#: hätte behauptet, zwölf Regeln seien unter Opus nachgeprüft worden.
+STANDARD_RE = re.compile(r"<!--\s*standard-session-model:\s*([^\s>]+)\s*-->")
+
 _ASSESSED_RE = re.compile(r"assessed_with:\s*([^\s|]+)")
+
+
+def read_standard_model(policies_dir: Path) -> tuple[str | None, str | None]:
+    """Erklärtes Standard-Modell. Gibt (Modell-ID, Fundort) oder (None, None)."""
+    if not policies_dir.is_dir():
+        return None, None
+    for path in sorted(policies_dir.glob("*.md")):
+        m = STANDARD_RE.search(path.read_text(encoding="utf-8"))
+        if m:
+            return m.group(1), path.name
+    return None, None
+
+
+def nachzug_note(pairs: list[tuple[str, str]], standard: str) -> str:
+    """Wie viele Policy-Köpfe noch gegen ein anderes Modell bewertet sind.
+
+    Kein fälliges Ereignis, sondern ein Rückstand mit eigener Frist je Regel
+    (`reassess_by`). Er gehört in die Zeile, damit die Trennung sichtbar bleibt.
+    """
+    offen = [name for name, value in pairs if value != standard]
+    if not offen:
+        return ""
+    return f" nachzug={len(offen)}/{len(pairs)}"
 
 
 def read_assessed_with(policies_dir: Path) -> tuple[str | None, list[tuple[str, str]]]:
@@ -265,6 +307,22 @@ def read_handled(handled_path: Path) -> set[str]:
     if not handled_path.exists():
         return set()
     return {ln for ln in handled_path.read_text(encoding="utf-8").splitlines() if ln.strip()}
+
+
+def paar_schluessel(assessed: str, running: str) -> str:
+    """Marker für „dieses Paar (bewertet, läuft) ist abgearbeitet".
+
+    Vorher hing `behandelt` allein an der letzten Zeile von `model-changes.log`,
+    also an einem SESSION-ÜBERGANG. Das beantwortet die falsche Frage: nach dem
+    Abhaken blieb die Markierung auch dann gültig, wenn das laufende Modell
+    danach auf etwas ganz anderes wechselte — ein echter MAJOR wäre als
+    `fällig=nein` durchgelaufen, solange dieselbe Log-Zeile die letzte blieb.
+
+    Der Marker hängt deshalb am Paar. Alte Roh-Zeilen in der Datei bleiben
+    stehen, wirken aber nicht mehr als Freibrief (fail-loud: lieber einmal zu
+    viel fällig als ein verschluckter Modellwechsel).
+    """
+    return f"PAAR\t{assessed}\t{running}"
 
 
 def mark_handled(handled_path: Path, raw_line: str) -> None:
@@ -319,7 +377,10 @@ def main() -> int:
         print(msg)
         return 0
 
+    standard, standard_datei = read_standard_model(args.policies_dir)
     assessed, pairs = read_assessed_with(args.policies_dir)
+    if standard is not None:
+        assessed = standard
     if assessed is None:
         msg = (
             "modellwechsel: kein assessed_with in "
@@ -331,16 +392,22 @@ def main() -> int:
     running = running_info.model_id
     klasse = "GLEICH" if assessed == running else classify_change(assessed, running)
 
-    if args.behandelt and entry is not None:
-        mark_handled(args.handled, entry.raw)
+    paar = paar_schluessel(assessed, running)
+    if args.behandelt:
+        mark_handled(args.handled, paar)
+        if entry is not None:
+            mark_handled(args.handled, entry.raw)  # Spur, wie bisher
 
-    behandelt = entry is not None and entry.raw in read_handled(args.handled)
+    behandelt = paar in read_handled(args.handled)
     faellig = klasse in ("MAJOR", "MINOR") and not behandelt
     if klasse in ("MAJOR", "MINOR") and behandelt:
         konsequenz = f"{klasse} {BEHANDELT_HINWEIS}"
     else:
         konsequenz = KONSEQUENZ[klasse]
-    note = consensus_note(pairs)
+    if standard is not None:
+        note = f" (erklärt in {standard_datei})" + nachzug_note(pairs, standard)
+    else:
+        note = consensus_note(pairs)
     quelle_note = f" ({running_info.hinweis})" if running_info.hinweis else ""
 
     if args.kurz:
@@ -360,6 +427,9 @@ def main() -> int:
         else:
             print("  letztes Log-Ereignis:  kein model-changes.log-Eintrag")
         print(f"  bewertet mit:          {assessed}{note}")
+        if standard is None:
+            print("  Quelle (bewertet):     Mehrheit über assessed_with "
+                  "— keine standard-session-model-Erklärung gefunden")
         print(f"  läuft mit:             {running}")
         print(f"  Quelle (laufend):      {running_info.quelle}{quelle_note}")
         print(f"  Einstufung:            {klasse}")
