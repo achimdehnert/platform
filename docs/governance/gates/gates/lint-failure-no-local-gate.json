@@ -26,6 +26,14 @@
     {
       "fall": "tools/*.py im Diff, pytest tools/tests rot",
       "probe": "T14"
+    },
+    {
+      "fall": "keine ruff-Config, CI ruft ruff format — Realfall chat-hub#101",
+      "probe": "T15"
+    },
+    {
+      "fall": ".sh im Diff, CI ruft shellcheck, SC-Befund — Realfall chat-hub#103",
+      "probe": "T17"
     }
   ],
   "drill_extra": [
@@ -33,6 +41,10 @@
   ],
   "zustand": "schranke",
   "erzwungen_seit": "2026-08-04",
-  "revised": "2026-08-28",
-  "revision_note": "Rev 2 (2026-08-28, Retro 62f875 §5a, Gate rueckfaellig 2× seit Bau → 'ausweiten'): pfadgetriggerte Zusatzpruefungen VOR dem Push — `infra/hosts.yaml` im Diff → `infra/scripts/hosts_audit.py` (rc 1 = deny), `tools/*.py` im Diff → `pytest tools/tests -q -x` (rc 1 = deny; rc >1 fail-open). Realfall platform#2397: Schema-Fund (runner.host ohne Host-Block) und Zeitbomben-Test gingen in CI rot, obwohl beide Werkzeuge lokal in Sekunden laufen. Drill T12–T14 in test_block_unformatted_push.sh (Stub-hosts_audit exit 1/0, roter tools-Test)."
+  "revised": "2026-09-16",
+  "revision_note": "Rev 2 (2026-08-28, Retro 62f875 §5a, Gate rueckfaellig 2× seit Bau → 'ausweiten'): pfadgetriggerte Zusatzpruefungen VOR dem Push — `infra/hosts.yaml` im Diff → `infra/scripts/hosts_audit.py` (rc 1 = deny), `tools/*.py` im Diff → `pytest tools/tests -q -x` (rc 1 = deny; rc >1 fail-open). Realfall platform#2397: Schema-Fund (runner.host ohne Host-Block) und Zeitbomben-Test gingen in CI rot, obwohl beide Werkzeuge lokal in Sekunden laufen. Drill T12–T14 in test_block_unformatted_push.sh (Stub-hosts_audit exit 1/0, roter tools-Test). · Rev 3 (2026-09-16, Retro 916eb7 §5a, Gate rueckfaellig → 'ausweiten', platform#3243): Ursache an der QUELLE — der Hook griff nur in Repos mit ruff-Config; iilgmbh/chat-hub hat keine, ruft in der CI aber `ruff format --check` und `shellcheck` auf (chat-hub#101/#103 rot). Jetzt zaehlt, was .github/workflows aufruft: ruff (format|check) schaltet die Python-Pruefung ein, shellcheck prueft geaenderte .sh (lokal oder Container-Image, fail-open ohne beides). Drill T15–T18; Gegenprobe mit altem Hook: T15/T17 rot.",
+  "positivkontrolle": {
+    "ref": "tools/claude-hooks/tests/test_block_unformatted_push.sh T15/T17 — Fixture ohne ruff-Config mit CI-Aufruf; Gegenprobe mit Hook aus a8da6e1d: beide rot (Retro 916eb7)",
+    "datum": "2026-09-16"
+  }
 }

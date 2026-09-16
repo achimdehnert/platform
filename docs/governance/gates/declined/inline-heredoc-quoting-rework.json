@@ -1,0 +1,7 @@
+{
+  "slug": "inline-heredoc-quoting-rework",
+  "decided": "2026-09-16",
+  "owner": "achim",
+  "ref": "Retro 916eb7 (platform#3238) Massnahme R5, Owner-Wort 'r5 verwerfen' Kapitaens-Kanal 2026-09-16",
+  "reason": "Werkzeugwahl (python-Heredoc-Ersetzung statt Edit-Werkzeug) ist per Hook kaum messbar ohne hohe Fehlalarm-Quote: Heredocs sind in Tests und Fixtures legitim. Die Lehre haengt am Muster `assert a in s` auf verschobenen Ankern und ist als Soll-Schritt im Retro-Report verankert; bei einem 3. Vorkommen erneut vorlegen."
+}
