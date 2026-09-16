@@ -20,7 +20,7 @@ Unveränderlich: ein Fragment, das auf ``main`` liegt, wird nie mehr geändert
 
 Aktiv (= im gerenderten Stand) ist ein Fragment, wenn es jünger als
 ``AKTIV_TAGE`` ist ODER mindestens einen Offen-Punkt hat, dessen Issue/PR
-noch offen ist. Unbekannter Zustand zählt als offen — lieber einmal zu viel
+nicht geschlossen ist. Unbekannter Zustand zählt als offen — lieber einmal zu viel
 zeigen als Arbeit still verlieren (L6).
 
 Aufruf
