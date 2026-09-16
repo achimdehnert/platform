@@ -161,6 +161,7 @@ test: ## CI-Test-Suite — SSoT: tools-tests.yml ruft exakt dieses Target (retro
 		tests/test_render_staging.py \
 		tests/doc_profile_check/ \
 		tools/claude-hooks/tests/ \
+		tools/print_agent/tests/test_asset_gate.py \
 		agents/tests/ \
 		-q
 
