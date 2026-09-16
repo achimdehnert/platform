@@ -98,7 +98,7 @@ melder:
     runbook: "0.R#0.4.5"
 
   - phase: "0.4 parallel-sessions"
-    leser: "Agent selbst — read-only weiterarbeiten, NICHT stashen/switchen (GUARD, ADR-233)"
+    leser: "Agent selbst — nur Zahl, kein Befund: parallele Sessions sind der Normalfall (#1944 K8)"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
