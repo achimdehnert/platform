@@ -41,6 +41,9 @@ jobs:
       # Artefakt + Job-Summary raus, dafuer genuegt contents:read.
       contents: read
       issues: write       # für Failure-Report als Issue
+    env:
+      # Ein laufendes Issue; der gruene Lauf schliesst alle, deren Titel so beginnt.
+      MEGATEST_ISSUE_TITLE: "🔴 Megatest Regression"
 
     steps:
       - name: Checkout platform
@@ -249,20 +252,43 @@ jobs:
               ? summaryLines.join('\n').slice(0, 3000)
               : output.slice(-2000);  // fallback: last 2000 chars
 
+            // EIN laufendes Issue statt eines neuen je Tag (Z1 #3226): bis
+            // 2026-09-16 lagen 17 Tages-Dubletten mit demselben Befund offen.
+            // Folgelaeufe kommentieren das offene Issue, der gruene Lauf
+            // schliesst es (Schritt unten).
             const today = new Date().toISOString().split('T')[0];
-            const issueTitle = `🔴 Megatest Regression — ${today}`;
+            const issueTitle = process.env.MEGATEST_ISSUE_TITLE;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const report = [
+              `## Megatest-Regression ${today}`,
+              '',
+              '**Neue Violations überschreiten das Budget in `tests/megatest/budgets.toml`.**',
+              '',
+              '```',
+              summary,
+              '```',
+              '',
+              '**Aktion:** Violation fixen oder Budget-Update beantragen. Der nächste grüne Lauf schließt dieses Issue.',
+              '',
+              `Workflow: ${runUrl}`,
+            ].join('\n');
 
-            // Deduplication: check for open issue with same title today
-            const existing = await github.rest.issues.listForRepo({
+            const open = await github.paginate(github.rest.issues.listForRepo, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
               labels: 'megatest',
-              per_page: 10,
+              per_page: 100,
             });
-            const alreadyOpen = existing.data.some(i => i.title === issueTitle);
-            if (alreadyOpen) {
-              console.log(`Issue "${issueTitle}" already open — skipping duplicate.`);
+            const current = open.find(i => i.title === issueTitle);
+            if (current) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: current.number,
+                body: report,
+              });
+              console.log(`Regression an #${current.number} angehaengt.`);
               return;
             }
 
@@ -270,18 +296,38 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               title: issueTitle,
-              body: [
-                '## Megatest hat Regressions gefunden',
-                '',
-                '**Neue Violations überschreiten das Budget in `tests/megatest/budgets.toml`.**',
-                '',
-                '```',
-                summary,
-                '```',
-                '',
-                '**Aktion:** Violation fixen oder Budget-Update beantragen.',
-                '',
-                `Workflow: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-              ].join('\n'),
+              body: report,
               labels: ['megatest', 'hardcoding', 'regression'],
             });
+
+      - name: Gruener Lauf schliesst das Regression-Issue
+        if: steps.megatest_run.outcome == 'success'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const open = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'megatest',
+              per_page: 100,
+            });
+            // Auch die alten Tages-Issues ("… — YYYY-MM-DD") gehoeren dazu.
+            const stale = open.filter(i => i.title.startsWith(process.env.MEGATEST_ISSUE_TITLE));
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            for (const i of stale) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: i.number,
+                body: `Megatest wieder grün: ${runUrl}`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: i.number,
+                state: 'closed',
+                state_reason: 'completed',
+              });
+            }
+            console.log(`${stale.length} Regression-Issue(s) geschlossen.`);
