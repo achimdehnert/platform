@@ -384,6 +384,27 @@ Pflicht), als Abschnitt `## Streichbahn` und als Zeile im Action-Board (Phase 4,
 **Ratsche:** ein Kandidat, der zwei Retros hintereinander auftaucht und nicht gestrichen wurde,
 ist selbst ein Befund — dieselbe Regel wie GATE-PFLICHT ≥2.
 
+## Phase 8 — Report gegen die eigenen Regeln prüfen (PFLICHT, jeder Footprint; NEU 2026-09-16)
+
+```bash
+python3 tools/retro_report_check.py docs/retros/<dein-report>.md
+```
+
+Exit 0 oder Befund beheben — nicht „im Report erwähnt". Geprüft werden die Punkte,
+die der Skill hart verlangt und die bisher niemand nachzählte: der Vierklang aus
+Eiserner Regel 5, `## 8`, die eingefrorenen Spalten, die Pflicht-Frontmatter-Felder
+und die Streichbahn (leer nur mit Grund-Satz).
+
+**Warum das eine eigene Phase bekommt:** gemessen über die 16 Reports seit dem
+2026-09-02 fehlte der Vierklang in **fünf**, darunter den zwei jüngsten. Regel 5
+ist als „nicht verhandelbar" ausgewiesen; die Abschluss-Checkliste fragte sie nur
+mittelbar ab (Punkt 11 verlangt „§8 gefüllt" — §8 war in allen 16 da). Eine Regel
+ohne Zeile, die sie nachzählt, wird beim Lesen überflogen.
+
+Der Prüfer läuft zusätzlich in der CI (`tools/tests/test_retro_report_check.py`,
+Required Check) über jeden Report ab dem Stichtag — die fünf älteren Lücken
+bleiben bewusst außerhalb, damit der erste Lauf nicht mit Altlasten rot wird.
+
 ## Anti-Patterns
 - ❌ Aus dem eigenen Session-Kontext urteilen (in-context self-review).
 - ❌ Befund ohne harten Artefakt-Beleg.
@@ -413,6 +434,8 @@ ist selbst ein Befund — dieselbe Regel wie GATE-PFLICHT ≥2.
 - ❌ **`refuted_rate` ohne `pre_refuted`-Trennung** — Finder-Stroh bläht die Quote.
 - ❌ **Collect ohne vorheriges `git fetch`** — gilt für JEDEN Collect-Schritt, auch `lean`.
 - ❌ **Nach dem Fetch die Working-Tree-Datei greppen** statt aus dem Ref zu lesen.
+- ❌ **Report abgeben, ohne `retro_report_check.py` darüber laufen zu lassen** (Phase 8).
+- ❌ **§8 vorhanden als Beleg für Regel 5 werten** — der Abschnitt ist nicht der Vierklang.
 
 ## Abschluss-Checkliste (muss alles grün oder begründet n/a sein)
 
@@ -436,6 +459,8 @@ ist selbst ein Befund — dieselbe Regel wie GATE-PFLICHT ≥2.
 | 16 | Report unter `docs/retros/…-<repo>-<id>.md` committet, Pfad nicht überschrieben | ☐ |
 | 17 | Self-Review durch separaten Meta-Agenten auf den Report; `lean` begründet n/a (Phase 5) | ☐ |
 | 18 | Extern-Handoff geschrieben oder begründet n/a (Phase 6) | ☐ |
+| 19 | **Vierklang vorhanden: getan · angenommen · nicht verifizierbar · offen geblieben (Regel 5)** | ☐ |
+| 20 | `retro_report_check.py` über den Report gelaufen, Exit 0 (Phase 8) | ☐ |
 
 > **Pflicht-Selbstcheck (nicht überspringen):** zähle die als PFLICHT/NEU markierten
 > `##`/`###`-Überschriften oben gegen diese Tabelle — jede neue Pflicht-Phase braucht hier eine
@@ -444,6 +469,12 @@ ist selbst ein Befund — dieselbe Regel wie GATE-PFLICHT ≥2.
 ## Changelog
 
 Vollständige Historie: `docs/governance/session-skills-lehren/retro.md` § Changelog-Historie.
+
+- 2026-09-16: **Phase 8 `retro_report_check.py` + Checklisten-Zeilen 19/20.** Gemessen über
+  die 16 Reports seit 2026-09-02: der von Eiserner Regel 5 verlangte Vierklang fehlte in
+  fünf, darunter den zwei jüngsten (apo-hub 40c069, platform b7822e). Die Checkliste fragte
+  ihn nur mittelbar ab („§8 gefüllt" — §8 war überall da). Der Prüfer läuft in der CI über
+  jeden Report ab dem Stichtag; die fünf Altlücken bleiben bewusst außerhalb.
 
 - 2026-09-14: **Phase 1 Transkript-Kennzahlen per `tools/retro_transkript_kennzahlen.py`** (Owner-Entscheid
   aus Retro kbiAvn-incr, Streichkandidat umgesetzt). Der Sammler-Agent wertet das JSONL nicht mehr aus;
