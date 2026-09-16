@@ -121,6 +121,27 @@ KONSEQUENZ = {
     "GLEICH": "kein Ereignis",
 }
 
+#: Was die Zeile sagt, wenn das Ritual zur letzten Log-Zeile GELAUFEN ist, der
+#: Abstand bewertet↔läuft aber bleibt.
+#:
+#: Bis 2026-09-16 druckte `--kurz` die MAJOR-Konsequenz unverändert weiter, auch
+#: bei `behandelt=ja fällig=nein`. Die Zeile las sich dann als
+#: „… behandelt=ja fällig=nein — Vollmachten suspendiert (§3a) … fällig" und
+#: widersprach den zwei Feldern direkt davor. Ein Lotse, der den Satzteil statt
+#: der Felder las, meldete dem Kapitän suspendierte Vollmachten, während in
+#: `registry/lotse-authorizations.yaml` alle aktiven Einträge seit 2026-09-03
+#: `assessed_with: claude-opus-5` tragen und gültig waren (Session-Start 2026-09-16).
+#:
+#: `behandelt` hängt an der letzten Zeile von `model-changes.log`, nicht am Paar
+#: (bewertet, läuft). Es macht das EREIGNIS still, nicht den ABSTAND — der bleibt
+#: und wird bei jedem Start erneut gemeldet, bis `assessed_with` nachgezogen ist
+#: (Runbook §3). Genau das gehört in die Zeile, sonst sieht ein Dauerbefund aus
+#: wie ein akuter.
+BEHANDELT_HINWEIS = (
+    "Ritual zur letzten Log-Zeile gelaufen; der Abstand bewertet↔läuft bleibt und "
+    "meldet sich jeden Start erneut, bis assessed_with nachgezogen ist (Runbook §3)"
+)
+
 
 @dataclass
 class LogEntry:
@@ -200,7 +221,11 @@ def resolve_running_model(
         return RunningModel(transcript_model, "transkript", "")
     if log_neu is None:
         return RunningModel(None, "unbekannt", "kein --laufend, kein Transkript, kein Log")
-    mapped = ALIAS_TABLE.get(log_neu)
+    # Der Alias trägt die Variante mit (`opus[1m]`). `norm_id` schneidet sie ab —
+    # dieselbe Normalisierung, die der Klassifizierer benutzt (Runbook §0: SUFFIX
+    # ist kein Ereignis). Ohne sie fiel `opus[1m]` durch die Tabelle und landete
+    # als `alias-unbekannt` auf fail-loud MAJOR.
+    mapped = ALIAS_TABLE.get(log_neu) or ALIAS_TABLE.get(norm_id(log_neu))
     if mapped:
         return RunningModel(
             mapped,
@@ -311,13 +336,16 @@ def main() -> int:
 
     behandelt = entry is not None and entry.raw in read_handled(args.handled)
     faellig = klasse in ("MAJOR", "MINOR") and not behandelt
-    konsequenz = KONSEQUENZ[klasse]
+    if klasse in ("MAJOR", "MINOR") and behandelt:
+        konsequenz = f"{klasse} {BEHANDELT_HINWEIS}"
+    else:
+        konsequenz = KONSEQUENZ[klasse]
     note = consensus_note(pairs)
     quelle_note = f" ({running_info.hinweis})" if running_info.hinweis else ""
 
     if args.kurz:
         print(
-            f"modellwechsel: {klasse} bewertet={assessed} läuft={running} "
+            f"modellwechsel: {klasse} bewertet={assessed}{note} läuft={running} "
             f"quelle={running_info.quelle} "
             f"behandelt={'ja' if behandelt else 'nein'} "
             f"fällig={'ja' if faellig else 'nein'} — {konsequenz}{quelle_note}"

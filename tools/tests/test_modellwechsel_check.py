@@ -310,3 +310,73 @@ def test_should_use_majority_assessed_with_and_flag_disagreement(tmp_path):
     assert majority == "claude-fable-5"
     assert len(pairs) == 3
     assert mc.consensus_note(pairs) != ""
+
+
+# ── behandelt=ja darf nicht nach "fällig" klingen (Session-Start 2026-09-16) ──
+
+
+def test_should_not_print_pending_consequence_when_already_handled(tmp_path):
+    """`--kurz` druckte die MAJOR-Konsequenz auch bei fällig=nein weiter.
+
+    Die Zeile widersprach damit den zwei Feldern direkt davor; ein Leser, der den
+    Satzteil statt der Felder nahm, meldete suspendierte Vollmachten, obwohl
+    keine suspendiert waren.
+    """
+    log = tmp_path / "state" / "model-changes.log"
+    handled = tmp_path / "state" / "model-rebaseline-handled.tsv"
+    policies = tmp_path / "policies"
+    _write_policy(policies, "adr-threshold.md", "claude-fable-5")
+    _write_log(log, "2026-09-02T08:00:00Z", "claude-fable-5-1", "claude-opus-5", "MAJOR")
+    handled.parent.mkdir(parents=True, exist_ok=True)
+    handled.write_text("2026-09-02T08:00:00Z\tclaude-fable-5-1\tclaude-opus-5\tMAJOR\n")
+
+    r = _run_cli(tmp_path, "--kurz")
+
+    assert "fällig=nein" in r.stdout
+    assert "Vollmachten suspendiert" not in r.stdout, (
+        "behandelt=ja fällig=nein darf nicht mit der MAJOR-Konsequenz enden"
+    )
+    assert "assessed_with nachgezogen" in r.stdout, (
+        "der bleibende Abstand bewertet↔läuft muss benannt sein"
+    )
+
+
+def test_should_still_print_pending_consequence_when_faellig(tmp_path):
+    """Gegenprobe: unbehandelt bleibt die harte Konsequenz stehen."""
+    log = tmp_path / "state" / "model-changes.log"
+    policies = tmp_path / "policies"
+    _write_policy(policies, "adr-threshold.md", "claude-fable-5")
+    _write_log(log, "2026-09-02T08:00:00Z", "claude-fable-5-1", "claude-opus-5", "MAJOR")
+
+    r = _run_cli(tmp_path, "--kurz")
+
+    assert r.returncode == 1
+    assert "fällig=ja" in r.stdout
+    assert "Vollmachten suspendiert" in r.stdout
+
+
+def test_should_show_disagreement_in_short_line(tmp_path):
+    """Eine 12:4-Mehrheit ist keine Tatsache — `--kurz` muss das mitliefern."""
+    log = tmp_path / "state" / "model-changes.log"
+    policies = tmp_path / "policies"
+    _write_policy(policies, "a.md", "claude-fable-5")
+    _write_policy(policies, "b.md", "claude-opus-5")
+    _write_log(log, "2026-09-02T08:00:00Z", "claude-opus-5", "claude-fable-5", "MAJOR")
+
+    r = _run_cli(tmp_path, "--kurz")
+
+    assert "uneinheitlich unter 2 Policies" in r.stdout
+
+
+def test_should_resolve_alias_with_variant_suffix(tmp_path):
+    """`opus[1m]` ist der Alias `opus` mit Variante — SUFFIX ist kein Ereignis."""
+    log = tmp_path / "state" / "model-changes.log"
+    policies = tmp_path / "policies"
+    _write_policy(policies, "a.md", "claude-opus-5")
+    _write_log(log, "2026-09-02T08:00:00Z", "fable", "opus[1m]", "MAJOR")
+
+    r = _run_cli(tmp_path, "--kurz")
+
+    assert "quelle=alias-tabelle" in r.stdout, r.stdout
+    assert "läuft=claude-opus-5" in r.stdout
+    assert "GLEICH" in r.stdout
