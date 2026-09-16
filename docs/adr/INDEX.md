@@ -268,4 +268,8 @@
 | 300 | Orchestrator = Gedächtnis + Audit, Harness = Ausführung | Accepted | ⬜ | [ADR-300](ADR-300-orchestrator-gedaechtnis-gate-harness-ausfuehrung.md) |
 | 301 | Ein eigener Registry-Spiegel auf netcup, damit ein Prod-Deploy nicht an der Erreichbarkeit von ghcr.io hängt | Proposed | ⬜ | [ADR-301](ADR-301-registry-spiegel-fuer-prod-deploys.md) |
 | 302 | Modell-Routing wird entkoppelt, nicht gelernt — Änderung an ADR-068 | Proposed | ⬜ | [ADR-302](ADR-302-routing-entkoppeln-statt-lernen.md) |
+| 303 | Vector-Store-Schema: ADR-171 als Single Source of Truth, tenant_id ist UUID | Accepted | 🔶 | [ADR-303](ADR-303-vector-store-schema-adr171-tenant-uuid.md) |
+| 304 | Embedding-Modell: multilingual-e5-large als Primärmodell | Accepted | ✅ | [ADR-304](ADR-304-embedding-modell-multilingual-e5-large.md) |
+| 305 | rag-mcp als einzige API und Collection-Namenskonvention {repo}:{domain} | Accepted | 🔶 | [ADR-305](ADR-305-rag-mcp-single-api-collection-naming.md) |
+| 306 | DSGVO-Fallback-Policy je Collection: Cloud-Embedding nur mit allow_cloud | Accepted | 🔶 | [ADR-306](ADR-306-dsgvo-fallback-policy-je-collection.md) |
 | 307 | Identität über Cloudflare Access und lokales Login — Ablösung von Authentik (ADR-142) | Proposed | ⬜ | [ADR-307](ADR-307-identitaet-cloudflare-access-statt-authentik.md) |

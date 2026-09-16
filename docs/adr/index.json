@@ -1,6 +1,6 @@
 {
   "generated": "2026-09-16",
-  "total": 249,
+  "total": 253,
   "next_free": 308,
   "adrs": [
     {
@@ -3124,7 +3124,11 @@
         "ADR-171 (Temporal RAG Infrastructure — Schema)",
         "ADR-172 (rag-mcp Server — Platform-Wide RAG API)",
         "ADR-173 (Document Intake Routing Pattern)",
-        "ADR-187 (Document Intelligence Pipeline)"
+        "ADR-187 (Document Intelligence Pipeline)",
+        "ADR-303",
+        "ADR-304",
+        "ADR-305",
+        "ADR-306"
       ],
       "implementation_status": "partial"
     },
@@ -5735,6 +5739,93 @@
         "ADR-208"
       ],
       "implementation_status": "none"
+    },
+    {
+      "number": 303,
+      "id": "ADR-303",
+      "file": "ADR-303-vector-store-schema-adr171-tenant-uuid.md",
+      "title": "Vector-Store-Schema: ADR-171 als Single Source of Truth, tenant_id ist UUID",
+      "status": "accepted",
+      "date": "2026-05-07",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-022",
+        "ADR-087",
+        "ADR-171",
+        "ADR-187",
+        "ADR-188",
+        "ADR-304",
+        "ADR-305",
+        "ADR-306"
+      ],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 304,
+      "id": "ADR-304",
+      "file": "ADR-304-embedding-modell-multilingual-e5-large.md",
+      "title": "Embedding-Modell: multilingual-e5-large als Primärmodell",
+      "status": "accepted",
+      "date": "2026-05-07",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-171",
+        "ADR-188",
+        "ADR-303",
+        "ADR-305",
+        "ADR-306"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 305,
+      "id": "ADR-305",
+      "file": "ADR-305-rag-mcp-single-api-collection-naming.md",
+      "title": "rag-mcp als einzige API und Collection-Namenskonvention {repo}:{domain}",
+      "status": "accepted",
+      "date": "2026-05-07",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-075",
+        "ADR-172",
+        "ADR-188",
+        "ADR-303",
+        "ADR-304",
+        "ADR-306"
+      ],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 306,
+      "id": "ADR-306",
+      "file": "ADR-306-dsgvo-fallback-policy-je-collection.md",
+      "title": "DSGVO-Fallback-Policy je Collection: Cloud-Embedding nur mit allow_cloud",
+      "status": "accepted",
+      "date": "2026-05-07",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-188",
+        "ADR-303",
+        "ADR-304",
+        "ADR-305"
+      ],
+      "implementation_status": "partial"
     },
     {
       "number": 307,
