@@ -83,6 +83,7 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
 | `0.7.22 flottenbild` | Knoten unhealthy/restart/Swap-Platte ≥90% | alles grün | Knoten prüfen, `/infra-cleanup` |
 | `0.7.25 rotation-faelligkeit` | Secret fällig, ohne Beleg oder ohne Konsumenten | nichts fällig | rotieren bzw. Konsument benennen; ohne Konsumenten = Kandidat zum Ausbau |
 | `0.7.26 ci-deckung` | Ziel `NICHT PRUEFBAR` — Deckung ungemessen | alle auflösbar | shared-ci-Workflow auflösen; ungemessen ist keine Entwarnung |
+| `0.7.27 sichtbarkeits-drift` | noch Konsumenten/Kopien/Fristen an `achimdehnert/platform` (Ziel 0/0/1/0, #3234) | `erreicht` | Laufzeit-Pfade zuerst umhängen; Frist erneuern; Flip = Owner nach 7 Tagen PASS |
 | `0.7.23 melder-register` | Phase ohne Eintrag / `leser: UNBENANNT` / Karteileiche | — | `melder_register_check.py --kurz`, Leser benennen |
 
 **Jede `◌`/`nicht messbar`/`SAMMELPHASE`-Zeile ist eine Lücke, kein Pass — als solche ins Board.**

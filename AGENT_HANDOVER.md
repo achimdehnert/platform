@@ -31,7 +31,7 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 
 ## Offene Fäden (über den Session-Stand hinaus)
 
-0. **platform privat (KONZ-039, SA-4) — Umbau läuft**, Melder-Stand Caller/Raw/Kopien/Fristen = 15/26/3/1 (Start 2026-09-16), Flip erst bei 7 Tagen 0/0/1/0: https://github.com/achimdehnert/platform/issues/3234
+0. **platform privat (KONZ-039, SA-4) — Umbau läuft**, Melder `0.7.27` gemessen 2026-09-16: Aufrufer 17 · Raw 27 (Laufzeit 3) · Kopien 3 · Fristen 14, Flip erst bei 7 Tagen 0/0/1/0: https://github.com/achimdehnert/platform/issues/3234
 - **Auftragsraum Stufe 1** ([#3079](https://github.com/achimdehnert/platform/issues/3079)): fertig; Kill-Gate-Zahlen 2026-10-08 (KONZ-059). **sevdesk-Routinen** ([#3102](https://github.com/achimdehnert/platform/issues/3102)): K4 in PR, K1–K3/K5 und K6 in Bau.
 
 0. iil-assist Gateway: Transport (D2) nicht begehbar — drei Ursachen belegt, Fix haengt an der Transport-Entscheidung: https://github.com/achimdehnert/mcp-hub/issues/264
