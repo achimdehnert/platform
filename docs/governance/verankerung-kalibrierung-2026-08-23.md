@@ -584,3 +584,15 @@ Das ist keine vertagte Arbeit, sondern eine **Zuschnittsentscheidung**, festgeha
 **Muster:** Eine Überschrift „Bewusst nicht gebaut" liest der Klassifikator als Vertagung. Das Wort „bewusst" und die Begründung im selben Absatz („zwei Wege heißen zwei Briefe") unterscheiden einen Zuschnitt von einer Vertagung; ein Zuschnitt braucht kein Tracking-Issue, weil nichts nachzuholen ist.
 
 **Stand damit: 29 Meldungen · 5 richtig · 24 Fehlalarme (Präzision 0,172).**
+
+## 2026-09-16 — achimdehnert/writing-hub#1207 (E.5, Sitzungsende writing-hub 7e551f85)
+
+Gemeldet: „Zusage ohne Tracking in: #1207". Der PR-Text lautet vollständig:
+
+> »Regeneriert mit `zusammenstellen.py` nach #1206 (E5.8 → zwei Folien). Docs-only; erst nach dem laufenden Code-Deploy mergen.«
+
+„Erst nach dem laufenden Code-Deploy mergen" ist eine **Reihenfolge-Anweisung für den Merge desselben PRs**, keine vertagte Arbeit — der PR wurde 16:49 gemergt, danach blieb nichts offen. **Fehlalarm.**
+
+**Muster:** Ein Zeitwort mit „erst … dann" liest der Klassifikator als Aufschub, auch wenn das Aufgeschobene der Merge selbst ist.
+
+**Stand damit: 30 Meldungen · 5 richtig · 25 Fehlalarme (Präzision 0,167).**

@@ -31,7 +31,7 @@ streich_begruendung: "keiner, weil jede Phase dieser Retro das Urteil verändert
 
 Sitzung: Kapitäns-Session in `achimdehnert/writing-hub`, Auftrag Issue #1181 (K1–K7): klickbare Leseliste je Termin, Bücher je Termin, Termine 2–5 anhand der Bücher überarbeiten → Modulversion v12 auf Prod. Scope = 22 gemergte PRs #1182–#1207 (Branch-Präfix `session/2026-09-16/achim-dehnert/*`), Issues #1181/#1190/#1191/#1199/#1203, platform#3208/#3209, vier Prod-Schreibläufe per Owner-Skript.
 
-**Footprint `full`** (reduziert von `deep`, Gründe im Frontmatter): ein Code-Repo plus zwei Issues in platform, 22 PRs, Prod-Schreibläufe ohne Migration. Agenten: 3 Finder (sonnet), 3 Skeptiker (sonnet) für 4 Bewertungsbefunde + 1 over_act-Klasse, Widerlegungsbahn (opus), Meta (sonnet) = 8; Phase 1 inline. Transkript-Kennzahlen per `tools/retro_transkript_kennzahlen.py`: 577 Bash-Aufrufe, 6 Workflows, 1 Ablehnung, 18 Fehlerläufe, 9 Silent-Reminder, Kontext-Kompaktierung 16:01.
+**Footprint `full`** (reduziert von `deep`, Gründe im Frontmatter): ein Code-Repo plus zwei Issues in platform, 22 PRs, Prod-Schreibläufe ohne Migration. Agenten: 3 Finder (sonnet), 3 Skeptiker (sonnet) für 4 Bewertungsbefunde + 1 over_act-Klasse, Widerlegungsbahn (opus), Meta (sonnet) = 8; Phase 1 inline. Transkript-Kennzahlen per `tools/retro_transkript_kennzahlen.py` (Ausgabe neben diesem Report: `session-retro-2026-09-16-writing-hub-7d2e16.kennzahlen.txt`, eine IP geschwärzt): 577 Bash-Aufrufe, 6 Workflows, 1 Ablehnung, 18 Fehlerläufe, 9 Silent-Reminder, Kontext-Kompaktierung 16:01.
 
 **Phase 0.0:** `tools/gate_wirkung.py` → „Kein Gate rueckfaellig"; über alle 126 Retros haben 4 Gates ihren Befund gefangen, 13 Gates sind `zu-frueh`. In dieser Sitzung selbst fingen zwei Gates (`gates_caught`).
 
