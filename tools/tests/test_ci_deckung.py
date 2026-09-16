@@ -326,3 +326,34 @@ def test_should_reject_a_verzicht_entry_without_grund(tmp_path):
     eintraege, fehler = cd.lade_verzicht(str(pfad))
     assert eintraege == {}
     assert fehler and "OHNE Grund" in fehler[0]
+
+
+def test_should_read_through_shell_if_then_else_and_cover_the_primary_branch(tmp_path):
+    """Realfall chat-hub `lint` (chat-hub#110): `if command -v shellcheck; then
+    shellcheck ...; else docker run ... shellcheck ...; fi`. Vorher vier Befunde
+    ("if command shellcheck", "then shellcheck", "else docker run", "fi"), obwohl
+    der CI shellcheck ausfuehrt. Kontrollwoerter fallen weg, die `command -v`-Sonde
+    zaehlt nicht, der else-Fallback ist kein Befund, wenn der Hauptzweig gedeckt ist."""
+    makefile = (
+        "lint:\n"
+        "\t@if command -v shellcheck >/dev/null; then shellcheck deploy/*.sh; \\\n"
+        '\telse docker run --rm -v "$(CURDIR):/mnt" -w /mnt koalaman/shellcheck:stable deploy/*.sh; fi\n'
+        "\t$(TEST_PY) -m ruff check deploy/ tests/\n"
+    )
+    workflow = (
+        "on: [push]\n"
+        "jobs:\n"
+        "  lint:\n"
+        "    runs-on: ubuntu-latest\n"
+        "    steps:\n"
+        "      - run: |\n"
+        "          shellcheck deploy/*.sh\n"
+        "          ruff check deploy/ tests/\n"
+    )
+    repo = _repo(tmp_path, makefile, workflow)
+    ergebnis = cd.scan_repo(str(repo))
+    assert ergebnis["befunde"] == []
+    assert {g["kommando"] for g in ergebnis["gedeckt"]} >= {
+        "shellcheck deploy/*.sh",
+        "ruff check deploy/ tests/",
+    }
