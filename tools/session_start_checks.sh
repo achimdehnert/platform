@@ -1129,6 +1129,20 @@ case "$DECKUNG_CI_OUT" in
   *) record "0.7.26 ci-deckung" "WARN" "$DECKUNG_CI_OUT" "$TARGET_REPO" ;;
 esac
 
+# ── 0.7.27 Sichtbarkeits-Drift: was haengt noch an achimdehnert/platform? ────
+# platform ist PUBLIC und soll privat werden (KONZ-039, Auftrag #3234). Der Flip
+# ist erst frei, wenn dieser Melder 7 Tage in Folge 0/0/1/0 zeigt (K5) — Aufrufer,
+# Raw-Downloads (Laufzeit gesondert), Bausteine-Kopien, abgelaufene Konzept-Fristen.
+# Zaehlt lokale Klone UND Code-Suche vereinigt: jede Methode allein lag im August
+# zweimal daneben. Offline = "nicht messbar", nie Entwarnung.
+SD_OUT=$(timeout 120 python3 "$PLATFORM_DIR/tools/sichtbarkeits_drift_melder.py" --kurz \
+         --ergebnis-datei "$MELDER_DIR/sichtbarkeit.json" 2>/dev/null || true)
+case "$SD_OUT" in
+  *"erreicht"*) record "0.7.27 sichtbarkeits-drift" "PASS" "$SD_OUT" "platform" ;;
+  "") record "0.7.27 sichtbarkeits-drift" "WARN" "Melder nicht auswertbar — manuell: platform/tools/sichtbarkeits_drift_melder.py" "platform" ;;
+  *) record "0.7.27 sichtbarkeits-drift" "WARN" "$SD_OUT" "platform" ;;
+esac
+
 # ── 0.7.20 Umgebung: wo stehe ich, und wer antwortet unter den Namen? ─────
 # Alle anderen Phasen vergleichen Zusagen miteinander. Diese sagt der Sitzung,
 # WO sie steht — und ob hinter einem deklarierten Namen die richtige Anwendung
