@@ -52,6 +52,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from datetime import date
 from pathlib import Path
 
@@ -74,24 +75,12 @@ RAW_MUSTER = r"raw\.githubusercontent\.com/achimdehnert/platform"
 # Raw-Treffer, die NICHT zur Laufzeit brechen: CI (eigene Klasse), Klickdummy-
 # Schema-Verweise, Doku.
 NICHT_LAUFZEIT = re.compile(r"(^|/)(\.github/|klickdummy/|docs/)|\.md$")
-# Installierte Pakete und Build-Ausgaben sind Kopien fremden Codes, keine
-# Abhaengigkeit dieses Repos — der Erstlauf zaehlte 8 Repos als "Laufzeit", weil
-# `.venv-klickdummy/…/site-packages/iil_klickdummy/` die Raw-URL enthaelt.
-UEBERSPRINGEN = (
-    ".git",
-    "node_modules",
-    ".venv*",
-    "venv",
-    "site-packages",
-    "build",
-    "dist",
-    "__pycache__",
-    "_ARCHIVED",
-)
 # Konzepte, deren Frist niemanden mehr bindet.
 INAKTIV = {"sunset", "stale", "done", "superseded", "archived", "rejected"}
 ORIGIN_RE = re.compile(r"github\.com[:/]([^/\s]+)/([^/\s]+?)(?:\.git)?\s*$")
 FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---", re.S)
+# Fetch-Alter je lokalem Klon (Tage) — gefuellt von scanne_lokal, gemeldet im JSON.
+FETCH_ALTER: dict[str, int] = {}
 
 
 # ── lokale Klone ─────────────────────────────────────────────────────────────
@@ -115,19 +104,38 @@ def _origin(repo_dir: Path) -> str | None:
 
 
 def _grep(repo_dir: Path, muster: str) -> list[str]:
-    """Pfade (relativ) mit Treffer. grep statt Python-Walk: 60 Klone in Sekunden."""
-    cmd = ["grep", "-rIlE", muster, "."]
-    cmd += [f"--exclude-dir={d}" for d in UEBERSPRINGEN]
+    """Pfade mit Treffer in `origin/main` — nicht in der Arbeitskopie.
+
+    Die Arbeitskopie kann Wochen hinter dem Remote liegen (Realfall 2026-09-16:
+    gaeb-toolkit war umgehaengt und gemergt, der lokale Klon zaehlte weiter als
+    Aufrufer). `git grep` auf dem Remote-Tracking-Ref sieht nur Getracktes — .venv,
+    build/ und Co. fallen damit von selbst weg — und ist so aktuell wie der letzte
+    Fetch; dessen Alter meldet `fetch_alter_tage`."""
     try:
         p = subprocess.run(
-            cmd, cwd=repo_dir, capture_output=True, text=True, timeout=120
+            ["git", "grep", "-l", "-E", muster, "origin/main", "--", "."],
+            cwd=repo_dir,
+            capture_output=True,
+            text=True,
+            timeout=120,
         )
     except (OSError, subprocess.TimeoutExpired):
         return []
-    return sorted(z[2:] if z.startswith("./") else z for z in p.stdout.split())
+    return sorted(z.split(":", 1)[1] for z in p.stdout.split() if ":" in z)
 
 
-def scanne_lokal(github_dir: Path) -> dict[str, dict[str, list[str]]]:
+def fetch_alter_tage(repo_dir: Path, jetzt: float | None = None) -> int | None:
+    """Tage seit dem letzten Fetch — None, wenn nie gefetcht."""
+    fh = repo_dir / ".git" / "FETCH_HEAD"
+    if not fh.is_file():
+        return None
+    jetzt = time.time() if jetzt is None else jetzt
+    return int((jetzt - fh.stat().st_mtime) // 86400)
+
+
+def scanne_lokal(
+    github_dir: Path, fetch: bool = False
+) -> dict[str, dict[str, list[str]]]:
     """Je Repo (owner/name) die Trefferpfade je Klasse. platform selbst ist kein
     Konsument: eigene Aufrufe ueberleben den Flip."""
     treffer: dict[str, dict[str, list[str]]] = {}
@@ -137,6 +145,17 @@ def scanne_lokal(github_dir: Path) -> dict[str, dict[str, list[str]]]:
         repo = _origin(d) if d.is_dir() else None
         if not repo or repo == SELBST:
             continue
+        if fetch:
+            subprocess.run(
+                ["git", "fetch", "-q", "origin", "main"],
+                cwd=d,
+                capture_output=True,
+                timeout=60,
+                check=False,
+            )
+        alter = fetch_alter_tage(d)
+        if alter is not None:
+            FETCH_ALTER[repo] = max(FETCH_ALTER.get(repo, 0), alter)
         aufruf = _grep(d, AUFRUF_MUSTER) + _grep(d, KLON_MUSTER)
         raw = _grep(d, RAW_MUSTER)
         if aufruf or raw:
@@ -327,6 +346,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument("--heute", default=None, help="YYYY-MM-DD (Tests)")
     p.add_argument(
+        "--fetch",
+        action="store_true",
+        help="vor dem Scan `git fetch origin main` je Klon (langsam, fuer den Tageslauf)",
+    )
+    p.add_argument(
         "--ergebnis-datei",
         default=None,
         help="Ergebnis zusaetzlich in der gemeinsamen Melder-Huelle ablegen "
@@ -335,7 +359,7 @@ def main(argv: list[str] | None = None) -> int:
     a = p.parse_args(argv)
     heute = date.fromisoformat(a.heute) if a.heute else date.today()
 
-    lokal = scanne_lokal(Path(a.github_dir))
+    lokal = scanne_lokal(Path(a.github_dir), fetch=a.fetch)
     netz = {} if a.offline else scanne_netz()
     kopien = None if a.offline else zaehle_kopien()
     sicht = None if a.offline else sichtbarkeit()
@@ -346,6 +370,10 @@ def main(argv: list[str] | None = None) -> int:
         sicht,
     )
     ergebnis["quellen"] = {"lokal": len(lokal), "netz": len(netz)}
+    ergebnis["fetch_alter_tage_max"] = max(FETCH_ALTER.values(), default=None)
+    ergebnis["klone_ohne_fetch_7d"] = sorted(
+        r for r, t in FETCH_ALTER.items() if t >= 7
+    )
 
     if a.ergebnis_datei:
         melder_ergebnis.schreibe(

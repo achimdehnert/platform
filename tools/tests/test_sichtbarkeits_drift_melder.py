@@ -6,6 +6,8 @@ liest die Identitaet daraus und grept die Dateien. Netz-Zaehler bleiben None.
 
 from __future__ import annotations
 
+import os
+import subprocess
 import sys
 from datetime import date
 from pathlib import Path
@@ -22,15 +24,31 @@ from sichtbarkeits_drift_melder import (  # noqa: E402
 
 
 def _klon(root: Path, name: str, origin: str, dateien: dict[str, str]) -> None:
+    """Echter Klon mit einem Commit und origin/main — der Melder liest den Ref."""
     d = root / name
-    (d / ".git").mkdir(parents=True)
-    (d / ".git" / "config").write_text(
-        f'[core]\n\tbare = false\n[remote "origin"]\n\turl = git@github.com:{origin}.git\n'
-    )
+    d.mkdir(parents=True)
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "t",
+        "GIT_AUTHOR_EMAIL": "t@x",
+        "GIT_COMMITTER_NAME": "t",
+        "GIT_COMMITTER_EMAIL": "t@x",
+    }
+
+    def run(*a: str) -> None:
+        subprocess.run(
+            ["git", "-C", str(d), *a], check=True, capture_output=True, env=env
+        )
+
+    run("init", "-q", "-b", "main")
+    run("remote", "add", "origin", f"git@github.com:{origin}.git")
     for rel, inhalt in dateien.items():
         p = d / rel
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(inhalt)
+    run("add", "-A")
+    run("commit", "-q", "-m", "init")
+    run("update-ref", "refs/remotes/origin/main", "HEAD")
 
 
 def _konzept(d: Path, cid: str, status: str, frist: str) -> None:
@@ -177,3 +195,19 @@ def test_should_archivierte_repos_nicht_als_kopie_zaehlen(monkeypatch):
 
     monkeypatch.setattr(sdm, "_gh", fake_gh)
     assert sdm.zaehle_kopien() == ["achimdehnert/platform", "iilgmbh/shared-ci"]
+
+
+def test_should_origin_main_und_nicht_die_arbeitskopie_lesen(tmp_path):
+    """Stale Klon: origin/main ist schon umgehaengt, die Arbeitskopie nicht — zaehlt nicht."""
+    _klon(
+        tmp_path,
+        "x-hub",
+        "achimdehnert/x-hub",
+        {
+            ".github/workflows/ci.yml": "uses: iilgmbh/shared-ci/.github/actions/x@main\n"
+        },
+    )
+    (tmp_path / "x-hub" / ".github" / "workflows" / "ci.yml").write_text(
+        "uses: achimdehnert/platform/.github/actions/x@main\n"
+    )
+    assert scanne_lokal(tmp_path) == {}
