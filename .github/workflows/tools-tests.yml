@@ -135,6 +135,13 @@ jobs:
             --changed-file changed-files.txt \
             --github-output "$GITHUB_OUTPUT"
 
+      - name: Handover-Fragmente pruefen (#1944 K6)
+        # Bewusst OHNE Relevanz-Bedingung: ein reiner Fragment-PR (nur docs/handover.d/)
+        # ist fuer die Tests irrelevant, muss aber Lint + Unveraenderlichkeit bestehen.
+        # Nur stdlib + git, laeuft in unter einer Sekunde.
+        if: github.event_name == 'pull_request'
+        run: python3 tools/agent-handover/fragments.py pruefen --basis "origin/${{ github.base_ref }}"
+
       - name: Install test deps
         if: steps.relevanz.outputs.relevant == 'true'
         # pydantic: shared_contracts-Tests (platform#820); Liste = Teilmenge von requirements-dev.txt
