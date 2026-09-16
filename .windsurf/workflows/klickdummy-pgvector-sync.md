@@ -28,10 +28,13 @@ Sync **default-ausgeschlossen**, bis deren Datensouveränitäts-Check die Ablage
 Hetzner-pgvector explizit erlaubt (Repo-CLAUDE.md der Gov-Repos lesen). Das `gov-data`-Tag
 im Sync-Code ist Such-Filter-Hilfe, **keine Push-Erlaubnis**.
 
-Repo-Liste (Stand 2026-08-31, bei neuen KD-Repos erweitern — Discovery: `ls -d $GITHUB_DIR/*/klickdummy`):
+Repo-Liste **aus dem Dateisystem**, nicht aus einer gepflegten Liste (die war dreimal
+veraltet: #1263, #1495, #1571). Der Gov-Ausschluss steht als Filter im Befehl:
 
-```
-risk-hub,ausschreibungs-hub,design-hub,apo-hub,nl2iot-hub,pg-hub,iil-voice-agent,illustration-hub,travel-beat,writing-hub,iil-klickdummy,sqf-hub,tax-hub,trading-hub,coach-hub,dms-hub,onboarding-hub,research-hub,billing-hub,recruiting-hub,weltenhub,dev-hub,pptx-hub,137-hub,cad-hub
+```bash
+REPOS=$(ls -d "$GITHUB_DIR"/*/klickdummy | xargs -n1 dirname | xargs -n1 basename \
+  | grep -vxE 'ttz-hub|meiki-hub|frist-hub' | paste -sd,)
+echo "$REPOS"   # merken: N_repos — neue Gov-Repos hier in den grep aufnehmen
 ```
 
 ## Step 2 — NDJSON erzeugen
@@ -40,7 +43,7 @@ risk-hub,ausschreibungs-hub,design-hub,apo-hub,nl2iot-hub,pg-hub,iil-voice-agent
 VENV=$GITHUB_DIR/risk-hub/.venv-klickdummy
 OUT=$(mktemp --suffix=.ndjson)
 $VENV/bin/klickdummy-sync --cross-repo --base "$GITHUB_DIR" \
-  --repos <liste-aus-step-1> --output "$OUT"
+  --repos "$REPOS" --output "$OUT"
 wc -l "$OUT"   # merken: N_specs
 ```
 
