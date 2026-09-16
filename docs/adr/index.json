@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-08",
+  "generated": "2026-09-16",
   "total": 248,
   "next_free": 303,
   "adrs": [
@@ -3366,9 +3366,10 @@
         "ADR-021-unified-deployment-pattern.md",
         "ADR-106-port-audit.md",
         "ADR-156-reliable-deployment-pipeline.md",
-        "ADR-164-port-strategy-conflict-free-dev-staging-prod.md"
+        "ADR-164-port-strategy-conflict-free-dev-staging-prod.md",
+        "ADR-292-two-lane-deployment-six-host-standard.md  # begrenzt die Reichweite des Backend-Teils (2026-09-16)"
       ],
-      "implementation_status": "none"
+      "implementation_status": "partial  # 2026-09-16: Edge (Tunnel, DNS, SSL) live seit 2026-05-14; Backend-Teil durch ADR-292 Lane G auf risk-hub + meiki/frist begrenzt, s. Changelog"
     },
     {
       "number": 199,
