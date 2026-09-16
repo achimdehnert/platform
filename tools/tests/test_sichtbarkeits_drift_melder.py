@@ -241,3 +241,23 @@ def test_should_archivierte_konsumenten_aussortieren(monkeypatch):
     )
     assert list(lebend) == ["achimdehnert/bfagent"]
     assert archiviert == ["achimdehnert/research-hub"]
+
+
+def test_should_checkout_von_platform_in_fremder_ci_als_aufrufer_zaehlen(tmp_path):
+    """Flotten-Workflow silent-failure-lint.yml: actions/checkout mit repository:
+    achimdehnert/platform — bricht nach dem Flip, auch ohne `uses:`-Verweis."""
+    _klon(
+        tmp_path,
+        "r-hub",
+        "iilgmbh/r-hub",
+        {
+            ".github/workflows/silent-failure-lint.yml": (
+                "steps:\n  - uses: actions/checkout@v7\n    with:\n"
+                "      repository: achimdehnert/platform\n      path: _platform\n"
+            )
+        },
+    )
+    treffer = scanne_lokal(tmp_path)
+    assert treffer["iilgmbh/r-hub"]["aufruf"] == [
+        ".github/workflows/silent-failure-lint.yml"
+    ]

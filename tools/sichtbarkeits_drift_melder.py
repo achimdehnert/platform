@@ -71,6 +71,10 @@ AUFTRAG = "#3234"
 # (`.github/actions/…`) — Letztere waren im Konzept nicht gezaehlt (11 lokale Caller).
 AUFRUF_MUSTER = r"uses: *achimdehnert/platform/\.github/"
 KLON_MUSTER = r"git clone[^\n]*github\.com[:/]achimdehnert/platform"
+# actions/checkout mit `repository: achimdehnert/platform` in fremder CI — die
+# Flotten-Workflows receive-windsurf-rules.yml (ADR-263) und silent-failure-lint.yml
+# holen platform so; mit GITHUB_TOKEN scheitert das nach dem Flip (23 Klone, 2026-09-16).
+CHECKOUT_MUSTER = r"repository: *achimdehnert/platform\b"
 RAW_MUSTER = r"raw\.githubusercontent\.com/achimdehnert/platform"
 # Raw-Treffer, die NICHT zur Laufzeit brechen: CI (eigene Klasse), Klickdummy-
 # Schema-Verweise, Doku.
@@ -156,7 +160,11 @@ def scanne_lokal(
         alter = fetch_alter_tage(d)
         if alter is not None:
             FETCH_ALTER[repo] = max(FETCH_ALTER.get(repo, 0), alter)
-        aufruf = [p for p in _grep(d, AUFRUF_MUSTER) if p.startswith(".github/")]
+        aufruf = [
+            p
+            for p in _grep(d, AUFRUF_MUSTER) + _grep(d, CHECKOUT_MUSTER)
+            if p.startswith(".github/")
+        ]
         aufruf += _grep(d, KLON_MUSTER)
         raw = _grep(d, RAW_MUSTER)
         if aufruf or raw:
@@ -191,6 +199,7 @@ def scanne_netz() -> dict[str, dict[str, list[str]]]:
     treffer: dict[str, dict[str, list[str]]] = {}
     for klasse, abfrage in (
         ("aufruf", "uses: achimdehnert/platform/.github"),
+        ("aufruf", "repository: achimdehnert/platform"),
         ("raw", "raw.githubusercontent.com/achimdehnert/platform"),
     ):
         for repo, pfad in suche_code(abfrage):
