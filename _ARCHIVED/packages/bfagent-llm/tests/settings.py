@@ -25,7 +25,7 @@ DATABASES = {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": os.environ.get("TEST_DB_NAME", "bfagent_llm_test"),
         "USER": os.environ.get("TEST_DB_USER", "bfagent"),
-        "PASSWORD": os.environ.get("TEST_DB_PASSWORD", "bfagent_dev_2024"),
+        "PASSWORD": os.environ.get("TEST_DB_PASSWORD", ""),
         "HOST": os.environ.get("TEST_DB_HOST", "localhost"),
         "PORT": os.environ.get("TEST_DB_PORT", "5432"),
     }
