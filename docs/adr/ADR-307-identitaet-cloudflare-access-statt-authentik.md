@@ -31,7 +31,7 @@ drift_check_paths:
 | **Scope** | platform (cross-repo) |
 | **Erstellt** | 2026-09-16 |
 | **Autor** | Achim Dehnert (Entscheid), Claude Code (Entwurf) |
-| **Reviewer** | – (Challenger-Lauf steht aus) |
+| **Reviewer** | Challenger-Lauf 2026-09-16 (§0) |
 | **Supersedes** | ADR-142 (Unified Identity — Authentik als Platform-IdP) |
 | **Relates to** | ADR-102 (Cloudflare DNS/CDN), ADR-118, ADR-198 (Staging Edge), ADR-292 (Two-Lane Deployment) |
 | **Auslöser** | Owner-Entscheid 2026-09-16, Kapitäns-Kanal: „wir verwenden authentik nicht mehr → statt dessen cloudflare“ (platform#3256, aus der Sichtung #3226 E4) |
@@ -55,6 +55,20 @@ drift_check_paths:
 | D-2 | Cloudflare Access ist bereits der gelebte Zugriffsschutz für interne Oberflächen (decks-hub, news, tax, staging, kd) — mit Service-Tokens für Agenten-Prüfungen (`playwright-verify`, `tools/cf-access-fetch.sh`) |
 | D-3 | Zugriffsschutz am Edge braucht keinen App-Code: kein OIDC-Client, keine Redirect-URIs, keine Provider-Pflege je Repo (Anlass #221) |
 | D-4 | Kunden-Hubs mit echten Nutzern (137herz.de, weltenhub, bieterpilot.de) dürfen durch die Ablösung **keinen** Login verlieren |
+
+## 0. Challenger-Befund 2026-09-16 (Rev 2 — noch `proposed`)
+
+`/adr-challenger` mit drei Messungen auf `hetzner-prod` (read-only, Zählungen ohne Nutzerdaten):
+
+| Messung | Ergebnis | Folge für den ADR |
+|---|---|---|
+| Nutzer in Authentik | **6 Konten** — 4 interne Personen, 2 Service-Accounts; keine Endkunden | Die Nutzer-Migration (§7 Risiko 1) ist praktisch leer: Endkunden-Konten leben heute schon **lokal** in den Hubs, Authentik trug nur den Owner-Login |
+| Anwendungen in Authentik | **27** registrierte Applications, darunter `outline`, `grafana`, `doc-hub` (Paperless), `iil-platform`, sechs Staging-Apps | Das Inventar in §1.1 war unvollständig: nicht nur Django-Hubs, auch **drei Fremd-Werkzeuge** hängen an Authentik |
+| Outline (`knowledge.iil.pet`) | `OIDC_AUTH_URI=https://id.iil.pet/…` **und** bereits hinter Cloudflare Access | Outline kennt **kein lokales Login** — es braucht einen OIDC-Provider. Option A allein deckt Outline (und je nach Konfiguration Grafana/Paperless) nicht |
+
+**Konsequenz:** Die Zweiteilung aus §3 bleibt, bekommt aber eine dritte Klasse — **Fremd-Werkzeuge ohne lokales Login** (Outline, ggf. Grafana) laufen über **Cloudflare Access for SaaS als OIDC-Provider** (Option C, nur für diese Klasse). Damit bleibt Cloudflare der einzige Identitätsanker, ohne dass ein zweiter IdP weiterlebt. Option C ist für diese Klasse aus dem Rückfall zum Regelfall geworden; §2/§3/§4 sind entsprechend angepasst.
+
+**Threshold:** ADR-würdig (ersetzt einen akzeptierten ADR, 6 akzeptierte ADRs referenzieren Authentik, 27 Apps). **Right-Sizing:** 144 → ~170 Zeilen, ein Entscheidungsverb, eine Domäne. **Konflikte:** ADR-142 (hart, `supersedes` gesetzt), ADR-145/ADR-144 (Outline/Paperless über Authentik-SSO — Nachträge nötig), ADR-292 Z. 55 nennt Authentik als „Plattform-Identität“ auf `prod` — Nachtrag. Kein Iterations-Verdacht (Rev 1 → Rev 2).
 
 ## 1. Context and Problem Statement
 
@@ -85,13 +99,21 @@ Interne Oberflächen (Agenten-Werkzeuge, Dashboards, Staging, Klickdummies) lieg
 
 Wäre die Fortsetzung von ADR-142/KONZ-024. Widerspricht dem Owner-Entscheid; der Rollout ist seit zwei Monaten eingemottet, ohne dass ein Hub ihn vermisst hat.
 
-### Option C: Cloudflare Access mit „Access for SaaS“ als OIDC-Provider für die Hubs
+### Option C: Cloudflare Access „for SaaS“ als OIDC-Provider — **gewählt für Werkzeuge ohne lokales Login**
 
-Cloudflare kann selbst als IdP auftreten (Access for SaaS, OIDC). Das behielte den OIDC-Client-Code in den Hubs und tauschte nur den Provider. Nicht gewählt: es ersetzt eine Provider-Pflege durch eine andere, bindet Endkunden-Identität an einen Cloudflare-Zero-Trust-Sitz und löst D-3 nicht. Bleibt als Rückfall für einen einzelnen Hub, der zwingend SSO braucht.
+Cloudflare kann selbst als IdP auftreten (Access for SaaS, OIDC). Für Django-Hubs nicht gewählt (Provider-Pflege bliebe, D-3 ungelöst, Endkunden-Identität an Zero-Trust-Sitze gebunden). **Für Fremd-Werkzeuge ohne lokales Login (Outline, ggf. Grafana) ist es der Weg** (Rev 2): Outline verlangt einen OIDC-Provider, und Cloudflare ist dann Zugriffs- *und* Identitätsanker in einem — kein zweiter IdP.
 
 ## 3. Decision Outcome
 
-**Option A.** Identität wird zweigeteilt: **Zugriff** auf interne Oberflächen entscheidet Cloudflare Access am Edge; **Nutzerkonten** in Kunden-Hubs sind lokal im jeweiligen Hub. Authentik (`id.iil.pet`) wird stillgelegt, sobald kein Prod-Hub mehr dorthin leitet. ADR-142 wird `superseded_by: ADR-307`.
+**Option A, ergänzt um C für eine Klasse (Rev 2).** Drei Klassen:
+
+| Klasse | Beispiele | Zugriff | Identität |
+|---|---|---|---|
+| Interne Oberflächen | decks, news, tax, kd, Staging, Dashboards | Cloudflare Access (Owner-Policy, Service-Token) | Cloudflare-Login |
+| Kunden-Hubs (Django) | dev-hub, writing, trading, weltenhub, 137-hub, risk-hub | öffentlich oder Access je Fall | **lokales** Django-Login; OIDC-Client-Code entfällt |
+| Fremd-Werkzeuge ohne lokales Login | Outline, ggf. Grafana | Cloudflare Access | Cloudflare **Access for SaaS** als OIDC-Provider |
+
+Authentik (`id.iil.pet`) wird stillgelegt, sobald keine der 27 registrierten Applications mehr dorthin leitet. ADR-142 wird `superseded_by: ADR-307`.
 
 ## 4. Implementation Details
 
@@ -102,7 +124,8 @@ Cloudflare kann selbst als IdP auftreten (Access for SaaS, OIDC). Das behielte d
 | 1 | dev-hub | OIDC-Route entfernen, lokales Login ist bereits Default (`accounts/login/`); Cloudflare-Access-App vor `dev-hub.iil.pet` |
 | 2 | writing-hub, trading-hub | lokales Login aktivieren, OIDC-Route entfernen; Nutzerkonten aus Authentik per E-Mail migrieren (Passwort-Reset-Mail) |
 | 3 | weltenhub, 137-hub | wie 2, mit Owner-Freigabe je Hub (echte Nutzer) |
-| 4 | Code-Reste | `mozilla_django_oidc` aus den sieben nicht-live Repos entfernen (kein Prod-Risiko, reine Aufräumarbeit) |
+| 3b | Outline, Grafana, doc-hub | Cloudflare Access for SaaS anlegen, OIDC-Provider umhängen (Outline: `OIDC_*`-Env), Login mit Owner-Konto abnehmen |
+| 4 | Code-Reste | `mozilla_django_oidc` aus den sieben nicht-live Repos entfernen (kein Prod-Risiko, reine Aufräumarbeit); die 27 Authentik-Applications als Abarbeitungsliste |
 | 5 | Authentik | `betriebsstatus: stillgelegt` in `ports.yaml`, Container stoppen (`restart=no`, Volumes bleiben 30 Tage), DNS `id.iil.pet` weg, Reste-Issue nach Muster #2480 |
 
 ### 4.2 Cloudflare Access als Standard für interne Oberflächen
@@ -133,12 +156,14 @@ Je Hub ein Issue im Ziel-Repo (Schritt 1–3), gesammelt unter platform#3256. Pr
 
 | Risiko | Gegenmaßnahme |
 |---|---|
-| Ein Hub hat Nutzer, die **nur** über Authentik existieren, und wird ohne lokales Login umgestellt | Schritt-Reihenfolge: lokales Login zuerst, Abnahme = Login eines Test-Nutzers **vor** Entfernen der OIDC-Route; Authentik-Volumes 30 Tage behalten |
+| Ein Hub hat Nutzer, die **nur** über Authentik existieren | Gemessen 2026-09-16: 6 Konten, 4 Personen, 0 Endkunden — Risiko klein; trotzdem Login eines Test-Nutzers **vor** Entfernen der OIDC-Route, Authentik-Volumes 30 Tage behalten |
+| Ein Werkzeug ohne lokales Login verliert mit Authentik seinen einzigen Login (Outline) | Klasse 3 mit Access for SaaS **vor** Schritt 5; Abnahme = Outline-Login über Cloudflare |
 | Cloudflare Access wird für einen Endkunden-Hub als Login missverstanden | §3 grenzt das aus; Access-Apps nur für interne Oberflächen |
 | ADR-142-Verweise in anderen Repos bleiben stehen | Fleet-Scan (`adr_cross_repo_refs`) vor Accept; Nachträge je ADR |
 
 ## Offen bis zum Accept
 
-1. Challenger-Lauf (`/adr-challenger ADR-307`).
-2. Je Live-Hub: gibt es Nutzer, die nur in Authentik angelegt sind? (Zählung in der Authentik-DB, read-only.)
-3. Owner-Bestätigung der Zweiteilung in §3 — sie ist die eigentliche Entscheidung dieses ADR.
+1. ~~Challenger-Lauf~~ — erledigt 2026-09-16 (§0).
+2. ~~Nur-Authentik-Nutzer zählen~~ — 6 Konten, 4 Personen, 0 Endkunden (§0).
+3. Owner-Bestätigung der **drei Klassen** in §3 — sie sind die eigentliche Entscheidung dieses ADR.
+4. Nachträge in ADR-144, ADR-145, ADR-292 (Authentik als Voraussetzung genannt) — im Accept-PR.
