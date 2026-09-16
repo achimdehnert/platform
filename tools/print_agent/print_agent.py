@@ -41,6 +41,7 @@ from pdf_forms import (
 
 import llm_gate  # Datenschutz-Gate (#1297) — bewusst importfrei, siehe Modul-Docstring
 import profile_policy  # Profil-Voreinstellungen (#1297, zweiter Befund)
+from asset_gate import asset_freigegeben, bild_mime  # Lizenz-Gate je Asset-Bereich, importfrei
 
 OUTPUT_DIR = Path.home() / "pdf-output"
 SECRETS_DIRS = [
@@ -157,8 +158,9 @@ def _install_brand_fonts(primary_rel: str) -> bool:
 def _profile_to_design(profile_name: str) -> dict:
     """Lädt ein design-hub-Profil und mappt es auf das interne Design-Dict.
 
-    Erzwingt `allowed_assets`: DB-Logo/Fonts werden nur eingebettet, wenn
-    `allowed_assets.db: true`. Bricht bei fehlendem Profil hart ab.
+    Erzwingt `allowed_assets` je Asset-Bereich: ein Logo oder eine Schrift unter
+    `assets/<bereich>/` wird nur eingebettet, wenn `allowed_assets.<bereich>: true`
+    (siehe `asset_gate.asset_freigegeben`). Bricht bei fehlendem Profil hart ab.
     """
     prof_file = DESIGN_HUB_DIR / "profiles" / f"{profile_name}.yaml"
     if not prof_file.exists():
@@ -170,7 +172,6 @@ def _profile_to_design(profile_name: str) -> dict:
 
     c = prof.get("colours", {})
     allowed = prof.get("allowed_assets", {})
-    db_ok = bool(allowed.get("db"))
 
     design = {
         "primary": c.get("primary", "#000000"),
@@ -222,7 +223,8 @@ def _profile_to_design(profile_name: str) -> dict:
 
     # Fonts (nur wenn DB-Assets erlaubt — Lizenz §1 DB Type)
     fonts = prof.get("fonts", {})
-    if db_ok and fonts.get("primary_path"):
+    font_ok, font_bereich = asset_freigegeben(fonts.get("primary_path") or "", allowed)
+    if font_ok and fonts.get("primary_path"):
         if _install_brand_fonts(fonts["primary_path"]):
             fallbacks = ", ".join(fonts.get("fallbacks", ["Arial", "sans-serif"]))
             design["_body_font"] = f"'{fonts.get('primary')}', {fallbacks}"
@@ -230,25 +232,30 @@ def _profile_to_design(profile_name: str) -> dict:
             print("⚠️  Brand-Fonts nicht auffindbar — Fallback-Fonts.")
     elif fonts.get("primary_path"):
         print(
-            "🔒 allowed_assets.db=false → DB-Fonts NICHT eingebettet (Lizenz). Nutze Fallback-Fonts."
+            f"🔒 allowed_assets.{font_bereich}=false → Schriften aus '{font_bereich}' "
+            "NICHT eingebettet (Lizenz). Nutze Fallback-Fonts."
         )
 
     # Logo (cover) — base64-Embed, nur wenn erlaubt
     logo = prof.get("logo") or {}
-    if db_ok and logo.get("url"):
+    logo_ok, logo_bereich = asset_freigegeben(logo.get("url") or "", allowed)
+    if logo_ok and logo.get("url"):
         import base64
 
         logo_f = (DESIGN_HUB_DIR / logo["url"]).resolve()
         if logo_f.exists():
             b64 = base64.b64encode(logo_f.read_bytes()).decode("ascii")
-            ext = logo_f.suffix.lstrip(".").lower().replace("jpg", "jpeg")
-            design["_logo_data_uri"] = f"data:image/{ext};base64,{b64}"
+            mime = bild_mime(logo_f.suffix)
+            design["_logo_data_uri"] = f"data:image/{mime};base64,{b64}"
             design["_logo_height_px"] = logo.get("height_px", 36)
             design["_logo_alt"] = logo.get("alt", "")
         else:
             print(f"⚠️  Logo fehlt, übersprungen: {logo_f}")
     elif logo.get("url"):
-        print("🔒 allowed_assets.db=false → DB-Logo NICHT eingebettet (Lizenz).")
+        print(
+            f"🔒 allowed_assets.{logo_bereich}=false → Logo aus '{logo_bereich}' "
+            "NICHT eingebettet (Lizenz)."
+        )
 
     # Klassifizierungs-Banner (z.B. db-intern: VERTRAULICH)
     cls = prof.get("classification") or {}
