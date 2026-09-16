@@ -43,6 +43,7 @@ from pathlib import Path
 # die Account-Aufloesung aus read_mail — nichts davon wird hier dupliziert.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import roles  # noqa: E402
+from kopfzeilen import neue_nachricht  # noqa: E402
 from read_mail import _mailbox_arg, _resolve_config  # noqa: E402
 
 # html_to_text kommt aus send_mail — EINE Implementierung. Die frueher hier stehende
@@ -251,7 +252,7 @@ def build_draft(
     """
     if not text and not html:
         raise ValueError("weder Text- noch HTML-Body angegeben")
-    msg = EmailMessage()
+    msg = neue_nachricht()
     msg["From"] = sender
     msg["To"] = ", ".join(to)
     if cc:
