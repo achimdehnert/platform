@@ -179,25 +179,38 @@ def test_should_catch_realfall_3_chat_hub_ruff_format_shape(tmp_path):
     assert not ergebnis2["befunde"]
 
 
-def test_should_find_nothing_on_real_current_chat_hub():
-    """Nachmessung gegen den ECHTEN, aktuellen chat-hub-Checkout (main, nach #81):
-    `lint` und `test` sind vollstaendig gedeckt; die einzigen Ziele mit
-    Pruef-Schluesselwort im Namen, die nicht laufen, sind `chat-verify` und
-    `chat-verify-init` — beide per governance/ci-deckung-verzicht.yaml verzichtet
-    (Prod-Zugriff, echter Homeserver noetig). Skip, wenn der Checkout fehlt (CI-
-    Runner hat ~/github nicht)."""
-    pfad = Path("/home/devuser/github/chat-hub")
-    if not pfad.is_dir():
-        import pytest
-
-        pytest.skip("~/github/chat-hub nicht vorhanden auf diesem Runner")
+def test_should_find_nothing_on_frozen_chat_hub_fixture():
+    """Nachmessung gegen einen EINGEFRORENEN chat-hub-Stand (03ddfa0, 2026-09-16,
+    nach chat-hub#109/#110): `lint` ruft shellcheck hinter `if command -v` und
+    ist trotzdem gedeckt; `chat-verify`/`chat-verify-init` sind per
+    governance/ci-deckung-verzicht.yaml verzichtet. Frueher lief die Probe gegen
+    den lebenden Checkout ~/github/chat-hub — der aenderte sich fremdbestimmt und
+    machte den Drill des Gates ci-gate-narrower-than-local-test lokal rot, in der
+    CI wurde er uebersprungen (platform#3247). Fixture: nur die Ziele mit
+    Pruef-Schluesselwort, chat-hub ist privat."""
+    pfad = Path(__file__).parent / "fixtures" / "ci_deckung" / "chat-hub"
     verzicht, fehler = cd.lade_verzicht(cd.DEFAULT_VERZICHT)
+    assert not fehler
     ergebnis = cd.scan_repo(str(pfad), verzicht)
     assert ergebnis["befunde"] == []
-    assert {v["ziel"] for v in ergebnis["verzicht"]} == {
-        "chat-verify",
-        "chat-verify-init",
-    }
+
+
+def test_should_flag_shellcheck_when_ci_never_runs_it(tmp_path):
+    """Positivkontrolle zur Fixture: dieselbe Makefile ohne den CI-Aufruf von
+    shellcheck ergibt den Befund, den der lebende Checkout am 2026-09-16 zeigte."""
+    quelle = Path(__file__).parent / "fixtures" / "ci_deckung" / "chat-hub"
+    (tmp_path / "chat-hub" / ".github" / "workflows").mkdir(parents=True)
+    (tmp_path / "chat-hub" / "Makefile").write_text(
+        (quelle / "Makefile").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    ci = (quelle / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    (tmp_path / "chat-hub" / ".github" / "workflows" / "ci.yml").write_text(
+        "\n".join(z for z in ci.splitlines() if "shellcheck" not in z) + "\n",
+        encoding="utf-8",
+    )
+    verzicht, _ = cd.lade_verzicht(cd.DEFAULT_VERZICHT)
+    befunde = cd.scan_repo(str(tmp_path / "chat-hub"), verzicht)["befunde"]
+    assert any("shellcheck" in b["kommando"] for b in befunde), befunde
 
 
 # ───────────────────────────── Gegenproben (duerfen NICHT anschlagen) ──────

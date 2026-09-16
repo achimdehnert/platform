@@ -170,7 +170,7 @@
 | 197 | Repo-aware MCP Tool Pruning for Cascade | Proposed | ⬜ | [ADR-197](ADR-197-repo-aware-mcp-tool-pruning.md) |
 | 198 | ADR-198: Staging Edge — Zweiter Cloudflare Tunnel + Single-Level Subdomain-Konvention | Accepted | ⬜ | [ADR-198](ADR-198-staging-edge-second-cloudflare-tunnel-subdomain-convention.md) |
 | 200 | iil-ui v1 (Draft, superseded by v2) | Superseded | — | [ADR-200](ADR-200-iil-ui-django-component-package.md) |
-| 201 | Claude Code Pricing Visibility — Statusline + Stop-Summary | Accepted | 🔶 | [ADR-201](ADR-201-claude-code-pricing-visibility.md) |
+| 201 | Claude Code Pricing Visibility — Statusline + Stop-Summary | Accepted | ⬜ | [ADR-201](ADR-201-claude-code-pricing-visibility.md) |
 | 204 | Pre-Session Model-Choice Wizard | Proposed | ⬜ | [ADR-204](ADR-204-pre-session-model-choice-wizard.md) |
 | 205 | TLS-Termination & Cert-Strategie auf prod | Accepted | 🔶 | [ADR-205](ADR-205-ssl-cert-strategy-iil-pet-cf-origin.md) |
 | 206 | Migration `*.iil.pet` von Konfig A (nginx + CF Origin Cert public:443) nach Konfig C (cloudflared Tunnel + internal:8999) | Accepted | 🔶 | [ADR-206](ADR-206-tunnel-migration-from-cf-origin.md) |
