@@ -6,7 +6,7 @@ tier: T3
 owner: Achim Dehnert
 spec_refs: []          # keine ADR-211-Spec; Bezug sind ADR-021/157/209/229/230 + /ci-green-program
 adr_threshold: org-weiter ADR   # Cross-Repo, Reversal der Detect-Posture, neue Enforcement-Boundary, Reusable-Versionierungsstrategie
-review_by: 2026-07-20
+review_by: 2026-10-31   # 2026-09-16: Fristen-Triage — Owner-Regel: pilot/prod erneuern; vorher 2026-07-20
 kill_criteria: "Wenn bis 2026-09-01 NICHT alle erfüllt: (a) eine SSoT (canonical.yaml, alle anderen generated_view); (b) Branch-Protection-Reconciler LÄUFT (dry-run+Rechte+Drift+required für ≥N+Admin-Bypass-Audit); (c) jedes required/blocking Gate hat +/- Fault-Injection-Test + dok. Defektklasse; (d) Runtime-Reality-Probe (R6) täglich gegen alle deploy-Repos; (e) Reconciler liest ausschließlich canonical.yaml → Enforcement-Hälfte entfällt (Teil-Sunset, befristet +90d mit Owner/Metrik), Detektion bleibt. Voll-Sunset bei (a)/(b)-Versagen → /ci-green-program (Alt. D)."
 superseded_by_spec: null
 evidence_manifest:

@@ -7,7 +7,7 @@ owner: Achim Dehnert
 spec_refs: []          # keine Klickdummy/Spec — reine Repo-Prozess-Konvention (ADR-233-Folge)
 adr_threshold: kein neuer ADR für den platform-Pilot (Konvention + Tool); ADR-233-Amendment ERST beim Fleet-Rollout (Cross-Repo = T3-Gate, s. Kill-Gate)
 external_sparring_by: openai-o3@2026-07-21 + zweiter-provider@2026-07-21 (2 unabhängige Runden, beide „überarbeiten"; Tag-Tabelle §Externes Sparring)
-review_by: 2026-09-01
+review_by: 2026-10-31   # 2026-09-16: Fristen-Triage — Owner-Regel: pilot/prod erneuern; vorher 2026-09-01
 kill_criteria: "Der Pilot SCHEITERT (→ zurück auf geteilte Datei + Disziplin, Feature-Flag aus), wenn bis 2026-09-01 EINES eintritt: (a) MEHR ALS EINE dokumentierte Same-Day-Handover-Kollision (die erste verbraucht das Exception-Budget); ODER (b) der Assembler braucht ≥1× manuelle Konfliktauflösung; ODER (c) session-start liest je eine STALE assemblierte Region (Fragment neuer als gerendert); ODER (d) VOLLSTÄNDIGKEIT verletzt — die gerenderte Region enthält je weniger als alle nicht-konsumierten Fragmente (neue Fehlerform aus dem externen Review, AD-3: still verlorene Arbeit ohne Kollision). Kill-Messpunkt ist der resultierende main-HEAD nach Merge, NICHT der PR-Branch."
 superseded_by_spec: null
 evidence_manifest:

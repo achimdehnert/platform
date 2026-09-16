@@ -1,7 +1,7 @@
 ---
 concept_id: KONZ-platform-031
 title: Deploy-Freigabe nach Schutzklassen — Post-Verification statt Pre-Approval + Approvals-Board
-pipeline_status: idea
+pipeline_status: stale   # 2026-09-16: Fristen-Triage (Owner-Regel: idea, review_by verstrichen, >30 Tage unberuehrt) — Re-open jederzeit mit neuem review_by
 tier: T2
 owner: Achim Dehnert
 spec_refs: []

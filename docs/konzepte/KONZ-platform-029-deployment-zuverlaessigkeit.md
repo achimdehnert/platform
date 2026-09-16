@@ -1,7 +1,7 @@
 ---
 concept_id: KONZ-platform-029
 title: Deployment-Zuverlässigkeit — Konvergenz auf ADR-021 + Fail-Loud-Config-Sync statt Detektion
-pipeline_status: idea
+pipeline_status: stale   # 2026-09-16: Fristen-Triage (Owner-Regel: idea, review_by verstrichen, >30 Tage unberuehrt) — Re-open jederzeit mit neuem review_by
 tier: T3
 owner: Achim Dehnert
 spec_refs: [ADR-021-unified-deployment-pattern, ADR-022-compose-file-detection]
