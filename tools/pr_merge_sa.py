@@ -100,7 +100,7 @@ DEPLOY_IM_VERMERK = re.compile(r"\bdeploy\b", re.IGNORECASE)
 # davon sind mechanisch erkennbar und halten M3 (Deploy-Wort) aufrecht:
 # Datenmigration (Migrationsdatei im Diff) und Irreversibles (Publish-Workflow,
 # den der Merge anstoesst). Security-Config faengt der Governance-Pfad (M2),
-# die echte Wahlfrage bleibt Urteil des Agenten VOR dem Aufruf — bewusst nicht hier.
+# die echte Wahlfrage ist kein Werkzeug-Kriterium, sondern Urteil des Agenten VOR dem Aufruf.
 PUBLISH_MARKER = re.compile(r"\b(publish|pypi|ghcr\.io|docker\s+push)\b", re.IGNORECASE)
 MIGRATION_PFAD = re.compile(r"(^|/)migrations/[^/]+\.py$")
 # Issue-Verweise im PR-Text: `#123` (PR-Repo) oder `owner/repo#123`. Der Auftrag
