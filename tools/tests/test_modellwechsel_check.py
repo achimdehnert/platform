@@ -123,7 +123,9 @@ def test_should_not_be_faellig_when_already_handled(tmp_path):
     _write_policy(policies, "adr-threshold.md", "claude-fable-5")
     _write_log(log, "2026-09-02T08:00:00Z", "claude-fable-5-1", "claude-opus-5", "MAJOR")
     handled.parent.mkdir(parents=True, exist_ok=True)
-    handled.write_text("2026-09-02T08:00:00Z\tclaude-fable-5-1\tclaude-opus-5\tMAJOR\n")
+    # `behandelt` haengt am PAAR (bewertet, laeuft), nicht an der Log-Zeile —
+    # siehe paar_schluessel().
+    handled.write_text("PAAR\tclaude-fable-5\tclaude-opus-5\n")
 
     r = _run_cli(tmp_path, "--kurz")
 
@@ -328,7 +330,9 @@ def test_should_not_print_pending_consequence_when_already_handled(tmp_path):
     _write_policy(policies, "adr-threshold.md", "claude-fable-5")
     _write_log(log, "2026-09-02T08:00:00Z", "claude-fable-5-1", "claude-opus-5", "MAJOR")
     handled.parent.mkdir(parents=True, exist_ok=True)
-    handled.write_text("2026-09-02T08:00:00Z\tclaude-fable-5-1\tclaude-opus-5\tMAJOR\n")
+    # `behandelt` haengt am PAAR (bewertet, laeuft), nicht an der Log-Zeile —
+    # siehe paar_schluessel().
+    handled.write_text("PAAR\tclaude-fable-5\tclaude-opus-5\n")
 
     r = _run_cli(tmp_path, "--kurz")
 
@@ -380,3 +384,78 @@ def test_should_resolve_alias_with_variant_suffix(tmp_path):
     assert "quelle=alias-tabelle" in r.stdout, r.stdout
     assert "läuft=claude-opus-5" in r.stdout
     assert "GLEICH" in r.stdout
+
+
+def test_should_not_treat_old_log_line_as_blanket_pass(tmp_path):
+    """Die abgehakte Log-Zeile darf einen SPAETEREN Wechsel nicht mit abdecken.
+
+    Vorher haftete `behandelt` an der letzten Zeile von model-changes.log. Blieb
+    sie die letzte, waehrend das laufende Modell auf etwas anderes wechselte,
+    lief ein echter MAJOR als `faellig=nein` durch.
+    """
+    log = tmp_path / "state" / "model-changes.log"
+    handled = tmp_path / "state" / "model-rebaseline-handled.tsv"
+    policies = tmp_path / "policies"
+    _write_policy(policies, "adr-threshold.md", "claude-opus-5")
+    _write_log(log, "2026-09-02T08:00:00Z", "claude-fable-5-1", "claude-opus-5", "MAJOR")
+    handled.parent.mkdir(parents=True, exist_ok=True)
+    handled.write_text(
+        "2026-09-02T08:00:00Z\tclaude-fable-5-1\tclaude-opus-5\tMAJOR\n"
+        "PAAR\tclaude-opus-5\tclaude-opus-5\n"
+    )
+
+    # Dasselbe Log, dasselbe handled — aber es laeuft jetzt Fable.
+    r = _run_cli(tmp_path, "--kurz", "--laufend", "claude-fable-5")
+
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert "fällig=ja" in r.stdout
+    assert "MAJOR" in r.stdout
+
+
+def test_should_read_declared_standard_model_over_majority(tmp_path):
+    """Die Erklaerung beantwortet 'womit fahren wir', nicht die Kopf-Mehrheit."""
+    policies = tmp_path / "policies"
+    _write_policy(policies, "a.md", "claude-fable-5")
+    _write_policy(policies, "b.md", "claude-fable-5")
+    _write_policy(policies, "c.md", "claude-opus-5")
+    (policies / "session-routing.md").write_text(
+        "# Routing\n<!-- rule_class: B | assessed_with: claude-fable-5 -->\n"
+        "<!-- standard-session-model: claude-opus-5 -->\n",
+        encoding="utf-8",
+    )
+    log = tmp_path / "state" / "model-changes.log"
+    _write_log(log, "2026-09-16T04:00:00Z", "fable", "opus", "MAJOR")
+
+    r = _run_cli(tmp_path, "--kurz")
+
+    assert "bewertet=claude-opus-5" in r.stdout, r.stdout
+    assert "erklärt in session-routing.md" in r.stdout
+    assert "GLEICH" in r.stdout
+    assert "nachzug=3/4" in r.stdout, "der Rueckstand der Koepfe gehoert in die Zeile"
+
+
+def test_should_parse_hyphenated_model_id_in_declaration(tmp_path):
+    """Die Modell-ID traegt Bindestriche — ein zu enges Zeichenset frisst sie."""
+    policies = tmp_path / "policies"
+    _write_policy(policies, "a.md", "claude-fable-5")
+    (policies / "session-routing.md").write_text(
+        "<!-- standard-session-model: claude-opus-5 -->\n", encoding="utf-8"
+    )
+    standard, datei = mc.read_standard_model(policies)
+    assert standard == "claude-opus-5"
+    assert datei == "session-routing.md"
+
+
+def test_should_fall_back_to_majority_without_declaration(tmp_path):
+    """Ohne Erklaerung bleibt das alte Verhalten — rueckwaertskompatibel."""
+    policies = tmp_path / "policies"
+    _write_policy(policies, "a.md", "claude-fable-5")
+    _write_policy(policies, "b.md", "claude-fable-5")
+    _write_policy(policies, "c.md", "claude-opus-5")
+    log = tmp_path / "state" / "model-changes.log"
+    _write_log(log, "2026-09-16T04:00:00Z", "opus", "fable", "MAJOR")
+
+    r = _run_cli(tmp_path, "--kurz")
+
+    assert "bewertet=claude-fable-5" in r.stdout
+    assert "uneinheitlich unter 3 Policies" in r.stdout
