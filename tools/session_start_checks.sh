@@ -206,10 +206,13 @@ else
   record "0.4 repo-sync" "PASS" "${GUARD_NOTE}${SYNC_RESULTS# }" "${SYNC_GEPRUEFT% }"
 fi
 
+# Parallele Sessions sind in Querschnitt-Repos (platform, dev-hub, mcp-hub)
+# der Normalfall und kein Befund (#1944 K8): jede Session arbeitet in ihrem
+# eigenen Worktree und braucht keinen Abgleich mit den anderen. Die Zahl bleibt
+# sichtbar, die Liste nicht — sie hatte keinen Leser, der etwas damit tat.
 if [ -n "$PARALLEL_SESSIONS" ]; then
   n=$(printf '%s\n' "$PARALLEL_SESSIONS" | grep -c .)
-  record "0.4 parallel-sessions" "WARN" "$n aktive Session(s) auf $TARGET_REPO — vor Merge/Deploy abgleichen" "$TARGET_REPO"
-  printf '%s\n' "$PARALLEL_SESSIONS"
+  record "0.4 parallel-sessions" "PASS" "$n weitere Session(s) auf $TARGET_REPO — Normalfall, kein Befund (#1944 K8)" "$TARGET_REPO"
 else
   record "0.4 parallel-sessions" "PASS" "keine andere aktive Session auf $TARGET_REPO" "$TARGET_REPO"
 fi
