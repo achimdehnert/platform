@@ -572,3 +572,15 @@ Das Tracking-Issue steht **in derselben Zeile** (#105, offen, mit Owner-Kommenta
 Der erste E.5-Lauf derselben Sitzung (vor dem Handover-Nachtrag) meldete für denselben, unveränderten PR-Text **„✅ jede erkannte Zusage verankert: #108 #107 #106"**. Der zweite Lauf rund 20 Minuten später meldete #108 als unverankert. Der Melder ist bei identischer Eingabe nicht deterministisch. Ein einzelner `⚠️` ist deshalb erst nach einem zweiten Lauf ein Befund.
 
 **Stand damit: 28 Meldungen · 5 richtig · 23 Fehlalarme (Präzision 0,179).** Die Zahl geprüfter Texte ist nicht fortgeschrieben: Wie viele Segmente die beiden Läufe tatsächlich angesehen haben, zeigt der Runner nicht.
+
+## 2026-09-16 — meiki-lra/meiki-hub#424 (E.5, Sitzungsende meiki-hub 16a613c1)
+
+Gemeldet: „Zusage ohne Tracking in: #424". Eine Nachprüfung mit dem lokalen Klassifikator war nicht möglich (`qwen2.5:7b` Zeitüberschreitung nach 120 s bei 2 208 Zeichen); der Text wurde von Hand gelesen. Kandidat ist der Abschnitt
+
+> »## Bewusst nicht gebaut — Kein Erzeugen eines Schreibens in SchreibAssist. […] Keine Fristen- oder Meldeliste in FristAssist.«
+
+Das ist keine vertagte Arbeit, sondern eine **Zuschnittsentscheidung**, festgehalten in dauerhaften Artefakten desselben PRs: `klickdummy/modul/specs/schreib-assist/screens-spec.yaml` (`off_ramp.rule`, Kopfkommentar), `specs/frist-assist/screens-spec.yaml` und `specs/abdeckung.json` (Screen `vorschau` als „teilweise" mit Grund). Der Zielzustand steht in meiki-lra/meiki-hub#423. Die Meldung ist ein **Fehlalarm**.
+
+**Muster:** Eine Überschrift „Bewusst nicht gebaut" liest der Klassifikator als Vertagung. Das Wort „bewusst" und die Begründung im selben Absatz („zwei Wege heißen zwei Briefe") unterscheiden einen Zuschnitt von einer Vertagung; ein Zuschnitt braucht kein Tracking-Issue, weil nichts nachzuholen ist.
+
+**Stand damit: 29 Meldungen · 5 richtig · 24 Fehlalarme (Präzision 0,172).**
