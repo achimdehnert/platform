@@ -1,7 +1,12 @@
 ---
 status: accepted
 decision_date: 2026-05-07
-amended: 2026-08-31
+amended: 2026-09-16
+related:
+  - ADR-303
+  - ADR-304
+  - ADR-305
+  - ADR-306
 deciders:
   - Achim Dehnert
 consulted:
@@ -43,13 +48,15 @@ drift_check_paths:
 
 # ADR-188: Adopt ADR-171 Schema with multilingual-e5-large as Platform-Wide Unified Vector Store
 
+> **Hub-Dokument seit 2026-09-16 (Split, #169):** Die Entscheidungen E1–E4, E6, E7 stehen kanonisch in ADR-303 (Schema), ADR-304 (Modell), ADR-305 (API + Naming) und ADR-306 (DSGVO-Policy); hier bleiben Kontext, Treiber, Alternativen, Phasen und Konsequenzen. Bei Widerspruch gilt der Einzel-ADR.
+>
 > **Historie:** Frühere Abhängigkeit ADR-113 (pgvector Agent Memory Store) ist archiviert (`docs/adr/archive/`) und wurde aus `depends_on` entfernt.
 
 | Metadaten | |
 |-----------|---|
 | **Status** | Accepted |
 | **Datum** | 2026-05-07 |
-| **Geändert** | 2026-05-08 (v1.1 — Review-Fixes: UUID-Klarstellung, Decision Drivers, Open Questions, Glossar, Deprecation-Timeline, SPOF-Mitigation, DSGVO-Policy) |
+| **Geändert** | 2026-09-16 (Split in ADR-303…306, #169) · 2026-05-08 (v1.1 — Review-Fixes: UUID-Klarstellung, Decision Drivers, Open Questions, Glossar, Deprecation-Timeline, SPOF-Mitigation, DSGVO-Policy) |
 | **Autor** | Achim Dehnert |
 | **Scope** | Alle Repos (platform-weit) |
 | **Consumers** | meiki-hub, risk-hub, bfagent, coach-hub, weltenhub, travel-beat, dms-hub |
@@ -122,105 +129,23 @@ Aktuell existieren **drei parallele Vector-Store-Definitionen** auf der Plattfor
 
 ### E1: Ein Schema — ADR-171 als Single Source of Truth
 
-Das **ADR-171-Schema** (`rag_collections` / `rag_documents` / `rag_chunks`) wird zum **einzigen Vector-Store-Schema** der gesamten Plattform.
+→ **kanonisch in [ADR-303](ADR-303-vector-store-schema-adr171-tenant-uuid.md)** (zusammen mit E6). Kurz: `rag_collections`/`rag_documents`/`rag_chunks` sind das einzige Vector-Store-Schema; `search_chunks` (ADR-087) und `document_chunks` (ADR-187) werden nicht implementiert.
 
-**Begründung:**
-- BigAutoField-konform für PKs (ADR-022)
-- Temporal-Semantik eingebaut (kritisch für meiki-hub Gesetze + risk-hub SDS)
-- Supersession Chain für Versionierung
-- DELETE-Trigger für Immutabilität (GefStoffV §14, BayArchivG)
-- Soft-Delete separat von Versionierung
+### E2: Ein Embedding-Modell — multilingual-e5-large
 
-**ADR-087 `search_chunks`** und **ADR-187 `document_chunks`** werden NICHT implementiert. Stattdessen:
-- ADR-087 Consumer (bfagent, weltenhub) migrieren auf `rag_chunks` via rag-mcp
-- ADR-187 Chunk-Pipeline schreibt in `rag_chunks` via rag-mcp
-
-### E2: Ein Embedding-Modell — multilingual-e5-large (Primär)
-
-| Kriterium | multilingual-e5-large | text-embedding-3-small |
-|-----------|----------------------|----------------------|
-| **Kosten** | ✅ Open Source, lokal | ❌ $0.02/1M Tokens |
-| **Offline** | ✅ | ❌ |
-| **Deutsch** | ✅ Exzellent | ✅ Gut |
-| **Dimensionen** | 1024 | 1536 |
-| **Vendor Lock-in** | ✅ Keiner | ❌ OpenAI-Abhängigkeit |
-| **Latenz** | ⚠️ ~50ms/Chunk (CPU) | ✅ ~10ms/Chunk (API) |
-| **DSGVO** | ✅ Daten bleiben lokal | ⚠️ Daten an OpenAI |
-| **RAM** | ⚠️ ~3 GB (Model + Runtime) | ✅ Kein lokaler RAM |
-
-**Entscheidung:** `multilingual-e5-large` (1024 Dimensionen) als **Primärmodell**. OpenAI als **optionaler Fallback** nur für Collections ohne DSGVO-Restriktion (siehe E7).
-
-> **Wichtig:** E5-Modelle erfordern Prefix `"query: "` bei Search-Queries und `"passage: "` bei Ingest-Texten für optimale Retrieval-Qualität. Ohne Prefix: ~15% Recall-Verlust. Die rag-mcp API setzt diese Prefixes automatisch.
-
-#### E2-Nachtrag 2026-08-31: der Latenz-Vorbehalt ist eingelöst
-
-Die Tabelle oben führt die Latenz als den einen Nachteil des lokalen Modells
-(`⚠️ ~50ms/Chunk (CPU)`), und der Spike auf Hetzner-CPU bestätigte das mit
-**114 ms p50** — Budget knapp gerissen, damals als „für UX akzeptabel" abgehakt.
-
-Am 2026-08-31 lief **derselbe Spike, unverändert, mit derselben `benchmark.py`**
-auf dem GX10 (NVIDIA GB10, aarch64, `torch 2.13.0+cu130`, Modell auf `cuda:0`):
-
-| Messwert | Hetzner CPX (CPU) | GX10 (GB10) | Budget |
-|---|---|---|---|
-| Latenz p50 | 114 ms | **9,0 ms** | ≤ 100 ms |
-| Durchsatz (batch=50) | 57 chunks/s | **681,6 chunks/s** | — |
-| RAM | 2.019 MB | **1.239 MB** | ≤ 3.000 MB |
-| Recall@1 (deutsche Rechtstexte) | 5/5 | **5/5** | ≥ 80 % |
-
-**Was das an der Entscheidung ändert: nichts — es räumt ihren einzigen Einwand ab.**
-Die Latenz-Zeile der Tabelle vergleicht 50 ms lokal gegen ~10 ms API; auf dem GX10
-ist das lokale Modell mit 9,0 ms **schneller als der API-Wert** und die Daten bleiben
-im Haus.
-
-**Warum es ein Nachtrag und keine neue Entscheidung ist:** Modell und Dimensionen
-bleiben gleich (`multilingual-e5-large`, 1024). `rag_mcp/embedder.py` spricht den
-Dienst über `RAG_MCP_EMBEDDER_URL` an — ein Ortswechsel ist eine Umgebungsvariable,
-keine Neuberechnung des Vektorbestands.
-
-**Offen und ausdrücklich nicht mitentschieden:** ob der Dienst dorthin *umzieht*.
-Der GX10 ist Owner-Hardware außerhalb des Bürgerdaten-Perimeters
-(`platform:KONZ-platform-053` §4) — für Collections mit Sozial- oder Bürgerdaten
-kommt er nicht in Frage, gleich wie schnell er ist. Gemessen wurde ein Einzeldienst
-ohne Nebenlast.
+→ **kanonisch in [ADR-304](ADR-304-embedding-modell-multilingual-e5-large.md)** (inkl. Nachtrag 2026-08-31: GX10-Messung löst den Latenz-Vorbehalt ein). Kurz: `multilingual-e5-large`, 1024 Dimensionen, Prefixe `query:`/`passage:` setzt rag-mcp.
 
 ### E3: Eine API — rag-mcp als Single Access Point
 
-```
-Consumer-Repos                   rag-mcp (ADR-172)              pgvector (ADR-171)
-┌─────────────┐                ┌──────────────────┐           ┌──────────────┐
-│ meiki-hub   │──rag_ingest───▶│                  │──INSERT──▶│ rag_chunks   │
-│ risk-hub    │──rag_search───▶│  Tools (MCP)     │──SELECT──▶│ rag_documents│
-│ bfagent     │──rag_supersede▶│  Services        │──UPDATE──▶│ rag_collects │
-│ weltenhub   │──rag_history──▶│  Celery Worker   │           │              │
-│ platform    │──rag_list─────▶│  Embedder Svc    │           │ mcp_hub_db   │
-└─────────────┘                └──────────────────┘           └──────────────┘
-```
+→ **kanonisch in [ADR-305](ADR-305-rag-mcp-single-api-collection-naming.md)**. Kurz: kein Consumer greift direkt auf die DB zu; Daten-CRUD via MCP ist keine ADR-075-Infrastruktur-Operation.
 
-**Kein Consumer greift direkt auf die DB zu.** Auch Django-Repos nutzen rag-mcp Tools.
+### E4: Collection-Namenskonvention
 
-> **ADR-075 Abgrenzung:** `rag_ingest` und `rag_supersede` sind **Daten-Operationen** (vergleichbar mit DB-INSERT), keine Deployment-/Infrastruktur-Operationen. ADR-075 Write-Op-Restriktion betrifft nur infrastrukturelle Aktionen (migrate, deploy, backup). Daten-CRUD via MCP ist explizit erlaubt.
-
-### E4: Collection-Namenskonvention (platform-weit)
-
-| Repo | Collection | Dokumenttyp | Chunking-Strategie |
-|------|-----------|-------------|-------------------|
-| `meiki-hub` | `meiki:gesetze` | Bayerische Gesetze | `paragraph` (§/Art.) |
-| `meiki-hub` | `meiki:avos` | Ausführungsverordnungen | `paragraph` |
-| `meiki-hub` | `meiki:fallakten` | Gescannte Fallakten-Docs | `sliding` |
-| `risk-hub` | `risk:sds` | Sicherheitsdatenblätter | `sliding` |
-| `risk-hub` | `risk:exdoc` | Ex-Schutz-Dokumente | `semantic` (Markdown) |
-| `risk-hub` | `risk:gbu` | Gefährdungsbeurteilungen | `semantic` |
-| `risk-hub` | `risk:bibliothek` | Allgemeine Dokumente (Normen etc.) | `sliding` |
-| `bfagent` | `bfagent:stories` | Kapitel, Szenen | `sliding` |
-| `weltenhub` | `welten:lore` | Weltenbau-Dokumente | `sliding` |
-| `coach-hub` | `coach:materials` | Coaching-Materialien | `sliding` |
-| `platform` | `platform:adrs` | Architecture Decision Records | `semantic` |
-| `platform` | `platform:docs` | Workflows, Runbooks | `semantic` |
-
-**Naming:** `{repo_prefix}:{domain}` — eindeutig, sortierbar, filterbar.
+→ **kanonisch in [ADR-305](ADR-305-rag-mcp-single-api-collection-naming.md)**. Kurz: `{repo_prefix}:{domain}`.
 
 ### E5: Dokument-Bibliothek für risk-hub Projekte
+
+> **Scope-Hinweis (Split 2026-09-16):** E5 ist eine risk-hub-lokale Entscheidung ohne plattformweiten Geltungsbereich und bleibt deshalb hier als Bestand stehen; eine Weiterentwicklung gehört in eine risk-hub-ADR, nicht hierher.
 
 Aufbauend auf dem Unified Vector Store bekommt risk-hub eine **Dokumentenbibliothek**:
 
@@ -244,54 +169,11 @@ class ProjectDocumentLink(models.Model):
 
 ### E6: tenant_id ist UUID — Klarstellung
 
-> **ADR-022 betrifft Primary Keys. `tenant_id` ist kein Primary Key.**
-
-| Fakt | Erläuterung |
-|------|-------------|
-| ADR-022 sagt | `DEFAULT_AUTO_FIELD = BigAutoField` — gilt für **Primärschlüssel** |
-| ADR-022 sagt NICHT | "UUID-Felder sind verboten" |
-| `tenant_id` ist | Referenzfeld auf externe Identität (Organization), **kein PK** |
-| Alle Consumer-Repos nutzen | `tenant_id = models.UUIDField(db_index=True)` |
-| Konvertierung wäre | ~20 Models ändern, Mapping-Tabelle, Zero Business Value |
-| Performance-Differenz | 8 Bytes/Row bei ~4 KB Embedding = **0.13%** — irrelevant |
-
-**Entscheidung:** `tenant_id UUID NOT NULL` in allen Vector-Store-Tabellen.
-
-ADR-171 Schema wird entsprechend korrigiert (`BIGINT` → `UUID` für `tenant_id`).
-
-```sql
--- KORREKT (ADR-188):
-CREATE TABLE rag_chunks (
-    id BIGSERIAL PRIMARY KEY,           -- ADR-022 ✅ BigAutoField für PK
-    tenant_id UUID NOT NULL,            -- UUID ✅ kein PK, matcht alle Consumer-Repos
-    ...
-);
-CREATE INDEX idx_chunks_tenant ON rag_chunks (tenant_id);
-```
+→ **kanonisch in [ADR-303](ADR-303-vector-store-schema-adr171-tenant-uuid.md)**. Kurz: ADR-022 betrifft Primärschlüssel; `tenant_id UUID NOT NULL` in allen Vector-Store-Tabellen.
 
 ### E7: DSGVO-Fallback-Policy (collection-spezifisch)
 
-Der OpenAI-Fallback darf **NICHT automatisch** für alle Collections greifen. Policy pro Collection:
-
-```python
-EMBEDDING_POLICY = {
-    # DSGVO-kritisch: NUR lokales Embedding. Bei Embedder-Ausfall → Fehler, kein Fallback.
-    "meiki:fallakten": {"allow_cloud": False},
-    "meiki:gesetze":   {"allow_cloud": False},   # Amtliche Werke = unkritisch, aber lokal bevorzugt
-    "risk:sds":        {"allow_cloud": False},    # Betriebsgeheimnisse
-    "risk:gbu":        {"allow_cloud": False},
-
-    # Unkritisch: Cloud-Fallback erlaubt wenn lokaler Embedder unavailable.
-    "bfagent:stories": {"allow_cloud": True},
-    "welten:lore":     {"allow_cloud": True},
-    "platform:adrs":   {"allow_cloud": True},
-    "coach:materials":  {"allow_cloud": True},
-}
-```
-
-**Verhalten bei Embedder-Ausfall:**
-- `allow_cloud: False` → `EmbeddingUnavailableError` → Ingest schlägt fehl, Search degradiert auf FTS-only
-- `allow_cloud: True` → Transparenter Fallback auf OpenAI API
+→ **kanonisch in [ADR-306](ADR-306-dsgvo-fallback-policy-je-collection.md)**. Kurz: Cloud-Fallback nur für Collections mit `allow_cloud: True`; sonst Ingest-Fehler und FTS-only-Suche.
 
 ---
 
@@ -402,7 +284,7 @@ ADR-087 ist `implementation_status: implemented`. Superseding erfordert eine kon
 
 | # | Frage | Entscheidung bis | Verantwortlich |
 |---|-------|-----------------|----------------|
-| Q-1 | Soll ADR-171 separat akzeptiert werden oder inline in ADR-188 aufgehen? | Phase 0 | Achim |
+| Q-1 | ~~Soll ADR-171 separat akzeptiert werden oder inline in ADR-188 aufgehen?~~ Beantwortet 2026-09-16: ADR-188 ist Hub, die Entscheidungen leben in ADR-303…306 (#169) | Phase 0 | Achim |
 | Q-2 | Embedder-Service: eigener Container oder Sidecar im mcp-hub Compose? | Phase 1 | Platform |
 | Q-3 | Embedding-Modell-Upgrade-Strategie: Parallele Columns oder vollständiges Re-Embedding? | Phase 2 | Platform |
 | Q-4 | Cross-Repo-Search (Phase 4): Benötigt das ein explizites Opt-in pro Tenant? | Phase 4 | Achim |
