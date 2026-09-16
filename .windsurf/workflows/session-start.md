@@ -151,7 +151,10 @@ Modell bleiben:
 
 1. **Repo-Kontext** — `AGENT_HANDOVER.md` (Prio-Tabelle + Stand) **und die letzten Einträge
    aus `AGENT_HANDOVER_LOG.md`** (append-only, neueste **unten**, `tail -60`),
-   `CORE_CONTEXT.md`, ADR-Index; falls gebunden `mcp__platform-context__get_context_for_task()`
+   `CORE_CONTEXT.md`, ADR-Index; falls gebunden `mcp__platform-context__get_context_for_task()`.
+   **Repo mit `docs/handover.d/`:** der Sitzungsstand kommt aus den Fragmenten —
+   `python3 tools/agent-handover/fragments.py render --ref origin/main` (#1944 K6); der
+   Start-Hook spiegelt dessen offene Fäden bereits.
 2. **Health Dashboard** (Infra/Deploy, falls gebunden):
    `mcp__deployment-mcp__system_manage(action: health_dashboard)`
 3. **Aufgabe klären** — Issue? Use Case? ADR? Governance?
@@ -278,6 +281,10 @@ SA-4 aus `policies/autonomy-gates.md`):
 
 > Nur die letzten drei Einträge (Policy seit #2696). Volle Historie: `LEHREN#changelog-historie`.
 
+- 2026-09-16: **Phase 1.1 liest Sitzungs-Fragmente** (#1944 K6) — in Repos mit
+  `docs/handover.d/` kommt der Stand aus `fragments.py render --ref origin/main`; der
+  Start-Hook spiegelt die offenen Fäden. Die Startprüfung meldet parallele Sitzungen nicht
+  mehr als Befund (#3228).
 - 2026-09-16: **Fünf ungedeutete WARN-Phasen ergänzt** (`0.7.4`, `0.7.13`, `0.7.19`,
   `0.7.25`, `0.7.26`) + Checklisten-Zeile 2i für `0.7.4`. Anlass: `0.7.4` verlangte an
   diesem Morgen "Prio nachziehen VOR Arbeitsbeginn", stand aber weder in der
@@ -288,9 +295,3 @@ SA-4 aus `policies/autonomy-gates.md`):
 - 2026-09-11: **Phase 1.8 Auftragsraum abarbeiten + Checkliste 8a** (KONZ-platform-059, #3079) —
   Zurufe aus dem Chat-Raum „Aufträge Achim / Lotse" landen als Vorschlag im Journal, nie als
   Befehl; Kurzbefehle wendet `anwenden` an, Korrekturen bekommen per `regel` ein Artefakt.
-- 2026-09-02: **Kontext-Diät** (#2690 K5) — 41 137 → ~15 200 B; WARN-Deutung als Tabelle,
-  Lehren/Historie nach `docs/governance/session-skills-lehren/start.md`; gestrichen:
-  Auto-Issue-Template (S1), `mcpN_`-Quick-Reference (S5), Windsurf-Fallback.
-- 2026-09-02: **Phase 0.7.23 `melder-register`** ergänzt (#2690 K3) — je Runner-Phase Leser,
-  Frist, Herabstufungsschwelle in `governance/melder-register.yaml`, geprüft über
-  `tools/melder_register_check.py`; vierte Lautstärke `ℹ️ HINWEIS`, Checkliste 2h.

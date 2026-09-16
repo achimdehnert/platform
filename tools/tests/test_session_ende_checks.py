@@ -546,3 +546,56 @@ esac
     assert phasen["E.5"] == "SKIP", ergebnis.stdout
     assert "[SKIP] E.5" in ergebnis.stdout
     assert "gh scheiterte" in ergebnis.stdout
+
+
+# ── E.3 Fragment-Modus (#1944 K6) ────────────────────────────────────────────
+
+
+def _fragment_repo(umgebung: dict) -> pathlib.Path:
+    ziel = umgebung["github"] / "beta"
+    frag = ziel / "docs" / "handover.d"
+    frag.mkdir(parents=True)
+    (frag / "2026-09-16T08-00-00Z-auf-main.md").write_text("x\n", encoding="utf-8")
+    _git(ziel, "add", "docs")
+    _git(ziel, "commit", "-q", "-m", "fragment")
+    _git(ziel, "update-ref", "refs/remotes/origin/main", "HEAD")
+    return ziel
+
+
+def _e3(stdout: str) -> str:
+    return next(z for z in stdout.splitlines() if "E.3 handover-frische" in z)
+
+
+def test_should_pass_e3_when_session_fragment_is_on_main(umgebung):
+    ziel = _fragment_repo(umgebung)
+    ergebnis = _lauf(umgebung, ziel=str(ziel), argv=("--session-id", "auf-main"))
+    assert "Fragment der Sitzung liegt auf main" in _e3(ergebnis.stdout)
+
+
+def test_should_fail_e3_when_session_has_no_fragment(umgebung):
+    ziel = _fragment_repo(umgebung)
+    ergebnis = _lauf(umgebung, ziel=str(ziel), argv=("--session-id", "ohne"))
+    zeile = _e3(ergebnis.stdout)
+    assert "FAIL" in zeile and "kein Fragment fuer Sitzung ohne" in zeile
+
+
+def test_should_not_count_other_sessions_fragment_with_same_suffix(umgebung):
+    # "main" ist Endung von "auf-main" — darf nicht als eigenes Fragment gelten.
+    ziel = _fragment_repo(umgebung)
+    ergebnis = _lauf(umgebung, ziel=str(ziel), argv=("--session-id", "main"))
+    assert "FAIL" in _e3(ergebnis.stdout)
+
+
+def test_should_warn_e3_in_fragment_mode_without_session_id(umgebung):
+    ziel = _fragment_repo(umgebung)
+    ergebnis = _lauf(umgebung, ziel=str(ziel))
+    zeile = _e3(ergebnis.stdout)
+    assert "WARN" in zeile and "--session-id" in zeile
+
+
+def test_should_name_repo_after_main_tree_when_called_from_worktree(umgebung, tmp_path):
+    haupt = umgebung["github"] / "beta"
+    wt = tmp_path / "worktrees" / "2026-09-16-slug-120000"
+    _git(haupt, "worktree", "add", "-q", "-b", "sitzung", str(wt))
+    ergebnis = _lauf(umgebung, ziel=str(wt))
+    assert f"target=beta ({wt.resolve()})" in ergebnis.stdout, ergebnis.stdout

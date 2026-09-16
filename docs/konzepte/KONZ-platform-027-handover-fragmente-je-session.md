@@ -88,6 +88,30 @@ A und B nicht — nach der Regel des Pilots ein Argument für B. Die Achsen Wach
 Widerspruchs-Sichtbarkeit bleiben **unbelegt** und brauchen Laufzeit mit dem LOG aus #1319,
 bevor B gebaut wird.
 
+## Umsetzung 2026-09-16 — Owner-„go" über #1944 K6
+
+Anlass: Zielzustand Z2 in [#1944](https://github.com/achimdehnert/platform/issues/1944)
+(„jede Sitzung schreibt nur eigene Dateien"), Owner-Freigabe am 2026-09-16. Die
+Laufzeit-Frage aus §Entscheid (Wachstum, Widerspruchs-Sichtbarkeit) wird damit im
+Betrieb beantwortet statt vorab.
+
+Abweichungen vom MVC, bewusst:
+
+- **Ort:** eigenes Modul `tools/agent-handover/fragments.py` statt Erweiterung von
+  `generate.py` — `generate.py` wird flottenweit genutzt, die Fragmente sind vorerst
+  platform-lokal.
+- **Konsum ohne Archiv-Verschiebung (MVC-4):** ein Fragment fällt aus dem Stand, sobald
+  es älter als 7 Tage ist **und** alle seine Offen-Issues geschlossen sind. Es wird nie
+  verschoben — ein Verschieben wäre wieder ein Schreibvorgang auf eine fremde Datei.
+  Unbekannter Issue-Zustand zählt als offen (L6).
+- **CI-Gate (MVC-5):** `fragments.py pruefen` im Required-Job `tools-tests.yml`, prüft
+  Lint und Unveränderlichkeit (L9). Vollständigkeit (MVC-5b) ist durch render-on-read
+  gegeben: es gibt keine gerenderte Region, der ein Fragment fehlen könnte.
+
+Nächste Schritte: `/session-ende` schreibt ein Fragment statt `AGENT_HANDOVER.md` und
+`AGENT_HANDOVER_LOG.md` zu ändern; `/session-start` und der Prio-Hook lesen den
+gerenderten Stand.
+
 ## Kill-Gate + Threshold
 
 Siehe Frontmatter `kill_criteria` (jetzt widerspruchsfrei + um Kriterium **(d) Vollständigkeit** erweitert; Messpunkt = main-HEAD nach Merge). **Threshold-Begründung** für die Boundary `docs/handover.d/`: gerechtfertigt, weil die Single-Region die Multi-Writer-Realität (C4) nicht trägt und die Disziplin (L4) empirisch versagt. **Vor Pilot-Start:** die Fragment-/Rendering-Konvention als kleine versionierte Mini-Spec festhalten (M28-2/REC-13) — ohne damit den Fleet-Rollout zu entscheiden.
@@ -96,10 +120,10 @@ Siehe Frontmatter `kill_criteria` (jetzt widerspruchsfrei + um Kriterium **(d) V
 
 | Kriterium | Status | Beleg |
 |---|---|---|
-| (a) ≤1 Same-Day-Handover-Kollision im Pilot (1. = Exception-Budget) | offen | Pilot noch nicht gestartet (idea) |
+| (a) ≤1 Same-Day-Handover-Kollision im Pilot (1. = Exception-Budget) | offen | Pilot gestartet 2026-09-16, Messung über `session_collision_meter.py` (#1944 K9) |
 | (b) Assembler braucht 0× manuelle Konfliktauflösung | offen | — |
 | (c) session-start liest nie stale assemblierte Region | offen | **render-on-read** (L7, festgelegt 2026-07-22) — post-merge entfällt, s. §Entscheid |
-| (d) Vollständigkeit: Region enthält je alle nicht-konsumierten Fragmente | offen | Manifest-Check gegen main-HEAD (MVC-5b) |
+| (d) Vollständigkeit: Region enthält je alle nicht-konsumierten Fragmente | durch Bauart | render-on-read liest alle Fragmente; Test `test_should_render_every_recent_fragment_regardless_of_count` |
 
 ## Befunde inkl. Advocatus Diabolus (T2, R1-aktualisiert)
 

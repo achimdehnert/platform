@@ -8,6 +8,8 @@
 # Quelle (in Reihenfolge):
 #   1. AGENT_HANDOVER.md — kuratierter Prio-Abschnitt (Tabelle ODER Liste) unter
 #      einem Heading mit "Priorit/Priorisiert/Naechste/Offene". FUEHREND.
+#   1b. docs/handover.d — offene Faeden aus den Sitzungs-Fragmenten (#1944 K6),
+#      vor der kuratierten Prio gezeigt.
 #   2. NEXT.md — numbered items (git-log-Fallback; nur wenn keine kuratierte Prio).
 # Damit haengt das Signal an einer gepflegten Tabelle, nicht an claude-next-sync
 # (das "Prioritaeten"-Headings + Tabellen nicht parst und auf git-log zurueckfaellt).
@@ -142,6 +144,21 @@ if [ -f "${HANDOVER}" ]; then
     [ -n "${ITEMS}" ] && SRC="AGENT_HANDOVER.md (kuratiert)"
 fi
 
+# 1b) Offene Faeden aus den Sitzungs-Fragmenten (#1944 K6, KONZ-027 render-on-read).
+# Gelesen aus origin/main, nicht aus dem Arbeitsbaum — sonst fehlten die Fragmente
+# der inzwischen gemergten Parallelsitzungen. Statusabfrage mit 3 s Deckel; laeuft
+# sie ab, gilt jeder Punkt als offen (lieber einmal zu viel zeigen).
+FRAG_TOOL="${CWD}/tools/agent-handover/fragments.py"
+if [ -f "${FRAG_TOOL}" ] && git -C "${CWD}" rev-parse --verify --quiet origin/main >/dev/null 2>&1; then
+    FRAG_ITEMS="$(timeout 4 python3 "${FRAG_TOOL}" --wurzel "${CWD}" render --ref origin/main --timeout 3 2>/dev/null \
+        | awk '/^## Offene Fäden aus Sitzungen/{insec=1; next} /^## /{insec=0} insec && /^- / && $0 != "- keine" {print "  " $0}')"
+    if [ -n "${FRAG_ITEMS}" ]; then
+        ITEMS="${FRAG_ITEMS}${ITEMS:+
+${ITEMS}}"
+        SRC="docs/handover.d (Sitzungs-Fragmente)${SRC:+ + ${SRC}}"
+    fi
+fi
+
 # 2) Fallback: NEXT.md numbered items.
 if [ -z "${ITEMS}" ] && [ -f "${NEXT}" ]; then
     ITEMS="$(grep -E '^[0-9]+\. ' "${NEXT}" 2>/dev/null | head -3 | sed 's/^/  /')"
@@ -166,7 +183,7 @@ fi
 # Gewarnt wird nur, wenn AGENT_HANDOVER.md SELBST abweicht — "N Commits hinter"
 # allein ist Alltag und erzeugte nur Alarm-Muedigkeit.
 case "${SRC}" in
-  AGENT_HANDOVER.md*)
+  *AGENT_HANDOVER.md*)
     if git -C "${CWD}" rev-parse --verify --quiet origin/main >/dev/null 2>&1; then
         BEHIND="$(git -C "${CWD}" rev-list --count HEAD..origin/main 2>/dev/null || echo 0)"
         case "${BEHIND}" in

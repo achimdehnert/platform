@@ -23,7 +23,8 @@ gepflegt, hier NICHT duplizieren).
 
 // turbo
 ```bash
-bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_ende_checks.sh" "$TARGET_REPO"
+bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_ende_checks.sh" "$TARGET_REPO" \
+  --session-id "$SESSION_ID"   # erste 8 Zeichen der Claude-Code-Session-ID
 ```
 
 → Ende = Summary `| Phase | Status | Repo | Note |` + `RESULT: OK|FAIL` +
@@ -37,8 +38,8 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_ende_checks.sh" "$TARGE
 |---|---|---|---|
 | `E.0 banner` | Platform-Version + Commit | — | Zahl in den Abschlussbericht |
 | `E.1 deploy-status` | `failure:` = Prod nicht live · `waiting:` = Run hängt am Gate | Repo ohne Deploy-Workflow | transienter Flake: `gh run rerun <id> --failed`; sonst Run-ID als offenen Punkt ins Handover |
-| `E.2 handover-prs` | >1 offener PR fasst `AGENT_HANDOVER.md` an | höchstens einer | Alt-Branch übernehmen ODER Alt-PR als „ersetzt durch #N" schließen, **vor** dem Push |
-| `E.3 handover-frische` | ❌ Commits seit dem letzten Nachtrag und kein offener Handover-PR · ⚠️ Stand älter als der letzte Commit der Datei | Exit 0 oder Nachtrag offen als PR | Deutung in 0a-freshness |
+| `E.2 handover-prs` | >1 offener PR fasst `AGENT_HANDOVER.md` an | höchstens einer · im Fragment-Modus Übergangsbefund | Alt-Branch übernehmen ODER Alt-PR als „ersetzt durch #N" schließen, **vor** dem Push |
+| `E.3 handover-frische` | ❌ Commits seit dem letzten Nachtrag und kein offener Handover-PR · ⚠️ Stand älter als der letzte Commit der Datei · **Fragment-Modus:** ❌ kein eigenes Fragment | Exit 0, Nachtrag offen als PR, oder eigenes Fragment auf `main`/im PR | Deutung in 0a-freshness bzw. 0b-fragment |
 | `E.4 cross-repo-befunde` | Fremd-Repo-Befund ohne Artefakt oder Verzicht | Exit 0 | Deutung in 0f |
 | `E.5 zusagen` | Vertagung ohne Anker im Segment (advisory) | `✅` je Zusage | Deutung in 0g |
 | `E.6 template-drift` | Error-Drift gegen die Repo-Templates | 0 Errors | fixen oder Issue im betroffenen Repo |
@@ -76,6 +77,26 @@ Sobald der Handover-PR grün ist, **ohne Rückfrage mergen** und im Abschlussber
 
 → Trifft eine Grenze zu: PR offen lassen, im Abschlussbericht **mit Grund** nennen.
 → `LEHREN#0a-merge`
+
+### 0b-fragment: Eigenes Fragment statt geteilter Dateien (PFLICHT in Repos mit `docs/handover.d/` — NEU 2026-09-16, #1944 K6)
+
+Parallele Sitzungen sind in Querschnitt-Repos der Normalfall; deshalb schreibt jede Sitzung
+nur **ihre eigene** Datei. Liegt `docs/handover.d/` im Repo, **ersetzt** dieser Schritt
+0a-freshness, 0b, 0c und den Eintrag in `AGENT_HANDOVER_LOG.md`:
+
+```bash
+python3 tools/agent-handover/fragments.py neu --session-id "$SESSION_ID" \
+  --titel "<Sitzungsthema>" --ziel "<Zielzustand mit Issue>"
+# ## Erledigt · ## Offen (je Punkt genau eine Issue-/PR-URL) · ## Log ausfüllen
+python3 tools/agent-handover/fragments.py pruefen
+```
+
+- `AGENT_HANDOVER.md` und `AGENT_HANDOVER_LOG.md` **nicht** anfassen — erledigte Punkte
+  fallen von selbst heraus, sobald ihr Issue zu ist; offene stehen im gerenderten Stand.
+- Das Fragment kommt in den letzten PR der Sitzung (oder einen eigenen); nach dem Merge
+  ist es **unveränderlich**, eine Korrektur ist ein neues Fragment (CI prüft das).
+- Memory (Phase 2) bleibt Pflicht — das Fragment ersetzt den Handover, nicht pgvector.
+- `E.3` ist grün, sobald das Fragment auf `main` oder in einem offenen PR liegt.
 
 ### 0a-freshness: Handover-Rezenz erzwingen (PFLICHT — Gate `handover-stale-vor-merge`)
 
@@ -393,9 +414,9 @@ Memory-Upserts deduplizieren per `content_hash`.
 | 8 | Blockierte Arbeit dokumentiert (0a) | ☐ |
 | 9 | Doku-Lücke aus 3.1 als Issue im betroffenen Repo (1b) | ☐ |
 | 10 | Template-Drift: Error-Drifts gefixt (E.6) | ☐ |
-| 11 | Erledigte/verschobene Prios in Handover UND Memory nachgezogen (0c) | ☐ |
+| 11 | Erledigte/verschobene Prios in Handover UND Memory nachgezogen (0c) — Fragment-Modus: eigenes Fragment geschrieben, `pruefen` grün (0b-fragment) | ☐ |
 | 12 | Konkurrierende `AGENT_HANDOVER.md`-PRs behandelt vor dem eigenen Push (E.2) | ☐ |
-| 13 | Handover-Freshness: Exit 0 oder Grund im Commit-/PR-Text (E.3 / 0a-freshness) | ☐ |
+| 13 | Handover-Freshness: Exit 0 oder Grund im Commit-/PR-Text (E.3 / 0a-freshness); Fragment-Modus: E.3 grün | ☐ |
 | 14 | Abnahme im Stand-Block: erreicht / nicht erreicht / verschoben+Tracking / n/a (0d) | ☐ |
 | 15 | SA-4-Zähler-Zeile geschrieben, Fehlanwendung als Befund gemeldet (0d) | ☐ |
 | 16 | Handover-PR gemergt — oder eine der vier Grenzen benannt (0a-merge) | ☐ |
@@ -417,6 +438,11 @@ Memory-Upserts deduplizieren per `content_hash`.
 
 ## Changelog
 
+- 2026-09-16: **Phase 0b-fragment + Runner mit `--session-id`** (#1944 K6, KONZ-platform-027) —
+  in Repos mit `docs/handover.d/` schreibt jede Sitzung ihr eigenes Fragment statt die
+  geteilten Handover-Dateien zu ändern; `E.3` prüft das eigene Fragment. Anlass: parallele
+  Sitzungen sind in Querschnitt-Repos nicht vermeidbar (Owner 2026-09-16), 8 der 61
+  Kollisionspaare in 14 Tagen lagen auf `AGENT_HANDOVER.md`.
 - 2026-09-11: **Phase 0i Auftragsraum + Checklisten-Zeile 24** (KONZ-platform-059, #3079) —
   `offen --block` schließt die Lernschleife: eine Owner-Korrektur aus dem Chat-Raum ohne
   Regel-Artefakt hemmt das Sitzungsende, bis `regel` das Artefakt anlegt oder der Verzicht
@@ -425,14 +451,6 @@ Memory-Upserts deduplizieren per `content_hash`.
   Owner wörtlich: „fremde dirty sollten kein clear hemmen !! -> mehr fokus auf eigenen
   sitzung !". Anlass: eine Sitzung ohne jede Repo-Änderung lieferte 🔴, weil drei fremde
   Repos seit Tagen dirty lagen. Fremder Stand wird gemeldet, nicht zur eigenen Bremse.
-
-- 2026-09-02: **Phase 0h Fremder Blick (PFLICHT ab `full`) + Checklisten-Zeile 23** (#2036) —
-  Owner-Freigabe für Subagenten in den Session-Skills, ausdrücklich **selbstbetreffend**.
-  Nur 0d und 0e bekommen fremden Kontext; der mechanische Rest bleibt Skript. Der Zweig
-  stammt vom 2026-08-17 und hieß dort `0g`; `main` vergab denselben Buchstaben inzwischen
-  an #2211, deshalb `0h` und Zeile 23. Beim Nachziehen **neu geschrieben** statt gemergt:
-  `main` hatte die Datei zwischenzeitlich von 55 auf 20 kB gekürzt, ein Merge hätte das
-  zurückgedreht. Herleitung in `LEHREN#0h`.
 
 > Nur die letzten drei Einträge (Policy seit platform#2696). Volle Historie:
 > `LEHREN#changelog-historie`.

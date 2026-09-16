@@ -43,6 +43,14 @@ jobs:
       - name: Stand-Block gegen den letzten Commit halten
         run: |
           set -o pipefail
+          # Fragment-Modus (#1944 K6, KONZ-027): jede Sitzung schreibt ihr eigenes
+          # Fragment, die geteilte Datei wird nicht mehr je Sitzung nachgezogen.
+          # Commits anderer Sitzungen sind dann kein Grund, sie anzufassen — die
+          # Frische misst session_ende_checks.sh E.3 am eigenen Fragment.
+          if [ -d docs/handover.d ]; then
+            echo "Fragment-Modus: Frische wird am Sitzungsfragment gemessen (E.3), nicht an AGENT_HANDOVER.md."
+            exit 0
+          fi
           # --commits-schwelle 12 schaltet die ZWEITE Bedingung ein (Rev 2,
           # platform#2374): Commits seit der letzten Beruehrung der Datei, ohne
           # Dependabot-Bumps. Sie sieht die Fehlform, gegen die der Rezenz-Check
