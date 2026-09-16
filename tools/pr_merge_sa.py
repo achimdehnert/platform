@@ -94,6 +94,19 @@ PROD_IM_APPROVAL = re.compile(
 # woertlich auf das Wort "deploy" festgelegt (Freigabe: akzeptiert durch Owner
 # — deploy) — der Vermerk-Pfad prueft deshalb ausschliesslich dieses Wort.
 DEPLOY_IM_VERMERK = re.compile(r"\bdeploy\b", re.IGNORECASE)
+# Pruefrage (autonomy-gates.md, Owner-Weisung 2026-08-27; Block angeglichen
+# 2026-09-16, #3244): W3 braucht M1 — Auto-Deploy ist Normalbetrieb, kein
+# Vorlagegrund. Vorlagepflichtig bleiben die vier Klassen der Pruefrage; zwei
+# davon sind mechanisch erkennbar und halten M3 (Deploy-Wort) aufrecht:
+# Datenmigration (Migrationsdatei im Diff) und Irreversibles (Publish-Workflow,
+# den der Merge anstoesst). Security-Config faengt der Governance-Pfad (M2),
+# die echte Wahlfrage bleibt Urteil des Agenten VOR dem Aufruf — bewusst nicht hier.
+PUBLISH_MARKER = re.compile(r"\b(publish|pypi|ghcr\.io|docker\s+push)\b", re.IGNORECASE)
+MIGRATION_PFAD = re.compile(r"(^|/)migrations/[^/]+\.py$")
+# Issue-Verweise im PR-Text: `#123` (PR-Repo) oder `owner/repo#123`. Der Auftrag
+# eines Cross-Repo-Programms liegt im Leit-Repo (Realfall dev-hub#357 mit
+# Auftrag platform#3234), nicht im Repo des PR.
+ISSUE_VERWEIS = re.compile(r"(?:\b([\w.-]+/[\w.-]+))?#(\d+)\b")
 
 
 @dataclass
@@ -113,6 +126,8 @@ class Facts:
     checks_total: int = 0
     checks_failing: int = 0
     checks_pending: int = 0
+    # Gruende, warum die Pruefrage bei W3 doch M3 verlangt (leer = M1 genuegt)
+    pruef_pflicht: list = field(default_factory=list)
 
 
 @dataclass
@@ -185,10 +200,13 @@ def classify(f: Facts, r: dict) -> Verdict:
     noetig = r["deckung"].get(f.wirkung)
     if noetig is None:
         raise Unklar(f"Wirkung {f.wirkung} steht nicht in der Deckungstabelle")
+    if f.wirkung == "W3" and f.pruef_pflicht:
+        noetig = "M3"
     if RANG[f.mandat] < RANG[noetig]:
         if noetig == "M3":
+            anlass = f" ({'; '.join(f.pruef_pflicht)})" if f.pruef_pflicht else ""
             grund = (
-                "fehlt: M3 — Approve-Review mit Deploy-Wort ODER Vermerk "
+                f"fehlt: M3{anlass} — Approve-Review mit Deploy-Wort ODER Vermerk "
                 "„Freigabe: akzeptiert durch Owner — deploy” mit dieser "
                 "PR-Nummer im verlinkten Issue (#2812)"
             )
@@ -277,6 +295,24 @@ def wirkung_des_merges(repo: str, dateien: list, r: dict) -> str:
     return stufe
 
 
+def pruef_pflicht_gruende(repo: str, dateien: list, r: dict) -> list:
+    """Die mechanisch pruefbaren Klassen der Pruefrage — leer heisst: M1 genuegt."""
+    gruende = []
+    if any(MIGRATION_PFAD.search(p) for p in dateien):
+        gruende.append("Datenmigration im Diff")
+    if repo not in r.get("sync_only_repos", []):
+        for text in workflow_texte(repo):
+            kopf = text.split("jobs:", 1)[0]
+            if "push:" not in kopf or not re.search(r"\bmain\b", kopf):
+                continue
+            if _paths_ignore_deckt_alles(kopf, dateien):
+                continue
+            if PUBLISH_MARKER.search(text):
+                gruende.append("Publish-Workflow auf main (irreversibel)")
+                break
+    return gruende
+
+
 def mandat_des_prs(repo: str, nummer: int, pr: dict) -> str:
     # `reviewDecision` bleibt leer, wenn GitHub kein Review ERZWINGT — auch dann,
     # wenn ein Code-Owner approved hat. Gemessen an platform#2348: latestReviews
@@ -304,9 +340,19 @@ def mandat_des_prs(repo: str, nummer: int, pr: dict) -> str:
     # weiterhin, unveraendert).
     pr_nummer_in_zeile = re.compile(rf"(?<!\d)#{nummer}(?!\d)")
     gefunden_m1 = False
-    for treffer in re.findall(r"#(\d+)", pr.get("body") or ""):
+    for verweis_repo, treffer in ISSUE_VERWEIS.findall(pr.get("body") or ""):
         try:
-            issue = _gh(["issue", "view", treffer, "-R", repo, "--json", "body,state"])
+            issue = _gh(
+                [
+                    "issue",
+                    "view",
+                    treffer,
+                    "-R",
+                    verweis_repo or repo,
+                    "--json",
+                    "body,state",
+                ]
+            )
         except Unklar:
             continue
         issue_body = issue.get("body") or ""
@@ -410,6 +456,7 @@ def gather(repo: str, nummer: int, r: dict) -> Facts:
             pending,
         ),
         wirkung=wirkung_des_merges(repo, dateien, r),
+        pruef_pflicht=pruef_pflicht_gruende(repo, dateien, r),
         mandat=mandat_des_prs(repo, nummer, pr),
         files=dateien,
         checks_total=len(roll),
