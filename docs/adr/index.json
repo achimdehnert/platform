@@ -3370,9 +3370,10 @@
         "ADR-021-unified-deployment-pattern.md",
         "ADR-106-port-audit.md",
         "ADR-156-reliable-deployment-pipeline.md",
-        "ADR-164-port-strategy-conflict-free-dev-staging-prod.md"
+        "ADR-164-port-strategy-conflict-free-dev-staging-prod.md",
+        "ADR-292-two-lane-deployment-six-host-standard.md  # begrenzt die Reichweite des Backend-Teils (2026-09-16)"
       ],
-      "implementation_status": "none"
+      "implementation_status": "partial  # 2026-09-16: Edge (Tunnel, DNS, SSL) live seit 2026-05-14; Backend-Teil durch ADR-292 Lane G auf risk-hub + meiki/frist begrenzt, s. Changelog"
     },
     {
       "number": 199,
@@ -3434,7 +3435,7 @@
         "ADR-208",
         "dev-hub#39"
       ],
-      "implementation_status": "in_progress"
+      "implementation_status": "partial  # 2026-09-16: Statusline/Stop-Hook deployed; Amendment-Punkte 2 (lokales Ledger) und 3 (Pricing-Resolver) nicht umgesetzt, s. Changelog"
     },
     {
       "number": 202,
