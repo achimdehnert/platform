@@ -111,3 +111,65 @@ def test_should_move_unentschieden_faellig_entry_via_aufraeumen_apply(
     assert not eintrag_pfad.exists()
     archiviert = tmp_path / schleuse.ARCHIV / HEUTE.isoformat() / "alter-rest"
     assert archiviert.is_dir()
+
+
+# ── #2622: die Schutzlogik von aufraeumen/endgueltig selbst ──────────────────
+
+
+def test_should_leave_everything_untouched_in_dry_run(monkeypatch, tmp_path, capsys):
+    eintrag = _anlegen(tmp_path, "alter-rest", 120, ist_datei=False)
+    posten = _sammeln(monkeypatch, tmp_path)
+    assert _finde(posten, "alter-rest")["faellig"]
+    schleuse.aufraeumen(posten, apply=False, heute=HEUTE)
+    assert eintrag.exists()
+    assert not (tmp_path / schleuse.ARCHIV).exists()
+    assert "WUERDE VERSCHIEBEN" in capsys.readouterr().out
+
+
+def test_should_keep_entries_within_deadline_even_with_apply(monkeypatch, tmp_path):
+    jung = _anlegen(tmp_path, "junger-rest", 5, ist_datei=False)
+    posten = _sammeln(monkeypatch, tmp_path)
+    schleuse.aufraeumen(posten, apply=True, heute=HEUTE)
+    assert jung.exists()
+
+
+def test_should_delete_only_archive_folders_older_than_threshold(monkeypatch, tmp_path):
+    monkeypatch.setattr(schleuse, "SCHLEUSE", tmp_path)
+    archiv = tmp_path / schleuse.ARCHIV
+    alt = archiv / (HEUTE - datetime.timedelta(days=91)).isoformat()
+    jung = archiv / (HEUTE - datetime.timedelta(days=10)).isoformat()
+    for d in (alt, jung):
+        d.mkdir(parents=True)
+        (d / "datei").write_text("x")
+    schleuse.endgueltig(apply=True, heute=HEUTE, tage=90)
+    assert not alt.exists()
+    assert jung.exists()
+
+
+def test_should_not_delete_in_endgueltig_dry_run(monkeypatch, tmp_path):
+    monkeypatch.setattr(schleuse, "SCHLEUSE", tmp_path)
+    alt = (
+        tmp_path / schleuse.ARCHIV / (HEUTE - datetime.timedelta(days=200)).isoformat()
+    )
+    alt.mkdir(parents=True)
+    schleuse.endgueltig(apply=False, heute=HEUTE, tage=90)
+    assert alt.exists()
+
+
+def test_should_ignore_undated_folders_in_archive(monkeypatch, tmp_path):
+    """Nur datierte Ordner sind loeschbar — alles andere im Archiv bleibt liegen."""
+    monkeypatch.setattr(schleuse, "SCHLEUSE", tmp_path)
+    fremd = tmp_path / schleuse.ARCHIV / "manuell-abgelegt"
+    fremd.mkdir(parents=True)
+    schleuse.endgueltig(apply=True, heute=HEUTE, tage=0)
+    assert fremd.exists()
+
+
+def test_should_never_touch_paths_outside_the_schleuse(monkeypatch, tmp_path):
+    """Der Loeschpfad ist immer SCHLEUSE/_archiv/<datum> — nie ein fremder Ort."""
+    monkeypatch.setattr(schleuse, "SCHLEUSE", tmp_path / "shared")
+    (tmp_path / "shared").mkdir()
+    fremd = tmp_path / "_archiv" / (HEUTE - datetime.timedelta(days=200)).isoformat()
+    fremd.mkdir(parents=True)
+    schleuse.endgueltig(apply=True, heute=HEUTE, tage=90)
+    assert fremd.exists()
