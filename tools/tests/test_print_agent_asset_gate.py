@@ -19,26 +19,36 @@ from asset_gate import asset_freigegeben, bild_mime  # noqa: E402
 
 
 def test_should_release_shared_asset_by_shared_flag_not_db():
-    ok, bereich = asset_freigegeben("assets/shared/logos/hnu.svg", {"db": False, "shared": True})
+    ok, bereich = asset_freigegeben(
+        "assets/shared/logos/hnu.svg", {"db": False, "shared": True}
+    )
     assert (ok, bereich) == (True, "shared")
 
 
 def test_should_not_let_db_flag_release_asset_from_other_bereich():
-    ok, _ = asset_freigegeben("assets/shared/logos/hnu.svg", {"db": True, "shared": False})
+    ok, _ = asset_freigegeben(
+        "assets/shared/logos/hnu.svg", {"db": True, "shared": False}
+    )
     assert ok is False
 
 
 def test_should_release_iil_asset_by_iil_flag():
-    assert asset_freigegeben("assets/iil/logos/iil.png", {"db": False, "iil": True}) == (True, "iil")
+    assert asset_freigegeben(
+        "assets/iil/logos/iil.png", {"db": False, "iil": True}
+    ) == (True, "iil")
 
 
 def test_should_keep_db_asset_bound_to_db_flag():
-    assert asset_freigegeben("assets/db/logos/db.png", {"db": False, "shared": True}) == (False, "db")
+    assert asset_freigegeben(
+        "assets/db/logos/db.png", {"db": False, "shared": True}
+    ) == (False, "db")
 
 
 def test_should_fail_closed_to_db_flag_for_unknown_bereich():
     # Unbekannter Bereich oder Pfad ohne Bereich: strengstes Flag, nie "frei".
-    assert asset_freigegeben("assets/fremd/logo.png", {"db": False, "shared": True}) == (False, "db")
+    assert asset_freigegeben(
+        "assets/fremd/logo.png", {"db": False, "shared": True}
+    ) == (False, "db")
     assert asset_freigegeben("logo.png", {"db": False, "shared": True}) == (False, "db")
 
 

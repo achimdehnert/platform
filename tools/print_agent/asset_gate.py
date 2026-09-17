@@ -20,7 +20,13 @@ ASSET_BEREICHE = ("db", "iil", "shared")
 
 #: Datei-Endung -> MIME-Subtyp fuer data:-URIs. `svg` ist KEIN gueltiger Subtyp;
 #: `data:image/svg;base64,...` wird von WeasyPrint und Browsern still verworfen.
-BILD_MIME = {"jpg": "jpeg", "jpeg": "jpeg", "png": "png", "svg": "svg+xml", "webp": "webp"}
+BILD_MIME = {
+    "jpg": "jpeg",
+    "jpeg": "jpeg",
+    "png": "png",
+    "svg": "svg+xml",
+    "webp": "webp",
+}
 
 
 def asset_freigegeben(rel_pfad: str, allowed: dict) -> tuple[bool, str]:

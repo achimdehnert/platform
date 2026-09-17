@@ -41,7 +41,10 @@ from pdf_forms import (
 
 import llm_gate  # Datenschutz-Gate (#1297) — bewusst importfrei, siehe Modul-Docstring
 import profile_policy  # Profil-Voreinstellungen (#1297, zweiter Befund)
-from asset_gate import asset_freigegeben, bild_mime  # Lizenz-Gate je Asset-Bereich, importfrei
+from asset_gate import (
+    asset_freigegeben,
+    bild_mime,
+)  # Lizenz-Gate je Asset-Bereich, importfrei
 
 OUTPUT_DIR = Path.home() / "pdf-output"
 SECRETS_DIRS = [

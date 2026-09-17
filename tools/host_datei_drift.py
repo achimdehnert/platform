@@ -257,7 +257,9 @@ def main() -> int:
             f"(die uebrigen {gezaehlt} Kopie(n) sind synchron)"
         )
         return 3
-    schlaf_hinweis = f" — schlaeft (auf_zuruf): {' '.join(schlaeft)}" if schlaeft else ""
+    schlaf_hinweis = (
+        f" — schlaeft (auf_zuruf): {' '.join(schlaeft)}" if schlaeft else ""
+    )
     print(
         f"RESULT: OK — {gezaehlt} verteilte Host-Kopie(n) synchron mit dem Repo"
         f"{schlaf_hinweis}"

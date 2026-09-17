@@ -155,7 +155,9 @@ class LogEntry:
 def read_last_log_entry(log_path: Path) -> LogEntry | None:
     if not log_path.exists():
         return None
-    lines = [ln for ln in log_path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    lines = [
+        ln for ln in log_path.read_text(encoding="utf-8").splitlines() if ln.strip()
+    ]
     if not lines:
         return None
     raw = lines[-1]
@@ -178,7 +180,9 @@ def find_latest_transcript_model(transcript_dir: Path) -> str | None:
     """
     if not transcript_dir.is_dir():
         return None
-    files = sorted(transcript_dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+    files = sorted(
+        transcript_dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True
+    )
     if not files:
         return None
     model: str | None = None
@@ -220,7 +224,9 @@ def resolve_running_model(
     if transcript_model:
         return RunningModel(transcript_model, "transkript", "")
     if log_neu is None:
-        return RunningModel(None, "unbekannt", "kein --laufend, kein Transkript, kein Log")
+        return RunningModel(
+            None, "unbekannt", "kein --laufend, kein Transkript, kein Log"
+        )
     # Der Alias trägt die Variante mit (`opus[1m]`). `norm_id` schneidet sie ab —
     # dieselbe Normalisierung, die der Klassifizierer benutzt (Runbook §0: SUFFIX
     # ist kein Ereignis). Ohne sie fiel `opus[1m]` durch die Tabelle und landete
@@ -306,7 +312,9 @@ def read_assessed_with(policies_dir: Path) -> tuple[str | None, list[tuple[str, 
 def read_handled(handled_path: Path) -> set[str]:
     if not handled_path.exists():
         return set()
-    return {ln for ln in handled_path.read_text(encoding="utf-8").splitlines() if ln.strip()}
+    return {
+        ln for ln in handled_path.read_text(encoding="utf-8").splitlines() if ln.strip()
+    }
 
 
 def paar_schluessel(assessed: str, running: str) -> str:
@@ -354,7 +362,9 @@ def build_args() -> argparse.Namespace:
         help="Default: ~/.claude/projects/<cwd-slug>/",
     )
     parser.add_argument(
-        "--laufend", default=None, help="laufendes Modell explizit angeben (höchste Priorität)"
+        "--laufend",
+        default=None,
+        help="laufendes Modell explizit angeben (höchste Priorität)",
     )
     parser.add_argument("--kurz", action="store_true", help="eine Zeile statt Bericht")
     parser.add_argument(
@@ -368,7 +378,9 @@ def build_args() -> argparse.Namespace:
 def main() -> int:
     args = build_args()
     entry = read_last_log_entry(args.log)
-    transcript_dir = args.transkript_dir or (Path.home() / ".claude" / "projects" / cwd_slug())
+    transcript_dir = args.transkript_dir or (
+        Path.home() / ".claude" / "projects" / cwd_slug()
+    )
     log_neu = entry.neu if entry else None
     running_info = resolve_running_model(args.laufend, transcript_dir, log_neu)
 
@@ -428,8 +440,10 @@ def main() -> int:
             print("  letztes Log-Ereignis:  kein model-changes.log-Eintrag")
         print(f"  bewertet mit:          {assessed}{note}")
         if standard is None:
-            print("  Quelle (bewertet):     Mehrheit über assessed_with "
-                  "— keine standard-session-model-Erklärung gefunden")
+            print(
+                "  Quelle (bewertet):     Mehrheit über assessed_with "
+                "— keine standard-session-model-Erklärung gefunden"
+            )
         print(f"  läuft mit:             {running}")
         print(f"  Quelle (laufend):      {running_info.quelle}{quelle_note}")
         print(f"  Einstufung:            {klasse}")
