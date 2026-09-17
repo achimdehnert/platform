@@ -555,6 +555,12 @@ faellt nicht auf Ollama zurueck — in einer Shell ohne gesetzten Schluessel mel
 `NICHT PRUEFBAR` statt langsam zu rechnen. Das ist richtig so, macht den Melder aber
 in genau den Sitzungen unbenutzbar, in denen mehrere PRs entstehen.
 
+## Nachtrag 2026-09-15 — writing-hub#1177 (Sitzung a397a5)
+
+Session-Ende-Runner E.5 meldete „Zusage ohne Tracking" in writing-hub#1177 (Handover-PR). Urteil: **Fehlalarm** — der PR-Text enthält nur erledigte Nachträge und drei verlinkte Folgepunkte (platform#3195, writing-hub#1170, writing-hub#1176), keine Vertagung ohne Anker.
+
+**Nicht in die Zählung aufgenommen:** das gemeldete Segment ließ sich nicht zitieren — der Nachlauf `verankerung_pruefer.py --pr 1177` endete mit `NICHT PRUEFBAR` (qwen2.5:7b, Zeitüberschreitung nach 120 s bei 2078 Zeichen), derselbe Betriebsbefund wie oben. Die Präzisionszahl bleibt deshalb unverändert.
+
 ## Nachtrag 2026-09-15 (decks-hub, Sitzung ee405591)
 
 ### Der Fehlalarm
