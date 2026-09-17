@@ -732,3 +732,28 @@ def test_should_not_expect_the_drills_in_the_active_path(tmp_path):
     r = _doctor(repo, ziel)
     assert "2 kanonisch" in r.stdout, r.stdout
     assert "test_scanner.py" not in r.stdout
+
+
+# --- SUGGEST: Phasen-Skill ohne Abschluss-Checkliste (#2639) ---
+
+_PHASEN = "# Skill\n\n## Phase 1\n\ntext\n\n## Phase 2\n\n### 2.1 Unterphase\n\ntext\n"
+
+
+def test_should_flag_a_multi_phase_skill_without_checklist():
+    assert doc.phasen_ohne_checkliste(_PHASEN) == 3
+
+
+def test_should_not_flag_a_skill_that_carries_a_checklist():
+    assert (
+        doc.phasen_ohne_checkliste(_PHASEN + "\n## Abschluss-Checkliste\n\n| # |\n")
+        == 0
+    )
+    assert (
+        doc.phasen_ohne_checkliste(_PHASEN + "\n## Startklar-Checkliste (PFLICHT)\n")
+        == 0
+    )
+
+
+def test_should_not_flag_a_short_skill():
+    """Unter der Phasen-Schwelle gibt es nichts zu ueberspringen — kein Befund."""
+    assert doc.phasen_ohne_checkliste("# Skill\n\n## Einzige Phase\n") == 0
