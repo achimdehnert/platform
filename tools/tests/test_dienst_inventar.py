@@ -26,25 +26,44 @@ def bestand(tmp_path, monkeypatch):
     monkeypatch.setattr(di, "GITHUB_DIR", tmp_path)
     monkeypatch.setattr(di, "archivierte_repos", lambda: {"alt-hub"})
     hub = _repo(tmp_path, "demo-hub")
-    _schreibe(hub / "apps/x/agent/toolkit.py", "class DemoToolkit(DomainToolkit):\n    pass\n")
-    _schreibe(hub / "apps/x/management/commands/sync_all.py",
-              "class Command(BaseCommand):\n    help = \"Alles synchronisieren\"\n")
-    _schreibe(hub / "apps/x/management/commands/seed_musterkunde_org.py",
-              "class Command(BaseCommand):\n    help = \"Org Musterkunde anlegen\"\n")
-    _schreibe(hub / "apps/x/services.py",
-              "def _intern():\n    pass\n\ndef berechne(a):\n    \"\"\"Rechnet etwas aus.\"\"\"\n    return a\n")
+    _schreibe(
+        hub / "apps/x/agent/toolkit.py", "class DemoToolkit(DomainToolkit):\n    pass\n"
+    )
+    _schreibe(
+        hub / "apps/x/management/commands/sync_all.py",
+        'class Command(BaseCommand):\n    help = "Alles synchronisieren"\n',
+    )
+    _schreibe(
+        hub / "apps/x/management/commands/seed_musterkunde_org.py",
+        'class Command(BaseCommand):\n    help = "Org Musterkunde anlegen"\n',
+    )
+    _schreibe(
+        hub / "apps/x/services.py",
+        'def _intern():\n    pass\n\ndef berechne(a):\n    """Rechnet etwas aus."""\n    return a\n',
+    )
     _schreibe(hub / "src/mcp/server.py", "@mcp.tool()\nasync def suche(q):\n    pass\n")
     _schreibe(hub / "tests/test_x.py", "def helfer():\n    pass\n")
-    _schreibe(hub / "vendor/chat_agent/toolkit.py", "class FremdToolkit(DomainToolkit):\n    pass\n")
+    _schreibe(
+        hub / "vendor/chat_agent/toolkit.py",
+        "class FremdToolkit(DomainToolkit):\n    pass\n",
+    )
     kern = _repo(tmp_path, "iil-assist-core")
-    _schreibe(kern / "assist_core/models.py",
-              "class Mandant(models.Model):\n    \"\"\"Ein Haus.\"\"\"\n\ndef nicht_zaehlen():\n    pass\n")
+    _schreibe(
+        kern / "assist_core/models.py",
+        'class Mandant(models.Model):\n    """Ein Haus."""\n\ndef nicht_zaehlen():\n    pass\n',
+    )
     return tmp_path
 
 
 def test_should_find_one_entry_per_source(bestand):
     inv = di.inventar(["demo-hub", "iil-assist-core"])
-    assert inv["je_quelle"] == {"mcp": 1, "mgmt": 2, "modell": 1, "service": 1, "toolkit": 1}
+    assert inv["je_quelle"] == {
+        "mcp": 1,
+        "mgmt": 2,
+        "modell": 1,
+        "service": 1,
+        "toolkit": 1,
+    }
     namen = {(f["quelle"], f["name"]) for f in inv["funde"]}
     assert ("service", "berechne") in namen and ("service", "_intern") not in namen
     assert ("mcp", "suche") in namen
@@ -74,7 +93,9 @@ def test_should_carry_help_and_docstring_as_hint(bestand):
 
 def test_should_mask_protected_terms_in_name_path_and_hint(bestand):
     inv = di.inventar(["demo-hub"], begriffe={"musterkunde"})
-    treffer = [f for f in inv["funde"] if f["quelle"] == "mgmt" and "seed_" in f["name"]]
+    treffer = [
+        f for f in inv["funde"] if f["quelle"] == "mgmt" and "seed_" in f["name"]
+    ]
     assert len(treffer) == 1
     f = treffer[0]
     assert f["name"] == "seed_[mandant]_org"

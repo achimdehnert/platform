@@ -48,12 +48,12 @@ def test_should_load_register_entries_from_yaml(tmp_path):
     pfad = tmp_path / "melder-register.yaml"
     pfad.write_text(
         "melder:\n"
-        "  - phase: \"0.0 env+banner\"\n"
+        '  - phase: "0.0 env+banner"\n'
         "    leser: UNBENANNT\n"
         "    wiedervorlage_tage: 14\n"
         "    praezision_min: 0.6\n"
         "    mindest_laeufe: 5\n"
-        "    runbook: \"0.R#0.0\"\n",
+        '    runbook: "0.R#0.0"\n',
         encoding="utf-8",
     )
     register = mrc.lade_register(pfad)
@@ -205,7 +205,14 @@ def test_should_not_downgrade_melder_at_or_above_threshold():
 def test_should_write_and_clear_downgrade_tsv(tmp_path):
     ziel = tmp_path / "state" / "melder-herabgestuft.tsv"
     mrc.schreibe_herabstufung_tsv(
-        [{"phase": "0.7.4 prio-referenzen", "quote": 0.4, "laeufe": 5, "datum": "2026-09-02"}],
+        [
+            {
+                "phase": "0.7.4 prio-referenzen",
+                "quote": 0.4,
+                "laeufe": 5,
+                "datum": "2026-09-02",
+            }
+        ],
         ziel,
     )
     zeile = ziel.read_text(encoding="utf-8").strip()
@@ -225,16 +232,27 @@ def test_should_exclude_verankerte_and_verzichtete_findings():
     heute = date(2026, 9, 2)
     daten = [
         {
-            "id": "a::platform", "phase": "a", "repo": "platform",
-            "erstmals": "2026-08-01", "artefakt": None, "verzicht": None,
+            "id": "a::platform",
+            "phase": "a",
+            "repo": "platform",
+            "erstmals": "2026-08-01",
+            "artefakt": None,
+            "verzicht": None,
         },
         {
-            "id": "b::platform", "phase": "b", "repo": "platform",
-            "erstmals": "2026-08-01", "artefakt": "https://example.invalid/1", "verzicht": None,
+            "id": "b::platform",
+            "phase": "b",
+            "repo": "platform",
+            "erstmals": "2026-08-01",
+            "artefakt": "https://example.invalid/1",
+            "verzicht": None,
         },
         {
-            "id": "c::platform", "phase": "c", "repo": "platform",
-            "erstmals": "2026-08-01", "artefakt": None,
+            "id": "c::platform",
+            "phase": "c",
+            "repo": "platform",
+            "erstmals": "2026-08-01",
+            "artefakt": None,
             "verzicht": {"grund": "bewusst", "am": "2026-08-05"},
         },
     ]
@@ -247,8 +265,12 @@ def test_should_exclude_findings_within_the_grace_period():
     heute = date(2026, 9, 2)
     daten = [
         {
-            "id": "frisch::platform", "phase": "x", "repo": "platform",
-            "erstmals": "2026-08-30", "artefakt": None, "verzicht": None,
+            "id": "frisch::platform",
+            "phase": "x",
+            "repo": "platform",
+            "erstmals": "2026-08-30",
+            "artefakt": None,
+            "verzicht": None,
         }
     ]
     assert mrc.ohne_entscheidung_liste(daten, 14, heute) == []
@@ -257,7 +279,15 @@ def test_should_exclude_findings_within_the_grace_period():
 def test_should_render_block_header_with_count_and_empty_case():
     assert mrc.ohne_entscheidung_block([], 14) == "⏳ ohne Entscheidung > 14 d: keiner"
     text = mrc.ohne_entscheidung_block(
-        [{"phase": "a", "repo": "platform", "alter_tage": 32, "erstmals": "2026-08-01"}], 14
+        [
+            {
+                "phase": "a",
+                "repo": "platform",
+                "alter_tage": 32,
+                "erstmals": "2026-08-01",
+            }
+        ],
+        14,
     )
     assert "⏳ ohne Entscheidung > 14 d (1):" in text
     assert "a [platform] — 32 d alt, erstmals 2026-08-01" in text

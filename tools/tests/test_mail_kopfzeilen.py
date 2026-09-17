@@ -22,7 +22,9 @@ dm = pytest.importorskip("draft_mail")
 sm = pytest.importorskip("send_mail")
 
 #: Echte Laenge einer Exchange-Kennung (83 Zeichen), Werte erfunden.
-OUTLOOK_ID = "<BEXP281MB0215000000000000000000000000000@BEXP281MB0215.DEUP281.PROD.OUTLOOK.COM>"
+OUTLOOK_ID = (
+    "<BEXP281MB0215000000000000000000000000000@BEXP281MB0215.DEUP281.PROD.OUTLOOK.COM>"
+)
 KURZE_ID = "<6554facb82e748de82c515966ba47079@hnu.de>"
 BETREFF = "AW: Günzburg — Schnittstelle Posteingang zwischen Partner und PostAssist — Rückfragen zur Übergabe"
 
@@ -48,8 +50,13 @@ def test_should_detect_encoded_word_with_plain_emailmessage():
 
 def test_should_not_encode_long_msgid_in_draft():
     msg = dm.build_draft(
-        "a@hnu.de", ["b@example.org"], [], BETREFF, text="x",
-        in_reply_to=OUTLOOK_ID, references=f"{KURZE_ID} {OUTLOOK_ID}",
+        "a@hnu.de",
+        ["b@example.org"],
+        [],
+        BETREFF,
+        text="x",
+        in_reply_to=OUTLOOK_ID,
+        references=f"{KURZE_ID} {OUTLOOK_ID}",
     )
     kopf = _kopf(msg)
     assert "=?" not in _feld(kopf, "In-Reply-To")
@@ -58,8 +65,14 @@ def test_should_not_encode_long_msgid_in_draft():
 
 def test_should_not_encode_long_msgid_in_sent_mail():
     args = argparse.Namespace(
-        to=["b@example.org"], cc=None, subject=BETREFF, in_reply_to=OUTLOOK_ID,
-        references=f"{KURZE_ID} {OUTLOOK_ID}", body="x", body_file=None, html_file=None,
+        to=["b@example.org"],
+        cc=None,
+        subject=BETREFF,
+        in_reply_to=OUTLOOK_ID,
+        references=f"{KURZE_ID} {OUTLOOK_ID}",
+        body="x",
+        body_file=None,
+        html_file=None,
         attach=[],
     )
     kopf = _kopf(sm.build_message("a@hnu.de", args))
@@ -69,8 +82,13 @@ def test_should_not_encode_long_msgid_in_sent_mail():
 
 def test_should_keep_ids_readable_after_round_trip():
     msg = dm.build_draft(
-        "a@hnu.de", ["b@example.org"], [], BETREFF, text="x",
-        in_reply_to=OUTLOOK_ID, references=f"{KURZE_ID} {OUTLOOK_ID}",
+        "a@hnu.de",
+        ["b@example.org"],
+        [],
+        BETREFF,
+        text="x",
+        in_reply_to=OUTLOOK_ID,
+        references=f"{KURZE_ID} {OUTLOOK_ID}",
     )
     zurueck = message_from_bytes(msg.as_bytes(), policy=policy.default)
     assert str(zurueck["In-Reply-To"]).strip() == OUTLOOK_ID
@@ -89,8 +107,17 @@ def test_should_keep_subject_rfc2047_compliant():
 
 def test_should_wrap_reference_chain_only_between_ids():
     kette = " ".join(f"<{i:02d}-{'x' * 40}@hnu.de>" for i in range(4))
-    kopf = _kopf(dm.build_draft("a@hnu.de", ["b@example.org"], [], "AW: x", text="x",
-                                in_reply_to=OUTLOOK_ID, references=kette))
+    kopf = _kopf(
+        dm.build_draft(
+            "a@hnu.de",
+            ["b@example.org"],
+            [],
+            "AW: x",
+            text="x",
+            in_reply_to=OUTLOOK_ID,
+            references=kette,
+        )
+    )
     feld = _feld(kopf, "References")
     assert len(feld.splitlines()) > 1, "lange Kette wird umbrochen"
     for zeile in feld.splitlines():

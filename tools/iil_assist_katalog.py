@@ -47,11 +47,32 @@ DATENKLASSE = {"oeffentlich", "intern", "personenbezogen", "mandant"}
 CHAT = {"ja", "raum-gebunden", "nein"}
 GATE = {"keins", "raum-bindung", "entwurf-freigabe", "budget"}
 AUFWAND = {"S", "M", "L"}
-STATUS = {"vorgeschlagen", "gewaehlt", "gebaut", "staging", "prod", "ruhend", "eigener-auftrag"}
+STATUS = {
+    "vorgeschlagen",
+    "gewaehlt",
+    "gebaut",
+    "staging",
+    "prod",
+    "ruhend",
+    "eigener-auftrag",
+}
 PHASEN = ["konzept", "auswahl", "bau", "staging", "bilanz"]
 BAHNEN = ("verbesserung", "wartung", "diabolus", "ootb")
-PFLICHT = ("id", "name", "repo", "reifegrad", "basis", "datenklasse", "chat_eignung",
-           "gate", "aufwand", "prio", "mvp", "status", "begruendung")
+PFLICHT = (
+    "id",
+    "name",
+    "repo",
+    "reifegrad",
+    "basis",
+    "datenklasse",
+    "chat_eignung",
+    "gate",
+    "aufwand",
+    "prio",
+    "mvp",
+    "status",
+    "begruendung",
+)
 
 
 def lade(pfad: Path = KATALOG) -> dict:
@@ -70,13 +91,24 @@ def speichere(daten: dict, pfad: Path = KATALOG) -> None:
 
 # ── validate ────────────────────────────────────────────────────────────────
 
+
 def pruefe(d: dict) -> list[str]:
     f: list[str] = []
     if d.get("schema") != "iil-assist/1":
         f.append("schema muss iil-assist/1 sein")
     if d.get("phase") not in PHASEN:
         f.append(f"phase muss eine von {PHASEN} sein")
-    for k in ("auftrag", "konzept", "name", "architektur", "dienste", "top3", "offen", "proben", "bahnen"):
+    for k in (
+        "auftrag",
+        "konzept",
+        "name",
+        "architektur",
+        "dienste",
+        "top3",
+        "offen",
+        "proben",
+        "bahnen",
+    ):
         if k not in d:
             f.append(f"Feld fehlt: {k}")
     dienste = d.get("dienste") or []
@@ -89,13 +121,29 @@ def pruefe(d: dict) -> list[str]:
         for k in PFLICHT:
             if k not in x:
                 f.append(f"{x.get('id', '?')}: Feld fehlt: {k}")
-        for k, menge in (("reifegrad", REIFEGRAD), ("datenklasse", DATENKLASSE), ("chat_eignung", CHAT),
-                         ("gate", GATE), ("aufwand", AUFWAND), ("status", STATUS)):
+        for k, menge in (
+            ("reifegrad", REIFEGRAD),
+            ("datenklasse", DATENKLASSE),
+            ("chat_eignung", CHAT),
+            ("gate", GATE),
+            ("aufwand", AUFWAND),
+            ("status", STATUS),
+        ):
             if x.get(k) not in menge:
-                f.append(f"{x.get('id', '?')}: {k}={x.get(k)!r} nicht in {sorted(menge)}")
-        if x.get("datenklasse") in ("personenbezogen", "mandant") and x.get("chat_eignung") == "ja":
-            f.append(f"{x['id']}: personenbezogen/mandant darf im Chat nicht 'ja' sein (Charta Art. 2)")
-        if x.get("datenklasse") in ("personenbezogen", "mandant") and x.get("gate") == "keins":
+                f.append(
+                    f"{x.get('id', '?')}: {k}={x.get(k)!r} nicht in {sorted(menge)}"
+                )
+        if (
+            x.get("datenklasse") in ("personenbezogen", "mandant")
+            and x.get("chat_eignung") == "ja"
+        ):
+            f.append(
+                f"{x['id']}: personenbezogen/mandant darf im Chat nicht 'ja' sein (Charta Art. 2)"
+            )
+        if (
+            x.get("datenklasse") in ("personenbezogen", "mandant")
+            and x.get("gate") == "keins"
+        ):
             f.append(f"{x['id']}: personenbezogen/mandant braucht ein Gate")
         if not isinstance(x.get("prio"), int) or not 1 <= x["prio"] <= 4:
             f.append(f"{x.get('id', '?')}: prio 1..4")
@@ -104,7 +152,9 @@ def pruefe(d: dict) -> list[str]:
         f.append(f"genau 5 MVPs, gefunden {len(mvps)}")
     if len({x["repo"] for x in mvps}) < 3:
         f.append("MVPs muessen mindestens 3 Repos decken")
-    if not any("iil-assist-core" in " ".join(map(str, x.get("basis", []))) for x in mvps):
+    if not any(
+        "iil-assist-core" in " ".join(map(str, x.get("basis", []))) for x in mvps
+    ):
         f.append("mindestens ein MVP auf Basis von iil-assist-core")
     top3 = d.get("top3") or []
     if len(top3) != 3 or any(t not in ids for t in top3):
@@ -128,49 +178,71 @@ def cmd_validate(args: argparse.Namespace) -> int:
             print(f"  - {x}")
         return 1
     d = lade(args.katalog)
-    print(f"iil-assist: gueltig — {len(d['dienste'])} Dienste, "
-          f"{sum(1 for x in d['dienste'] if x['mvp'])} MVPs, Phase {d['phase']}")
+    print(
+        f"iil-assist: gueltig — {len(d['dienste'])} Dienste, "
+        f"{sum(1 for x in d['dienste'] if x['mvp'])} MVPs, Phase {d['phase']}"
+    )
     return 0
 
 
 # ── briefing / naechster Schritt ─────────────────────────────────────────────
 
+
 def mvp_reihenfolge(d: dict) -> list[dict]:
     """MVPs nach Prio, dann Top-3-Rang, dann ID — dieselbe Reihenfolge fuer Bau und Briefing."""
     top3 = d.get("top3") or []
     rang = {t: i for i, t in enumerate(top3)}
-    return sorted((x for x in d["dienste"] if x["mvp"]),
-                  key=lambda x: (x["prio"], rang.get(x["id"], len(top3)), x["id"]))
+    return sorted(
+        (x for x in d["dienste"] if x["mvp"]),
+        key=lambda x: (x["prio"], rang.get(x["id"], len(top3)), x["id"]),
+    )
 
 
 def naechster_schritt(d: dict) -> tuple[str, str]:
     """(wer, was) — deterministisch aus dem Zustand."""
     offen_owner = [o for o in d.get("offen") or [] if o.get("wer") == "owner"]
     if d["phase"] == "konzept":
-        return "owner", "Konzept-PR pruefen und die fuenf MVPs bestaetigen oder kippen (offen O1)"
+        return (
+            "owner",
+            "Konzept-PR pruefen und die fuenf MVPs bestaetigen oder kippen (offen O1)",
+        )
     if offen_owner and d["phase"] == "auswahl":
         return "owner", offen_owner[0]["frage"]
     for x in mvp_reihenfolge(d):
         if x["status"] in ("vorgeschlagen", "gewaehlt"):
-            return "ich", f"MVP bauen: {x['name']} ({x['repo']}) — Vertrag, beide Zugaenge, Test je Zugang"
+            return (
+                "ich",
+                f"MVP bauen: {x['name']} ({x['repo']}) — Vertrag, beide Zugaenge, Test je Zugang",
+            )
         if x["status"] == "gebaut":
             return "ich", f"MVP auf Staging bringen: {x['name']} ({x['repo']})"
     if d["phase"] != "bilanz":
-        return "ich", "Bilanz ziehen: Kennzahlen je MVP, Kill-Gate pruefen, Phase auf bilanz setzen"
+        return (
+            "ich",
+            "Bilanz ziehen: Kennzahlen je MVP, Kill-Gate pruefen, Phase auf bilanz setzen",
+        )
     return "owner", "Prod-Freigabe je Dienst (Out of Scope des Auftrags)"
 
 
 def briefing(d: dict) -> str:
-    z = [f"# iil-assist — Briefing (Stand {d['stand']}, Phase {d['phase']})", "",
-         f"Auftrag: {d['auftrag']} · Konzept: {d['konzept']}", "",
-         "## Was gebaut wird", d["architektur"]["kern"].strip(), "",
-         "## Entscheide"]
+    z = [
+        f"# iil-assist — Briefing (Stand {d['stand']}, Phase {d['phase']})",
+        "",
+        f"Auftrag: {d['auftrag']} · Konzept: {d['konzept']}",
+        "",
+        "## Was gebaut wird",
+        d["architektur"]["kern"].strip(),
+        "",
+        "## Entscheide",
+    ]
     for e in d["architektur"]["entscheide"]:
         z.append(f"- {e['id']} [{e['status']}]: {e['text']}")
     z += ["", "## Top 3"]
     for t in d["top3"]:
         x = next(x for x in d["dienste"] if x["id"] == t)
-        z.append(f"- {x['name']} ({x['repo']}, {x['datenklasse']}, Gate {x['gate']}): {x['begruendung']}")
+        z.append(
+            f"- {x['name']} ({x['repo']}, {x['datenklasse']}, Gate {x['gate']}): {x['begruendung']}"
+        )
     z += ["", "## Die fuenf MVPs"]
     for x in mvp_reihenfolge(d):
         z.append(f"- {x['id']} — {x['name']} ({x['repo']}), Status {x['status']}")
@@ -178,9 +250,15 @@ def briefing(d: dict) -> str:
     for o in d.get("offen") or []:
         z.append(f"- {o['id']} ({o['wer']}): {o['frage']}")
     wer, was = naechster_schritt(d)
-    z += ["", f"## Naechster Schritt ({wer})", was, "",
-          "## Name", f"Produkt {d['name']['produkt']} · Repo {d['name']['repo']} · Kern {d['name']['kern']} · "
-          f"Alias {d['name']['alias_route']} ({d['name']['alias_status']})"]
+    z += [
+        "",
+        f"## Naechster Schritt ({wer})",
+        was,
+        "",
+        "## Name",
+        f"Produkt {d['name']['produkt']} · Repo {d['name']['repo']} · Kern {d['name']['kern']} · "
+        f"Alias {d['name']['alias_route']} ({d['name']['alias_status']})",
+    ]
     return "\n".join(z) + "\n"
 
 
@@ -197,13 +275,19 @@ def cmd_naechster(args: argparse.Namespace) -> int:
 
 # ── Bahnen ───────────────────────────────────────────────────────────────────
 
+
 def _commit_alter_tage(repo: str, heute: dt.date) -> int | None:
     wurzel = GITHUB_DIR / repo
     if not (wurzel / ".git").exists():
         return None
     try:
-        out = subprocess.run(["git", "-C", str(wurzel), "log", "-1", "--format=%cs"],
-                             capture_output=True, text=True, timeout=20, check=True).stdout.strip()
+        out = subprocess.run(
+            ["git", "-C", str(wurzel), "log", "-1", "--format=%cs"],
+            capture_output=True,
+            text=True,
+            timeout=20,
+            check=True,
+        ).stdout.strip()
         return (heute - dt.date.fromisoformat(out)).days
     except (subprocess.SubprocessError, ValueError):
         return None
@@ -213,7 +297,10 @@ def _betriebsstatus() -> dict[str, str]:
     if not PORTS.exists():
         return {}
     d = yaml.safe_load(PORTS.read_text(encoding="utf-8")) or {}
-    return {n: (e or {}).get("betriebsstatus") or "-" for n, e in (d.get("services") or {}).items()}
+    return {
+        n: (e or {}).get("betriebsstatus") or "-"
+        for n, e in (d.get("services") or {}).items()
+    }
 
 
 def bahn_wartung(d: dict, heute: dt.date) -> dict:
@@ -240,34 +327,62 @@ def bahn_wartung(d: dict, heute: dt.date) -> dict:
             gruende.append(f"letzter Commit vor {alter} d")
         zeilen.append({"dienst": x["id"], "punkte": punkte, "gruende": gruende})
     zeilen.sort(key=lambda z: (-z["punkte"], z["dienst"]))
-    return {"datum": heute.isoformat(), "kippt_als_naechstes": zeilen[:3], "gemessen": len(zeilen)}
+    return {
+        "datum": heute.isoformat(),
+        "kippt_als_naechstes": zeilen[:3],
+        "gemessen": len(zeilen),
+    }
 
 
 def bahn_verbesserung(d: dict, heute: dt.date, inventar: Path | None) -> dict:
-    inv = json.loads(inventar.read_text(encoding="utf-8")) if inventar and inventar.exists() else None
+    inv = (
+        json.loads(inventar.read_text(encoding="utf-8"))
+        if inventar and inventar.exists()
+        else None
+    )
     zeilen = []
     for x in d["dienste"]:
         k = x.get("kennzahlen") or {}
         fund = None
         if inv:
             fund = sum(1 for f in inv["funde"] if f["repo"] == x["repo"])
-        zeilen.append({"dienst": x["id"], "status": x["status"], "fundstellen_repo": fund,
-                       "test_app": k.get("test_app"), "test_chat": k.get("test_chat"),
-                       "antwortzeit_s": k.get("antwortzeit_s"), "nutzungen_30d": k.get("nutzungen_30d")})
-    return {"datum": heute.isoformat(), "inventar": str(inventar) if inventar else None, "dienste": zeilen}
+        zeilen.append(
+            {
+                "dienst": x["id"],
+                "status": x["status"],
+                "fundstellen_repo": fund,
+                "test_app": k.get("test_app"),
+                "test_chat": k.get("test_chat"),
+                "antwortzeit_s": k.get("antwortzeit_s"),
+                "nutzungen_30d": k.get("nutzungen_30d"),
+            }
+        )
+    return {
+        "datum": heute.isoformat(),
+        "inventar": str(inventar) if inventar else None,
+        "dienste": zeilen,
+    }
 
 
 def bahn_extern(d: dict, heute: dt.date, bahn: str) -> dict:
     frage = d["bahnen"][bahn]["frage"]
     brief = SHARED / f"iil-assist-{bahn}-{heute.isoformat()}.md"
     antwort = brief.with_name(brief.stem + "-response.md")
-    text = (f"# iil-assist — Bahn {bahn} ({heute.isoformat()})\n\n"
-            f"Aufgabe: {frage}\n\nAntworte als nummerierte Liste, je Punkt: Befund, Beleg, Konsequenz.\n"
-            f"Kandidaten fuer neue Dienste bitte als Zeile `- kandidat: <name> | <repo> | <datenklasse>`.\n\n---\n\n"
-            + briefing(d))
-    return {"datum": heute.isoformat(), "briefing": str(brief), "briefing_text": text,
-            "antwort": str(antwort) if antwort.exists() else None,
-            "antwort_kopf": antwort.read_text(encoding="utf-8").splitlines()[0][:160] if antwort.exists() else None}
+    text = (
+        f"# iil-assist — Bahn {bahn} ({heute.isoformat()})\n\n"
+        f"Aufgabe: {frage}\n\nAntworte als nummerierte Liste, je Punkt: Befund, Beleg, Konsequenz.\n"
+        f"Kandidaten fuer neue Dienste bitte als Zeile `- kandidat: <name> | <repo> | <datenklasse>`.\n\n---\n\n"
+        + briefing(d)
+    )
+    return {
+        "datum": heute.isoformat(),
+        "briefing": str(brief),
+        "briefing_text": text,
+        "antwort": str(antwort) if antwort.exists() else None,
+        "antwort_kopf": antwort.read_text(encoding="utf-8").splitlines()[0][:160]
+        if antwort.exists()
+        else None,
+    }
 
 
 def cmd_bahn(args: argparse.Namespace) -> int:
@@ -282,7 +397,10 @@ def cmd_bahn(args: argparse.Namespace) -> int:
     text = lauf.pop("briefing_text", None)
     print(json.dumps(lauf, ensure_ascii=False, indent=1))
     if not args.apply:
-        print(f"(Trockenlauf — mit --apply wird der Lauf in {args.katalog.name} eingetragen)", file=sys.stderr)
+        print(
+            f"(Trockenlauf — mit --apply wird der Lauf in {args.katalog.name} eingetragen)",
+            file=sys.stderr,
+        )
         return 0
     if text:
         SHARED.mkdir(parents=True, exist_ok=True)
@@ -296,7 +414,9 @@ def cmd_bahn(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--katalog", type=Path, default=KATALOG)
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("validate").set_defaults(fn=cmd_validate)
@@ -305,8 +425,12 @@ def main() -> int:
     b = sub.add_parser("bahn")
     b.add_argument("bahn", choices=BAHNEN)
     b.add_argument("--datum", help="YYYY-MM-DD (Default heute)")
-    b.add_argument("--inventar", type=Path, help="JSON aus dienst_inventar.py (Bahn verbesserung)")
-    b.add_argument("--apply", action="store_true", help="Lauf in die Katalog-Datei schreiben")
+    b.add_argument(
+        "--inventar", type=Path, help="JSON aus dienst_inventar.py (Bahn verbesserung)"
+    )
+    b.add_argument(
+        "--apply", action="store_true", help="Lauf in die Katalog-Datei schreiben"
+    )
     b.set_defaults(fn=cmd_bahn)
     args = ap.parse_args()
     return args.fn(args)

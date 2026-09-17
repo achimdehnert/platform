@@ -5,6 +5,7 @@ zurueckliegenden fremden Klon melden und bei einem aktuellen schweigen. Ein
 Drill, der nur die Stille prueft, belegt nichts (Lehre: eine Null ist erst ein
 Beleg, wenn dasselbe Verfahren nachweislich auch etwas finden kann).
 """
+
 from __future__ import annotations
 
 import json
@@ -18,8 +19,9 @@ HOOK = Path(__file__).resolve().parents[2] / "tools/hooks/foreign_clone_check.sh
 
 
 def _git(pfad: Path, *args: str) -> None:
-    subprocess.run(["git", "-C", str(pfad), *args], check=True,
-                   capture_output=True, text=True)
+    subprocess.run(
+        ["git", "-C", str(pfad), *args], check=True, capture_output=True, text=True
+    )
 
 
 def _repo_bauen(wurzel: Path, name: str, commits_voraus: int) -> Path:
@@ -34,8 +36,12 @@ def _repo_bauen(wurzel: Path, name: str, commits_voraus: int) -> Path:
     _git(quelle, "commit", "-qm", "start")
 
     klon = wurzel / name
-    subprocess.run(["git", "clone", "-q", str(quelle), str(klon)],
-                   check=True, capture_output=True, text=True)
+    subprocess.run(
+        ["git", "clone", "-q", str(quelle), str(klon)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
 
     for i in range(commits_voraus):
         (quelle / "datei.txt").write_text(f"stand {i}\n", encoding="utf-8")
@@ -52,8 +58,9 @@ def _hook_laufen(wurzel: Path, kommando: str, eigenes_repo: Path) -> str:
     umgebung["TMPDIR"] = str(wurzel / "tmp")
     (wurzel / "tmp").mkdir(exist_ok=True)
     eingabe = json.dumps({"tool_input": {"command": kommando}})
-    ergebnis = subprocess.run(["bash", str(HOOK)], input=eingabe,
-                              capture_output=True, text=True, env=umgebung)
+    ergebnis = subprocess.run(
+        ["bash", str(HOOK)], input=eingabe, capture_output=True, text=True, env=umgebung
+    )
     assert ergebnis.returncode == 0, "Der Hook darf niemals blockieren"
     return ergebnis.stdout
 

@@ -71,11 +71,15 @@ def _run_cli(
     )
 
 
-def _write_transcript(transcript_dir: Path, model: str, filename: str = "session.jsonl") -> None:
+def _write_transcript(
+    transcript_dir: Path, model: str, filename: str = "session.jsonl"
+) -> None:
     transcript_dir.mkdir(parents=True, exist_ok=True)
     lines = [
         json.dumps({"type": "user", "message": {"role": "user", "content": "hi"}}),
-        json.dumps({"type": "assistant", "message": {"role": "assistant", "model": model}}),
+        json.dumps(
+            {"type": "assistant", "message": {"role": "assistant", "model": model}}
+        ),
     ]
     (transcript_dir / filename).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -87,7 +91,9 @@ def test_should_report_faellig_for_major_change_against_assessed_with(tmp_path):
     log = tmp_path / "state" / "model-changes.log"
     policies = tmp_path / "policies"
     _write_policy(policies, "adr-threshold.md", "claude-fable-5")
-    _write_log(log, "2026-09-02T08:00:00Z", "claude-fable-5-1", "claude-opus-5", "MAJOR")
+    _write_log(
+        log, "2026-09-02T08:00:00Z", "claude-fable-5-1", "claude-opus-5", "MAJOR"
+    )
 
     r = _run_cli(tmp_path, "--kurz")
 
@@ -121,7 +127,9 @@ def test_should_not_be_faellig_when_already_handled(tmp_path):
     handled = tmp_path / "state" / "model-rebaseline-handled.tsv"
     policies = tmp_path / "policies"
     _write_policy(policies, "adr-threshold.md", "claude-fable-5")
-    _write_log(log, "2026-09-02T08:00:00Z", "claude-fable-5-1", "claude-opus-5", "MAJOR")
+    _write_log(
+        log, "2026-09-02T08:00:00Z", "claude-fable-5-1", "claude-opus-5", "MAJOR"
+    )
     handled.parent.mkdir(parents=True, exist_ok=True)
     # `behandelt` haengt am PAAR (bewertet, laeuft), nicht an der Log-Zeile —
     # siehe paar_schluessel().
@@ -138,7 +146,9 @@ def test_should_mark_last_line_handled_and_become_not_faellig(tmp_path):
     log = tmp_path / "state" / "model-changes.log"
     policies = tmp_path / "policies"
     _write_policy(policies, "adr-threshold.md", "claude-fable-5")
-    _write_log(log, "2026-09-02T08:00:00Z", "claude-fable-5-1", "claude-opus-5", "MAJOR")
+    _write_log(
+        log, "2026-09-02T08:00:00Z", "claude-fable-5-1", "claude-opus-5", "MAJOR"
+    )
 
     first = _run_cli(tmp_path, "--kurz")
     assert first.returncode == 1
@@ -260,10 +270,16 @@ def _run_detector(tmp_path: Path, prev: str, curr: str) -> str:
         "HOME": str(tmp_path),
     }
     settings.write_text(json.dumps({"model": prev}), encoding="utf-8")
-    subprocess.run(["bash", str(DETECTOR)], env=env, capture_output=True, text=True, timeout=30)
+    subprocess.run(
+        ["bash", str(DETECTOR)], env=env, capture_output=True, text=True, timeout=30
+    )
     settings.write_text(json.dumps({"model": curr}), encoding="utf-8")
-    subprocess.run(["bash", str(DETECTOR)], env=env, capture_output=True, text=True, timeout=30)
-    log_lines = (state_dir / "model-changes.log").read_text(encoding="utf-8").splitlines()
+    subprocess.run(
+        ["bash", str(DETECTOR)], env=env, capture_output=True, text=True, timeout=30
+    )
+    log_lines = (
+        (state_dir / "model-changes.log").read_text(encoding="utf-8").splitlines()
+    )
     return log_lines[-1].split("\t")[3]
 
 
@@ -328,7 +344,9 @@ def test_should_not_print_pending_consequence_when_already_handled(tmp_path):
     handled = tmp_path / "state" / "model-rebaseline-handled.tsv"
     policies = tmp_path / "policies"
     _write_policy(policies, "adr-threshold.md", "claude-fable-5")
-    _write_log(log, "2026-09-02T08:00:00Z", "claude-fable-5-1", "claude-opus-5", "MAJOR")
+    _write_log(
+        log, "2026-09-02T08:00:00Z", "claude-fable-5-1", "claude-opus-5", "MAJOR"
+    )
     handled.parent.mkdir(parents=True, exist_ok=True)
     # `behandelt` haengt am PAAR (bewertet, laeuft), nicht an der Log-Zeile —
     # siehe paar_schluessel().
@@ -350,7 +368,9 @@ def test_should_still_print_pending_consequence_when_faellig(tmp_path):
     log = tmp_path / "state" / "model-changes.log"
     policies = tmp_path / "policies"
     _write_policy(policies, "adr-threshold.md", "claude-fable-5")
-    _write_log(log, "2026-09-02T08:00:00Z", "claude-fable-5-1", "claude-opus-5", "MAJOR")
+    _write_log(
+        log, "2026-09-02T08:00:00Z", "claude-fable-5-1", "claude-opus-5", "MAJOR"
+    )
 
     r = _run_cli(tmp_path, "--kurz")
 
@@ -397,7 +417,9 @@ def test_should_not_treat_old_log_line_as_blanket_pass(tmp_path):
     handled = tmp_path / "state" / "model-rebaseline-handled.tsv"
     policies = tmp_path / "policies"
     _write_policy(policies, "adr-threshold.md", "claude-opus-5")
-    _write_log(log, "2026-09-02T08:00:00Z", "claude-fable-5-1", "claude-opus-5", "MAJOR")
+    _write_log(
+        log, "2026-09-02T08:00:00Z", "claude-fable-5-1", "claude-opus-5", "MAJOR"
+    )
     handled.parent.mkdir(parents=True, exist_ok=True)
     handled.write_text(
         "2026-09-02T08:00:00Z\tclaude-fable-5-1\tclaude-opus-5\tMAJOR\n"
