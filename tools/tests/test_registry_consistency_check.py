@@ -49,9 +49,9 @@ def test_should_not_count_a_missing_type_as_divergence():
 
 
 def test_should_load_both_registry_shapes_from_files(tmp_path: Path):
-    flat_datei = tmp_path / "repo-registry.yaml"
+    flat_datei = tmp_path / "flach.yaml"
     flat_datei.write_text("repos:\n  a-hub:\n    type: django\n  kaputt: nicht-dict\n")
-    rich_datei = tmp_path / "repos.yaml"
+    rich_datei = tmp_path / "reich.yaml"
     rich_datei.write_text(
         "domains:\n  - name: d\n    systems:\n"
         "      - name: A Hub\n        repo: a-hub\n        type: django\n"
