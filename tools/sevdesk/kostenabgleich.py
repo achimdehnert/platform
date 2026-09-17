@@ -334,6 +334,22 @@ def entwurf_buchen(client_, beleg: dict) -> dict:
     Statuswechsel per ``PUT /Voucher/{id}`` mit „Use saveVoucher instead"
     (Echtprobe 2026-09-13, Mandant edv). Also ``saveVoucher`` mit id, Status
     100 und den vorhandenen Positionen (ids), danach Kontrolle per GET.
+
+    Fremdwaehrung (Befund 2026-09-13, Echtprobe Mandant edv, Kurs doppelt
+    gerechnet): schickt man die Positionen nur als ``id`` + ``mapAll``,
+    rechnet sevdesk beim Statuswechsel den Wechselkurs ein ZWEITES Mal ein
+    (Beleg 10,00 USD / 8,68 EUR wurde nach dem Aufruf zu 8,68 USD / 7,53
+    EUR — bei EUR-Belegen passiert das nicht). Fix: bei Fremdwaehrung UND
+    genau einer Position werden deren Summen explizit in der Fremdwaehrung
+    mitgeschickt (``sumNet``/``sumTax``/``sumGross`` = die
+    ``*ForeignCurrency``-Werte des Belegs, ``net=false``, ``taxRate`` der
+    Position, ``voucher[currency]``) — dann rechnet sevdesk den Kurs nur
+    einmal. Die Fremdwaehrungssummen liegen nur auf Belegebene, nicht je
+    Position — bei mehr als einer Position laesst sich der Kurs nicht
+    eindeutig gegenrechnen, die Funktion bricht dort kontrolliert ab, ohne
+    etwas zu senden. Nach dem Aufruf wird zusaetzlich geprueft, dass die
+    Bruttosumme in der Belegwaehrung (Fremdwaehrung: ``sumGrossForeign
+    Currency``, sonst ``sumGross``) unveraendert bleibt.
     """
     if str(beleg.get("status")) != "50":
         return beleg
@@ -346,16 +362,43 @@ def entwurf_buchen(client_, beleg: dict) -> dict:
         },
     )
     pos.raise_for_status()
+    positionen = pos.json().get("objects") or []
+
+    waehrung = beleg.get("currency")
+    fremdwaehrung = bool(waehrung) and waehrung != "EUR"
+    if fremdwaehrung and len(positionen) > 1:
+        raise RuntimeError(
+            f"Beleg {beleg['id']}: Fremdwaehrung ({waehrung}) mit "
+            f"{len(positionen)} Positionen — im sevdesk-Dialog buchen "
+            "(die Fremdwaehrungssummen liegen nur auf Belegebene, der "
+            "Kurs laesst sich nur bei genau einer Position eindeutig "
+            "gegenrechnen)."
+        )
+
     daten = {
         "voucher[id]": str(beleg["id"]),
         "voucher[objectName]": "Voucher",
         "voucher[mapAll]": "true",
         "voucher[status]": "100",
     }
-    for i, p in enumerate(pos.json().get("objects") or []):
+    if fremdwaehrung:
+        daten["voucher[currency]"] = waehrung
+    for i, p in enumerate(positionen):
         daten[f"voucherPosSave[{i}][id]"] = str(p["id"])
         daten[f"voucherPosSave[{i}][objectName]"] = "VoucherPos"
         daten[f"voucherPosSave[{i}][mapAll]"] = "true"
+        if fremdwaehrung:
+            daten[f"voucherPosSave[{i}][net]"] = "false"
+            daten[f"voucherPosSave[{i}][taxRate]"] = str(p.get("taxRate"))
+            daten[f"voucherPosSave[{i}][sumNet]"] = str(
+                beleg.get("sumNetForeignCurrency")
+            )
+            daten[f"voucherPosSave[{i}][sumTax]"] = str(
+                beleg.get("sumTaxForeignCurrency")
+            )
+            daten[f"voucherPosSave[{i}][sumGross]"] = str(
+                beleg.get("sumGrossForeignCurrency")
+            )
     r = client_.post("/Voucher/Factory/saveVoucher", data=daten)
     r.raise_for_status()
     pruef = client_.get(f"/Voucher/{beleg['id']}")
@@ -365,6 +408,15 @@ def entwurf_buchen(client_, beleg: dict) -> dict:
     if str(danach.get("status")) != "100":
         raise RuntimeError(
             f"Beleg {beleg['id']}: Status nach saveVoucher ist {danach.get('status')}, nicht 100"
+        )
+    feld = "sumGrossForeignCurrency" if fremdwaehrung else "sumGross"
+    vorher = float(beleg.get(feld) or 0)
+    nachher = float(danach.get(feld) or 0)
+    if abs(vorher - nachher) > 0.005:
+        raise RuntimeError(
+            f"Beleg {beleg['id']}: {feld} hat sich beim Statuswechsel "
+            f"veraendert ({vorher} -> {nachher}) — Kurs vermutlich doppelt "
+            "gerechnet."
         )
     return danach
 
