@@ -813,6 +813,76 @@ def _kriteriums_luecken(bodies: list, evidenz: str) -> list[str]:
     return luecken
 
 
+# --- Rev 9 (2026-09-17, Retro 7d2e16 §5a, platform#3283, Gate rueckfaellig -> 'umbauen') ---
+#
+# (1) UNPRUEFBAR-CLAIM. Der Scanner erkannte Erfolgs-Behauptungen, nicht die
+# Absenz-Form: „nicht pruefbar", „laesst sich nicht belegen", „nicht moeglich". Im
+# Realfall (writing-hub PR #1201: „Rasterbilder, nicht pruefbar") stand kein
+# gescheiterter Versuch daneben — die Sitzung hatte es nicht probiert, sondern
+# erklaert. Der Hook feuerte auf einen anderen Satz, der Text blieb, der Owner
+# wiederholte die Frage eine halbe Stunde spaeter. Korroboration ist ein
+# FEHLVERSUCH im Turn (HTTP 3xx/4xx/5xx, Exit-Code, denied, not found, Traceback,
+# ABBRUCH) — ODER der Satz nennt den billigsten Check selbst (Policy
+# evidence-discipline: „nicht verifiziert: Y — billigster Check ist Z"); das ist die
+# ehrliche Form und bleibt still. Gilt fuer Chat UND publizierte Bodies.
+_UNPRUEFBAR_VERB = r"pr(?:ü|ue)f(?:en|bar)|(?:ü|ue)berpr(?:ü|ue)f(?:en|bar)|beleg(?:en|bar)|best(?:ä|ae)tig(?:en|bar)|mess(?:en|bar)|verifizier(?:en|bar)"
+UNPRUEFBAR_CLAIM_RE = re.compile(
+    rf"\bnicht\s+(?:{_UNPRUEFBAR_VERB})\b"
+    rf"|\b(?:l(?:ä|ae)sst|liess|ließ)\s+sich\s+nicht\s+(?:{_UNPRUEFBAR_VERB})"
+    rf"|\bkann\s+(?:ich\s+)?nicht\s+(?:{_UNPRUEFBAR_VERB})"
+    rf"|\bnicht\s+m(?:ö|oe)glich\s*(?:,|zu)\s*(?:{_UNPRUEFBAR_VERB})",
+    re.I,
+)
+#: Ein Satz, der den Check benennt, ist die geforderte ehrliche Form — kein Treffer.
+_UNPRUEFBAR_HEDGE_RE = re.compile(
+    r"billigst|\bcheck\b|pr(?:ü|ue)fen\s+w(?:ü|ue)rde|w(?:ä|ae)re\s+zu\s+pr(?:ü|ue)fen",
+    re.I,
+)
+FEHLVERSUCH_RE = re.compile(
+    r"\b(?:30[1278]|40[0-9]|41[0-9]|5\d\d)\b|exit(?:[ _-]?code)?[=: ]+[1-9]|returncode=[1-9]"
+    r"|\bdenied\b|verweigert|Permission|not found|nicht gefunden|No such file|timed out"
+    r"|Connection refused|ABBRUCH|Traceback|\bError\b|Fehler|login|anmeld",
+    re.I,
+)
+
+
+def _unpruefbar_ungehedgt(text: str) -> str:
+    """Erster unpruefbar-Satz ohne benannten Check, sonst ''."""
+    for satz in _SENTENCE_SPLIT_RE.split(text):
+        if UNPRUEFBAR_CLAIM_RE.search(satz) and not _UNPRUEFBAR_HEDGE_RE.search(satz):
+            return satz.strip()
+    return ""
+
+
+# (2) FREMDPRUEFUNGS-CLAIM, deckt den Slug `self-review-presented-as-review`
+# (x2, GATE-PFLICHT seit Retro 7d2e16 #2). Realfall writing-hub#1181 K4: „jede
+# Seitenangabe am Chunk gegengeprueft" — bei 44 von 51 Belegen prueften die
+# erzeugenden Agenten sich selbst (PR #1187 wies es spaeter selbst aus). Ein Body,
+# der eine Fremdpruefung behauptet (gegengeprueft, unabhaengig, fremder Blick,
+# Skeptiker, Vier-Augen), braucht im Turn einen ZWEITEN KONTEXT: einen Agent-/
+# Task-/Workflow-Aufruf, `claude -p`, headless_run oder delegate_subtask. GRENZE,
+# bewusst benannt: gemessen wird, ob ein zweiter Kontext LIEF, nicht ob er
+# unabhaengig vom Erzeuger war — dafuer braeuchte es die Prompt-Inhalte. Nur
+# publizierte Bodies: im Chat ist „gegenpruefen" oft eine Absicht.
+FREMDPRUEFUNG_CLAIM_RE = re.compile(
+    r"gegengepr(?:ü|ue)ft|unabh(?:ä|ae)ngig(?:e|en)?\s+(?:gepr(?:ü|ue)ft|pr(?:ü|ue)fung|blick)"
+    r"|fremde[rn]?\s+blick|skeptiker|vier-augen|zweitpr(?:ü|ue)fung|zweite\s+meinung"
+    r"|von\s+einem\s+(?:zweiten|anderen|frischen)\s+(?:agenten|kontext)",
+    re.I,
+)
+_ZWEITER_KONTEXT_TOOLS = {"Agent", "Task", "Workflow"}
+_ZWEITER_KONTEXT_RE = re.compile(
+    r"\bclaude\s+-p\b|headless_run|delegate_subtask|workflow_(?:run|execute)|subagent_type",
+    re.I,
+)
+
+
+def _zweiter_kontext_lief(tool_inputs: list, evidence_text: str) -> bool:
+    if any(name in _ZWEITER_KONTEXT_TOOLS for name, _inp in tool_inputs):
+        return True
+    return bool(_ZWEITER_KONTEXT_RE.search(evidence_text))
+
+
 _GH_COMMENT_RE = re.compile(r"\bgh\s+(?:pr|issue)\s+comment\b")
 _GH_MERGE_RE = re.compile(r"\bgh\s+pr\s+merge\b")
 _STATUS_IN_COMMENT_RE = re.compile(
@@ -1039,6 +1109,8 @@ def main() -> int:
     assistant_text, evidence_text, tool_inputs = _last_turn_blocks(transcript_path)
 
     fired = []
+    #: Advisory-Arten (entwurf-messzahl, Rev-9-Arten): blocken nie, s.u.
+    fired_advisory: list[str] = []
     #: Erstes woertliches Treffer-Zitat — der Beleg, an dem die Kalibrierung
     #: spaeter FEHLALARM oder ECHT entscheidet. Ohne ihn stehen im Protokoll nur
     #: Zeitstempel und Label, und die Fehlalarm-Quote ist nicht ableitbar
@@ -1252,6 +1324,34 @@ def main() -> int:
                 + "; Realfall platform#3015 K3)"
             )
 
+    # Rev 9 (1): Unpruefbar-Claim in Chat oder Body ohne Fehlversuch im Turn.
+    # Advisory-Sonderweg bis zum Ende des Kalibrierfensters (platform#3283):
+    # „nicht pruefbar" steht auch in ehrlichen Restluecken-Zeilen; die Hedge-Regel
+    # (Check benannt) soll erst an echten Treffern kalibriert werden, bevor sie blockt.
+    _unpruefbar_quelle = (assistant_text or "") + "\n" + "\n".join(bodies or [])
+    _unpruefbar_satz = _unpruefbar_ungehedgt(_unpruefbar_quelle)
+    if _unpruefbar_satz and not FEHLVERSUCH_RE.search(
+        _ev_ohne_body if bodies else evidence_text
+    ):
+        fired_advisory.append(
+            "unpruefbar-claim (Unpruefbarkeit behauptet, ohne dass im Turn ein Versuch "
+            "scheiterte oder der billigste Check benannt ist — Realfall writing-hub#1201 "
+            '„Rasterbilder, nicht pruefbar": „' + _unpruefbar_satz[:80] + '")'
+        )
+
+    # Rev 9 (2): Fremdpruefung im publizierten Body ohne zweiten Kontext im Turn
+    # (deckt self-review-presented-as-review). Advisory-Sonderweg wie oben.
+    if (
+        bodies
+        and FREMDPRUEFUNG_CLAIM_RE.search("\n".join(bodies))
+        and not _zweiter_kontext_lief(tool_inputs, _ev_ohne_body)
+    ):
+        fired_advisory.append(
+            "fremdpruefungs-claim (Gegen-/Fremdpruefung im PR-/Issue-Body behauptet, aber "
+            "kein zweiter Kontext im Turn — kein Agent/Task/Workflow, kein claude -p; "
+            "Realfall writing-hub#1181 K4: 44 von 51 Belegen vom Erzeuger selbst geprueft)"
+        )
+
     if _kommentar_vor_merge(tool_inputs):
         fired.append(
             "comment-before-merge (Status-/Bypass-Kommentar in derselben Befehlskette VOR "
@@ -1269,7 +1369,6 @@ def main() -> int:
     # additionalContext-Form aus. Ein Mail-Entwurf soll trotz Warnzeile abgelegt
     # werden koennen; blockiert wird nur, wenn eine der uebrigen, haerteren Arten
     # gleichzeitig feuert.
-    fired_advisory: list[str] = []
     try:
         entwurf_bodies = _entwurf_bodies(tool_inputs)
     except Exception:  # noqa: BLE001 — Scanner darf nie werfen
