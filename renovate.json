@@ -26,6 +26,13 @@
   "automerge": false,
   "packageRules": [
     {
+      "description": "Major-Updates nur nach Freigabe im Dependency Dashboard — erster Lauf 2026-09-17 zeigte 8 Major-Gruppen auf einmal (Django 6, Postgres 18, Redis 8, Actions, authentik 2026, odoo 19, fastmcp 4, sphinx 9)",
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "dependencyDashboardApproval": true
+    },
+    {
       "description": "iil-Packages: SOFORT (internes Ökosystem — kein Wochentag-Gate)",
       "groupName": null,
       "automerge": false,
