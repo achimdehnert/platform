@@ -223,7 +223,7 @@ def test_should_protect_underscores_before_markdown_consumes_them():
     Die ersten beiden reichen: die erste Fassung suchte erst im fertigen HTML
     und erzeugte in den echten Dokumenten 15 statt 56 Feldern.
     """
-    import markdown as _md
+    _md = pytest.importorskip("markdown")  # nicht in der CI-Testumgebung (#2621)
 
     def zu_html(text: str) -> str:
         return _md.Markdown(extensions=["tables"]).convert(text)
