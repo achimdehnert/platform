@@ -66,6 +66,28 @@ MCP_LEGACY_TOKEN = re.compile(r"mcp\d+_\w+")
 KD_REFERENZ_MARKER = "KD-Referenz"
 KD_REFERENZ_FIELDS = ("Spec", "Lokal", "GitHub", "iil.pet")
 
+# SUGGEST-lint (#2639): Skill mit vielen ##/###-Phasen, aber ohne Abschluss-Checkliste.
+# House Rule „Ausführungstreue": ein langes Phasen-Dokument ohne Checkliste ist strukturell
+# ueberspringbar (Realfall 2026-07-15, #1164). Nur melden, keine Checklisten erzeugen.
+# Baseline beim Einbau festgeschrieben (advisory_scanner_reactivation_needs_baseline):
+# 41 verteilte Skills am 2026-09-17, gemessen mit diesem Lint auf origin/main
+# (Roh-grep ueber alle 60 Workflow-Dateien: 45; am 2026-09-02 im Issue: 48 von 59).
+PHASE_RE = re.compile(r"^#{2,3} ", re.MULTILINE)
+CHECKLISTE_RE = re.compile(
+    r"abschluss-check|^#{2,3} .*checkliste", re.IGNORECASE | re.MULTILINE
+)
+CHECKLISTE_MIN_PHASEN = 3
+CHECKLISTE_BASELINE = (41, "2026-09-17")
+
+
+def phasen_ohne_checkliste(body, min_phasen=CHECKLISTE_MIN_PHASEN):
+    """Zahl der ##/###-Phasen, wenn der Skill lang genug ist und keine Abschluss-Checkliste
+    traegt — sonst 0 (kurzer Skill oder Checkliste vorhanden = kein Befund)."""
+    phasen = len(PHASE_RE.findall(body))
+    if phasen < min_phasen or CHECKLISTE_RE.search(body):
+        return 0
+    return phasen
+
 
 # Lane: (Quell-Pfad im Repo, Blob-Endung, key-Extraktor aus repo-Pfad, Live-Ziel, Ziel-Enumerator)
 def _name_basename(path):
@@ -466,6 +488,25 @@ def main():
                 print(
                     "  --- SUGGEST: 0 Skills mit unvollständigem KD-Referenz-Schema ---"
                 )
+
+        # SUGGEST-lint: Phasen-Skill ohne Abschluss-Checkliste (#2639)
+        ohne_checkliste = []
+        for name, sha in sorted(canon.items()):
+            phasen = phasen_ohne_checkliste(canon_content(sha) or "")
+            if phasen:
+                ohne_checkliste.append((phasen, name))
+        ohne_checkliste.sort(key=lambda t: (-t[0], t[1]))
+        basis, basis_datum = CHECKLISTE_BASELINE
+        print(
+            f"  --- SUGGEST ({len(ohne_checkliste)} Skill(s) mit ≥{CHECKLISTE_MIN_PHASEN} "
+            f"Phasen ohne Abschluss-Checkliste; Baseline {basis} am {basis_datum}) ---"
+        )
+        for phasen, skill in ohne_checkliste:
+            print(f"    [suggest] {skill} — {phasen} Phasen, keine Checkliste")
+        if len(ohne_checkliste) > basis:
+            print(
+                f"    ↑ {len(ohne_checkliste) - basis} über Baseline — neuer Skill ohne Checkliste"
+            )
 
     if a.fail_on_dangling:
         sys.exit(1 if sym_dangling else 0)
