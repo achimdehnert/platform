@@ -97,3 +97,17 @@ def test_should_write_run_into_catalog_and_keep_header(katalog, tmp_path):
     # der Test bricht ohne Codeaenderung — so geschehen am 2026-09-10 in jedem PR.
     assert yaml.safe_load(text)["bahnen"]["wartung"]["laeufe"][-1]["gemessen"] == 1
     assert ik.pruefe(yaml.safe_load(text)) == []
+
+
+def test_should_keep_external_briefing_durable_in_repo(katalog, tmp_path, monkeypatch):
+    monkeypatch.setattr(ik, "SHARED", tmp_path / "shared")
+    monkeypatch.setattr(ik, "BAHNEN_DIR", tmp_path / "repo" / "bahnen")
+    monkeypatch.setattr(ik, "PLATFORM", tmp_path / "repo")
+    (tmp_path / "shared").mkdir()
+    (tmp_path / "shared" / "iil-assist-diabolus-2026-09-10-response.md").write_text("1. Befund X\n", encoding="utf-8")
+    lauf = ik.bahn_extern(katalog, dt.date(2026, 9, 10), "diabolus")
+    assert lauf["briefing"] == "bahnen/2026-09-10-diabolus.md"
+    assert lauf["antwort"] == "bahnen/2026-09-10-diabolus-antwort.md"
+    assert lauf["antwort_kopf"] == "1. Befund X"
+    assert "~/shared" not in lauf["briefing"] and "/tmp" not in lauf["briefing"]
+
