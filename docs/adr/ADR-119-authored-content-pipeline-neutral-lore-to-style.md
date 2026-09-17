@@ -247,5 +247,5 @@ strukturiertes Visual-Canon-Feld auf `Character`/`Location`).
 
 | Datum | Version | Reviewer | Urteil | Link |
 |-------|---------|----------|--------|------|
-| 2026-03-11 | v1.0 → v1.1 | Cascade | ❌ → Fixes applied | [Review](../reviews/ADR-119-review-2026-03-11.md) · [Issue #24](https://github.com/achimdehnert/platform/issues/24) |
+| 2026-03-11 | v1.0 → v1.1 | Cascade | ❌ → Fixes applied | [Review](reviews/ADR-119-review-2026-03-11.md) · [Issue #24](https://github.com/achimdehnert/platform/issues/24) |
 | 2026-07-01 | v1.1 → v1.2 | — | Amendment: writing-hub (Nachfolge bfagent) + illustration-hub als Konsumenten | — |
