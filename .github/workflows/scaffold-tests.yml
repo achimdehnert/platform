@@ -1,11 +1,22 @@
 name: Auto-Scaffold Tests für neue Repos
 
+# Owner je Repo kommt aus registry/canonical.yaml (tools/scaffold_kandidaten.py,
+# #2645) — vorher war der platform-Owner fuer alle Repos angenommen, und
+# `frist-hub` (meiki-lra) liess jeden Lauf mit 404 abbrechen (20/20 rot seit
+# 2026-07-02). Fremd-Org-Repos werden gezaehlt, nicht angefasst; 404/403 je Repo
+# zaehlen als `unreachable`, der Lauf geht weiter.
+# Wiring-Beweis: jede Aenderung an Workflow/Planer laeuft im PR als erzwungener
+# Dry-Run (pull_request ⇒ nie PR-Write in Fremd-Repos).
 on:
   push:
     branches: [main]
     paths:
-      - 'scripts/repo-registry.yaml'
+      - 'registry/canonical.yaml'
       - 'tests/megatest/budgets.toml'
+  pull_request:
+    paths:
+      - '.github/workflows/scaffold-tests.yml'
+      - 'tools/scaffold_kandidaten.py'
   workflow_dispatch:
     inputs:
       repo_name:
@@ -20,7 +31,7 @@ on:
 jobs:
   scaffold:
     name: Test-Scaffold PR für neue Repos
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     permissions:
       contents: read
 
@@ -39,39 +50,9 @@ jobs:
       - name: Install pyyaml
         run: pip install pyyaml --quiet
 
-      - name: Repos ohne Test-Scaffold ermitteln
+      - name: Repos ohne Test-Scaffold ermitteln (Owner aus canonical.yaml)
         id: find_repos
-        run: |
-          set -euo pipefail
-          python3 - <<'PYEOF'
-          import json, os, yaml
-          from pathlib import Path
-
-          root = Path(".")
-          reg = yaml.safe_load((root / "scripts/repo-registry.yaml").read_text())
-          repos = reg.get("repos", {})
-
-          # Filter: nur Django-Repos (type=django, agent, bot)
-          SCAFFOLD_TYPES = {"django", "agent", "bot"}
-          target_repos = [
-              name for name, props in repos.items()
-              if isinstance(props, dict) and props.get("type") in SCAFFOLD_TYPES
-              and name != "platform"
-          ]
-
-          # Einzelnes Repo via workflow_dispatch?
-          single = os.environ.get("INPUT_REPO_NAME", "").strip()
-          if single:
-              target_repos = [single] if single in target_repos else []
-
-          print(f"Kandidaten ({len(target_repos)}): {target_repos}")
-
-          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-              f.write(f"repos={json.dumps(target_repos)}\n")
-              f.write(f"count={len(target_repos)}\n")
-          PYEOF
-        env:
-          INPUT_REPO_NAME: ${{ inputs.repo_name }}
+        run: python3 tools/scaffold_kandidaten.py --repo "${{ inputs.repo_name }}"
 
       - name: Scaffold generieren (SSoT via gen_test_scaffold.py)
         id: gen_scaffold
@@ -108,9 +89,10 @@ jobs:
           github-token: ${{ secrets.PROJECT_PAT }}
           script: |
             const repos = JSON.parse('${{ steps.find_repos.outputs.repos }}');
-            const dryRun = '${{ inputs.dry_run }}' === 'true';
+            const dryRun = '${{ inputs.dry_run }}' === 'true' || context.eventName === 'pull_request';
             const testkitVersion = '${{ steps.gen_scaffold.outputs.testkit_version }}';
-            const owner = context.repo.owner;
+            const foreign = Number('${{ steps.find_repos.outputs.foreign }}');
+            const unknown = Number('${{ steps.find_repos.outputs.unknown }}');
 
             // Scaffold-Inhalt kommt AUSSCHLIESSLICH von gen_test_scaffold.py (SSoT)
             // Kein hardcoding — Änderungen an gen_test_scaffold.py wirken automatisch hier
@@ -122,9 +104,10 @@ jobs:
 
             let created = 0;
             let skipped = 0;
+            let unreachable = 0;
 
-            for (const repo of repos) {
-              console.log(`\nPrüfe ${repo}...`);
+            for (const { owner, repo } of repos) {
+              console.log(`\nPrüfe ${owner}/${repo}...`);
 
               // Prüfen ob conftest.py bereits existiert
               let hasConftest = false;
@@ -133,8 +116,8 @@ jobs:
                 hasConftest = true;
               } catch (e) {
                 if (e.status !== 404) {
-                  console.log(`  WARN: ${repo} — ${e.message}`);
-                  skipped++;
+                  console.log(`  UNREACHABLE: ${owner}/${repo} — ${e.status} ${e.message}`);
+                  unreachable++;
                   continue;
                 }
               }
@@ -145,10 +128,16 @@ jobs:
                 continue;
               }
 
-              // Prüfen ob PR bereits offen
-              const existing = await github.rest.pulls.list({
-                owner, repo, state: 'open',
-              });
+              // Prüfen ob PR bereits offen — 404/403 (Repo weg, Token ohne Zugriff)
+              // ist kein Abbruchgrund für die übrigen Repos
+              let existing;
+              try {
+                existing = await github.rest.pulls.list({ owner, repo, state: 'open' });
+              } catch (e) {
+                console.log(`  UNREACHABLE: ${owner}/${repo} — ${e.status} ${e.message}`);
+                unreachable++;
+                continue;
+              }
               const alreadyOpen = existing.data.some(pr =>
                 pr.title.includes('test scaffold') || pr.title.includes('Test-Infrastruktur')
               );
@@ -267,4 +256,4 @@ jobs:
               created++;
             }
 
-            console.log(`\nErgebnis: ${created} PRs erstellt, ${skipped} übersprungen`);
+            console.log(`\nErgebnis: created=${created} skipped=${skipped} unreachable=${unreachable} foreign=${foreign} unknown=${unknown}${dryRun ? ' (dry-run)' : ''}`);
