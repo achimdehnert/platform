@@ -1,0 +1,28 @@
+{
+  "slug": "date-cutoff-utc-statt-localdate",
+  "mode": "blocking",
+  "owner": "achim",
+  "repo": "achimdehnert/apo-hub",
+  "module": "tests/test_ux_zeitzone.py",
+  "drill": "tests/test_ux_zeitzone.py",
+  "built": "2026-09-14",
+  "last_drill_pass": "2026-09-15",
+  "ref": "apo-hub#123 (Fix #126), apo-hub#144 (Registry-Pflicht); Retro 2026-09-14 apo-hub 40c069 Befunde #1 und #21",
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-09-14",
+  "faengt": [
+    {
+      "fall": "Datums-Cutoff gegen DateField mit timezone.now().date() oder date.today() in apps/** (zwischen 00:00 und 02:00 Ortszeit zaehlt Gestern noch als heute)",
+      "probe": "not_use_utc_or_container_date_in_app_code"
+    },
+    {
+      "fall": "Realfall dashboard(): am Vortag beendeter Bedarf gilt um 00:30 Berlin noch als offen",
+      "probe": "treat_yesterday_ended_search_as_past_at_0030_berlin"
+    }
+  ],
+  "positivkontrolle": {
+    "ref": "apo-hub tests/test_ux_zeitzone.py::test_should_not_use_utc_or_container_date_in_app_code -- FORBIDDEN_PATTERN trifft `date.today()` und `timezone.now().date()` (Selbsttest im Drill) und findet auf main@10f5e37 null Stellen; vier Vergleichsstellen in apps/web/views.py nutzen timezone.localdate(). Verhaltens-Test friert 22:30Z (= 00:30 Berlin) ein und erwartet den Vortags-Bedarf als vergangen. Rot vor #126 (Retro Befund #1), gruen seit Merge 2026-09-14, Prod-Deploy 2026-09-15.",
+    "datum": "2026-09-17"
+  },
+  "note": "Klassen-Gate im Ziel-Repo, nicht in platform: der Melder 0.7.9 gate-deckung fuehrte den Slug seit 2026-09-14 als ungedeckt, obwohl Code-Fix UND Klassen-Test seit #126 auf main lagen — es fehlte nur dieser Eintrag. apo-hub#144 wurde am 2026-09-16 mit veralteten Zeilennummern aus dem Retro-Text angelegt (Gegenpruefung 2026-09-17: beide Stellen laengst umgestellt). Lehre: ein Gate ohne Registry-Eintrag ist fuer die Flotte unsichtbar, und ein Issue aus Retro-Text braucht den Blick auf main."
+}
