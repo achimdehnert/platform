@@ -11,12 +11,30 @@
 # ⚠️ run-conclusion ≠ Tool-Health (CC-Memory): Ein ROTER Lauf ist ein FUND
 # (neue, untriagierte Drift), KEIN Workflow-Defekt. Triage: beheben oder mit
 # owner+expires_at in infra/reconcile-baseline.yaml stunden.
+#
+# LESEFLAECHE (#2636): das Ergebnis landet als Sektion `registry-live` im EINEN
+# rollenden Fleet-Drift-Issue (Label `fleet-drift`, #1472) — kein Issue je Lauf
+# (KONZ-018 §5.4). Transportfehler (C0) stehen dort getrennt von Drift.
+# Wiring-Beweis by-construction (Gate autonomous-no-human-review): jede Aenderung
+# an Workflow/Tool laeuft im PR als ERZWUNGENER Dry-Run des Sinks auf einem
+# GitHub-Runner — nie auf dem Prod-Runner, nie mit Issue-Write.
 name: Registry-Live-Reconcile (KONZ-015)
 
 on:
   schedule:
     - cron: '17 5 * * *'        # täglich 05:17 UTC
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Nur Report ins Log, kein Issue-Write"
+        required: false
+        default: false
+        type: boolean
+  pull_request:
+    paths:
+      - '.github/workflows/registry-live-reconcile.yml'
+      - 'tools/reconcile_registry_live.py'
+      - 'tools/pypi_fleet_sections.py'
   push:
     branches: [main]
     paths:
@@ -27,15 +45,70 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   reconcile:
     name: "Drift-Kennzahl messen (rot = Fund, nicht Fehler)"
+    if: github.event_name != 'pull_request'
     runs-on: [self-hosted, prod]
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Abgleich Registry ↔ Live (lokal auf Prod-Host)
+        id: abgleich
         run: |
           python3 -m pip install --quiet --user pyyaml 2>/dev/null || true
-          python3 tools/reconcile_registry_live.py
+          set +e
+          python3 tools/reconcile_registry_live.py | tee reconcile.txt
+          echo "rc=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+      - name: Sektion "registry-live" im rollenden Fleet-Drift-Issue pflegen
+        if: always() && steps.abgleich.outputs.rc != '2'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          {
+            echo "Täglicher Abgleich Registry ↔ Live (\`tools/reconcile_registry_live.py\`, KONZ-015 Kill-Gate-KPI)."
+            echo "\`drift\` = C1–C5 (echte Abweichung), \`unreachable\` = C0 (Host nicht lesbar, keine Drift)."
+            echo ""
+            echo '```'
+            cat reconcile.txt
+            echo '```'
+            echo ""
+            echo "_Letzter Lauf: [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) ($(date -u +%Y-%m-%dT%H:%M:%SZ), rc=${{ steps.abgleich.outputs.rc }})_"
+          } > section.md
+          DRYFLAG=""
+          if [ "${{ inputs.dry_run }}" = "true" ]; then DRYFLAG="--dry-run"; fi
+          python3 tools/pypi_fleet_sections.py \
+            --owner "${{ github.repository_owner }}" --repo platform \
+            --label fleet-drift --title "[fleet-drift] Fleet-Drift-Report (rollend)" \
+            --section registry-live --heading "Registry ↔ Live (KONZ-015, täglich)" \
+            --body-file section.md $DRYFLAG
+      - name: Ergebnis durchreichen (rot = Fund)
+        run: exit ${{ steps.abgleich.outputs.rc }}
+
+  # PR-Lauf: erzwungener Dry-Run des Sinks auf einem GitHub-Runner. Beweist die
+  # Verdrahtung (Token liest das Issue, Sektion rendert), schreibt nie.
+  sink-dry-run:
+    name: "Sink Dry-Run (PR, kein Issue-Write)"
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Klassifikation testen (drift vs. unreachable)
+        run: |
+          pip install pytest pyyaml --quiet --break-system-packages
+          python3 -m pytest tools/tests/test_reconcile_registry_live.py -q
+      - name: Sink Dry-Run gegen das rollende Issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          printf 'Drift-Kennzahl: drift: 0 (0 NEU + 0 baselined) · unreachable: 0 (0 NEU + 0 baselined)\n_Dry-Run aus PR #%s_\n' "${{ github.event.number }}" > section.md
+          python3 tools/pypi_fleet_sections.py \
+            --owner "${{ github.repository_owner }}" --repo platform \
+            --label fleet-drift --title "[fleet-drift] Fleet-Drift-Report (rollend)" \
+            --section registry-live --heading "Registry ↔ Live (KONZ-015, täglich)" \
+            --body-file section.md --dry-run

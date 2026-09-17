@@ -37,10 +37,16 @@ PFLICHT-Feldern owner + expires_at (E2-Waiver-Muster aus KONZ-015 / ADR-264 D1:
 ohne Ablaufdatum → Fehler; abgelaufen → Fehler). Baseline-Treffer werden
 unterdrückt, aber separat gezählt.
 
+ZWEI KLASSEN (2026-09-17, #2636): C0 ist ein TRANSPORTFEHLER, keine Drift.
+Der Lauf vom 2026-09-02 zaehlte 4 SSH-Fehler und 2 echte Registry-Drifts in
+einer Liste — die Drift-Kennzahl (Kill-Gate-KPI) war damit verfaelscht. Die
+Ausgabe trennt seither `drift: N` (C1–C5) von `unreachable: M` (C0); beide
+bleiben sichtbar und baselinebar, nur die Kennzahl zaehlt C0 nicht mehr mit.
+
 Exit-Codes (⚠️ run-conclusion ≠ Tool-Health, siehe CC-Memory):
-  0 = keine neue Drift (Baseline-Treffer erlaubt)
-  1 = NEUE Drift gefunden — das ist ein FUND-Signal, kein Tool-Fehler
-  2 = Tool-/Konfigurationsfehler (Baseline ungültig, Host unerreichbar, ...)
+  0 = keine neue Drift und kein neuer unerreichbarer Host (Baseline-Treffer erlaubt)
+  1 = NEUE Drift oder NEU unerreichbarer Nebenhost — FUND-Signal, kein Tool-Fehler
+  2 = Tool-/Konfigurationsfehler (Baseline ungültig, Haupthost unerreichbar, ...)
 
 Aufruf:
   python3 tools/reconcile_registry_live.py                  # host-aware (lokal + SSH je prod_host)
@@ -187,6 +193,27 @@ def live_dns(domain: str, ssh: str | None) -> bool:
 
 def in_infra_range(port: int) -> bool:
     return any(lo <= port <= hi for lo, hi in INFRA_PORT_RANGES)
+
+
+def klassifizieren(
+    befunde: list[tuple[str, str]], baseline_ids: set[str]
+) -> dict[str, list[tuple[str, str]]]:
+    """Befunde in zwei Klassen und je Klasse in NEU/baselined teilen.
+
+    `unreachable` = C0 (Transport, Host nicht lesbar), `drift` = alles andere.
+    Reine Funktion, damit die Trennung ohne Host testbar ist (#2636).
+    """
+    aus: dict[str, list[tuple[str, str]]] = {
+        "drift_neu": [],
+        "drift_baselined": [],
+        "unreachable_neu": [],
+        "unreachable_baselined": [],
+    }
+    for i, d in befunde:
+        klasse = "unreachable" if i.startswith("C0:") else "drift"
+        stufe = "baselined" if i in baseline_ids else "neu"
+        aus[f"{klasse}_{stufe}"].append((i, d))
+    return aus
 
 
 def main() -> int:
@@ -374,23 +401,28 @@ def main() -> int:
             )
         )
 
-    new = [(i, d) for i, d in drift if i not in baseline_ids]
-    suppressed = [(i, d) for i, d in drift if i in baseline_ids]
+    k = klassifizieren(drift, baseline_ids)
+    n_drift = len(k["drift_neu"]) + len(k["drift_baselined"])
+    n_unreach = len(k["unreachable_neu"]) + len(k["unreachable_baselined"])
 
     print(
-        f"Drift-Kennzahl: {len(drift)} gesamt = {len(new)} NEU + {len(suppressed)} baselined"
+        f"Drift-Kennzahl: drift: {n_drift} ({len(k['drift_neu'])} NEU + "
+        f"{len(k['drift_baselined'])} baselined) · unreachable: {n_unreach} "
+        f"({len(k['unreachable_neu'])} NEU + {len(k['unreachable_baselined'])} baselined)"
     )
-    for i, d in suppressed:
-        print(f"  [baseline] {i}  {d}")
-    for i, d in new:
-        print(f"  [NEU]      {i}  {d}")
-    if new:
+    for i, d in k["drift_baselined"] + k["unreachable_baselined"]:
+        print(f"  [baseline]    {i}  {d}")
+    for i, d in k["drift_neu"]:
+        print(f"  [NEU]         {i}  {d}")
+    for i, d in k["unreachable_neu"]:
+        print(f"  [UNREACHABLE] {i}  {d}")
+    if k["drift_neu"] or k["unreachable_neu"]:
         print(
-            "\n→ Exit 1 = FUND-Signal (neue Drift), kein Tool-Fehler. "
+            "\n→ Exit 1 = FUND-Signal (neue Drift bzw. Host nicht lesbar), kein Tool-Fehler. "
             "Triage: beheben ODER mit owner+expires_at in infra/reconcile-baseline.yaml."
         )
         return 1
-    print("→ Keine neue Drift gegenüber Baseline.")
+    print("→ Keine neue Drift, kein neu unerreichbarer Host gegenüber Baseline.")
     return 0
 
 
