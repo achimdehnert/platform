@@ -177,7 +177,15 @@ def render_coverage(
     if fehler:
         lines += ["", "### Fehlgeschlagen (eigene Org — echter Ausfall)", ""]
         for repo, grund in sorted(fehler.items()):
-            lines.append(f"- `{repo}`: {grund.splitlines()[0][:200]}")
+            # Die erste git-Zeile ist "Cloning into ..." — der Grund steht
+            # dahinter (fatal:/remote:). Gemessen 2026-09-14: 32 Eintraege, alle
+            # mit derselben nichtssagenden Zeile.
+            zeilen = [z for z in grund.splitlines() if z.strip()]
+            kern = next(
+                (z for z in zeilen if z.startswith(("fatal:", "remote:", "error:"))),
+                zeilen[0] if zeilen else "",
+            )
+            lines.append(f"- `{repo}`: {kern[:200]}")
 
     frisch = [r for r, z in ergebnisse.items() if z == "aktualisiert"]
     neu = [r for r, z in ergebnisse.items() if z == "geklont"]

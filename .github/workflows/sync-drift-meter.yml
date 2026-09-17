@@ -79,6 +79,12 @@ jobs:
       - name: "Fleet-Checkouts herstellen und aktualisieren"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GITHUB_TOKEN sieht nur dieses Repo: am 2026-09-07 und 2026-09-14
+          # scheiterten 32 von 57 Klonen (alle privaten Hubs), der Job war rot,
+          # und die 22 gescannten Repos taeuschten eine Erhebung vor. Der
+          # Flotten-Token traegt Lesezugriff ueber die Org-Grenze (Muster
+          # deploy-failure-monitor.yml, runner-health.yml).
+          GH_FLEET_TOKEN: ${{ secrets.PLATFORM_GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           python3 tools/fleet_checkout.py \
