@@ -86,7 +86,10 @@ WORT_MIN_LAENGE = 4
 #: 10 = Nicht vorsteuerabziehbare Aufwendungen — für Eigenbelege ohne
 #: Vorsteuerausweis (Anbieter stellt keine Rechnung, der Beleg stammt aus dem
 #: Transaktionsverlauf) · 13 = Reverse Charge ohne Vorsteuerabzug.
-TAXRULES_BEKANNT = {"1", "9", "10", "12", "13", "14"}
+#: Ergänzt 2026-09-16 (#3271, ReceiptGuidance/forAccountNumber 2100 im Mandanten
+#: iil): 16 = Nicht steuerbar — einzige erlaubte Regel für 2100 Privatentnahmen,
+#: z. B. der Privatanteil einer Sammelüberweisung.
+TAXRULES_BEKANNT = {"1", "9", "10", "12", "13", "14", "16"}
 
 
 def _client(mandant: str = STANDARD_MANDANT):
@@ -657,7 +660,7 @@ def main() -> int:
         default="9",
         help=(
             "9 DE-Vorsteuer · 10 ohne Vorsteuerabzug · 12 Drittland RC · "
-            "13 RC ohne Vorsteuerabzug · 14 EU RC"
+            "13 RC ohne Vorsteuerabzug · 14 EU RC · 16 nicht steuerbar (2100 Privat)"
         ),
     )
     p.add_argument(

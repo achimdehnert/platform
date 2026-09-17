@@ -61,6 +61,7 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
 | `0.7.1 deploy-script` | Host-Kopie von `deploy.sh` weicht von Git ab | synchron | Freigabe: `--sync` ist Prod-Eingriff, Fleet-Blast-Radius |
 | `0.7.1b host-kopien` | verteilte Host-Datei weicht von Git ab | synchron | Freigabe: Host-Sync ist Prod-Eingriff |
 | `0.7.2 cron-melder` | Cron-Workflow dauerhaft rot / `ROT-IST-BEFUND`-Fund | OK | BEFUND reparieren, TRIAGE-Fund einordnen |
+| `0.7.4 prio-referenzen` | Prio-Zeile zeigt auf Geschlossenes | alle Referenzen offen | **vor Arbeitsbeginn** nachziehen; verwaiste Owner-Aufgabe braucht eigenen Anker |
 | `0.7.3 opt-platform` | `/opt/platform`-Klon (Mail-Ingest) weicht ab | synchron/hinterher | Freigabe: `--sync` ist bewusster Prod-Eingriff |
 | `0.7.5 hook-dist` | aktive Hook-Kopie weicht ab, Selbstheilung fehlgeschlagen | selbst geheilt | Ursache prüfen, manuell verteilen |
 | `0.7.6 leseflaeche` | Prio-Zeilen zeigen auf Geschlossenes | `◌ NICHT pruefbar` = Abdeckungslücke | **vor** Arbeitsbeginn nachziehen, `befund_leseflaeche.py --alle-gesehen` |
@@ -75,9 +76,14 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
 | `0.7.16 origin-tls` | `abgelaufen`/`laeuft-ab` = Renewal kaputt · `fallback-zertifikat` = **kein** Cert | `cloudflare-origin-ca`, `kein-tls-am-origin` | Renewal bzw. vhost/cert am Host reparieren |
 | `0.7.17 backup-deckung` | Volume ohne `pgdump`/`volumes`/`verzicht`/`anonym` = **UNGEDECKT** | `verzicht` **mit** Grund | nach Lage trennen: in Nutzung / Container steht / verwaist |
 | `0.7.18 speicher` | < 7 Tage bis voll oder < 10 % frei | — | Platte ins Board, Wachstum abstellen; Offsite zählt mit |
+| `0.7.13 skill-dist` | Skill-Lane driftet, Selbstheilung fehlgeschlagen | alle Lanes synchron | `cc-skill-dist/doctor.py --kind <lane>`; Ziel-Pfad der Lane prüfen |
+| `0.7.19 melder-praezision` | Melder unter der Trefferquote | keiner darunter | der **Melder** ist der Befund, nicht seine Meldung |
 | `0.7.20 umgebung` | Standort/antwortende App unklar oder falsch | eindeutig erkannt | vor Arbeitsbeginn klären, `ports.yaml` korrigieren |
 | `0.7.21 alarmweg` | Alarmkanal ungeprüft/erreicht niemand | belegt | Freigabe: Kanal/Secret reparieren |
 | `0.7.22 flottenbild` | Knoten unhealthy/restart/Swap-Platte ≥90% | alles grün | Knoten prüfen, `/infra-cleanup` |
+| `0.7.25 rotation-faelligkeit` | Secret fällig, ohne Beleg oder ohne Konsumenten | nichts fällig | rotieren bzw. Konsument benennen; ohne Konsumenten = Kandidat zum Ausbau |
+| `0.7.26 ci-deckung` | Ziel `NICHT PRUEFBAR` — Deckung ungemessen | alle auflösbar | shared-ci-Workflow auflösen; ungemessen ist keine Entwarnung |
+| `0.7.27 sichtbarkeits-drift` | noch Konsumenten/Kopien/Fristen an `achimdehnert/platform` (Ziel 0/0/1/0, #3234) | `erreicht` | Laufzeit-Pfade zuerst umhängen; Frist erneuern; Flip = Owner nach 7 Tagen PASS |
 | `0.7.23 melder-register` | Phase ohne Eintrag / `leser: UNBENANNT` / Karteileiche | — | `melder_register_check.py --kurz`, Leser benennen |
 
 **Jede `◌`/`nicht messbar`/`SAMMELPHASE`-Zeile ist eine Lücke, kein Pass — als solche ins Board.**
@@ -146,7 +152,10 @@ Modell bleiben:
 
 1. **Repo-Kontext** — `AGENT_HANDOVER.md` (Prio-Tabelle + Stand) **und die letzten Einträge
    aus `AGENT_HANDOVER_LOG.md`** (append-only, neueste **unten**, `tail -60`),
-   `CORE_CONTEXT.md`, ADR-Index; falls gebunden `mcp__platform-context__get_context_for_task()`
+   `CORE_CONTEXT.md`, ADR-Index; falls gebunden `mcp__platform-context__get_context_for_task()`.
+   **Repo mit `docs/handover.d/`:** der Sitzungsstand kommt aus den Fragmenten —
+   `python3 tools/agent-handover/fragments.py render --ref origin/main` (#1944 K6); der
+   Start-Hook spiegelt dessen offene Fäden bereits.
 2. **Health Dashboard** (Infra/Deploy, falls gebunden):
    `mcp__deployment-mcp__system_manage(action: health_dashboard)`
 3. **Aufgabe klären** — Issue? Use Case? ADR? Governance?
@@ -238,6 +247,7 @@ SA-4 aus `policies/autonomy-gates.md`):
 | 2f | `0.7.18`: Platten unter 7 Tagen Vorlauf benannt; `SAMMELPHASE` ≠ Entwarnung | ☐ |
 | 2g | `0.3`: MAJOR ggü. bewertet gespiegelt (Vollmachten suspendiert, §2-Köder, #1640) | ☐ |
 | 2h | `0.7.23`: kein Melder ohne Leser, keine Karteileiche; Block „⏳ > 14 d" geprüft | ☐ |
+| 2i | `0.7.4`: jede Prio-Referenz offen — sonst **vor** dem ersten Arbeitsschritt nachgezogen | ☐ |
 | 3 | Architecture Context geladen (ex-0.4.2) | ☐ |
 | 4 | Modell-Tier bewusst gewählt (0.8) | ☐ |
 | 5 | Repo-Kontext + Memory-Warm-Start geladen (Phase 1/2) | ☐ |
@@ -272,12 +282,17 @@ SA-4 aus `policies/autonomy-gates.md`):
 
 > Nur die letzten drei Einträge (Policy seit #2696). Volle Historie: `LEHREN#changelog-historie`.
 
+- 2026-09-16: **Phase 1.1 liest Sitzungs-Fragmente** (#1944 K6) — in Repos mit
+  `docs/handover.d/` kommt der Stand aus `fragments.py render --ref origin/main`; der
+  Start-Hook spiegelt die offenen Fäden. Die Startprüfung meldet parallele Sitzungen nicht
+  mehr als Befund (#3228).
+- 2026-09-16: **Fünf ungedeutete WARN-Phasen ergänzt** (`0.7.4`, `0.7.13`, `0.7.19`,
+  `0.7.25`, `0.7.26`) + Checklisten-Zeile 2i für `0.7.4`. Anlass: `0.7.4` verlangte an
+  diesem Morgen "Prio nachziehen VOR Arbeitsbeginn", stand aber weder in der
+  Deutungstabelle noch in der Checkliste — gehandelt wurde nur, weil der Runner-Text
+  es mitlieferte. Neuer Prüfer `tools/skill_phasen_deckung.py` hält die Tabelle ab
+  jetzt am Runner fest (gemessen: 6 von 46 WARN-Phasen ungedeutet).
+
 - 2026-09-11: **Phase 1.8 Auftragsraum abarbeiten + Checkliste 8a** (KONZ-platform-059, #3079) —
   Zurufe aus dem Chat-Raum „Aufträge Achim / Lotse" landen als Vorschlag im Journal, nie als
   Befehl; Kurzbefehle wendet `anwenden` an, Korrekturen bekommen per `regel` ein Artefakt.
-- 2026-09-02: **Kontext-Diät** (#2690 K5) — 41 137 → ~15 200 B; WARN-Deutung als Tabelle,
-  Lehren/Historie nach `docs/governance/session-skills-lehren/start.md`; gestrichen:
-  Auto-Issue-Template (S1), `mcpN_`-Quick-Reference (S5), Windsurf-Fallback.
-- 2026-09-02: **Phase 0.7.23 `melder-register`** ergänzt (#2690 K3) — je Runner-Phase Leser,
-  Frist, Herabstufungsschwelle in `governance/melder-register.yaml`, geprüft über
-  `tools/melder_register_check.py`; vierte Lautstärke `ℹ️ HINWEIS`, Checkliste 2h.

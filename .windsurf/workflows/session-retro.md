@@ -61,7 +61,7 @@ strukturell selten → kleiner skalieren. Stufe + **hartes Agenten-Budget**:
 | Stufe | Trigger | Agenten-Budget |
 |---|---|---|
 | **lean** | ≤2 PRs, 1 Repo, kein Prod/Migration/ADR | **0 Subagenten**, 1 Inline-Pass, 2 Dimensionen |
-| **full** | Standard | Collector + 3 Finder + Skeptiker **je Dimension** + 3b — ≤6 |
+| **full** | Standard | 3 Finder + Skeptiker **je Dimension** + 3b — ≤5 |
 | **deep** | ≥3 Repos ODER Prod ODER Migration ODER Verdacht auf vertuschte Fehler | volle Pipeline + 3b + Phase-5-Meta; Skeptiker ≤ Anzahl Dimensionen |
 
 Kein Multi-Agent unter `lean`. Falsifikation **nie** 1 Agent pro Befund — gebündelt je Dimension.
@@ -99,7 +99,7 @@ Richter≠Angeklagter kommt vom **frischen Kontext**, nicht vom teuren Opus → 
 | Phase | Wer / Modell |
 |---|---|
 | 0 · 3.5 · 4 · 7 | **du** (inline) — Zusammenführen, kein Selbst-Urteil |
-| 1 Collect | Subagent **haiku** — reines Sammeln |
+| 1 Collect | **du** (inline, 0 Agenten) — Artefaktliste + Skript, kein Sammler-Subagent (gestrichen 2026-09-16) |
 | 2 Find · 3 Verify · 5 Meta | Subagent **sonnet** — frischer Kontext, ~5× billiger als Opus (`session-routing.md`) |
 | **3b Widerlegungsbahn** | Subagent **Tier 4 (Opus)**, frischer Kontext — Owner-Entscheid 2026-09-02 ([#2374](https://github.com/achimdehnert/platform/issues/2374#issuecomment-5510996006)) |
 | 6 Extern-Handoff | **fremder Anbieter** (Mensch holt ein) — fremde Blindflecken |
@@ -119,25 +119,30 @@ lokalen Checkout liest — auch bei `lean`, auch inline ohne Subagent.
 geteilten Arbeitstag fremde Sitzungen ein. Scope über **Branch-Präfixe/PR-Nummern der eigenen
 Sitzung** ziehen (bzw. den Transkript-Pfad); das Datum ist nur Vorfilter.
 
-Ein Subagent sammelt **ausschließlich aus Artefakten** (kein Self-Report):
+**Kein Sammler-Subagent mehr (Streichbahn Retro 916eb7, Owner-Wort 2026-09-16, Belegart
+„kein Effekt"):** Die Finder ziehen `gh pr view`/`gh issue view`/`git show origin/main` für
+dieselben Artefakte ohnehin selbst neu (Eiserne Regel 2 verlangt es); der Sammler-Report war
+Dublette mit eigenen Fehlern (falscher Issue-Titel, „ungeprüft" trotz vorliegendem Beleg).
+Phase 1 ist deshalb **inline, 0 Agenten**: du erstellst nur die **Artefaktliste** (PR-/Issue-
+Nummern, Repos, Host-Dienste) und gibst sie jedem Finder-Prompt mit. Ermitteln der Liste:
 - `gh pr list --repo <owner>/<repo> --state all --search "updated:>=<datum>"` (+ `gh issue list`)
   — danach auf die Sitzung **eingrenzen**, nicht alles übernehmen
 - `git -C ~/github/<repo> fetch origin <default-branch>` **zuerst**, dann
-  `log --oneline --since='<YYYY-MM-DD> 00:00'` gegen `origin/<default-branch>` + `diff --stat`
-- CI/main-Status der Repos (`gh run list --branch main`)
+  `log --oneline --since='<YYYY-MM-DD> 00:00'` gegen `origin/<default-branch>`
+Du **bewertest** dabei nichts (Regel 1) — die Liste ist Scope, kein Befund.
 
 **Transkript-Kennzahlen per Skript, nicht per Sammler (Owner-Entscheid 2026-09-14, Streichkandidat
 `retro-phase1-sammler-transkriptauswertung`):** Ablehnungen, Fehlerläufe (auch ohne `is_error`),
 Silent-Reminder mit Abstand zum nächsten sichtbaren Text und Nutzer-Nachrichten liefert
 `python3 tools/retro_transkript_kennzahlen.py <transkript.jsonl> [--von ISO] [--bis ISO]`; vorher
-einmal `--selbsttest` (Positivkontrolle je Klasse). Der Sammler-Subagent bleibt auf gh/git beschränkt
-und bekommt die Skript-Ausgabe als Material — er wertet das JSONL nicht selbst aus. Realfall
-kbiAvn-incr: der Sammler meldete „0 Ablehnungen, 0 Fehler", tatsächlich 4 und 10.
+einmal `--selbsttest` (Positivkontrolle je Klasse). Die Skript-Ausgabe geht als Datei an die
+Finder — kein Agent wertet das JSONL selbst aus. Realfall kbiAvn-incr: ein Sammler-Agent
+meldete „0 Ablehnungen, 0 Fehler", tatsächlich 4 und 10.
 
 ⚠️ **`--since` immer MIT Uhrzeit** (`'<datum> 00:00'`) — sonst **null Treffer** trotz
 existierender Commits, und die stille Null wird als Faktum gemeldet.
 
-**Aktiv nach red_flags suchen, die ein Self-Review übersieht:** OPEN-PR überholt von späterem
+**Aktiv nach red_flags suchen (Auftrag an den Finder „Prozess & Kollaboration"):** OPEN-PR überholt von späterem
 MERGED-PR zum selben Issue · mehrere PRs „Closes" dasselbe Issue · rote Required-Gates auf
 offenen PRs · Migrations-Nummern-Kollision · Issue offen trotz gemergtem Fix.
 
@@ -276,7 +281,7 @@ Danach in fester Reihenfolge:
   `<auto-memory>/MEMORY.md` abgleichen — Existenz per `grep` prüfen, nicht erinnern.
 - **5a. Rückfall-Prüfung — hat ein GEBAUTES Gate versagt? (PFLICHT)** `python3 tools/gate_wirkung.py`
   trennt Vorkommen **vor** dem Bau eines Gates von denen **danach**. **Regel:** Kehrt ein Slug
-  wieder, für den bereits ein Gate in `docs/governance/gate-registry.json` steht, ist der Befund
+  wieder, für den bereits ein Gate unter `docs/governance/gates/gates/` steht, ist der Befund
   **nicht** „Slug X zum N-ten Mal", sondern **„Gate X ist rückfällig"** — eigene Klasse, eigener
   Slug (`gate-<name>-wirkungslos`), drei zulässige Antworten: **ausweiten** (sieht die Familie
   nicht) · **umbauen** (zu spät/falscher Pfad) · **herabstufen** (begründet in `declined`). Ein
@@ -330,7 +335,7 @@ NIE die Session-Erzählung. Er sieht nur den Report + diese Skill. Checkliste:
   **<0,2** → Falsifikation ist Theater. **Nur `phase3_refuted/(findings_total − pre_refuted)`** ist
   die echte Falsifikations-Quote. Auffälligkeit als `## Self-Review`.
 
-**Agenten-Budget:** `full` mit 3b und Meta = ≤7; das `≤5` in 0.1 gilt für die reine
+**Agenten-Budget:** `full` mit 3b und Meta = ≤6; das `≤5` in 0.1 gilt für die reine
 Find/Verify-Pipeline. `deep` zzgl. Phase-6-Extern. (Warum zwei Längsschnitt-Werkzeuge nötig sind:
 Lehren-Doku § Phase 5.)
 
@@ -384,6 +389,27 @@ Pflicht), als Abschnitt `## Streichbahn` und als Zeile im Action-Board (Phase 4,
 **Ratsche:** ein Kandidat, der zwei Retros hintereinander auftaucht und nicht gestrichen wurde,
 ist selbst ein Befund — dieselbe Regel wie GATE-PFLICHT ≥2.
 
+## Phase 8 — Report gegen die eigenen Regeln prüfen (PFLICHT, jeder Footprint; NEU 2026-09-16)
+
+```bash
+python3 tools/retro_report_check.py docs/retros/<dein-report>.md
+```
+
+Exit 0 oder Befund beheben — nicht „im Report erwähnt". Geprüft werden die Punkte,
+die der Skill hart verlangt und die bisher niemand nachzählte: der Vierklang aus
+Eiserner Regel 5, `## 8`, die eingefrorenen Spalten, die Pflicht-Frontmatter-Felder
+und die Streichbahn (leer nur mit Grund-Satz).
+
+**Warum das eine eigene Phase bekommt:** gemessen über die 16 Reports seit dem
+2026-09-02 fehlte der Vierklang in **fünf**, darunter den zwei jüngsten. Regel 5
+ist als „nicht verhandelbar" ausgewiesen; die Abschluss-Checkliste fragte sie nur
+mittelbar ab (Punkt 11 verlangt „§8 gefüllt" — §8 war in allen 16 da). Eine Regel
+ohne Zeile, die sie nachzählt, wird beim Lesen überflogen.
+
+Der Prüfer läuft zusätzlich in der CI (`tools/tests/test_retro_report_check.py`,
+Required Check) über jeden Report ab dem Stichtag — die fünf älteren Lücken
+bleiben bewusst außerhalb, damit der erste Lauf nicht mit Altlasten rot wird.
+
 ## Anti-Patterns
 - ❌ Aus dem eigenen Session-Kontext urteilen (in-context self-review).
 - ❌ Befund ohne harten Artefakt-Beleg.
@@ -413,6 +439,8 @@ ist selbst ein Befund — dieselbe Regel wie GATE-PFLICHT ≥2.
 - ❌ **`refuted_rate` ohne `pre_refuted`-Trennung** — Finder-Stroh bläht die Quote.
 - ❌ **Collect ohne vorheriges `git fetch`** — gilt für JEDEN Collect-Schritt, auch `lean`.
 - ❌ **Nach dem Fetch die Working-Tree-Datei greppen** statt aus dem Ref zu lesen.
+- ❌ **Report abgeben, ohne `retro_report_check.py` darüber laufen zu lassen** (Phase 8).
+- ❌ **§8 vorhanden als Beleg für Regel 5 werten** — der Abschnitt ist nicht der Vierklang.
 
 ## Abschluss-Checkliste (muss alles grün oder begründet n/a sein)
 
@@ -436,6 +464,8 @@ ist selbst ein Befund — dieselbe Regel wie GATE-PFLICHT ≥2.
 | 16 | Report unter `docs/retros/…-<repo>-<id>.md` committet, Pfad nicht überschrieben | ☐ |
 | 17 | Self-Review durch separaten Meta-Agenten auf den Report; `lean` begründet n/a (Phase 5) | ☐ |
 | 18 | Extern-Handoff geschrieben oder begründet n/a (Phase 6) | ☐ |
+| 19 | **Vierklang vorhanden: getan · angenommen · nicht verifizierbar · offen geblieben (Regel 5)** | ☐ |
+| 20 | `retro_report_check.py` über den Report gelaufen, Exit 0 (Phase 8) | ☐ |
 
 > **Pflicht-Selbstcheck (nicht überspringen):** zähle die als PFLICHT/NEU markierten
 > `##`/`###`-Überschriften oben gegen diese Tabelle — jede neue Pflicht-Phase braucht hier eine
@@ -444,6 +474,17 @@ ist selbst ein Befund — dieselbe Regel wie GATE-PFLICHT ≥2.
 ## Changelog
 
 Vollständige Historie: `docs/governance/session-skills-lehren/retro.md` § Changelog-Historie.
+
+- 2026-09-16: **Phase 1 Sammler-Subagent gestrichen** (Streichbahn Retro 916eb7, platform#3238,
+  Owner-Wort „R9 streichen"). Belegart „kein Effekt": alle drei Finder zogen dieselben
+  Artefakte selbst, der Sammler-Report enthielt zwei eigene Fehler. Phase 1 ist jetzt inline
+  (Artefaktliste + `retro_transkript_kennzahlen.py`), `full` = ≤5 Find/Verify, ≤6 mit 3b/Meta.
+
+- 2026-09-16: **Phase 8 `retro_report_check.py` + Checklisten-Zeilen 19/20.** Gemessen über
+  die 16 Reports seit 2026-09-02: der von Eiserner Regel 5 verlangte Vierklang fehlte in
+  fünf, darunter den zwei jüngsten (apo-hub 40c069, platform b7822e). Die Checkliste fragte
+  ihn nur mittelbar ab („§8 gefüllt" — §8 war überall da). Der Prüfer läuft in der CI über
+  jeden Report ab dem Stichtag; die fünf Altlücken bleiben bewusst außerhalb.
 
 - 2026-09-14: **Phase 1 Transkript-Kennzahlen per `tools/retro_transkript_kennzahlen.py`** (Owner-Entscheid
   aus Retro kbiAvn-incr, Streichkandidat umgesetzt). Der Sammler-Agent wertet das JSONL nicht mehr aus;

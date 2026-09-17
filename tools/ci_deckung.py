@@ -174,6 +174,23 @@ SHELL_NOOP_ODER_BUILTIN = {
     "}",
 }
 
+# Shell-Kontrollwoerter fuehren kein Werkzeug an, sie rahmen es nur ein
+# (Realfall chat-hub `lint` nach chat-hub#110: `if command -v shellcheck ...;
+# then shellcheck ...; else docker run ... shellcheck ...; fi` lieferte VIER
+# Befunde "if command shellcheck", "then shellcheck", "else docker run", "fi",
+# obwohl der CI shellcheck ausfuehrt — Zeitbomben-Test platform#2397-Klasse).
+SHELL_KONTROLLWOERTER = {
+    "if",
+    "then",
+    "else",
+    "elif",
+    "fi",
+    "do",
+    "done",
+    "while",
+    "until",
+    "!",
+}
 ENV_ASSIGN_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 MAKEVAR_RE = re.compile(r"^\$[\(\{][\w.\-]+[\)\}]$")
 TARGET_RE = re.compile(r"^([^\s:#][^:#]*):(?!=)")
@@ -215,9 +232,15 @@ def _normalize_one(kommando: str) -> str:
     while kommando[:1] in ("@", "-", "+"):
         kommando = kommando[1:].lstrip()
     tokens = kommando.split()
-    # Fuehrende Inline-Env-Zuweisungen (`VAR=wert ... echt.py`) sind kein Werkzeug.
-    while tokens and ENV_ASSIGN_RE.match(tokens[0]):
+    # Fuehrende Kontrollwoerter (`then shellcheck ...`) und Inline-Env-Zuweisungen
+    # (`VAR=wert ... echt.py`) sind kein Werkzeug — weg damit, bis das Kommando steht.
+    while tokens and (
+        tokens[0] in SHELL_KONTROLLWOERTER or ENV_ASSIGN_RE.match(tokens[0])
+    ):
         tokens.pop(0)
+    # `command -v X` prueft nur, ob X installiert ist — eine Sonde, kein Pruefwerkzeug.
+    if tokens[:2] == ["command", "-v"]:
+        return ""
     out: list[str] = []
     i = 0
     while i < len(tokens):
@@ -300,7 +323,19 @@ def parse_makefile(text: str) -> list[Kommando]:
                 i += 1
             if aktuelle_ziele is not None:
                 kandidat = any(_ziel_ist_pruef_kandidat(z) for z in aktuelle_ziele)
+                # `else`-Zweige sind Fallbacks fuer Umgebungen ohne das Werkzeug
+                # (Docker-Ersatz fuer fehlendes shellcheck). Gedeckt wird der
+                # Hauptzweig; ein Fallback, den der CI nie braucht, ist kein Befund.
+                fallback = False
                 for sub in _split_subcommands(logisch):
+                    erstes = sub.split()[:1]
+                    if erstes == ["else"] or erstes == ["elif"]:
+                        fallback = True
+                    elif erstes == ["fi"]:
+                        fallback = False
+                        continue
+                    if fallback:
+                        continue
                     norm = _normalize_one(sub)
                     if norm and (is_pruef_kommando(norm) or kandidat):
                         for ziel in aktuelle_ziele:

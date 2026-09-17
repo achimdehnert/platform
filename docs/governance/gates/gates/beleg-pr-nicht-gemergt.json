@@ -1,0 +1,31 @@
+{
+  "slug": "beleg-pr-nicht-gemergt",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": "tools/session_abgleich.py",
+  "drill": "tools/tests/test_session_abgleich.py",
+  "built": "2026-09-07",
+  "ref": "platform#2234 Zeile 7, platform#2374",
+  "covers": [
+    "proof-artifact-left-unmerged"
+  ],
+  "note": "Ein PR, der als BELEG genannt wird ('Beleg', 'Nachweis', 'verifiziert', 'Positivkontrolle', 'Drill'), muss gemergt sein - sonst zeigt die Behauptung auf etwas, das im Hauptzweig nicht existiert. CLOSED ohne Merge wird eigens benannt: das ist der schlimmere Fall, weil der Beleg dann nie ankommt. Erzwingungspunkt: Runner-Phase E.10 in tools/session_ende_checks.sh.",
+  "faengt": [
+    {
+      "fall": "als Beleg genannter PR ist OPEN",
+      "probe": "proof"
+    },
+    {
+      "fall": "als Beleg genannter PR ist CLOSED ohne Merge",
+      "probe": "CLOSED"
+    }
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-09-07",
+  "expires": "2026-10-31",
+  "expires_note": "blocking oder gestrichen bis dahin - Owner-Entscheid E4 (platform#2606).",
+  "positivkontrolle": {
+    "ref": "tools/tests/test_session_abgleich.py::test_should_flag_proof_pr_left_open - 'Nachweis: der Drill laeuft in #2799' bei Zustand OPEN wird rot; ::test_should_name_closed_without_merge_as_the_worse_case liefert die Sonderzeile; Gegenprobe ::test_should_stay_green_when_proof_pr_is_merged.",
+    "datum": "2026-09-07"
+  }
+}

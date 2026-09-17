@@ -17,7 +17,6 @@ Run: `python3 -m pytest tools/tests/test_gate_namensdeckung.py -q`
 from __future__ import annotations
 
 import importlib.util
-import json
 from pathlib import Path
 
 _QUELLE = Path(__file__).resolve().parents[1] / "gate_namensdeckung.py"
@@ -175,14 +174,7 @@ def test_should_return_zero_on_an_unreadable_registry(tmp_path):
 
 def test_every_gate_with_faengt_in_the_real_registry_is_wellformed():
     """Bestandsprobe: jedes gefuellte `faengt` traegt `fall` UND `probe`."""
-    reg = json.loads(
-        (
-            Path(__file__).resolve().parents[2]
-            / "docs"
-            / "governance"
-            / "gate-registry.json"
-        ).read_text(encoding="utf-8")
-    )
+    reg = gn.gate_registry.laden()
     for gate in reg["gates"]:
         for fall in gate.get("faengt", []):
             assert fall.get("fall"), gate["slug"]
@@ -247,6 +239,6 @@ def test_should_still_read_a_plain_string_drill(tmp_path):
 def test_should_not_crash_on_the_real_registry():
     # Der Fall, der das Werkzeug stillgelegt hat: ein Lauf ueber den ECHTEN
     # Bestand. Ein Pruefer, der nur an Fixtures laeuft, beweist wenig.
-    registry = json.loads((Path(gn.DEFAULT_REGISTRY)).read_text(encoding="utf-8"))
+    registry = gn.gate_registry.laden(gn.DEFAULT_REGISTRY)
     staende = [gn.pruefe_gate(g) for g in registry["gates"]]
     assert len(staende) == len(registry["gates"])

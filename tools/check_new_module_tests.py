@@ -55,7 +55,7 @@ import sys
 from pathlib import Path
 
 # Maschinenlesbarer Kopf (KONZ-038 D8) — von tools/gate_drill_check.py gegen
-# docs/governance/gate-registry.json abgeglichen.
+# docs/governance/gates/ abgeglichen.
 GATE_HEADER = {
     "slug": "untested-tool-module-green-gate",
     "mode": "advisory",  # blocking erst nach 0-FP-Kalibrierfenster (Registry-frozen_note)

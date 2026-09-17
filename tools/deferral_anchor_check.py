@@ -45,7 +45,7 @@ from github_referenzen import ohne_pr_referenzen  # noqa: E402  (haengt am sys.p
 from markdown_klartext import normalisiere_zeilen  # noqa: E402
 
 # Maschinenlesbarer Kopf (KONZ-038 D8) — von tools/gate_drill_check.py gelesen und
-# gegen docs/governance/gate-registry.json abgeglichen. Ohne Kopf verrottet die
+# gegen docs/governance/gates/ abgeglichen. Ohne Kopf verrottet die
 # Registry still; ohne Registry-Eintrag drillt das Gate niemand.
 #
 # `covers` ist der Grund, warum dieses Gate existiert: EIN Mechanismus deckt vier

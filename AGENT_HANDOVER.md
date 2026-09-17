@@ -15,22 +15,23 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 **Archiv älterer Stände und ausgelagerter Sektionen:**
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
 
+## ⚡ Aktueller Stand (2026-09-15 — decks-hub hinter Access für Agenten prüfbar; Sitzung ee405591)
+
+**Zeitanker:** HEAD `bbb04684` · `rev-list --count` 4491 · geschrieben 2026-09-15
+
+**Erledigt:** Service-Token `playwright-verify` in die Access-App `decks-hub.iil.pet` aufgenommen (Policy `playwright-verify-svc`, Muster tax.iil.pet) — `tools/cf-access-fetch.sh --coverage` 200/302, Tabelle nachgezogen ([decks-hub#98](https://github.com/achimdehnert/decks-hub/issues/98), #3196). Befunde als Issues: `gen_project_facts` gibt static-Repos Django-Container ([#3194](https://github.com/achimdehnert/platform/issues/3194)), `handover_prio_mirror` kürzt Prio auf erstes Fett-Wort ([#3197](https://github.com/achimdehnert/platform/issues/3197)).
+
+**Seit dem letzten Stand ohne eigenen Handover-Eintrag gelandet (17 Commits, andere Sitzungen):** todo_board Verlauf/Strang-Zuordnung (#3175–#3180), Retros b7822e (#3183, Gates #3186) und apo-hub kbiAvn (#3182, #3184), Hook-Gate `gh-body-file-leer-ueberschrieben`, Transkript-Kennzahlen-Skript für Retro Phase 1, ux-review Bündel-Ausnahme, klickdummy-pgvector-sync Changelog (#3187). Stand-Einträge dazu fehlen — nicht von hier aus rekonstruiert.
+
 ## ⚡ Aktueller Stand (2026-09-14 nachmittags — Räume zusammengelegt, Zeitungs-Vertiefung live; Sitzung d8da3b26)
 
 **Erledigt:** Räume Mail/Briefing/Aufträge → „Achim / Lotse" ([chat-hub#90](https://github.com/iilgmbh/chat-hub/issues/90)), Auffangnetz `auftragsraum_sync.sh` (#3154), Sperre eine Session je Raum ([chat-hub#94](https://github.com/iilgmbh/chat-hub/issues/94)). news.iil.pet hinter Cloudflare Access (news-hub#54); Vertiefung je Thema per Knopf und Chat-Zuruf in Prod ([news-hub#52](https://github.com/achimdehnert/news-hub/issues/52)). Zurufe #3150/#3151 und Kapitel-Feedback (Ledger #138) gesendet.
 
 **Zielzustand:** #90, #94, news-hub#52/#54/#55 erreicht. **SA-4:** 5 eigene Merges unter Mandat (#3153, #3154, news-hub#56/#58/#59) · 2 unnötige Rückfragen · 0 Fehlanwendungen; eigene Fehler außerhalb SA-4 im Log, als Outline-Lessons 2026-09-14 verankert. **0h:** Abnahme 20/22 belegt, 2 nur Selbstauskunft (Briefing-Erstlauf, Bestätigung im Raum); Clear-Härte: SA-4 präzisiert, Checklisten abgehakt. **Offen:** laufende Raum-Session hält noch keine Sperre (vor #96 gestartet) — nächster Neustart vorher „Lotse stopp"; Sortierer-Lücken #3152.
 
-## ⚡ Aktueller Stand (2026-09-14 — Secret-Leser Fleet, Groq rotiert, Gate-Revisionen, Räume; Sitzung 0117JBQX)
-
-**Zeitanker:** HEAD `226e41c7` · `rev-list --count` 4468 · geschrieben 2026-09-14
-
-**Auftrag [#3149](https://github.com/achimdehnert/platform/issues/3149) geschlossen:** Groq rotiert und verteilt, Zeitung liefert (news-hub#46); Schlüsseldateien bare 56 → 0 über toleranten Leser (#3141 + 10 Fleet-PRs, [#3129](https://github.com/achimdehnert/platform/issues/3129)); Fixture #3157 + 9 Kopien (#3155); Staging-Gate fing risk-hub#753/#754, Prod unberührt; Retro #3156, Gate-Revisionen #3160; Kalender-Löschen #3163; Termine in „Achim / Lotse" (chat-hub#93). Eigene Fehler gemeldet und verankert (Sourcing-Leck, Deploy vor Build, Worktree-Aufräumen per Datum → #3164). Älterer Stand 2026-09-12/13 im Archiv; der Referenz-Parser liest dort news-hub#44/chat-hub#88 als achimdehnert/hub#88 und chat-hub#88 ohne Org (#3165).
-
-**Zielzustand #3149:** K1–K6 erfüllt (fremder Blick 0d: K2 „teilweise", Gegenprobe über PR-Text und Issue-Body: vollständig). **SA-4:** 27 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen. **0h:** beide Agenten gelaufen, Lücken aus 0e geschlossen. Anker: pgvector `session:platform:20260914:0117jbqx`.
-
 ## Offene Fäden (über den Session-Stand hinaus)
 
+0. **platform privat (KONZ-039, SA-4) — Umbau läuft**, Melder `0.7.27` gemessen 2026-09-16: Aufrufer 17 · Raw 27 (Laufzeit 3) · Kopien 3 · Fristen 14, Flip erst bei 7 Tagen 0/0/1/0: https://github.com/achimdehnert/platform/issues/3234
 - **Auftragsraum Stufe 1** ([#3079](https://github.com/achimdehnert/platform/issues/3079)): fertig; Kill-Gate-Zahlen 2026-10-08 (KONZ-059). **sevdesk-Routinen** ([#3102](https://github.com/achimdehnert/platform/issues/3102)): K4 in PR, K1–K3/K5 und K6 in Bau.
 
 0. iil-assist Gateway: Transport (D2) nicht begehbar — drei Ursachen belegt, Fix haengt an der Transport-Entscheidung: https://github.com/achimdehnert/mcp-hub/issues/264
@@ -44,7 +45,6 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 0. Freigabe-Zeile je Prod-Schritt als Regel bestaetigen — aus dem Stand vom 2026-09-09 abends gerettet (Owner-Entscheid).
 
 - **[3164]** Retro-Restlücken: Anker-Gate-Fehlläufe, weitere Roh-Leser (6 Repos ohne Stufe-2-PR), Rettungs-Branch — https://github.com/achimdehnert/platform/issues/3164
-- **[chat-hub#94]** Raum-Session: zweiter Start muss mechanisch scheitern (Sperre in lotse_session.sh) — https://github.com/iilgmbh/chat-hub/issues/94
 - **[3158]** Stop-Hook `deferred_item_scanner` aus `~/.claude/settings.json` austragen (Owner, nach Sunset in #3160) — https://github.com/achimdehnert/platform/issues/3158
 - **[3129]** Melder `secrets_pruefen --alle`: `gemischt` als eigene Stufe statt Exit 1 — https://github.com/achimdehnert/platform/issues/3129
 - **[3050]** Waisen-Melder: Repo→Host-Zuordnung kippt still (Rest aus dem geschlossenen #3015) — https://github.com/achimdehnert/platform/issues/3050
@@ -92,7 +92,7 @@ Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Histor
 20. GX10-Training: 4090 bleibt fuehrend bis 16.384 Umgebungen, darueber traegt nur der GX10: https://github.com/achimdehnert/robo-lab/issues/58
 53. Kaufberatung zweites Geraet — Empfehlung abgelegt, Kenntnisnahme offen: https://github.com/achimdehnert/platform/issues/2978
 21. Mail-Ansicht: leerer Körper braucht „Inhalt im Anhang": https://github.com/achimdehnert/platform/issues/2597
-22. Owner: die 20 mechanisch gesetzten `frist_grund`-Texte auf `todo.iil.pet` sichten (Spalte Frist) — mechanisch je Bucket gesetzt, nicht redigiert: https://github.com/achimdehnert/platform/issues/3015
+22. Owner: die 20 mechanisch gesetzten `frist_grund`-Texte auf `todo.iil.pet` sichten (Spalte Frist) — mechanisch je Bucket gesetzt, nicht redigiert: https://github.com/achimdehnert/platform/issues/3203
 23. Megatest-Erstlauf, 15 Befunde unbearbeitet und ohne Tracking-Issue ([Lauf 30619024656](https://github.com/achimdehnert/platform/actions/runs/30619024656), 2026-08-02) — vor Wiederaufnahme neu messen.
 24. Gegenprobe Wochenlauf `ttz-hub`: beim nächsten Lauf, der ttz-hub wirklich ändert, müssen Checks am erzeugten PR erscheinen: https://github.com/achimdehnert/platform/issues/3090
 25. Session-Skills modellfest (#2690): Drill-Vorlage #2719, Backfill Positivkontrolle #2703, Ruleset-Entscheid bis 2026-10-02: https://github.com/achimdehnert/platform/issues/2690

@@ -19,8 +19,7 @@ name: Serielle-PRs-Advisory
 # Bereiche sind der Normalfall einer aktiven Datei und werden ausdruecklich
 # NICHT gemeldet (session_abgleich.py::befunde_serien_fuer_pr).
 #
-# Registry-Eintrag folgt gesondert (docs/governance/gate-registry.json ist
-# in diesem PR bewusst nicht angefasst).
+# Registry-Eintrag: docs/governance/gates/gates/serielle-prs-auf-derselben-datei.json
 
 on:
   pull_request:

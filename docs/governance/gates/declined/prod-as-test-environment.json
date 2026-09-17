@@ -1,0 +1,7 @@
+{
+  "slug": "prod-as-test-environment",
+  "decided": "2026-09-07",
+  "owner": "achim",
+  "ref": "platform#2895 Items 53+54 (Owner-Go 2026-09-07) · Anker platform#2907",
+  "reason": "Dieselbe Verdrahtungsgrenze wie oben (platform#2907), plus ein eigener Grund: das Signal ist unscharf. Ein Zug, der sich selbst als Test bezeichnet und dabei ein Prod-Ziel anfaesst, unterscheidet sich textlich kaum von einem legitimen Prod-Check (Health-Probe, Verifikation nach Deploy). platform#2234 hatte den Vorschlag deshalb selbst ans Ende der Reihenfolge gestellt ('FP-Risiko hoch, deshalb hinten trotz 4x'). Die messbare FOLGE — Prod beruehrt ohne vorangegangenen Checkpoint — faengt bereits scope-checkpoint-not-durably-recorded (Ausloeser 'Prod-/Publish-Schritt', seit Rev 5 auch NACH einem Checkpoint)."
+}

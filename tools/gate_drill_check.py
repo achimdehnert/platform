@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """gate_drill_check.py — Fenster-Prüflauf der Gate-Drills (KONZ-038 D8).
 
-Liest docs/governance/gate-registry.json und führt jeden Drill ECHT aus
+Liest docs/governance/gates/ und führt jeden Drill ECHT aus
 (pytest je Drill-Datei). Ein Gate mit rotem oder fehlendem Drill wird
 K4-konform als NICHT GEBAUT gemeldet — der wiederkehrende Lauf beantwortet
 M-8 dauerhaft: ein toter Hook wird binnen eines Fensters entdeckt, nicht 2028.
@@ -21,8 +21,11 @@ import os
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import gate_registry  # noqa: E402  (Einzeldateien, #1944 K7)
+
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DEFAULT_REGISTRY = os.path.join(REPO_ROOT, "docs", "governance", "gate-registry.json")
+DEFAULT_REGISTRY = gate_registry.DEFAULT_PFAD
 
 
 def drill_pfade(gate: dict) -> list[str]:
@@ -35,8 +38,11 @@ def drill_pfade(gate: dict) -> list[str]:
     Erlaubt sind String, kommagetrennte Liste und JSON-Liste.
     """
     roh = gate.get("drill") or ""
-    teile = [str(x).strip() for x in roh] if isinstance(roh, list) \
+    teile = (
+        [str(x).strip() for x in roh]
+        if isinstance(roh, list)
         else [x.strip() for x in str(roh).split(",")]
+    )
     return [x for x in teile if x]
 
 
@@ -137,11 +143,13 @@ def pruefe_fremd(gate: dict) -> list[str]:
     return befunde
 
 
-
 def run_drill(drill_path: str) -> tuple[bool, str]:
     """True = Drill grün. Fehlende Datei = rot (K4: nicht belegbar = nicht gebaut)."""
-    pfade = [x.strip() for x in str(drill_path).split(",")] if isinstance(drill_path, str) \
+    pfade = (
+        [x.strip() for x in str(drill_path).split(",")]
+        if isinstance(drill_path, str)
         else [str(x).strip() for x in drill_path]
+    )
     pfade = [x for x in pfade if x]
     if not pfade:
         return False, "Drill-Datei fehlt"
@@ -175,7 +183,7 @@ def main() -> int:
     args = ap.parse_args()
 
     try:
-        registry = json.load(open(args.registry, encoding="utf-8"))
+        registry = gate_registry.laden(args.registry)
     except (OSError, json.JSONDecodeError) as exc:
         print(f"⚠ Gate-Registry nicht lesbar ({exc}) — Prüflauf NICHT bewertbar.")
         return 0

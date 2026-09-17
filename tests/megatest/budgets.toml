@@ -82,6 +82,9 @@
 "iil-doc-templates"  = 0
 "news-hub"           = 0
 "robo-lab"           = 0
+"music-lab"          = 0
+"post-hub"           = 0
+"schreib-hub"        = 0
 
 # Per-Regel-Budgets (optional, für granulare Gates)
 # Format: "repo.RULE_ID" = max_count

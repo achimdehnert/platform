@@ -560,3 +560,45 @@ in genau den Sitzungen unbenutzbar, in denen mehrere PRs entstehen.
 Session-Ende-Runner E.5 meldete „Zusage ohne Tracking" in writing-hub#1177 (Handover-PR). Urteil: **Fehlalarm** — der PR-Text enthält nur erledigte Nachträge und drei verlinkte Folgepunkte (platform#3195, writing-hub#1170, writing-hub#1176), keine Vertagung ohne Anker.
 
 **Nicht in die Zählung aufgenommen:** das gemeldete Segment ließ sich nicht zitieren — der Nachlauf `verankerung_pruefer.py --pr 1177` endete mit `NICHT PRUEFBAR` (qwen2.5:7b, Zeitüberschreitung nach 120 s bei 2078 Zeichen), derselbe Betriebsbefund wie oben. Die Präzisionszahl bleibt deshalb unverändert.
+
+## Nachtrag 2026-09-15 (decks-hub, Sitzung ee405591)
+
+### Der Fehlalarm
+
+`session_ende_checks.sh` E.5 meldete **decks-hub#108** als „Zusage ohne Tracking". Der einzige vertagende Satz im PR-Text lautet:
+
+> »neue Prio 3: Presenter mit Clicker gegenprüfen (#105, Owner: später)«
+
+Das Tracking-Issue steht **in derselben Zeile** (#105, offen, mit Owner-Kommentar „später — bewusst zurückgestellt, Issue bleibt offen als Tracking"). Die Zusage ist verankert; die Meldung ist ein Fehlalarm.
+
+**Muster:** Die Issue-Nummer steht in einer Klammer zusammen mit dem Vertagungswort („Owner: später"). Offenbar wertet der Klassifikator das Klammer-Innere als Nebeninformation statt als Anker.
+
+### Nebenbefund: dasselbe Segment, zwei Urteile
+
+Der erste E.5-Lauf derselben Sitzung (vor dem Handover-Nachtrag) meldete für denselben, unveränderten PR-Text **„✅ jede erkannte Zusage verankert: #108 #107 #106"**. Der zweite Lauf rund 20 Minuten später meldete #108 als unverankert. Der Melder ist bei identischer Eingabe nicht deterministisch. Ein einzelner `⚠️` ist deshalb erst nach einem zweiten Lauf ein Befund.
+
+**Stand damit: 28 Meldungen · 5 richtig · 23 Fehlalarme (Präzision 0,179).** Die Zahl geprüfter Texte ist nicht fortgeschrieben: Wie viele Segmente die beiden Läufe tatsächlich angesehen haben, zeigt der Runner nicht.
+
+## 2026-09-16 — meiki-lra/meiki-hub#424 (E.5, Sitzungsende meiki-hub 16a613c1)
+
+Gemeldet: „Zusage ohne Tracking in: #424". Eine Nachprüfung mit dem lokalen Klassifikator war nicht möglich (`qwen2.5:7b` Zeitüberschreitung nach 120 s bei 2 208 Zeichen); der Text wurde von Hand gelesen. Kandidat ist der Abschnitt
+
+> »## Bewusst nicht gebaut — Kein Erzeugen eines Schreibens in SchreibAssist. […] Keine Fristen- oder Meldeliste in FristAssist.«
+
+Das ist keine vertagte Arbeit, sondern eine **Zuschnittsentscheidung**, festgehalten in dauerhaften Artefakten desselben PRs: `klickdummy/modul/specs/schreib-assist/screens-spec.yaml` (`off_ramp.rule`, Kopfkommentar), `specs/frist-assist/screens-spec.yaml` und `specs/abdeckung.json` (Screen `vorschau` als „teilweise" mit Grund). Der Zielzustand steht in meiki-lra/meiki-hub#423. Die Meldung ist ein **Fehlalarm**.
+
+**Muster:** Eine Überschrift „Bewusst nicht gebaut" liest der Klassifikator als Vertagung. Das Wort „bewusst" und die Begründung im selben Absatz („zwei Wege heißen zwei Briefe") unterscheiden einen Zuschnitt von einer Vertagung; ein Zuschnitt braucht kein Tracking-Issue, weil nichts nachzuholen ist.
+
+**Stand damit: 29 Meldungen · 5 richtig · 24 Fehlalarme (Präzision 0,172).**
+
+## 2026-09-16 — achimdehnert/writing-hub#1207 (E.5, Sitzungsende writing-hub 7e551f85)
+
+Gemeldet: „Zusage ohne Tracking in: #1207". Der PR-Text lautet vollständig:
+
+> »Regeneriert mit `zusammenstellen.py` nach #1206 (E5.8 → zwei Folien). Docs-only; erst nach dem laufenden Code-Deploy mergen.«
+
+„Erst nach dem laufenden Code-Deploy mergen" ist eine **Reihenfolge-Anweisung für den Merge desselben PRs**, keine vertagte Arbeit — der PR wurde 16:49 gemergt, danach blieb nichts offen. **Fehlalarm.**
+
+**Muster:** Ein Zeitwort mit „erst … dann" liest der Klassifikator als Aufschub, auch wenn das Aufgeschobene der Merge selbst ist.
+
+**Stand damit: 30 Meldungen · 5 richtig · 25 Fehlalarme (Präzision 0,167).**

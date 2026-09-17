@@ -206,10 +206,13 @@ else
   record "0.4 repo-sync" "PASS" "${GUARD_NOTE}${SYNC_RESULTS# }" "${SYNC_GEPRUEFT% }"
 fi
 
+# Parallele Sessions sind in Querschnitt-Repos (platform, dev-hub, mcp-hub)
+# der Normalfall und kein Befund (#1944 K8): jede Session arbeitet in ihrem
+# eigenen Worktree und braucht keinen Abgleich mit den anderen. Die Zahl bleibt
+# sichtbar, die Liste nicht — sie hatte keinen Leser, der etwas damit tat.
 if [ -n "$PARALLEL_SESSIONS" ]; then
   n=$(printf '%s\n' "$PARALLEL_SESSIONS" | grep -c .)
-  record "0.4 parallel-sessions" "WARN" "$n aktive Session(s) auf $TARGET_REPO — vor Merge/Deploy abgleichen" "$TARGET_REPO"
-  printf '%s\n' "$PARALLEL_SESSIONS"
+  record "0.4 parallel-sessions" "PASS" "$n weitere Session(s) auf $TARGET_REPO — Normalfall, kein Befund (#1944 K8)" "$TARGET_REPO"
 else
   record "0.4 parallel-sessions" "PASS" "keine andere aktive Session auf $TARGET_REPO" "$TARGET_REPO"
 fi
@@ -1124,6 +1127,20 @@ case "$DECKUNG_CI_OUT" in
   "keine offene Deckungsluecke"*) record "0.7.26 ci-deckung" "PASS" "$DECKUNG_CI_OUT" "$TARGET_REPO" ;;
   "") record "0.7.26 ci-deckung" "WARN" "Melder nicht auswertbar — manuell: platform/tools/ci_deckung.py --repo $DECKUNG_CI_DIR" "$TARGET_REPO" ;;
   *) record "0.7.26 ci-deckung" "WARN" "$DECKUNG_CI_OUT" "$TARGET_REPO" ;;
+esac
+
+# ── 0.7.27 Sichtbarkeits-Drift: was haengt noch an achimdehnert/platform? ────
+# platform ist PUBLIC und soll privat werden (KONZ-039, Auftrag #3234). Der Flip
+# ist erst frei, wenn dieser Melder 7 Tage in Folge 0/0/1/0 zeigt (K5) — Aufrufer,
+# Raw-Downloads (Laufzeit gesondert), Bausteine-Kopien, abgelaufene Konzept-Fristen.
+# Zaehlt lokale Klone UND Code-Suche vereinigt: jede Methode allein lag im August
+# zweimal daneben. Offline = "nicht messbar", nie Entwarnung.
+SD_OUT=$(timeout 120 python3 "$PLATFORM_DIR/tools/sichtbarkeits_drift_melder.py" --kurz \
+         --ergebnis-datei "$MELDER_DIR/sichtbarkeit.json" 2>/dev/null || true)
+case "$SD_OUT" in
+  *"erreicht"*) record "0.7.27 sichtbarkeits-drift" "PASS" "$SD_OUT" "platform" ;;
+  "") record "0.7.27 sichtbarkeits-drift" "WARN" "Melder nicht auswertbar — manuell: platform/tools/sichtbarkeits_drift_melder.py" "platform" ;;
+  *) record "0.7.27 sichtbarkeits-drift" "WARN" "$SD_OUT" "platform" ;;
 esac
 
 # ── 0.7.20 Umgebung: wo stehe ich, und wer antwortet unter den Namen? ─────

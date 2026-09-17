@@ -1,0 +1,20 @@
+{
+  "slug": "artefakt-budget-schwelle-erreicht",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": "tools/claude-hooks/artefakt_budget.py",
+  "drill": "tools/tests/test_artefakt_budget.py",
+  "built": "2026-08-16",
+  "ref": "platform#1640",
+  "faengt": [
+    {
+      "fall": "Artefakt-Zahl ueber der Schwelle ohne Scope-Checkpoint",
+      "probe": "schwelle"
+    }
+  ],
+  "zustand": "streichen-kandidat",
+  "erzwungen_seit": "2026-08-16",
+  "zustand_note": "Messung 2026-09-02 (platform#2606, E4): 54 Treffer zwischen dem 2026-08-16 und dem 2026-09-02 — der lauteste der vier Stop-Hook-Melder — ohne dass sich ein Treffer auf eine Reaktion zurueckfuehren liess. Ein Dauer-Alarm wird ueberlesen. Zulaessiger Abgang bis zur Frist: streichen ODER Schwelle neu setzen und die neue Schwelle messen; Liegenlassen ist der dritte Weg und der einzige, der nicht zaehlt.",
+  "expires": "2026-10-31",
+  "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
+}

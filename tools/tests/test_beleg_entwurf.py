@@ -41,6 +41,12 @@ def test_should_accept_taxrule_10_for_expenses_without_input_tax():
     assert "13" in be.TAXRULES_BEKANNT
 
 
+def test_should_accept_taxrule_16_for_private_withdrawal():
+    """2100 Privatentnahmen erlaubt laut ReceiptGuidance nur Regel 16 — der
+    Privatanteil einer Sammelueberweisung scheiterte daran (#3271)."""
+    assert "16" in be.TAXRULES_BEKANNT
+
+
 def test_should_reject_an_unknown_taxrule(tmp_path, capsys):
     args = argparse.Namespace(
         pdf=str(tmp_path / "x.pdf"),

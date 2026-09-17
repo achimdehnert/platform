@@ -1,0 +1,37 @@
+{
+  "slug": "scope-checkpoint-not-durably-recorded",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": "tools/claude-hooks/scope_checkpoint_scanner.py",
+  "drill": "tools/claude-hooks/tests/test_scope_checkpoint_scanner.py",
+  "built": "2026-08-02",
+  "ref": "platform#1646",
+  "revised": "2026-09-14",
+  "revision_note": "Rev 6, Retro b7822e B7 (Gate RUECKFAELLIG, Ursache an der QUELLE): `_FREMDE_RESSOURCE` verlangte `systemctl` DIREKT gefolgt vom Verb und uebersah damit jede Option davor — real: `systemctl --user enable --now todo-x.timer` auf dem als Prod deklarierten todo-board-Host loeste den Checkpoint nicht aus. Fix: `\\bsystemctl(?:\\s+--?[\\w-]+(?:=\\S+)?)*\\s+(?:stop|restart|disable|mask|enable|start)\\b` laesst beliebig viele Optionen zwischen `systemctl` und dem Verb zu, ohne die Verb-Liste selbst auszuweiten — `status`/`is-active`/`list-timers`/`cat` bleiben unveraendert unerkannt.",
+  "faengt": [
+    {
+      "fall": "drittes Repo beruehrt, Scope nicht durabel abgelegt",
+      "probe": "third_repo"
+    },
+    {
+      "fall": "Reichweite aus der Ausgabe eines wirkenden Kommandos",
+      "probe": "reichweite"
+    },
+    {
+      "fall": "Checkpoint abgelegt, Reichweite danach weiter gewachsen (Retro 33616e #1)",
+      "probe": "Fehlerform C"
+    },
+    {
+      "fall": "fremden Dienst scharfschalten (enable/start) ohne durablen Scope-Vermerk",
+      "probe": "fremde_ressource"
+    }
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-08-02",
+  "expires": "2026-10-31",
+  "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet.",
+  "positivkontrolle": {
+    "ref": "docs/retros/session-retro-2026-09-14-platform-b7822e.md",
+    "datum": "2026-09-14"
+  }
+}

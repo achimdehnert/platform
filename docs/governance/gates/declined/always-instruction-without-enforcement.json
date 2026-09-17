@@ -1,0 +1,7 @@
+{
+  "slug": "always-instruction-without-enforcement",
+  "decided": "2026-08-12",
+  "owner": "achim",
+  "ref": "platform#1650 Owner-Entscheid 2026-08-12",
+  "reason": "Meta-Muster. Seit #1938 meldet retro_kpis.py automatisch jeden GATE-PFLICHT-Slug ohne Registry-Eintrag — genau die verlangte Durchsetzungs-Aufsicht. Ein Text-Scanner auf IMMER-Formulierungen haette hohe Fehlalarm-Quote und wuerde umgangen statt befolgt."
+}

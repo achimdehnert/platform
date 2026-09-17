@@ -1,0 +1,7 @@
+{
+  "slug": "pr-body-stale-after-followup-commits",
+  "decided": "2026-09-07",
+  "owner": "achim",
+  "ref": "platform#2895 Items 53+54 (Owner-Go 2026-09-07)",
+  "reason": "Kein billiges Signal. Praezise beantwortbar ist die Frage nur ueber GraphQL `userContentEdits` (wann wurde der Body zuletzt bearbeitet); die REST-Felder, die das Haus benutzt, helfen nicht: `updatedAt` wandert bei JEDEM PR-Ereignis, also auch bei einem Label, einem Kommentar oder einem Check-Ergebnis, und waere als Vergleichsgroesse gegen die Commit-Zeit fast immer 'frisch'. Ein Gate auf einem Feld, das die falsche Frage beantwortet, ist genau die Klasse `gate-matches-spelling-not-substance`. Dazu die Groessenordnung: 2 Vorkommen, beide ohne Folgeschaden — der durable Datensatz, auf den es ankommt (Merge-Commit und verlinktes Issue), wird seit 2026-09-07 von `issue-offen-nach-gemergtem-fix` abgeglichen. Kommt ein drittes Vorkommen, ist der Ort dafuer gebaut: die Runner-Phase E.10 in tools/session_ende_checks.sh hat die PR-Daten bereits in der Hand, es fehlt nur die GraphQL-Abfrage."
+}
