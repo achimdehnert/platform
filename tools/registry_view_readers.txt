@@ -6,7 +6,6 @@
 .github/scripts/push_project_facts.py
 .github/workflows/platform-audit.yml
 .github/workflows/pypi-ci-adoption-gate.yml
-.github/workflows/scaffold-tests.yml
 .github/workflows/sync-registry-to-devhub.yml
 infra/scripts/validate_tenancy.py
 scripts/audit_platform.py

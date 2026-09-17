@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Kandidaten fuer den Test-Scaffold-PR (scaffold-tests.yml) aus der kanonischen Registry.
 
-Vorher las der Workflow die Legacy-View `scripts/repo-registry.yaml` und nahm fuer
+Vorher las der Workflow die generierte flache Legacy-View (ADR-234) und nahm fuer
 jedes Repo den Owner des platform-Repos an — `frist-hub` liegt aber unter
 `meiki-lra`, und `pulls.list()` brach mit 404 ab: 20 von 20 Laeufen rot seit
 2026-07-02 (#2645). Dieselbe Klasse wie in `tools/fleet_checkout.py` beschrieben.
