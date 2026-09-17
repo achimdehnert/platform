@@ -602,3 +602,14 @@ Gemeldet: „Zusage ohne Tracking in: #1207". Der PR-Text lautet vollständig:
 **Muster:** Ein Zeitwort mit „erst … dann" liest der Klassifikator als Aufschub, auch wenn das Aufgeschobene der Merge selbst ist.
 
 **Stand damit: 30 Meldungen · 5 richtig · 25 Fehlalarme (Präzision 0,167).**
+
+## 2026-09-17 — achimdehnert/apo-hub#155 (E.5, Sitzungsende apo-hub 5080b150)
+
+Gemeldet: „Zusage ohne Tracking in: #155". Die Stellen im PR-Text:
+
+> »**Basis: PR #153** (gestapelt, damit die `directory`-Migrationskette linear bleibt …). Erst #153 mergen, dann diesen.«
+> »(`SubstituteAvailability object (3)` bleibt hier sichtbar, weil #154 nicht in dieser Basis liegt — nach beiden Merges weg.)«
+
+Beides sind **Reihenfolge-Anweisungen für Merges bereits offener PRs** (#153, #154 — beide am selben Vormittag gemergt), keine vertagte Arbeit; nach den Merges blieb nichts offen. **Fehlalarm** — dasselbe Muster wie writing-hub#1207 („erst … dann" beim Merge selbst), jetzt in der Variante „gestapelter PR".
+
+**Stand damit: 31 Meldungen · 5 richtig · 26 Fehlalarme (Präzision 0,161).**
