@@ -200,7 +200,11 @@
     "**/__pycache__/**",
     "**/_ARCHIVED/**",
     "**/archive/**",
-    "**/_archive/**"
+    "**/_archive/**",
+    "**/tests/fixtures/**",
+    "**/spikes/**",
+    "**/docs/templates/**",
+    "**/docs/adr/**"
   ],
   "ignoreDeps": [],
   "onboarding": true,
