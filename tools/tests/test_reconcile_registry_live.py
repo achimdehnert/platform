@@ -74,7 +74,7 @@ def test_should_report_no_drift_when_registry_matches_live(monkeypatch, capsys):
 
     out = capsys.readouterr().out
     assert rc == 0
-    assert "Drift-Kennzahl: 0 gesamt" in out
+    assert "Drift-Kennzahl: drift: 0 (0 NEU + 0 baselined) · unreachable: 0" in out
     assert "Keine neue Drift" in out
 
 
@@ -153,8 +153,8 @@ def test_should_suppress_baseline_drift_but_count_it_separately(monkeypatch, cap
 
     out = capsys.readouterr().out
     assert rc == 0
-    assert "Drift-Kennzahl: 1 gesamt = 0 NEU + 1 baselined" in out
-    assert "[baseline] C1:svc-a" in out
+    assert "Drift-Kennzahl: drift: 1 (0 NEU + 1 baselined)" in out
+    assert "[baseline]    C1:svc-a" in out
 
 
 def test_should_exit_2_on_unreadable_live_state(monkeypatch, capsys):
@@ -388,3 +388,60 @@ def test_should_report_c5_when_same_port_declared_twice_on_one_host(
     assert rc == 1
     assert "C5:prod:8100" in out
     assert "svc-a + svc-b" in out
+
+
+# --- Zwei Klassen: drift vs. unreachable (#2636) ---
+
+
+def test_should_classify_c0_as_unreachable_not_as_drift():
+    befunde = [
+        ("C0:prod-b", "Host 'prod-b' nicht erreichbar"),
+        ("C2:svc-a", "svc-a: Container läuft nicht"),
+        ("C4:2287", "Port 2287 unbekannt"),
+    ]
+    k = rrl.klassifizieren(befunde, baseline_ids={"C4:2287"})
+    assert [i for i, _ in k["unreachable_neu"]] == ["C0:prod-b"]
+    assert [i for i, _ in k["drift_neu"]] == ["C2:svc-a"]
+    assert [i for i, _ in k["drift_baselined"]] == ["C4:2287"]
+    assert k["unreachable_baselined"] == []
+
+
+def test_should_report_unreachable_separately_from_drift_count(monkeypatch, capsys):
+    """Ein SSH-Fehler darf die Drift-Kennzahl (Kill-Gate-KPI) nicht erhoehen —
+    der Lauf vom 2026-09-02 zaehlte 4 Transportfehler als Drift."""
+    canonical = {"svc-b": {"rich": {"deployed": True}}}
+    ports_decl = {
+        "svc-b": {"prod": 8088, "container_name": "svc_b_web", "prod_host": "prod-b"},
+    }
+    _patch_io_multi(
+        monkeypatch,
+        canonical,
+        ports_decl,
+        je_ssh={"root@P": {}, "root@B": RuntimeError("ssh: connect: no route")},
+    )
+
+    rc = _run(monkeypatch, argv=["--skip-dns"])
+
+    out = capsys.readouterr().out
+    assert "drift: 0 (0 NEU + 0 baselined) · unreachable: 1 (1 NEU" in out
+    assert "[UNREACHABLE] C0:prod-b" in out
+    assert rc == 1
+
+
+def test_should_exit_zero_when_unreachable_host_is_baselined(monkeypatch, capsys):
+    canonical = {"svc-b": {"rich": {"deployed": True}}}
+    ports_decl = {
+        "svc-b": {"prod": 8088, "container_name": "svc_b_web", "prod_host": "prod-b"},
+    }
+    _patch_io_multi(
+        monkeypatch,
+        canonical,
+        ports_decl,
+        je_ssh={"root@P": {}, "root@B": RuntimeError("ssh: connect: no route")},
+        baseline=[{"id": "C0:prod-b", "owner": "ops", "expires_at": "2099-01-01"}],
+    )
+
+    rc = _run(monkeypatch, argv=["--skip-dns"])
+
+    assert "unreachable: 1 (0 NEU + 1 baselined)" in capsys.readouterr().out
+    assert rc == 0
