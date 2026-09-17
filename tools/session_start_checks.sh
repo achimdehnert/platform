@@ -48,7 +48,7 @@ FAILED=0
 #   richtung: der Fingerabdruck im Befund-Journal lautet `phase::repo`, also
 #   wanderte ein plattformweiter Befund mit jeder Sitzung in einen anderen Eimer.
 #   Die naechste Sitzung mit anderem Ziel HEILTE den Eintrag der vorigen und legte
-#   ihn neu an — ewig jung. Gemessen am 2026-08-23: `0.7.7 gate-wirkung` stand mit
+#   ihn neu an — ewig jung. Gemessen am 2026-08-23: der Gate-Wirkung-Befund (`tools/gate_wirkung.py`, damals als Phase 0.7.7 gefuehrt) stand mit
 #   `laeufe=1, erstmals=2026-08-23` im Journal, obwohl das Gate seit dem 2026-08-20
 #   rueckfaellig ist; sieben weitere plattformweite Phasen lagen unter `writing-hub`.
 #   Genau das Alter (K3) war damit zerstoert, fuer das das Journal existiert.
@@ -641,27 +641,6 @@ else
   record "0.7.6 leseflaeche" "PASS" "keine unbestaetigten Melder-Befunde"
 fi
 
-# ── 0.7.7 Gate-Wirkung: Rueckfaelle nach dem Bau (platform, 2026-08-20) ─────
-# Der Loop hatte drei Messpunkte und eine Luecke: die Registry sagt "gebaut",
-# der Drill sagt "feuert", `retro_kpis.py` zaehlt Slugs INSGESAMT. Keiner davon
-# trennt am Bau-Datum — und damit sah ein Gate mit 16 Rueckfaellen seit dem Bau
-# aus wie eines, das gestern entstand. Gemessen am 2026-08-20 ueber 82 Retros:
-# 8 von 20 Gates sind rueckfaellig, `claim-before-cheapest-check` 16x seit dem
-# 2026-08-02 — verdrahtet als Stop-Hook, Drill gruen, Verhalten unveraendert.
-#
-# Ein Rueckfall ist ein Befund UEBER das Gate, nicht die N-te Wiederholung des
-# Slugs. Er steht hier, weil der Sitzungsstart der einzige Ort ist, den jede
-# Sitzung durchlaeuft — die Retro laeuft seltener als der Rueckfall passiert.
-#
-# FAIL-OPEN wie 0.7.6: `|| true`, damit ein kaputter Melder nicht den Start blockt.
-WIRKUNG_OUT=$(python3 "$PLATFORM_DIR/tools/gate_wirkung.py" --kurz 2>/dev/null || true)
-if [ -n "$WIRKUNG_OUT" ]; then
-  record "0.7.7 gate-wirkung" "WARN" "$(echo "$WIRKUNG_OUT" | head -1 | tr '|' '/')"
-  echo "$WIRKUNG_OUT" | tail -n +2
-else
-  record "0.7.7 gate-wirkung" "PASS" "kein Gate rueckfaellig"
-fi
-
 # ── 0.7.8 Zeitplan-Wache: von GitHub still abgeschaltete Workflows ──────────
 # GitHub schaltet `schedule`-Trigger nach 60 Tagen ohne Repo-Aktivitaet ab. Der
 # Workflow verschwindet dann nicht, er laeuft nur nie wieder — kein roter Lauf,
@@ -687,7 +666,7 @@ fi
 # ── 0.7.9 Gate-Deckung: GATE-PFLICHT gezaehlt, nie eingeloest ───────────────
 # retro_kpis eskaliert jeden Slug >=2 zur GATE-PFLICHT. Die Pflicht wird gezaehlt,
 # ihre Einloesung nirgends — 16 Slugs sind mehrfach aufgetreten und tragen weder
-# Gate noch declined-Eintrag. Das ist die stille Schwester des Rueckfalls (0.7.7):
+# Gate noch declined-Eintrag. Das ist die stille Schwester des Rueckfalls, den `tools/gate_wirkung.py` misst (Rueckfall-Pruefung seit 2026-09-17 in `/session-retro` Phase 0.0/5a):
 # dort versagt ein gebautes Gate, hier entstand nie eines.
 DECKUNG_OUT=$(python3 "$PLATFORM_DIR/tools/gate_deckung.py" --kurz 2>/dev/null || true)
 # Liegezeit in einem ZWEITEN Aufruf, nicht als Anhaengsel an `--kurz`: der Zweig
@@ -883,7 +862,7 @@ fi
 
 # ── 0.7.15 Namensdeckung der Gates (Slug `gate-modul-prueft-weniger-als-sein-name`) ──
 # Drei Messpunkte des Loops sagen "gebaut" (Registry), "feuert" (Drill) und
-# "rueckfaellig" (0.7.7). Keiner fragt, ob der Drill den Fall beruehrt, der im
+# "rueckfaellig" (`tools/gate_wirkung.py`, geprueft in `/session-retro` Phase 0.0/5a). Keiner fragt, ob der Drill den Fall beruehrt, der im
 # SLUG-NAMEN steht. Realfall 2026-08-23: `lint-failure-no-local-gate` ist
 # `blocking`, heisst "lint" und fuehrt `ruff format --check` aus — E402 lag seit
 # dem Bau am 04.08. ausserhalb seiner Reichweite, und PR #2236 wurde daran
@@ -997,7 +976,7 @@ fi
 # null Messung.
 #
 # Ein Melder, der oefter irrt als trifft, erzieht zum Wegsehen — und das trifft dann
-# auch seine RICHTIGEN Befunde. Dieselbe Klasse wie ein rueckfaelliges Gate (0.7.7),
+# auch seine RICHTIGEN Befunde. Dieselbe Klasse wie ein rueckfaelliges Gate (`tools/gate_wirkung.py`, geprueft in `/session-retro` Phase 0.0/5a),
 # nur auf der Erkennungsseite.
 #
 # Die Urteile kommen aus /session-ende (--echt / --falsch). Ohne Urteile bleibt die

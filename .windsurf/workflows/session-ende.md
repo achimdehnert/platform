@@ -186,8 +186,8 @@ Owner fragen.
 Präzision des Melders unbekannt (Quote im Start als `0.7.19`, ab drei Urteilen):
 `befund_journal.py --echt '<ID>' '<Notiz>'` bzw. `--falsch '<ID>' '<warum Fehlalarm>'`.
 
-**Rückfällige Gates aus Start-Phase 0.7.7** (Gate `gate-rueckfall-unbemerkt`,
-Registry-`module` `tools/gate_wirkung.py`): genau zwei zulässige Abschlüsse — **behandelt**
+**Rückfällige Gates aus `tools/gate_wirkung.py`** (geprüft in `/session-retro` Phase 0.0/5a; Gate
+`gate-rueckfall-unbemerkt`, Registry-`module` `tools/gate_wirkung.py`): genau zwei zulässige Abschlüsse — **behandelt**
 (Gate ausgeweitet/umgebaut/herabgestuft, der Eintrag unter `docs/governance/gates/` im selben PR
 nachgezogen, bei Herabstufung `declined` mit Begründung) **oder Verzicht mit Grund**. Die
 Zeile stehen zu lassen ist keine dritte Antwort. → `LEHREN#0f`
@@ -420,7 +420,7 @@ Memory-Upserts deduplizieren per `content_hash`.
 | 14 | Abnahme im Stand-Block: erreicht / nicht erreicht / verschoben+Tracking / n/a (0d) | ☐ |
 | 15 | SA-4-Zähler-Zeile geschrieben, Fehlanwendung als Befund gemeldet (0d) | ☐ |
 | 16 | Handover-PR gemergt — oder eine der vier Grenzen benannt (0a-merge) | ☐ |
-| 17 | Rückfälliges Gate aus Start 0.7.7 behandelt ODER Verzicht mit Grund (0f) | ☐ |
+| 17 | Rückfälliges Gate aus `tools/gate_wirkung.py` behandelt ODER Verzicht mit Grund (0f) | ☐ |
 | 18 | Clear-Härte: nichts Dauerhaftes lebt nur im Chat oder im Scratchpad (0e) | ☐ |
 | 19 | Cross-Repo-Befunde: Exit 0, oder je Befund verankert bzw. verzichtet (E.4 / 0f) | ☐ |
 | 20 | Zusagen-Prüfer: `✅`, oder je Meldung Issue bzw. dokumentierter Fehlalarm (E.5 / 0g) | ☐ |
