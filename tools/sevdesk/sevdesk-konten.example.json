@@ -12,25 +12,49 @@
     "über 2.058,98 € wären falsch gelandet.",
     "'konto': 'KLÄRUNG' parkt Positionen sichtbar, ohne ein Konto zu raten.",
     "'nur_betraege' gilt für Sammelbuchungen: nur diese Beträge sind vollständig abgedeckt,",
-    "alles andere wird als 'NUR TEILWEISE' markiert statt stillschweigend zugeordnet."
+    "alles andere wird als 'NUR TEILWEISE' markiert statt stillschweigend zugeordnet.",
+    "",
+    "Stufe 'intern' (kostenabgleich, 2026-09-17): 'beleg': 'ohne_dokument' erlaubt dem Werkzeug, den Beleg",
+    "selbst anzulegen — Pflichtfelder dann 'taxrule' (gegen ReceiptGuidance/forAccountNumber geprueft),",
+    "optional 'steuersatz' (Standard 0), 'lieferant' (supplierName; sonst Zahlername), 'beschreibung'",
+    "(Beleg-Text, Monat MM/JJJJ wird angehaengt). GEBUCHT wird nur mit 'autonom': true — das ist das",
+    "stehende Owner-Wort je Regelklasse; ohne Mandat bleibt die Position sichtbar, aber ungeschrieben.",
+    "'klasse': 'kontoabschluss_paar' + 'ust_muster' (Gruppe 1 = Bemessungsgrundlage) fasst Gebuehr- und",
+    "USt-Zeile der Bank zu EINEM Beleg (netto + USt 1:1) mit zwei Teilbuchungen zusammen.",
+    "Konten ohne ReceiptGuidance (z. B. 7600 Koerperschaftsteuer) sind nicht belegbuchbar → KLAERUNG."
   ],
   "regeln": [
     {
       "muster": "beispiel-lohnempfaenger",
       "konto": "6035",
       "bezeichnung": "Löhne Minijob",
-      "nur_betraege": [850.0, 450.0, 400.0]
+      "nur_betraege": [
+        850.0,
+        450.0,
+        400.0
+      ],
+      "beleg": "ohne_dokument",
+      "taxrule": "9",
+      "steuersatz": 0,
+      "beschreibung": "Löhne Minijob",
+      "autonom": false
     },
     {
       "muster": "knappschaft|rentenversicherung",
       "konto": "6110",
-      "bezeichnung": "Sozialvers.-Beiträge"
+      "bezeichnung": "Sozialvers.-Beiträge",
+      "beleg": "ohne_dokument",
+      "taxrule": "9",
+      "steuersatz": 0,
+      "lieferant": "Knappschaft-Bahn-See",
+      "beschreibung": "Sozialversicherung Beitrag",
+      "autonom": true
     },
     {
       "muster": "koerpst|koerperst|körperst",
-      "konto": "7600",
+      "konto": "KLÄRUNG",
       "bezeichnung": "Körperschaftsteuer",
-      "anmerkung": "im Kontoauszug steht KOERPST, ohne 'er'"
+      "anmerkung": "7600 hat keine ReceiptGuidance — per Beleg nicht buchbar; im Kontoauszug steht KOERPST, ohne 'er'"
     },
     {
       "muster": "ionos|namecheap|github|netcup|hetzner",
@@ -38,15 +62,31 @@
       "bezeichnung": "Aufwendungen für Lizenzen, Konzessionen"
     },
     {
-      "muster": "girocard|abschluss per",
+      "muster": "abschluss per",
+      "konto": "6855",
+      "bezeichnung": "Kontoführung & Transaktionskosten",
+      "beleg": "ohne_dokument",
+      "klasse": "kontoabschluss_paar",
+      "ust_muster": "umsatzsteuer auf eur ([\\d.,]+)-? abrechnung per",
+      "taxrule": "9",
+      "lieferant": "Bank – Kontoführung",
+      "beschreibung": "Kontoabschluss",
+      "autonom": true
+    },
+    {
+      "muster": "girocard",
       "konto": "6855",
       "bezeichnung": "Kontoführung & Transaktionskosten"
     },
     {
-      "muster": "umsatzsteuer auf .*abrechnung",
-      "konto": "KLÄRUNG",
-      "bezeichnung": "USt-Anteil der Bankabrechnung",
-      "anmerkung": "offen: Vorsteuerkonto oder über die Steuerregel des Belegs?"
+      "muster": "beispiel-privates-abo",
+      "konto": "2100",
+      "bezeichnung": "Privatentnahme",
+      "beleg": "ohne_dokument",
+      "taxrule": "16",
+      "steuersatz": 0,
+      "beschreibung": "Privatentnahme",
+      "autonom": false
     }
   ]
 }

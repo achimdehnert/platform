@@ -25,6 +25,28 @@ Drei Zuordnungsstufen je Bankabgang (Betrag < 0, Status 100 = unverbucht):
 - **Unklar**: der Betrag trifft, aber kein Name passt eindeutig, oder mehrere
   Belege kommen infrage — Owner-Blick noetig.
 - **Beleg fehlt**: kein offener Beleg trifft den Betrag ueberhaupt.
+- **Intern** (vierte Stufe, 2026-09-17): kein Lieferantenbeleg noetig — die
+  Regel in ``sevdesk-konten.json`` traegt ``"beleg": "ohne_dokument"`` (Lohn,
+  Sozialversicherung, Kontofuehrung, Privatentnahme). Das Werkzeug legt den
+  Beleg selbst an (Status 100, Konto/Steuerregel aus der Regel, Steuerregel
+  vorher gegen ``ReceiptGuidance/forAccountNumber`` geprueft) und bucht ihn
+  mit Zahldatum = Umsatzdatum. **Gebucht wird nur mit Mandat**: die Regel
+  traegt ``"autonom": true`` — das ist das stehende Owner-Wort je
+  Regelklasse; ohne Mandat steht die Position sichtbar unter „intern", wird
+  aber nie geschrieben. ``nur_betraege`` gilt weiter: ein Betrag ausserhalb
+  der Liste bleibt „Beleg fehlt" (Sammelueberweisung mit Fremdposten).
+  Sonderklasse ``"klasse": "kontoabschluss_paar"``: Gebuehr-Zeile und
+  USt-Zeile der Bank werden zu EINEM Beleg (netto = Gebuehr, USt = Bankzeile
+  1:1, nie 19 % gerechnet — Owner-Wort 2026-09-17) mit zwei Teilbuchungen
+  Typ N; Zuordnung ueber „per DD.MM.YYYY" im Zweck, bei Bank-Tippfehler ueber
+  die Bemessungsgrundlage. Eine Gebuehr ohne USt-Zeile wartet.
+
+**Betragstoleranz** (2026-09-17): Ein Beleg trifft auch bei 2 Cent Rundung
+(Hetzner 133,99 ↔ 134,00) und bei Fremdwaehrungsbelegen bis 8 % Kursdifferenz
+(GitHub 181,10 USD: 156,83 EUR Beleg ↔ 164,71 EUR Bank). Gebucht wird dann
+per ``bookAmount`` Typ O mit dem **Bank**betrag — FULL_PAYMENT antwortet bei
+jeder Abweichung 422 (Lehre 2026-09-13); paidAmount wird der Belegbetrag, der
+Beleg 1000, der Umsatz 400.
 
 **Wiederkehrend**: Abgaenge mit gleichem normalisiertem Zahler und Betrag
 (Toleranz 0,50 EUR) in mindestens zwei aufeinanderfolgenden Kalendermonaten
@@ -49,7 +71,8 @@ Fallen (siehe auch ``tools/sevdesk/README.md``):
 
 - ``--buchen`` ohne ``--ja`` zeigt nur, was gebucht wuerde; ``bookAmount``
   wird in KEINEM Fall aufgerufen.
-- ``--buchen --ja`` bucht **ausschliesslich** die Stufe "Beleg vorhanden".
+- ``--buchen --ja`` bucht die Stufe "Beleg vorhanden" und "intern" **mit
+  Mandat** (``"autonom": true``) — sonst nichts.
 - Wiederholung bucht nie doppelt: eine bereits verbuchte/verknuepfte
   Bank-Transaktion (Status != 100) taucht bei einem erneuten Lauf nicht mehr
   unter den offenen Abgaengen auf — derselbe Mechanismus wie in
@@ -68,6 +91,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from bankpositionen import KONTEN_DATEI, konten_laden, kurz, paypal_haendler  # noqa: E402
+from bankpositionen import regel_treffer  # noqa: E402
 from bankpositionen import zuordnen as regel_zuordnen  # noqa: E402
 from mandant import client, mandant_argument  # noqa: E402
 
@@ -120,6 +144,29 @@ TAGE_TOLERANZ = 14
 #: Betrags-Toleranz fuer die Wiederkehrend-Erkennung (Miete/Abo schwankt
 #: gelegentlich um Cent-Betraege, z. B. Rundung oder Index-Anpassung).
 BETRAG_TOLERANZ_WIEDERKEHREND = 0.50
+
+#: Cent-Rundung zwischen Beleg (aus dem PDF gelesen) und Bankabgang — Hetzner
+#: 133,99 ↔ 134,00 und 124,22 ↔ 124,23 (Echtprobe 2026-09-17). Bis hier gilt der
+#: Beleg als Treffer; gebucht wird dann per Typ O mit dem Bankbetrag.
+BETRAG_TOLERANZ_CENT = 0.02
+#: Fremdwaehrungsbelege (USD): sevdesk rechnet mit dem Stichtagskurs, PayPal mit
+#: seinem eigenen — GitHub 181,10 USD = 156,83 EUR Beleg gegen 164,71 EUR Bank (5 %).
+#: FULL_PAYMENT gibt bei jeder Abweichung 422, durch geht nur Typ O mit dem
+#: Bankbetrag (Lehre 2026-09-13). Anteilige Toleranz, nur bei currency != EUR.
+BETRAG_TOLERANZ_FREMDWAEHRUNG = 0.08
+
+#: Vierte Zuordnungsstufe: kein Lieferantenbeleg noetig (Lohn, Sozialversicherung,
+#: Kontofuehrung, Privatentnahme) — die Regel in sevdesk-konten.json traegt
+#: ``"beleg": "ohne_dokument"`` und das Werkzeug legt den Beleg selbst an.
+STATUS_INTERN = "intern"
+BELEG_OHNE_DOKUMENT = "ohne_dokument"
+#: Sonderklasse: die Bank bucht Kontogebuehr und 19 % USt darauf als ZWEI Zeilen
+#: (Gebuehr am Monatsende, USt sechs Wochen spaeter). Ein Beleg fuer beide —
+#: netto = Gebuehr, USt = Bankzeile 1:1 —, zwei Teilbuchungen Typ N. Vorbild:
+#: Owner-Beleg 100430331 (11/2024). Owner-Wort 2026-09-17: die Gebuehr traegt
+#: keine USt, die zweite Zeile ist ausschliesslich USt — nie 19 % draufrechnen.
+KLASSE_KONTOABSCHLUSS = "kontoabschluss_paar"
+RE_PER_DATUM = re.compile(r"per (\d\d\.\d\d\.\d{4})", re.IGNORECASE)
 
 
 def worte(text: str) -> set[str]:
@@ -327,6 +374,189 @@ def _dd_mm_yyyy(datum: dt.date) -> str:
     return datum.strftime("%d.%m.%Y")
 
 
+def _iso_zu_dd_mm_yyyy(iso: str) -> str:
+    return f"{iso[8:10]}.{iso[5:7]}.{iso[:4]}"
+
+
+def beleg_kandidaten(belege: list[dict], betrag: float) -> list[dict]:
+    """Offene Belege, deren offener Betrag den Abgang trifft: auf 2 Cent genau,
+    bei Fremdwaehrungsbelegen anteilig (Kursdifferenz sevdesk ↔ PayPal)."""
+    treffer = []
+    for v in belege:
+        diff = abs(voucher_offener_betrag(v) - betrag)
+        fremd = (v.get("currency") or "EUR") != "EUR"
+        if diff <= BETRAG_TOLERANZ_CENT or (
+            fremd and diff <= betrag * BETRAG_TOLERANZ_FREMDWAEHRUNG
+        ):
+            treffer.append(v)
+    return treffer
+
+
+def kontoabschluss_paare(abgaenge: list[dict], regeln: list[dict]) -> dict:
+    """Gebuehr-Zeile ↔ USt-Zeile derselben Kontoabrechnung.
+
+    Rueckgabe {gebuehr_tx_id: {"partner": ust_tx, "netto", "steuer"}} plus
+    ``{"_ust_ids": {...}}`` der verbrauchten USt-Zeilen. Zuordnung ueber das
+    „per DD.MM.YYYY" im Zweck; fehlt das Datum auf einer Seite (die Bank schrieb
+    real „per 30.02.2026"), ueber die im USt-Zweck genannte Bemessungsgrundlage.
+    Ein Paar gilt nur, wenn 19 % der Gebuehr die USt-Zeile auf 1 Cent treffen.
+    """
+    regel = next(
+        (r for r in regeln if r.get("klasse") == KLASSE_KONTOABSCHLUSS), None
+    )
+    if regel is None or not regel.get("ust_muster"):
+        return {"_ust_ids": set()}
+    ust_re = re.compile(regel["ust_muster"], re.IGNORECASE)
+    gebuehr_re = re.compile(regel["muster"], re.IGNORECASE)
+
+    gebuehren: list[dict] = []
+    usts: list[tuple[dict, float, str]] = []  # (tx, basis, per)
+    for t in abgaenge:
+        zweck = t.get("paymtPurpose") or ""
+        m = ust_re.search(zweck)
+        if m:
+            try:
+                basis = float(m.group(1).replace(".", "").replace(",", "."))
+            except (IndexError, ValueError):
+                continue
+            per = RE_PER_DATUM.search(zweck)
+            usts.append((t, basis, per.group(1) if per else ""))
+        elif gebuehr_re.search(zweck):
+            gebuehren.append(t)
+
+    paare: dict = {"_ust_ids": set()}
+    for g in gebuehren:
+        netto = abs(float(g.get("amount") or 0))
+        per = RE_PER_DATUM.search(g.get("paymtPurpose") or "")
+        per = per.group(1) if per else ""
+        kand = [u for u in usts if u[0]["id"] not in paare["_ust_ids"] and per and u[2] == per]
+        if not kand:
+            kand = [
+                u
+                for u in usts
+                if u[0]["id"] not in paare["_ust_ids"] and abs(u[1] - netto) <= 0.01
+            ]
+        if len(kand) != 1:
+            continue
+        u, basis, _per = kand[0]
+        steuer = abs(float(u.get("amount") or 0))
+        if abs(basis - netto) > 0.01 or abs(round(netto * 0.19, 2) - steuer) > 0.01:
+            continue
+        paare[g["id"]] = {"partner": u, "netto": netto, "steuer": steuer}
+        paare["_ust_ids"].add(u["id"])
+    return paare
+
+
+def konto_ids(client_) -> dict[str, str]:
+    """Kontonummer → AccountDatev-ID des Mandanten (einmal je Lauf)."""
+    return {
+        str(a.get("number")): str(a.get("id"))
+        for a in hole(client_, "/AccountDatev")
+        if a.get("number") and a.get("id")
+    }
+
+
+def steuerregel_erlaubt(client_, konto: str, taxrule: str) -> bool:
+    """GET /ReceiptGuidance/forAccountNumber — bei einem Treffer ein Dict statt
+    Liste (#3109); Konto ohne Guidance (z. B. 7600) ist nicht belegbuchbar."""
+    r = client_.get("/ReceiptGuidance/forAccountNumber", params={"accountNumber": konto})
+    r.raise_for_status()
+    objekte = r.json().get("objects") or []
+    if isinstance(objekte, dict):
+        objekte = [objekte]
+    for o in objekte:
+        if str(o.get("accountNumber")) == str(konto):
+            return str(taxrule) in {str(x.get("id")) for x in o.get("allowedTaxRules") or []}
+    return False
+
+
+def intern_buchen(client_, position: dict, ids: dict[str, str]) -> dict:
+    """Beleg ohne Dokument nach Regel anlegen (Status 100) und auf den Abgang
+    buchen — FULL_PAYMENT negativ; beim Kontoabschluss-Paar zwei Teilbuchungen
+    Typ N (Gebuehr + USt-Zeile). Zahldatum = Umsatzdatum (#3270). Nach der
+    Buchung wird der Beleg gelesen: alles andere als Status 1000 ist ein Fehler.
+    """
+    regel = position["regel"]
+    konto = str(regel["konto"])
+    taxrule = str(regel.get("taxrule") or "9")
+    if konto not in ids:
+        raise RuntimeError(f"Konto {konto} nicht im Kontenrahmen (GET /AccountDatev)")
+    if not steuerregel_erlaubt(client_, konto, taxrule):
+        raise RuntimeError(
+            f"Konto {konto}: Steuerregel {taxrule} laut ReceiptGuidance nicht erlaubt"
+        )
+    partner = position.get("partner")
+    if partner:
+        netto, steuer = position["netto"], position["steuer"]
+        satz = 19
+    else:
+        satz = int(regel.get("steuersatz") or 0)
+        brutto = position["betrag"]
+        netto = round(brutto / (1 + satz / 100), 2)
+        steuer = round(brutto - netto, 2)
+    brutto = round(netto + steuer, 2)
+    monat = f"{position['datum'][5:7]}/{position['datum'][:4]}"
+    beschreibung = f"{regel.get('beschreibung') or regel.get('bezeichnung') or konto} {monat}"
+    zahler = position["zahler"] if position["zahler"] != "—" else ""
+    # saveVoucher ohne supplierName antwortet 422 (Echtprobe 2026-09-17).
+    lieferant = regel.get("lieferant") or zahler or regel.get("bezeichnung") or konto
+    daten = {
+        "voucher[objectName]": "Voucher",
+        "voucher[mapAll]": "true",
+        "voucher[voucherDate]": _iso_zu_dd_mm_yyyy(position["datum"]),
+        "voucher[supplierName]": lieferant,
+        "voucher[description]": beschreibung,
+        "voucher[comment]": kurz(position.get("zweck", ""), 120),
+        "voucher[status]": "100",
+        "voucher[creditDebit]": CREDIT,
+        "voucher[voucherType]": "VOU",
+        "voucher[currency]": "EUR",
+        "voucher[taxRule][id]": taxrule,
+        "voucher[taxRule][objectName]": "TaxRule",
+        "voucherPosSave[0][objectName]": "VoucherPos",
+        "voucherPosSave[0][mapAll]": "true",
+        "voucherPosSave[0][accountDatev][id]": ids[konto],
+        "voucherPosSave[0][accountDatev][objectName]": "AccountDatev",
+        "voucherPosSave[0][taxRate]": str(satz),
+        "voucherPosSave[0][net]": "false",
+        "voucherPosSave[0][sumNet]": f"{netto:.2f}",
+        "voucherPosSave[0][sumTax]": f"{steuer:.2f}",
+        "voucherPosSave[0][sumGross]": f"{brutto:.2f}",
+        "voucherPosSave[0][comment]": beschreibung,
+    }
+    r = client_.post("/Voucher/Factory/saveVoucher", data=daten)
+    r.raise_for_status()
+    beleg_id = str(r.json()["objects"]["voucher"]["id"])
+
+    checkaccount = position.get("checkAccount") or {}
+    buchungen = [(position["id"], position["datum"], netto if partner else brutto)]
+    if partner:
+        buchungen.append((partner["id"], (partner.get("valueDate") or "")[:10], steuer))
+    for umsatz_id, datum, betrag in buchungen:
+        payload = {
+            "amount": -abs(betrag),
+            "date": _iso_zu_dd_mm_yyyy(datum),
+            "type": "N" if partner else "FULL_PAYMENT",
+            "checkAccount": {"id": checkaccount.get("id"), "objectName": "CheckAccount"},
+            "checkAccountTransaction": {
+                "id": umsatz_id,
+                "objectName": "CheckAccountTransaction",
+            },
+        }
+        b = client_.put(f"/Voucher/{beleg_id}/bookAmount", json=payload)
+        b.raise_for_status()
+
+    pruef = client_.get(f"/Voucher/{beleg_id}")
+    pruef.raise_for_status()
+    objekte = pruef.json().get("objects") or []
+    danach = objekte[0] if objekte else {}
+    if str(danach.get("status")) != "1000":
+        raise RuntimeError(
+            f"Beleg {beleg_id} nach Buchung Status {danach.get('status')}, nicht 1000"
+        )
+    return {"beleg_id": beleg_id, "typ": "N" if partner else "FULL_PAYMENT", "warnung": None}
+
+
 def entwurf_buchen(client_, beleg: dict) -> dict:
     """Entwurf (Status 50) → gebucht (Status 100) — Pflichtschritt vor bookAmount.
 
@@ -375,14 +605,18 @@ def buchen(client_, position: dict, heute: dt.date) -> dict:
     gebucht (Status 100), siehe ``entwurf_buchen``."""
     beleg = entwurf_buchen(client_, position["beleg"])
     checkaccount = position.get("checkAccount") or {}
+    # Weicht der Bankbetrag vom Belegbetrag ab (Fremdwaehrungskurs, Cent-Rundung),
+    # nimmt sevdesk nur Typ O ("anderer Grund") mit dem BANKbetrag; paidAmount
+    # wird trotzdem der Belegbetrag, der Beleg 1000, der Umsatz 400.
+    differenz = abs(position.get("kursdifferenz") or 0) >= 0.01
     payload = {
         # Ausgabenbeleg (creditDebit C): sevdesk erwartet die Zahlung NEGATIV.
         # Mit positivem Betrag entstand am 2026-09-13 bei 25 Belegen paidAmount
         # -x, Status 750 und "offen 2x" — alle per resetToOpen + Neubuchung
         # repariert. Der Vorzeichen-Fehler war durch Fakes nicht sichtbar.
-        "amount": -abs(voucher_offener_betrag(beleg)),
+        "amount": -abs(position["betrag"] if differenz else voucher_offener_betrag(beleg)),
         "date": _dd_mm_yyyy(heute),
-        "type": "FULL_PAYMENT",
+        "type": "O" if differenz else "FULL_PAYMENT",
         "checkAccount": {"id": checkaccount.get("id"), "objectName": "CheckAccount"},
         "checkAccountTransaction": {
             "id": position["id"],
@@ -406,6 +640,7 @@ def buchen(client_, position: dict, heute: dt.date) -> dict:
     return {
         "antwort": antwort,
         "danach_offen": voucher_offener_betrag(danach) if danach else None,
+        "typ": payload["type"],
         "warnung": warnung,
     }
 
@@ -414,17 +649,28 @@ def buchen_lauf(
     client_, sichere: list[dict], heute: dt.date, wirklich: bool
 ) -> list[dict]:
     log: list[dict] = []
+    ids: dict[str, str] | None = None
     for p in sichere:
+        intern = p["status"] == STATUS_INTERN
         posten = {
             "umsatz_id": p["id"],
+            "partner_umsatz_id": (p.get("partner") or {}).get("id"),
             "beleg_id": p["beleg"]["id"] if p.get("beleg") else None,
             "betrag": p["betrag"],
+            "art": "intern" if intern else "beleg",
             "datum": heute.isoformat(),
             "ausgefuehrt": False,
         }
         if wirklich:
-            ergebnis = buchen(client_, p, heute)
+            if intern:
+                if ids is None:
+                    ids = konto_ids(client_)
+                ergebnis = intern_buchen(client_, p, ids)
+                posten["beleg_id"] = ergebnis["beleg_id"]
+            else:
+                ergebnis = buchen(client_, p, heute)
             posten["ausgefuehrt"] = True
+            posten["typ"] = ergebnis["typ"]
             posten["warnung"] = ergebnis["warnung"]
         log.append(posten)
     if wirklich and log:
@@ -470,17 +716,23 @@ def positionen_ermitteln(
         key=lambda t: t.get("valueDate") or "",
     )
 
+    paare = kontoabschluss_paare(abgaenge, regeln)
+    ust_ids = paare.pop("_ust_ids")
+
     positionen: list[dict] = []
-    for nr, t in enumerate(abgaenge, 1):
+    nr = 0
+    for t in abgaenge:
+        if t.get("id") in ust_ids:
+            continue  # steckt als Partner in der Gebuehr-Position
+        nr += 1
         betrag = abs(float(t.get("amount") or 0))
         zweck = t.get("paymtPurpose") or ""
         name = t.get("payeePayerName") or ""
         anzeige = zahler_anzeige(name, zweck)
         datum = _datum(t.get("valueDate"))
-        kandidaten = [
-            v for v in belege if abs(voucher_offener_betrag(v) - betrag) <= 0.01
-        ]
+        kandidaten = beleg_kandidaten(belege, betrag)
         ergebnis = zuordnen_position(anzeige, betrag, datum, kandidaten)
+        kursdifferenz = 0.0
         if ergebnis["status"] == "sicher" and ergebnis.get("beleg"):
             # 1:1 — ein Beleg deckt genau einen Abgang. Ohne diese Zeile traf
             # ein Eigenbeleg zwei gleich hohe Abgaenge desselben Monats und
@@ -488,6 +740,33 @@ def positionen_ermitteln(
             # 2026-09-13, Mandant edv).
             benutzt = ergebnis["beleg"].get("id")
             belege = [v for v in belege if v.get("id") != benutzt]
+            kursdifferenz = round(betrag - voucher_offener_betrag(ergebnis["beleg"]), 2)
+            if abs(kursdifferenz) >= 0.01:
+                ergebnis["grund"] += f" — Differenz {kursdifferenz:+.2f} EUR (Typ O)"
+        regel = regel_treffer(f"{anzeige} {zweck}", regeln)
+        paar = paare.get(t.get("id"))
+        buchbar = False
+        if ergebnis["status"] == "fehlend" and regel and regel.get("beleg") == BELEG_OHNE_DOKUMENT:
+            _k, _b, anmerkung = regel_zuordnen(f"{anzeige} {zweck}", betrag, regeln)
+            if anmerkung.startswith(("NUR TEILWEISE", "BETRAG UNBEKANNT")):
+                ergebnis["grund"] = f"Regel {regel['konto']}: {anmerkung}"
+            elif regel.get("klasse") == KLASSE_KONTOABSCHLUSS and not paar:
+                ergebnis = {
+                    "status": STATUS_INTERN,
+                    "beleg": None,
+                    "kandidaten": [],
+                    "grund": f"Regel {regel['konto']}: wartet auf die USt-Zeile der Bank",
+                }
+            else:
+                buchbar = bool(regel.get("autonom"))
+                ergebnis = {
+                    "status": STATUS_INTERN,
+                    "beleg": None,
+                    "kandidaten": [],
+                    "grund": f"Beleg ohne Dokument nach Regel {regel['konto']}"
+                    + (" (Paar Gebuehr + USt)" if paar else "")
+                    + ("" if buchbar else " — Mandat fehlt (\"autonom\": true)"),
+                }
         vorschlag, vorschlag_grund = kontovorschlag(
             regeln, guidance, anzeige, zweck, betrag
         )
@@ -504,6 +783,12 @@ def positionen_ermitteln(
                 "kandidaten": ergebnis["kandidaten"],
                 "beleg": ergebnis["beleg"],
                 "checkAccount": t.get("checkAccount"),
+                "kursdifferenz": kursdifferenz,
+                "regel": regel if ergebnis["status"] == STATUS_INTERN else None,
+                "buchbar": buchbar,
+                "partner": paar["partner"] if (paar and ergebnis["status"] == STATUS_INTERN) else None,
+                "netto": paar["netto"] if paar else None,
+                "steuer": paar["steuer"] if paar else None,
                 "konto_vorschlag": vorschlag,
                 "konto_grund": vorschlag_grund,
                 "zahler_key": frozenset(worte(anzeige)),
@@ -535,6 +820,7 @@ def render_markdown(
         f"**{kennzahlen['sicher']} Beleg vorhanden** · **{kennzahlen['unklar']} unklar** · "
         f"**{kennzahlen['beleg_fehlt']} Beleg fehlt** "
         f"({kennzahlen['summe_beleg_fehlt']:,.2f} EUR) · "
+        f"**{kennzahlen['intern']} intern** ({kennzahlen['intern_ohne_mandat']} ohne Mandat) · "
         f"{kennzahlen['wiederkehrend']} wiederkehrend\n"
     )
 
@@ -550,6 +836,10 @@ def render_markdown(
         for p in teilmenge:
             if p["status"] == "sicher" and p["beleg"]:
                 beleg_text = f"Beleg {p['beleg'].get('id')}"
+            elif p["status"] == STATUS_INTERN:
+                beleg_text = "wird angelegt" if p["buchbar"] else "Regel ohne Mandat"
+                if p.get("partner"):
+                    beleg_text += f" (+ USt-Zeile `{p['partner'].get('id')}`)"
             elif p["kandidaten"]:
                 beleg_text = f"{len(p['kandidaten'])} Kandidat(en)"
             else:
@@ -567,6 +857,10 @@ def render_markdown(
         "Beleg vorhanden (buchbar)", [p for p in positionen if p["status"] == "sicher"]
     )
     _tabelle("Unklar", [p for p in positionen if p["status"] == "unklar"])
+    _tabelle(
+        "Intern — Beleg ohne Dokument nach Regel",
+        [p for p in positionen if p["status"] == STATUS_INTERN],
+    )
     _tabelle("Beleg fehlt", [p for p in positionen if p["status"] == "fehlend"])
 
     if args.buchen:
@@ -574,11 +868,12 @@ def render_markdown(
             f"\n## Buchung ({'ausgefuehrt' if args.ja else 'Vorschau — NICHTS gebucht'})\n"
         )
         if gebucht:
-            zeilen.append("\n| Umsatz-ID | Beleg-ID | Betrag EUR | Datum |")
-            zeilen.append("|---|---|---:|---|")
+            zeilen.append("\n| Umsatz-ID | Beleg-ID | Betrag EUR | Art | Typ | Datum |")
+            zeilen.append("|---|---|---:|---|---|---|")
             for g in gebucht:
                 zeilen.append(
-                    f"| `{g['umsatz_id']}` | {g['beleg_id']} | {g['betrag']:,.2f} | {g['datum']} |"
+                    f"| `{g['umsatz_id']}` | {g['beleg_id'] or '(neu)'} | {g['betrag']:,.2f} | "
+                    f"{g['art']} | {g.get('typ') or '—'} | {g['datum']} |"
                 )
         else:
             zeilen.append("\n(keine sicheren Zuordnungen zu buchen)\n")
@@ -600,6 +895,9 @@ def als_json(positionen: list[dict], gebucht: list[dict], kennzahlen: dict) -> d
             "grund": p["grund"],
             "beleg_id": p["beleg"]["id"] if p.get("beleg") else None,
             "kandidaten": len(p["kandidaten"]),
+            "kursdifferenz": p.get("kursdifferenz") or 0.0,
+            "buchbar": p.get("buchbar", False),
+            "partner_umsatz_id": (p.get("partner") or {}).get("id"),
             "konto_vorschlag": p["konto_vorschlag"],
             "konto_grund": p["konto_grund"],
             "wiederkehrend": p["wiederkehrend"],
@@ -610,6 +908,7 @@ def als_json(positionen: list[dict], gebucht: list[dict], kennzahlen: dict) -> d
         "kennzahlen": kennzahlen,
         "beleg_vorhanden": [pos_json(p) for p in positionen if p["status"] == "sicher"],
         "unklar": [pos_json(p) for p in positionen if p["status"] == "unklar"],
+        "intern": [pos_json(p) for p in positionen if p["status"] == STATUS_INTERN],
         "beleg_fehlt": [pos_json(p) for p in positionen if p["status"] == "fehlend"],
         "gebucht": gebucht,
     }
@@ -666,13 +965,16 @@ def main() -> int:
     sicher = [p for p in positionen if p["status"] == "sicher"]
     unklar = [p for p in positionen if p["status"] == "unklar"]
     fehlend = [p for p in positionen if p["status"] == "fehlend"]
+    intern = [p for p in positionen if p["status"] == STATUS_INTERN]
     wiederkehrend_n = sum(1 for p in positionen if p["wiederkehrend"])
     summe_fehlend = round(sum(p["betrag"] for p in fehlend), 2)
 
     gebucht: list[dict] = []
     if args.buchen:
         try:
-            zu_buchen = sicher
+            # Intern nur mit Mandat: die Regel traegt "autonom": true — das ist
+            # das stehende Owner-Wort je Regelklasse (Baustein 5, 2026-09-17).
+            zu_buchen = sicher + [q for q in intern if q["buchbar"]]
             if args.nicht_buchen:
                 muster = re.compile(args.nicht_buchen, re.IGNORECASE)
                 zu_buchen = [
@@ -692,6 +994,8 @@ def main() -> int:
         "sicher": len(sicher),
         "unklar": len(unklar),
         "beleg_fehlt": len(fehlend),
+        "intern": len(intern),
+        "intern_ohne_mandat": sum(1 for q in intern if not q["buchbar"]),
         "wiederkehrend": wiederkehrend_n,
         "summe_beleg_fehlt": summe_fehlend,
     }
@@ -709,7 +1013,7 @@ def main() -> int:
         args.ziel.write_text(text, encoding="utf-8")
         print(f"geschrieben: {args.ziel}")
 
-    if positionen and not (unklar or fehlend):
+    if positionen and not (unklar or fehlend or [q for q in intern if not q["buchbar"]]):
         return 0
     if not positionen:
         return 0
