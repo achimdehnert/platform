@@ -149,7 +149,7 @@ else
   SMOKE_OUT="$(cd "$PLATFORM_DIR" && python3 -m pytest tools/tests/test_retro_kpis.py tools/claude-hooks/tests/ -q 2>&1)"
   SMOKE_RC=$?
   SMOKE_SUMMARY="$(echo "$SMOKE_OUT" | tail -1)"
-  DRILL_OUT="$(cd "$PLATFORM_DIR" && python3 tools/gate_drill_check.py 2>&1)"
+  (cd "$PLATFORM_DIR" && python3 tools/gate_drill_check.py) >/dev/null 2>&1
   DRILL_RC=$?
   if [ "$SMOKE_RC" -eq 0 ] && [ "$DRILL_RC" -eq 0 ]; then
     python3 "$PLATFORM_DIR/tools/modellwechsel_check.py" --behandelt >/dev/null 2>&1
@@ -309,6 +309,7 @@ fi
 
 # ── 0.5.1 Secret-Drop-Zone-Guard (KONZ-010, warn) ───────────────────────────
 if [ -d ~/shared/inbox/secrets ] && [ -n "$(ls -A ~/shared/inbox/secrets 2>/dev/null)" ]; then
+  # shellcheck disable=SC2012  # ls -A statt find: nur Zaehlung, kein Name-Parsing
   N_SEC=$(ls -A ~/shared/inbox/secrets 2>/dev/null | wc -l)
   record "0.5.1 secret-zone" "WARN" "${N_SEC} Secret(s) in ~/shared/inbox/secrets — nach ~/.secrets reconcilen (KONZ-010)"
 else
@@ -450,7 +451,7 @@ EOF
     DEPLOY_WAITING="$DEPLOY_WAITING $r"
   fi
 done
-N_DEPLOY_REPOS=$(echo $DEPLOY_REPOS | wc -w)
+N_DEPLOY_REPOS=$(echo "$DEPLOY_REPOS" | wc -w)
 # Abdeckung immer mitschreiben (gescannt/gesamt) statt nur die Soll-Zahl zu nennen.
 # Stillgelegte Repos gehen nicht in N_SCANNED ein (kein gh-Aufruf, s.o.) —
 # ohne den Zusatz saehe das wie eine Abdeckungsluecke aus.
@@ -792,6 +793,7 @@ if [ -z "$WIRK_JSON" ]; then
 else
   # Zusammenfassen in Python: der JSON-Baum ist zu verschachtelt fuer jq-Akrobatik
   # in einer Zeile, und ein halb geparster Melder ist schlimmer als keiner.
+  # shellcheck disable=SC2016  # Single Quotes gewollt: Python-Code, kein Bash-Expand
   WIRK_OUT=$(printf '%s' "$WIRK_JSON" | python3 -c '
 import json, sys
 try:
@@ -1067,6 +1069,7 @@ fi
 if [[ -f "$PLATFORM_DIR/tools/registry_erreichbarkeit_melder.py" ]]; then
   RE_OUT=$(timeout 120 python3 "$PLATFORM_DIR/tools/registry_erreichbarkeit_melder.py" --quiet 2>&1 | tail -1)
   RE_STATUS=$(sed -n 's/^RESULT: \([A-Z]*\).*/\1/p' <<< "$RE_OUT")
+  # shellcheck disable=SC2001  # Regex-Klasse [A-Z]*, kein 1:1-Ersatz durch Parameter-Expansion
   record "0.7.24 registry-erreichbarkeit" "${RE_STATUS:-SKIP}" "$(sed 's/^RESULT: [A-Z]* — //' <<< "$RE_OUT")"
 fi
 
