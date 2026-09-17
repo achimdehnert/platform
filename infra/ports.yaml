@@ -456,9 +456,9 @@ services:
                                # cloudflared-Restart trifft dort alle Routen.
     container_name: apo_hub_web
     domain_prod: apo.iil.pet
-    note: "GEFUNDEN 2026-07-10: in keiner Registry erfasst, obwohl seit ≥2 Tagen live (nginx-vhost apo.iil.pet.conf vorhanden). Apocenna-Nachfolgeplattform."
     repo: achimdehnert/apo-hub
     note: >
+      GEFUNDEN 2026-07-10: in keiner Registry erfasst, obwohl seit ≥2 Tagen live (nginx-vhost apo.iil.pet.conf vorhanden). Apocenna-Nachfolgeplattform.
       Laeuft seit 2026-09-02 15:56 UTC auf prod-b — am Knoten geprueft 2026-09-04: drei
       Container (web/proxy/tunnel) Up 46 h, web healthy, localhost:8120/healthz und
       /api/health beide HTTP 200. betriebsstatus ist damit `aktiv` (Vorgabe, kein Grund
