@@ -17,6 +17,14 @@ from pathlib import Path
 
 import pytest
 
+# Die drei @slow-Tests starten print_agent.py als Subprozess und rendern ein echtes
+# PDF — das braucht weasyprint/litellm, die in der CI-Testumgebung fehlen. Wie in
+# den Nachbartests: dort ueberspringen, nicht failen (#2621).
+_braucht_renderer = pytest.mark.skipif(
+    any(importlib.util.find_spec(m) is None for m in ("weasyprint", "litellm")),
+    reason="weasyprint/litellm nicht installiert — kein PDF-Rendering in dieser Umgebung",
+)
+
 _MODUL = Path(__file__).resolve().parents[1] / "pdf_forms.py"
 _spec = importlib.util.spec_from_file_location("pdf_forms", _MODUL)
 pf = importlib.util.module_from_spec(_spec)
@@ -167,6 +175,7 @@ def _erzeuge(tmp_path: Path, markdown_text: str) -> Path:
 
 
 @pytest.mark.slow
+@_braucht_renderer
 def test_should_produce_a_pdf_with_real_form_fields(tmp_path):
     pdf = _erzeuge(
         tmp_path,
@@ -181,6 +190,7 @@ def test_should_produce_a_pdf_with_real_form_fields(tmp_path):
 
 
 @pytest.mark.slow
+@_braucht_renderer
 def test_should_produce_a_plain_pdf_without_the_opt_in(tmp_path):
     """Negativprobe — ohne `forms: true` bleibt es ein totes Bild.
 
@@ -316,6 +326,7 @@ def test_should_only_switch_to_landscape_when_asked():
 
 
 @pytest.mark.slow
+@_braucht_renderer
 def test_should_produce_clickable_rectangles_in_the_finished_pdf(tmp_path):
     """Die eigentliche Zusage des Bogens: man kann hineinklicken.
 
@@ -341,6 +352,7 @@ def test_should_produce_clickable_rectangles_in_the_finished_pdf(tmp_path):
 
 
 @pytest.mark.slow
+@_braucht_renderer
 def test_should_keep_the_page_upright_without_the_landscape_opt_in(tmp_path):
     """Negativprobe — sonst belegt der Querformat-Pfad nur, dass IRGENDWAS kippt."""
     hoch = _pdf_reader()(str(_erzeuge(tmp_path, "# Probe\n\nText.\n"))).pages[0]
