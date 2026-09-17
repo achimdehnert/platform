@@ -298,13 +298,6 @@ melder:
     mindest_laeufe: 5
     runbook: "0.R#0.7.6"
 
-  - phase: "0.7.7 gate-wirkung"
-    leser: "/session-ende Phase 0f (Checkliste 17) → /session-retro Phase 4 Punkt 5a"
-    wiedervorlage_tage: 14
-    praezision_min: 0.6
-    mindest_laeufe: 5
-    runbook: "0.R#0.7.7"
-
   - phase: "0.7.8 zeitplan-wache"
     # Zeile 678 session_start_checks.sh: WARN meldet von GitHub still abgeschaltete `schedule`-Trigger — Reaktivierung per `gh workflow enable` ist mechanische Agent-Handlung.
     leser: "Sitzungsagent via Session-Start-Board (session-start.md Zeile 68: gh workflow enable)"

@@ -24,7 +24,7 @@ RUNNER_AUSSCHNITT = """
 record "0.0 env+banner" "PASS" "..."
 record "0.7.4 prio-referenzen" "WARN" "..." "$TARGET_REPO"
 record "0.7.6 leseflaeche" "PASS" "..."
-record "0.7.7 gate-wirkung" "WARN" "..."
+record "0.7.8 zeitplan-wache" "WARN" "..."
 """
 
 
@@ -70,7 +70,7 @@ def test_should_extract_phase_ids_from_runner_excerpt(tmp_path):
         "0.0 env+banner",
         "0.7.4 prio-referenzen",
         "0.7.6 leseflaeche",
-        "0.7.7 gate-wirkung",
+        "0.7.8 zeitplan-wache",
     }
 
 
@@ -84,9 +84,9 @@ def test_should_return_empty_set_when_runner_missing(tmp_path):
 def test_should_detect_runner_phase_without_register_entry():
     """Positivkontrolle: eine Runner-Phase OHNE Register-Zeile MUSS als fehlend auftauchen."""
     register = [_register(phase="0.7.6 leseflaeche", leser="Agent selbst")]
-    runner_phasen = {"0.7.6 leseflaeche", "0.7.7 gate-wirkung"}
+    runner_phasen = {"0.7.6 leseflaeche", "0.7.8 zeitplan-wache"}
     fehlend, unbenannt, karteileiche = mrc.register_pruefen(register, runner_phasen)
-    assert fehlend == ["0.7.7 gate-wirkung"]
+    assert fehlend == ["0.7.8 zeitplan-wache"]
     assert unbenannt == []
     assert karteileiche == []
 
@@ -95,12 +95,12 @@ def test_should_count_unbenannt_entries():
     """Positivkontrolle: ein Eintrag mit leser: UNBENANNT MUSS gezaehlt werden."""
     register = [
         _register(phase="0.7.6 leseflaeche", leser="Agent selbst"),
-        _register(phase="0.7.7 gate-wirkung", leser="UNBENANNT"),
+        _register(phase="0.7.8 zeitplan-wache", leser="UNBENANNT"),
     ]
-    runner_phasen = {"0.7.6 leseflaeche", "0.7.7 gate-wirkung"}
+    runner_phasen = {"0.7.6 leseflaeche", "0.7.8 zeitplan-wache"}
     fehlend, unbenannt, karteileiche = mrc.register_pruefen(register, runner_phasen)
     assert fehlend == []
-    assert unbenannt == ["0.7.7 gate-wirkung"]
+    assert unbenannt == ["0.7.8 zeitplan-wache"]
     assert karteileiche == []
 
 
@@ -127,12 +127,12 @@ def test_should_report_ok_when_register_and_runner_match():
 
 def test_should_combine_missing_and_unbenannt_in_kurz_bericht_with_nonzero_exit():
     register = [_register(phase="0.7.6 leseflaeche", leser="UNBENANNT")]
-    runner_phasen = {"0.7.6 leseflaeche", "0.7.7 gate-wirkung"}
+    runner_phasen = {"0.7.6 leseflaeche", "0.7.8 zeitplan-wache"}
     text, rc = mrc.kurz_bericht(register, runner_phasen)
     assert rc == 1
     assert "2 Melder ohne Leser" in text
     assert "0.7.6 leseflaeche" in text
-    assert "0.7.7 gate-wirkung" in text
+    assert "0.7.8 zeitplan-wache" in text
 
 
 def test_should_report_karteileiche_separately_in_kurz_bericht():

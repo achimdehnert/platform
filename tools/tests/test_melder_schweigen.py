@@ -102,6 +102,7 @@ def test_should_keep_the_runner_reading_stdout_for_these_phases():
     wirkungslos — `melder-ohne-leser`, nur andersherum.
     """
     runner = (TOOLS / "session_start_checks.sh").read_text(encoding="utf-8")
-    for variable in ("DECKUNG_OUT", "WIRKUNG_OUT", "NAMDECK_OUT"):
+    # WIRKUNG_OUT fehlt seit der Streichung von Phase 0.7.7 (Retro 8185e1 M9).
+    for variable in ("DECKUNG_OUT", "NAMDECK_OUT"):
         assert f'if [ -n "${variable}" ]' in runner, variable
         assert f"{variable}=$(" in runner.replace("timeout 60 ", "")

@@ -65,7 +65,6 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
 | `0.7.3 opt-platform` | `/opt/platform`-Klon (Mail-Ingest) weicht ab | synchron/hinterher | Freigabe: `--sync` ist bewusster Prod-Eingriff |
 | `0.7.5 hook-dist` | aktive Hook-Kopie weicht ab, Selbstheilung fehlgeschlagen | selbst geheilt | Ursache prüfen, manuell verteilen |
 | `0.7.6 leseflaeche` | Prio-Zeilen zeigen auf Geschlossenes | `◌ NICHT pruefbar` = Abdeckungslücke | **vor** Arbeitsbeginn nachziehen, `befund_leseflaeche.py --alle-gesehen` |
-| `0.7.7 gate-wirkung` | gebautes Gate versagt, Befund 2×+ zurück | `zu-frueh`/`unerprobt` | im Board benennen, Behandlung in Retro 4/5a |
 | `0.7.8 zeitplan-wache` | GitHub hat `schedule`-Trigger still abgeschaltet | keiner abgeschaltet | `gh workflow enable`, Zeitplan reaktivieren |
 | `0.7.9 gate-deckung` | Slug ≥2× ungedeckt, Gate-Pflicht nicht eingelöst | keine offene Pflicht | Gate bauen oder declined-Eintrag mit Begründung |
 | `0.7.10 kennzahl-verfall` | markierte Kennzahl im Dokument veraltet | alle aktuell | Zahl im Dokument nachrechnen und korrigieren |
@@ -240,7 +239,6 @@ SA-4 aus `policies/autonomy-gates.md`):
 | 1 | Runner `session_start_checks.sh` gelaufen, Summary gezeigt (0.R) | ☐ |
 | 2 | RESULT beachtet: FAIL → Stopp; jede ⚠️ WARN als Befund gespiegelt | ☐ |
 | 2a | Journal gelesen: Altbefunde mit **Alter**, Fremd-Repo-Befunde benannt | ☐ |
-| 2b | Rückfällige Gates aus 0.7.7 im Board benannt | ☐ |
 | 2c | `0.7.11`: 5xx von NXDOMAIN getrennt; jede `ports.yaml`-Ausnahme mit Grund | ☐ |
 | 2d | `0.7.16`: `abgelaufen`/`laeuft-ab` von `fallback-zertifikat` getrennt | ☐ |
 | 2e | `0.7.17`: rote Volumes nach Lage getrennt; jeder Verzicht mit Grund | ☐ |
@@ -282,6 +280,12 @@ SA-4 aus `policies/autonomy-gates.md`):
 
 > Nur die letzten drei Einträge (Policy seit #2696). Volle Historie: `LEHREN#changelog-historie`.
 
+- 2026-09-17: **Phase 0.7.7 `gate-wirkung` gestrichen** (Streichbahn Retro 8185e1, Owner-Wort
+  M9, Belegart kein Leser): drei Journal-Läufe, kein Session-Start-Board führte den Befund als
+  Item; der einzige registrierte Leser war `/session-retro` Phase 4/5a, die `gate_wirkung.py`
+  ohnehin selbst als Phase 0.0 ausführt — der Sitzungsstart duplizierte die Retro mit
+  schwächerem Zug. Rückfall-Prüfung bleibt in `/session-retro` Phase 0.0/5a;
+  `tools/gate_wirkung.py` unverändert.
 - 2026-09-16: **Phase 1.1 liest Sitzungs-Fragmente** (#1944 K6) — in Repos mit
   `docs/handover.d/` kommt der Stand aus `fragments.py render --ref origin/main`; der
   Start-Hook spiegelt die offenen Fäden. Die Startprüfung meldet parallele Sitzungen nicht
@@ -292,7 +296,3 @@ SA-4 aus `policies/autonomy-gates.md`):
   Deutungstabelle noch in der Checkliste — gehandelt wurde nur, weil der Runner-Text
   es mitlieferte. Neuer Prüfer `tools/skill_phasen_deckung.py` hält die Tabelle ab
   jetzt am Runner fest (gemessen: 6 von 46 WARN-Phasen ungedeutet).
-
-- 2026-09-11: **Phase 1.8 Auftragsraum abarbeiten + Checkliste 8a** (KONZ-platform-059, #3079) —
-  Zurufe aus dem Chat-Raum „Aufträge Achim / Lotse" landen als Vorschlag im Journal, nie als
-  Befehl; Kurzbefehle wendet `anwenden` an, Korrekturen bekommen per `regel` ein Artefakt.

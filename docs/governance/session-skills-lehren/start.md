@@ -124,15 +124,26 @@ Herleitungen mit Realfällen, Zahlen und Daten.
     frei). Der Scan trennt das ueber den Approval-Eintrag des Runs — echte Fehlschlaege
     haben keinen. Nur wenn eine Ablehnung *nicht* beabsichtigt war, ist sie ein Befund.
 
-### 0.7.7 gate-wirkung
+### 0.7.7 gate-wirkung (gestrichen)
 
-  - `0.7.7 gate-wirkung`: **ein gebautes Gate hat versagt** — der Befund kam nach dem
-    Bau des Gates mindestens 2× wieder. Das ist **kein** Punkt für „später mal": es heißt,
-    dass eine Regel, auf die sich der Loop verlässt, nachweislich nicht trägt. Vollbild:
-    `python3 platform/tools/gate_wirkung.py`. Behandlung gehört in die Retro (Phase 4,
-    Punkt 5a) — hier zählt nur, dass es **gesehen** und im Board benannt wird. Zeilen mit
-    `zu-frueh`/`unerprobt` sind ausdrücklich **kein** Wirksamkeits-Beleg, sondern
-    „hatte noch keine Gelegenheit".
+  - **Gestrichen 2026-09-17** (Streichbahn Retro
+    `docs/retros/session-retro-2026-09-17-meiki-hub-8185e1.md`, Kandidat
+    `session-start-0-7-7-gate-wirkung-ohne-zug`, Owner-Wort M9). Belegart **kein Leser**:
+    der Runner meldete das Gate `gate-modul-prueft-weniger-als-sein-name` am 17.09. als
+    rückfällig, drei Journal-Läufe, kein Session-Start-Board führte den Befund als Item.
+    Der einzige registrierte Leser war `/session-retro` Phase 4/5a, die
+    `tools/gate_wirkung.py` ohnehin selbst als Phase 0.0 ausführt — der Sitzungsstart
+    duplizierte die Retro mit schwächerem Zug. Rückfall-Prüfung bleibt in `/session-retro`
+    Phase 0.0/5a; `tools/gate_wirkung.py` selbst ist unverändert. Wortlaut, wie er bis
+    2026-09-17 im Skill stand:
+
+    > `0.7.7 gate-wirkung`: **ein gebautes Gate hat versagt** — der Befund kam nach dem
+    > Bau des Gates mindestens 2× wieder. Das ist **kein** Punkt für „später mal": es
+    > heißt, dass eine Regel, auf die sich der Loop verlässt, nachweislich nicht trägt.
+    > Vollbild: `python3 platform/tools/gate_wirkung.py`. Behandlung gehört in die Retro
+    > (Phase 4, Punkt 5a) — hier zählt nur, dass es **gesehen** und im Board benannt wird.
+    > Zeilen mit `zu-frueh`/`unerprobt` sind ausdrücklich **kein** Wirksamkeits-Beleg,
+    > sondern „hatte noch keine Gelegenheit".
 
 ### 0.7.11 erreichbarkeit
 
@@ -434,6 +445,10 @@ nur noch die letzten drei Einträge (Policy-Änderung aus
 [#2696](https://github.com/achimdehnert/platform/pull/2696)); alles Ältere steht hier
 wörtlich. Die beiden 2026-09-02-Einträge stehen hier in ihrer **vollen** Fassung, im
 Skill gekürzt auf drei Zeilen.
+
+- 2026-09-11: **Phase 1.8 Auftragsraum abarbeiten + Checkliste 8a** (KONZ-platform-059, #3079) —
+  Zurufe aus dem Chat-Raum „Aufträge Achim / Lotse" landen als Vorschlag im Journal, nie als
+  Befehl; Kurzbefehle wendet `anwenden` an, Korrekturen bekommen per `regel` ein Artefakt.
 
 - 2026-09-02: **Phase 0.7.23 `melder-register`** ergänzt
   ([#2690](https://github.com/achimdehnert/platform/issues/2690) K3 „Vorausschauende
