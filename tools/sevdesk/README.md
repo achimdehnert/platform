@@ -120,16 +120,27 @@ python3 tools/sevdesk/kostenabgleich.py --buchen --ja   # bucht die sicheren Zuo
 
 `make sevdesk-kostenabgleich` ruft den Standardlauf.
 
-### Die drei Listen
+### Die vier Listen
 
 1. **Beleg vorhanden (buchbar)** — genau ein offener Beleg (Status 50/100,
-   Lieferantenbeleg) trifft den Betrag auf einen Cent genau, teilt ein Wort
-   (mindestens 4 Zeichen, ohne Fuellwoerter `gmbh`/`mbh`/`ag`/`kg`) mit dem
-   Zahler und liegt maximal 14 Tage vom Abgang entfernt.
+   Lieferantenbeleg) trifft den Betrag (2 Cent Toleranz; Fremdwaehrungsbelege
+   bis 8 % Kursdifferenz), teilt ein Wort (mindestens 4 Zeichen, ohne
+   Fuellwoerter `gmbh`/`mbh`/`ag`/`kg`) mit dem Zahler und liegt maximal
+   14 Tage vom Abgang entfernt. Weicht der Bankbetrag ab, wird per Typ O mit
+   dem Bankbetrag gebucht (FULL_PAYMENT gibt bei jeder Abweichung 422).
 2. **Unklar** — der Betrag trifft, aber kein Name passt eindeutig, oder
    mehrere Belege kommen infrage.
-3. **Beleg fehlt** — kein offener Beleg trifft den Betrag ueberhaupt
-   (Owner/Rechnungsstrecke).
+3. **Intern — Beleg ohne Dokument nach Regel** (2026-09-17) — kein
+   Lieferantenbeleg noetig: die Regel traegt `"beleg": "ohne_dokument"`
+   (Sozialversicherung, Lohn, Kontofuehrung, Privatentnahme). Das Werkzeug
+   legt den Beleg selbst an und bucht ihn — **nur mit Mandat** `"autonom":
+   true` in der Regel (stehendes Owner-Wort je Regelklasse); ohne Mandat
+   bleibt die Position sichtbar und ungeschrieben. Sonderklasse
+   `kontoabschluss_paar`: Gebuehr- und USt-Zeile der Bank = ein Beleg
+   (netto + USt 1:1, nie 19 % gerechnet), zwei Teilbuchungen Typ N.
+   Felder: siehe `sevdesk-konten.example.json`.
+4. **Beleg fehlt** — kein offener Beleg trifft den Betrag ueberhaupt
+   (Owner/Rechnungsstrecke, K9 `belegbeschaffung.py`).
 
 **Wiederkehrend**: Abgaenge mit gleichem normalisiertem Zahler und aehnlichem
 Betrag (Toleranz 0,50 EUR) in mindestens zwei aufeinanderfolgenden
@@ -148,8 +159,11 @@ sonst bis zu zwei Treffer aus `GET /ReceiptGuidance/forExpense`; kein Treffer
 - Gegen sevdesk wird **nur gelesen**, ausser mit `--buchen --ja`.
 - `--buchen` ohne `--ja` zeigt nur eine Vorschau — `bookAmount` wird in
   keinem Fall aufgerufen.
-- `--buchen --ja` bucht **ausschliesslich** die Stufe "Beleg vorhanden", und
-  dort immer den vollen offenen Betrag (`FULL_PAYMENT`).
+- `--buchen --ja` bucht die Stufe "Beleg vorhanden" (voller offener Betrag,
+  `FULL_PAYMENT`; bei Kurs-/Rundungsdifferenz Typ O mit Bankbetrag) und die
+  Stufe "intern" **mit Mandat** (`"autonom": true`). Intern: Steuerregel wird
+  vor dem Anlegen gegen `ReceiptGuidance/forAccountNumber` geprueft, Zahldatum
+  = Umsatzdatum, nach der Buchung muss der Beleg auf 1000 stehen.
 - Jede Buchung wird nach dem Schreiben gegen den Beleg geprueft und als Log
   unter `~/.claude/sevdesk-kostenabgleich-<datum>.json` abgelegt.
 - Wiederholung bucht nie doppelt: eine bereits verknuepfte/verbuchte
