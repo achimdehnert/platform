@@ -442,6 +442,11 @@ tests/
 
 Vollständige Anleitung: `.windsurf/workflows/testing-setup.md`
 
+**`make test` muss ohne Vorbereitung laufen** (Policy `testing.md`): für Django+Postgres-Repos
+erzeugt `python3 "$PLATFORM_DIR/scripts/gen_make_test_pg.py" <repo-pfad>` das Target
+`test-pg` (ephemeres Postgres, exakt die Env aus `config/settings/test.py`, Teardown per
+`trap`) — statt die Umgebung von Hand nachzubauen (2026-06-01: sechs Fehlläufe in einer Sitzung).
+
 **Kurzfassung:**
 
 ```bash
