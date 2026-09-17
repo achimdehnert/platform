@@ -587,20 +587,22 @@ class _SevdeskIntern(_Sevdesk):
     def handler(self, request: httpx.Request) -> httpx.Response:
         pfad = request.url.path
         if request.method == "GET" and pfad.endswith("/AccountDatev"):
-            return httpx.Response(
-                200,
-                json={"objects": [{"number": n, "id": i} for n, i in self.konten.items()]},
+            raise AssertionError(
+                "GET /AccountDatev listet nur 100 aktive Konten (2100 fehlt) — "
+                "Konto-ID kommt aus ReceiptGuidance/forAccountNumber"
             )
         if request.method == "GET" and pfad.endswith("/ReceiptGuidance/forAccountNumber"):
             nr = request.url.params.get("accountNumber")
             if nr not in self.erlaubt:
                 return httpx.Response(200, json={"objects": []})
-            # sevdesk liefert bei einem Treffer ein Dict statt Liste (#3109)
+            # sevdesk liefert bei einem Treffer ein Dict statt Liste (#3109);
+            # accountDatevId ist die einzige verlaessliche Quelle fuer die Konto-ID
             return httpx.Response(
                 200,
                 json={
                     "objects": {
                         "accountNumber": nr,
+                        "accountDatevId": int(self.konten[nr]),
                         "allowedTaxRules": [{"id": int(r)} for r in self.erlaubt[nr]],
                     }
                 },
@@ -721,16 +723,64 @@ def test_should_not_treat_partial_sammelueberweisung_as_intern(monkeypatch, tmp_
 
 
 def test_should_refuse_intern_booking_when_tax_rule_not_allowed(monkeypatch, tmp_path, capsys):
-    regel = dict(REGEL_SOZIALVERS, konto="7600")
+    regel = dict(REGEL_SOZIALVERS, konto="6110", taxrule="1")  # 1 = USt-pflichtige Umsaetze
     sevdesk = _SevdeskIntern(
-        [_tx("t1", "2026-03-27", -123.43, "Finanzamt", "KOERPST 1VJ.26")],
-        [], [], konten={"7600": "4444"}, erlaubt={},
+        [_tx("t1", "2026-03-27", -215.46, "Knappschaft-Bahn-See", "BEITRAG 0326")], [], []
     )
-    konten = _konten(tmp_path, [dict(regel, muster="koerpst")])
+    konten = _konten(tmp_path, [regel])
     code = _lauf(monkeypatch, sevdesk, konten, tmp_path, ["--buchen", "--ja"])
     out = capsys.readouterr().out
-    assert code == 3 and "Steuerregel 9 laut ReceiptGuidance nicht erlaubt" in out
+    assert code == 3 and "Steuerregel 1 laut ReceiptGuidance nicht erlaubt" in out
     assert sevdesk.angelegt == [] and sevdesk.buchungen == []
+
+
+def test_should_refuse_intern_booking_for_account_without_guidance(monkeypatch, tmp_path, capsys):
+    """7600 Koerperschaftsteuer hat keine ReceiptGuidance — nicht belegbuchbar."""
+    regel = dict(REGEL_SOZIALVERS, konto="7600", muster="koerpst")
+    sevdesk = _SevdeskIntern(
+        [_tx("t1", "2026-03-27", -123.43, "Finanzamt", "KOERPST 1VJ.26")], [], []
+    )
+    konten = _konten(tmp_path, [regel])
+    code = _lauf(monkeypatch, sevdesk, konten, tmp_path, ["--buchen", "--ja"])
+    out = capsys.readouterr().out
+    assert code == 3 and "Konto 7600: keine ReceiptGuidance" in out
+    assert sevdesk.angelegt == []
+
+
+def test_should_book_deactivated_privatentnahme_account_via_guidance_id(monkeypatch, tmp_path):
+    """2100 fehlt in GET /AccountDatev (deactivated), ReceiptGuidance kennt die ID 2838."""
+    regel = {
+        "muster": "spotify", "konto": "2100", "bezeichnung": "Privatentnahme",
+        "beleg": "ohne_dokument", "taxrule": "16", "beschreibung": "Privatentnahme", "autonom": True,
+    }
+    sevdesk = _SevdeskIntern(
+        [_tx("t1", "2026-08-20", -21.99, "PayPal Europe", "1052/PP.1321.PP/. Spotify AB, Ihr Einkauf bei Spotify AB")],
+        [], [],
+    )
+    konten = _konten(tmp_path, [regel])
+    code = _lauf(monkeypatch, sevdesk, konten, tmp_path, ["--buchen", "--ja"])
+    assert code == 0
+    form = sevdesk.angelegt[0]["form"]
+    assert form["voucherPosSave[0][accountDatev][id]"] == "2838"
+    assert form["voucher[taxRule][id]"] == "16"
+    assert form["voucher[supplierName]"] == "Spotify AB"
+
+
+def test_should_write_log_per_booking_so_abort_keeps_earlier_entries(monkeypatch, tmp_path):
+    """Abbruch bei Position 2 (7600 ohne Guidance) — Position 1 steht trotzdem im Log."""
+    sevdesk = _SevdeskIntern(
+        [
+            _tx("t1", "2026-03-27", -215.46, "Knappschaft-Bahn-See", "BEITRAG 0326"),
+            _tx("t2", "2026-03-28", -123.43, "Finanzamt", "KOERPST 1VJ.26"),
+        ],
+        [], [],
+    )
+    konten = _konten(tmp_path, [REGEL_SOZIALVERS, dict(REGEL_SOZIALVERS, konto="7600", muster="koerpst")])
+    monkeypatch.setattr(ka, "LOG_VERZEICHNIS", tmp_path)
+    code = _lauf(monkeypatch, sevdesk, konten, tmp_path, ["--buchen", "--ja"])
+    assert code == 3
+    log = json.loads((tmp_path / "sevdesk-kostenabgleich-2026-04-15.json").read_text())
+    assert [e["umsatz_id"] for e in log] == ["t1"] and log[0]["ausgefuehrt"] is True
 
 
 def test_should_book_kontoabschluss_pair_as_one_voucher_with_two_partial_payments(
