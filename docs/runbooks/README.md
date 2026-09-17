@@ -19,6 +19,7 @@ lagen ohne einen einzigen Verweis außerhalb des Ordners). Verweis aus `CORE_CON
 | [`cf-origin-cert-restore.md`](cf-origin-cert-restore.md) | CF Origin Cert Restore (`*.iil.pet`) | 2026-05-29 |
 | [`docker-id-name-log.md`](docker-id-name-log.md) | Container-ID → Name auflösen (OOM-Forensik) | 2026-07-21 |
 | [`ghcr-403-push-actions-access.md`](ghcr-403-push-actions-access.md) | GHCR `403 Forbidden` beim Deploy-Build-Push | 2026-07-06 |
+| [`hnu-kalender-ews.md`](hnu-kalender-ews.md) | HNU-Kalender lesen/schreiben über EWS statt Graph (#3300) | 2026-09-17 |
 | [`iil-migration-breakglass-pypi-token.md`](iil-migration-breakglass-pypi-token.md) | Break-Glass PyPI-Token bei iil-* Org-Migration | 2026-06-23 |
 | [`loopback-dienst-hinter-cloudflare-access.md`](loopback-dienst-hinter-cloudflare-access.md) | einen Loopback-Dienst hinter Cloudflare Access veröffentlichen | 2026-09-02 |
 | [`mail-wache.md`](mail-wache.md) | Mail-Wache — Weckruf bei neuer Mail (chat-hub#48 F4) | 2026-09-05 |
