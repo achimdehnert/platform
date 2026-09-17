@@ -447,18 +447,15 @@ def kontoabschluss_paare(abgaenge: list[dict], regeln: list[dict]) -> dict:
     return paare
 
 
-def konto_ids(client_) -> dict[str, str]:
-    """Kontonummer → AccountDatev-ID des Mandanten (einmal je Lauf)."""
-    return {
-        str(a.get("number")): str(a.get("id"))
-        for a in hole(client_, "/AccountDatev")
-        if a.get("number") and a.get("id")
-    }
+def konto_guidance(client_, konto: str) -> tuple[str | None, set[str]]:
+    """(AccountDatev-ID, erlaubte Steuerregeln) aus GET /ReceiptGuidance/forAccountNumber.
 
-
-def steuerregel_erlaubt(client_, konto: str, taxrule: str) -> bool:
-    """GET /ReceiptGuidance/forAccountNumber — bei einem Treffer ein Dict statt
-    Liste (#3109); Konto ohne Guidance (z. B. 7600) ist nicht belegbuchbar."""
+    Die ID kommt bewusst von hier und nicht aus ``GET /AccountDatev``: die Liste
+    liefert nur 100 aktive Konten — 2100 Privatentnahmen (deactivated=1) fehlt
+    dort, ist per Beleg aber buchbar (Echtprobe 2026-09-17, Abbruch „Konto 2100
+    nicht im Kontenrahmen"). Bei einem Treffer antwortet sevdesk mit einem Dict
+    statt einer Liste (#3109). Konto ohne Guidance (7600) → (None, set()).
+    """
     r = client_.get("/ReceiptGuidance/forAccountNumber", params={"accountNumber": konto})
     r.raise_for_status()
     objekte = r.json().get("objects") or []
@@ -466,11 +463,13 @@ def steuerregel_erlaubt(client_, konto: str, taxrule: str) -> bool:
         objekte = [objekte]
     for o in objekte:
         if str(o.get("accountNumber")) == str(konto):
-            return str(taxrule) in {str(x.get("id")) for x in o.get("allowedTaxRules") or []}
-    return False
+            regeln = {str(x.get("id")) for x in o.get("allowedTaxRules") or []}
+            konto_id = o.get("accountDatevId")
+            return (str(konto_id) if konto_id else None), regeln
+    return None, set()
 
 
-def intern_buchen(client_, position: dict, ids: dict[str, str]) -> dict:
+def intern_buchen(client_, position: dict) -> dict:
     """Beleg ohne Dokument nach Regel anlegen (Status 100) und auf den Abgang
     buchen — FULL_PAYMENT negativ; beim Kontoabschluss-Paar zwei Teilbuchungen
     Typ N (Gebuehr + USt-Zeile). Zahldatum = Umsatzdatum (#3270). Nach der
@@ -479,9 +478,10 @@ def intern_buchen(client_, position: dict, ids: dict[str, str]) -> dict:
     regel = position["regel"]
     konto = str(regel["konto"])
     taxrule = str(regel.get("taxrule") or "9")
-    if konto not in ids:
-        raise RuntimeError(f"Konto {konto} nicht im Kontenrahmen (GET /AccountDatev)")
-    if not steuerregel_erlaubt(client_, konto, taxrule):
+    konto_id, erlaubt = konto_guidance(client_, konto)
+    if konto_id is None:
+        raise RuntimeError(f"Konto {konto}: keine ReceiptGuidance — per Beleg nicht buchbar")
+    if taxrule not in erlaubt:
         raise RuntimeError(
             f"Konto {konto}: Steuerregel {taxrule} laut ReceiptGuidance nicht erlaubt"
         )
@@ -515,7 +515,7 @@ def intern_buchen(client_, position: dict, ids: dict[str, str]) -> dict:
         "voucher[taxRule][objectName]": "TaxRule",
         "voucherPosSave[0][objectName]": "VoucherPos",
         "voucherPosSave[0][mapAll]": "true",
-        "voucherPosSave[0][accountDatev][id]": ids[konto],
+        "voucherPosSave[0][accountDatev][id]": konto_id,
         "voucherPosSave[0][accountDatev][objectName]": "AccountDatev",
         "voucherPosSave[0][taxRate]": str(satz),
         "voucherPosSave[0][net]": "false",
@@ -649,7 +649,7 @@ def buchen_lauf(
     client_, sichere: list[dict], heute: dt.date, wirklich: bool
 ) -> list[dict]:
     log: list[dict] = []
-    ids: dict[str, str] | None = None
+    ziel = LOG_VERZEICHNIS / f"sevdesk-kostenabgleich-{heute.isoformat()}.json"
     for p in sichere:
         intern = p["status"] == STATUS_INTERN
         posten = {
@@ -663,26 +663,29 @@ def buchen_lauf(
         }
         if wirklich:
             if intern:
-                if ids is None:
-                    ids = konto_ids(client_)
-                ergebnis = intern_buchen(client_, p, ids)
+                ergebnis = intern_buchen(client_, p)
                 posten["beleg_id"] = ergebnis["beleg_id"]
             else:
                 ergebnis = buchen(client_, p, heute)
             posten["ausgefuehrt"] = True
             posten["typ"] = ergebnis["typ"]
             posten["warnung"] = ergebnis["warnung"]
+            # Log je Buchung, nicht erst am Ende: bricht der Lauf bei Position n
+            # ab, sind die n-1 geschriebenen Buchungen trotzdem nachvollziehbar
+            # (Echtprobe 2026-09-17: Abbruch bei Position 3, Log leer).
+            _log_anhaengen(ziel, posten)
         log.append(posten)
-    if wirklich and log:
-        ziel = LOG_VERZEICHNIS / f"sevdesk-kostenabgleich-{heute.isoformat()}.json"
-        ziel.parent.mkdir(parents=True, exist_ok=True)
-        bestehend = []
-        if ziel.exists():
-            bestehend = json.loads(ziel.read_text(encoding="utf-8"))
-        ziel.write_text(
-            json.dumps(bestehend + log, ensure_ascii=False, indent=1), encoding="utf-8"
-        )
     return log
+
+
+def _log_anhaengen(ziel: Path, posten: dict) -> None:
+    ziel.parent.mkdir(parents=True, exist_ok=True)
+    bestehend = []
+    if ziel.exists():
+        bestehend = json.loads(ziel.read_text(encoding="utf-8"))
+    ziel.write_text(
+        json.dumps(bestehend + [posten], ensure_ascii=False, indent=1), encoding="utf-8"
+    )
 
 
 def positionen_ermitteln(
