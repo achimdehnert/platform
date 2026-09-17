@@ -65,6 +65,21 @@ def _lies(repo: str, rel: str) -> str:
         return ""
 
 
+def _drill_wurzel(gate: dict, repo: str) -> str:
+    """Wurzel fuer relative Drill-Pfade — bei `repo: owner/name` der lokale Klon.
+
+    Bis 2026-09-17 wurde jedes Gate gegen den platform-Klon gelesen; ein Gate im
+    Ziel-Repo (`built-but-never-called`, `date-cutoff-utc-statt-localdate`) galt
+    damit dauerhaft als Luecke, obwohl sein Drill dort liegt. Fehlt der Klon,
+    bleibt es eine Luecke — das ist dann ehrlich.
+    """
+    fremd = str(gate.get("repo") or "").strip()
+    if not fremd:
+        return repo
+    github_dir = os.environ.get("GITHUB_DIR") or os.path.expanduser("~/github")
+    return os.path.join(github_dir, fremd.rsplit("/", 1)[-1])
+
+
 def _quellen(gate: dict) -> list[str]:
     """Drill-Pfade als flache Liste — `drill` darf ein String ODER eine Liste sein.
 
@@ -102,8 +117,9 @@ def pruefe_gate(gate: dict, repo: str = REPO_ROOT) -> dict:
         }
 
     quellen = _quellen(gate)
-    text = "\n".join(_lies(repo, q) for q in quellen).lower()
-    gelesen = sum(1 for q in quellen if _lies(repo, q))
+    wurzel = _drill_wurzel(gate, repo)
+    text = "\n".join(_lies(wurzel, q) for q in quellen).lower()
+    gelesen = sum(1 for q in quellen if _lies(wurzel, q))
 
     gedeckt, fehlend = [], []
     for fall in faelle:

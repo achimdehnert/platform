@@ -242,3 +242,31 @@ def test_should_not_crash_on_the_real_registry():
     registry = gn.gate_registry.laden(gn.DEFAULT_REGISTRY)
     staende = [gn.pruefe_gate(g) for g in registry["gates"]]
     assert len(staende) == len(registry["gates"])
+
+
+def test_should_read_the_drill_from_the_target_repo_clone(tmp_path, monkeypatch):
+    """`repo: owner/name` → Drill liegt unter $GITHUB_DIR/name, nicht in platform."""
+    ziel = tmp_path / "gh" / "apo-hub"
+    ziel.mkdir(parents=True)
+    (ziel / "drill.py").write_text("def test_localdate(): pass\n")
+    monkeypatch.setenv("GITHUB_DIR", str(tmp_path / "gh"))
+    gate = {
+        "slug": "cutoff",
+        "repo": "achimdehnert/apo-hub",
+        "drill": "drill.py",
+        "faengt": [{"fall": "UTC-Datum", "probe": "localdate"}],
+    }
+    stand = gn.pruefe_gate(gate, str(tmp_path / "platform"))
+    assert stand["zustand"] == "gedeckt"
+
+
+def test_should_keep_the_luecke_when_the_target_clone_is_missing(tmp_path, monkeypatch):
+    monkeypatch.setenv("GITHUB_DIR", str(tmp_path / "leer"))
+    gate = {
+        "slug": "cutoff",
+        "repo": "achimdehnert/apo-hub",
+        "drill": "drill.py",
+        "faengt": [{"fall": "UTC-Datum", "probe": "localdate"}],
+    }
+    stand = gn.pruefe_gate(gate, str(tmp_path / "platform"))
+    assert stand["zustand"] == "luecke"
