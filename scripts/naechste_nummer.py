@@ -51,7 +51,10 @@ RESERVIERUNGEN = Path.home() / ".repo-session" / "nummern-reservierungen.json"
 LEBENSDAUER_S = 7 * 24 * 3600
 
 MUSTER = {
-    "adr": re.compile(r"docs/adr/(?:.*/)?ADR-(\d{3,4})-[^/]+\.md$"),
+    # Genau drei Ziffern und der Dateiname beginnt mit ADR-: `docs/adr/reviews/
+    # REVIEW-ADR-2026-001-…md` lieferte sonst 2026 → "naechste Nummer 2027"
+    # (gemessen 2026-09-17). Archivierte ADRs in Unterordnern bleiben vergeben.
+    "adr": re.compile(r"docs/adr/(?:[^/]+/)*ADR-(\d{3})-[^/]+\.md$"),
     "konz": re.compile(r"docs/konzepte/KONZ-platform-(\d{3})-[^/]+\.md$"),
 }
 
@@ -60,17 +63,66 @@ def _lauf(cmd: list[str], cwd: Path | None = None) -> subprocess.CompletedProces
     return subprocess.run(cmd, capture_output=True, text=True, cwd=cwd or REPO_ROOT)
 
 
+ARCHIV_MARKER = ("/_archive/", "/archive/", "/_ARCHIVED/")
+
+
+def _ref_baeume() -> list[tuple[str, str]]:
+    refs = _lauf(
+        [
+            "git",
+            "for-each-ref",
+            "--format=%(objectname) %(refname)",
+            "refs/remotes/origin",
+        ]
+    )
+    if refs.returncode != 0:
+        return []
+    out, gesehen = [], set()
+    for zeile in refs.stdout.splitlines():
+        tree, ref = zeile.split(" ", 1)
+        if tree not in gesehen:
+            gesehen.add(tree)
+            out.append((tree, ref))
+    return out
+
+
+def _pfade(tree: str) -> list[str]:
+    res = _lauf(["git", "ls-tree", "-r", "--name-only", tree])
+    return res.stdout.splitlines() if res.returncode == 0 else []
+
+
 def aus_refs(art: str) -> set[int]:
-    """Jede Nummer, die auf irgendeinem Remote-Ref je existiert hat."""
-    res = _lauf(["git", "rev-list", "--remotes=origin", "--objects"])
-    if res.returncode != 0:
-        return set()
+    """Jede LEBENDE Nummer auf der Spitze irgendeines Remote-Refs.
+
+    Bis 2026-09-17 las das Kommando `git rev-list --remotes=origin --objects`,
+    also jeden je erreichbaren Blob — auch laengst geloeschte Dateien. Vergeben
+    ist, was ein Zweig HEUTE ausserhalb der Archiv-Ordner traegt; Archiv-Nummern
+    (nur main massgeblich) sperrt `aus_archiv` gesondert, damit ADR-400/401 aus
+    `_archive/superseded/` nicht "naechste Nummer 402" ergeben, waehrend main
+    bei 307 steht (gemessen 2026-09-17).
+    """
     muster = MUSTER[art]
-    return {
-        int(m.group(1))
-        for zeile in res.stdout.splitlines()
-        if (m := muster.search(zeile))
-    }
+    belegt: set[int] = set()
+    for tree, _ref in _ref_baeume():
+        for pfad in _pfade(tree):
+            m = muster.search(pfad)
+            if m and not any(x in pfad for x in ARCHIV_MARKER):
+                belegt.add(int(m.group(1)))
+    return belegt
+
+
+def aus_archiv(art: str) -> set[int]:
+    """Nummern in Archiv-Ordnern auf main — bleiben gesperrt, zaehlen aber nicht
+    als Obergrenze (alte Zweige tragen Archiv-Staende mit, die main aufgeraeumt hat)."""
+    muster = MUSTER[art]
+    for tree, ref in _ref_baeume():
+        if ref.endswith("/main"):
+            return {
+                int(m.group(1))
+                for pfad in _pfade(tree)
+                if (m := muster.search(pfad)) and any(x in pfad for x in ARCHIV_MARKER)
+            }
+    return set()
 
 
 def aus_offenen_prs(art: str, repo: str | None) -> tuple[set[int], str | None]:
@@ -133,8 +185,12 @@ def reserviere(art: str, nummer: int, slug: str, jetzt: float | None = None) -> 
     return eintrag
 
 
-def naechste(belegt: set[int]) -> int:
-    return (max(belegt) + 1) if belegt else 1
+def naechste(belegt: set[int], gesperrt: set[int] | None = None) -> int:
+    """Kleinste Nummer oberhalb der lebenden Nummern, die nicht gesperrt ist."""
+    n = (max(belegt) + 1) if belegt else 1
+    while gesperrt and n in gesperrt:
+        n += 1
+    return n
 
 
 def main() -> int:
@@ -147,6 +203,7 @@ def main() -> int:
     args = ap.parse_args()
 
     refs = aus_refs(args.art)
+    archiv = aus_archiv(args.art)
     prs, ausfall = (
         (set(), "uebersprungen")
         if args.ohne_prs
@@ -154,7 +211,7 @@ def main() -> int:
     )
     resv = aus_reservierungen(args.art)
     belegt = refs | prs | resv
-    nr = naechste(belegt)
+    nr = naechste(belegt, archiv)
 
     if args.zeige_quellen:
         print(
