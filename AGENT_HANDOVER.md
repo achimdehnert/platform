@@ -15,6 +15,14 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 **Archiv älterer Stände und ausgelagerter Sektionen:**
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
 
+## ⚡ Aktueller Stand (2026-09-16 — Opus Standard, Skills, Schlüssel rotiert; Sitzung 16350d19)
+
+**Zeitanker:** HEAD `a1ac8bf2` · geschrieben 2026-09-16
+
+**Erledigt:** Opus 5 als Standard, kein Dauer-MAJOR (#3206, #3207). Skills start/ende/retro mit CI-Prüfern (#3210, #3216). Parser-Fix (#3205). Stash-Gate scharf, nur Stash-Hälfte — Rest #3211 (#3212, #3217). Orchestrator-Schlüssel rotiert ([#2769](https://github.com/achimdehnert/platform/issues/2769)).
+
+**Zielzustand (fremd geprüft):** K1–K3 erfüllt; Datums-Cutoff nur verankert (apo-hub#144), retro-Prüfer ohne Positivkontrolle an neuem Report; K4 Rotation fremd nur Selbstauskunft. **SA-4:** 3 (#3204, #3205, #3217) · 1 Einzel-OK · 0 Fehl. Freigaben [#3214](https://github.com/achimdehnert/platform/issues/3214). **Nächster Schritt:** Sitzung neu starten.
+
 ## ⚡ Aktueller Stand (2026-09-15 — decks-hub hinter Access für Agenten prüfbar; Sitzung ee405591)
 
 **Zeitanker:** HEAD `bbb04684` · `rev-list --count` 4491 · geschrieben 2026-09-15
@@ -22,12 +30,6 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 **Erledigt:** Service-Token `playwright-verify` in die Access-App `decks-hub.iil.pet` aufgenommen (Policy `playwright-verify-svc`, Muster tax.iil.pet) — `tools/cf-access-fetch.sh --coverage` 200/302, Tabelle nachgezogen ([decks-hub#98](https://github.com/achimdehnert/decks-hub/issues/98), #3196). Befunde als Issues: `gen_project_facts` gibt static-Repos Django-Container ([#3194](https://github.com/achimdehnert/platform/issues/3194)), `handover_prio_mirror` kürzt Prio auf erstes Fett-Wort ([#3197](https://github.com/achimdehnert/platform/issues/3197)).
 
 **Seit dem letzten Stand ohne eigenen Handover-Eintrag gelandet (17 Commits, andere Sitzungen):** todo_board Verlauf/Strang-Zuordnung (#3175–#3180), Retros b7822e (#3183, Gates #3186) und apo-hub kbiAvn (#3182, #3184), Hook-Gate `gh-body-file-leer-ueberschrieben`, Transkript-Kennzahlen-Skript für Retro Phase 1, ux-review Bündel-Ausnahme, klickdummy-pgvector-sync Changelog (#3187). Stand-Einträge dazu fehlen — nicht von hier aus rekonstruiert.
-
-## ⚡ Aktueller Stand (2026-09-14 nachmittags — Räume zusammengelegt, Zeitungs-Vertiefung live; Sitzung d8da3b26)
-
-**Erledigt:** Räume Mail/Briefing/Aufträge → „Achim / Lotse" ([chat-hub#90](https://github.com/iilgmbh/chat-hub/issues/90)), Auffangnetz `auftragsraum_sync.sh` (#3154), Sperre eine Session je Raum ([chat-hub#94](https://github.com/iilgmbh/chat-hub/issues/94)). news.iil.pet hinter Cloudflare Access (news-hub#54); Vertiefung je Thema per Knopf und Chat-Zuruf in Prod ([news-hub#52](https://github.com/achimdehnert/news-hub/issues/52)). Zurufe #3150/#3151 und Kapitel-Feedback (Ledger #138) gesendet.
-
-**Zielzustand:** #90, #94, news-hub#52/#54/#55 erreicht. **SA-4:** 5 eigene Merges unter Mandat (#3153, #3154, news-hub#56/#58/#59) · 2 unnötige Rückfragen · 0 Fehlanwendungen; eigene Fehler außerhalb SA-4 im Log, als Outline-Lessons 2026-09-14 verankert. **0h:** Abnahme 20/22 belegt, 2 nur Selbstauskunft (Briefing-Erstlauf, Bestätigung im Raum); Clear-Härte: SA-4 präzisiert, Checklisten abgehakt. **Offen:** laufende Raum-Session hält noch keine Sperre (vor #96 gestartet) — nächster Neustart vorher „Lotse stopp"; Sortierer-Lücken #3152.
 
 ## Offene Fäden (über den Session-Stand hinaus)
 
@@ -44,6 +46,12 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 0. Stapel-Zerleger im Betrieb, Zielzustand-Issue noch offen: https://github.com/achimdehnert/doc-hub/issues/4 — Bauteile gemergt (doc-hub#5, doc-hub#13, doc-hub#14).
 0. Freigabe-Zeile je Prod-Schritt als Regel bestaetigen — aus dem Stand vom 2026-09-09 abends gerettet (Owner-Entscheid).
 
+- **[3221]** Orchestrator-Schlüssel ins Secret-Inventar — https://github.com/achimdehnert/platform/issues/3221
+- **[3218]** Gestapelter PR umgeht Ruleset (Owner: Weg 1–3) — https://github.com/achimdehnert/platform/issues/3218
+- **[3211]** Scratchpad-Kollision paralleler Subagenten — https://github.com/achimdehnert/platform/issues/3211
+- **[2769]** Schlüssel: andere Maschinen + toter settings-Block (Owner) — https://github.com/achimdehnert/platform/issues/2769
+- **[apo-hub#144]** Klassen-Gate Datums-Cutoff — https://github.com/achimdehnert/apo-hub/issues/144
+- **[3152]** Auftragsraum-Sortierer-Lücken (aus Stand 09-14) — https://github.com/achimdehnert/platform/issues/3152
 - **[3164]** Retro-Restlücken: Anker-Gate-Fehlläufe, weitere Roh-Leser (6 Repos ohne Stufe-2-PR), Rettungs-Branch — https://github.com/achimdehnert/platform/issues/3164
 - **[3158]** Stop-Hook `deferred_item_scanner` aus `~/.claude/settings.json` austragen (Owner, nach Sunset in #3160) — https://github.com/achimdehnert/platform/issues/3158
 - **[3129]** Melder `secrets_pruefen --alle`: `gemischt` als eigene Stufe statt Exit 1 — https://github.com/achimdehnert/platform/issues/3129
