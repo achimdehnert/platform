@@ -18,7 +18,7 @@ networks:
 
 services:
   paperless-web:
-    image: ghcr.io/paperless-ngx/paperless-ngx:3.0.5
+    image: ghcr.io/paperless-ngx/paperless-ngx:3.1.3
     container_name: iil_dochub_web
     networks:
       - dochub_internal
@@ -178,7 +178,7 @@ services:
       retries: 3
 
   dochub_tika:
-    image: apache/tika:3.2.3.0
+    image: apache/tika:3.3.1.0
     container_name: iil_dochub_tika
     networks: [dochub_internal]
     mem_limit: 512m
@@ -190,7 +190,7 @@ services:
         max-file: "3"
 
   dochub_gotenberg:
-    image: docker.io/gotenberg/gotenberg:8.14
+    image: docker.io/gotenberg/gotenberg:8.37
     container_name: iil_dochub_gotenberg
     networks: [dochub_internal]
     command:
