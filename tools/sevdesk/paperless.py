@@ -149,3 +149,50 @@ def bankdaten_aus_text(text: str) -> dict:
         if w:
             daten["steuernummer"] = re.sub(r"\s", "", w.group(1))
     return daten
+
+
+# ── Kommando-Tags (verbuchen_wache.py) ─────────────────────────────────────
+
+
+def dokumente_mit_tag(tag: str) -> list[dict]:
+    """Alle Dokumente, die den Tag tragen — mit Tags, Korrespondent, Text."""
+    code = f"""
+import json
+from documents.models import Document
+for d in Document.objects.filter(tags__name__iexact={tag!r}).distinct().order_by("id"):
+    print("JSON " + json.dumps({{
+        "id": d.id,
+        "title": d.title,
+        "tags": [t.name for t in d.tags.all()],
+        "correspondent": str(d.correspondent) if d.correspondent else None,
+        "created": str(d.created),
+        "source_path": str(d.source_path),
+        "content": (d.content or "")[:20000],
+    }}))
+"""
+    return [
+        json.loads(z[5:]) for z in _shell(code).splitlines() if z.startswith("JSON ")
+    ]
+
+
+def tag_tauschen(dok_id: int, alt: str, neu: str, notiz: str | None = None) -> None:
+    """Nimmt ``alt`` vom Dokument, setzt ``neu`` (wird bei Bedarf angelegt) und
+    haengt optional eine Notiz an — ein Roundtrip, damit ein Abbruch dazwischen
+    das Dokument nicht halb bearbeitet zuruecklaesst."""
+    code = f"""
+from documents.models import Document, Tag, Note
+d = Document.objects.get(pk={int(dok_id)})
+alt = Tag.objects.filter(name__iexact={alt!r}).first()
+if alt:
+    d.tags.remove(alt)
+neu, _ = Tag.objects.get_or_create(name={neu!r})
+d.tags.add(neu)
+notiz = {notiz!r}
+if notiz:
+    Note.objects.create(document=d, note=notiz)
+print("OK")
+"""
+    if "OK" not in _shell(code):
+        raise RuntimeError(
+            f"Paperless-Dokument {dok_id}: Tag-Tausch {alt}→{neu} ohne OK"
+        )

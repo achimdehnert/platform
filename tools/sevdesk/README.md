@@ -300,6 +300,32 @@ der Ablage keinen Lieferantenbeleg ausloest.
 - **Fehlendes Register**: bricht mit Exit 3 ab und nennt die Vorlage — ein
   leeres Register saehe sonst aus wie "nichts zu tun".
 
+## Verbuchen — Paperless-Tag als Kommando
+
+Owner-Wort 2026-09-21 („als Aktion *verbuchen* wie *senden*"): Rechnung in
+Paperless (docs.iil.pet) hochladen, Tags setzen, fertig.
+
+| Tag | Bedeutung |
+|---|---|
+| `edv` / `iil` | Mandant (Pflicht, genau einer) |
+| `macan` / `x4` / `8er` | Kostenstelle gleichen Namens (optional) |
+| `verbuchen` | **Kommando** — die Wache nimmt das Dokument beim naechsten Lauf |
+| `in-sevdesk` | Ergebnis: Beleg angelegt (oder bestand schon), Details in der Notiz |
+| `verbuchen-unklar` | Ergebnis: nicht automatisch moeglich, Grund in der Notiz — korrigieren, `verbuchen` neu setzen |
+
+`verbuchen_wache.py` laeuft als User-Timer alle 10 Minuten
+(`systemd/sevdesk-verbuchen.{service,timer}` → `~/.config/systemd/user/`,
+`systemctl --user enable --now sevdesk-verbuchen.timer`). Je Dokument:
+Felder aus dem OCR-Text (`belegbeschaffung.pdf_lesen`, nur EUR), Lieferant =
+Paperless-Korrespondent (sonst erste Textzeile + Hinweis in der Notiz), Konto
+**nur** aus genau einer treffenden Owner-Regel (`~/.claude/sevdesk-konten.json`,
+Suchtext = Lieferant + Briefkopf), Beleg mit Kontakt/Bankdaten und Kostenstelle
+anlegen (`beleg_entwurf.anlegen`) und auf **offen** stellen — nicht bezahlt:
+die Zahlung weist der Owner aus sevdesk heraus an (Status 150), die Bank
+schliesst den Beleg. Dedup ueber die Rechnungsnummer. `--dry-run` zeigt den Plan.
+Journal `~/.claude/sevdesk-verbuchen-journal.jsonl`, Meldung in den Auftragsraum
+wie beim Rechnungslauf.
+
 ## Mandanten
 
 K8 aus platform#3102: der Owner betreibt zwei sevdesk-Mandanten — die IIL GmbH
