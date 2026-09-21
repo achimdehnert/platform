@@ -481,3 +481,88 @@ def test_should_fall_back_to_majority_without_declaration(tmp_path):
 
     assert "bewertet=claude-fable-5" in r.stdout
     assert "uneinheitlich unter 3 Policies" in r.stdout
+
+
+# ── (f) Transkript-Auswahl bei Parallel-Sitzungen (platform#3333) ───────────
+
+
+def test_should_read_own_session_transcript_even_when_a_newer_one_exists(
+    tmp_path, monkeypatch
+):
+    """Die eigene Sitzung schlägt die jüngste Datei.
+
+    Realfall #3333: eine zweite Sitzung im selben Repo lief auf einem anderen
+    Modell und schrieb eine Sekunde später — der Check las sie und meldete einen
+    MAJOR, den es nie gab.
+    """
+    sid = "4a0dd700-898c-44f9-8e2f-e3a2af6a55f6"
+    policies = tmp_path / "policies"
+    transcripts = tmp_path / "transcripts"
+    _write_policy(policies, "adr-threshold.md", "claude-opus-5")
+    _write_transcript(transcripts, "claude-opus-5", filename=f"{sid}.jsonl")
+    _write_transcript(transcripts, "claude-sonnet-5", filename="fremd.jsonl")
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", sid)
+
+    r = _run_cli(tmp_path, "--kurz", transcript_dir=transcripts)
+
+    assert "läuft=claude-opus-5" in r.stdout, r.stdout
+    assert "quelle=transkript " in r.stdout, r.stdout
+    assert "GLEICH" in r.stdout
+    assert r.returncode == 0, r.stdout + r.stderr
+
+
+def test_should_mark_source_unsicher_when_parallel_transcripts_and_no_session_id(
+    tmp_path, monkeypatch
+):
+    """Ohne Sitzungs-ID + zweites frisches Transkript: melden, nicht fällig stellen.
+
+    Ein MAJOR aus einer womöglich fremden Sitzung darf keine Vollmachten
+    suspendieren — der Check verlangt stattdessen `--laufend`.
+    """
+    policies = tmp_path / "policies"
+    transcripts = tmp_path / "transcripts"
+    _write_policy(policies, "adr-threshold.md", "claude-opus-5")
+    _write_transcript(transcripts, "claude-opus-5", filename="alt.jsonl")
+    _write_transcript(transcripts, "claude-sonnet-5", filename="neu.jsonl")
+    monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
+
+    r = _run_cli(tmp_path, "--kurz", transcript_dir=transcripts)
+
+    assert "quelle=transkript-unsicher" in r.stdout, r.stdout
+    assert "fällig=nein" in r.stdout, r.stdout
+    assert "UNBESTAETIGT" in r.stdout
+    assert r.returncode == 0, r.stdout + r.stderr
+
+
+def test_should_not_mark_handled_when_source_is_unsicher(tmp_path, monkeypatch):
+    """`--behandelt` darf ein Paar aus unsicherer Quelle nicht festschreiben."""
+    handled = tmp_path / "state" / "model-rebaseline-handled.tsv"
+    policies = tmp_path / "policies"
+    transcripts = tmp_path / "transcripts"
+    _write_policy(policies, "adr-threshold.md", "claude-opus-5")
+    _write_transcript(transcripts, "claude-opus-5", filename="alt.jsonl")
+    _write_transcript(transcripts, "claude-sonnet-5", filename="neu.jsonl")
+    monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
+
+    _run_cli(tmp_path, "--kurz", "--behandelt", transcript_dir=transcripts)
+
+    assert not handled.exists(), handled.read_text(encoding="utf-8")
+
+
+def test_should_keep_explicit_laufend_ahead_of_own_session_transcript(
+    tmp_path, monkeypatch
+):
+    """`--laufend` bleibt höchste Priorität — auch mit eigener Sitzungsdatei."""
+    sid = "11111111-2222-3333-4444-555555555555"
+    policies = tmp_path / "policies"
+    transcripts = tmp_path / "transcripts"
+    _write_policy(policies, "adr-threshold.md", "claude-opus-5")
+    _write_transcript(transcripts, "claude-opus-5", filename=f"{sid}.jsonl")
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", sid)
+
+    r = _run_cli(
+        tmp_path, "--kurz", "--laufend", "claude-fable-5", transcript_dir=transcripts
+    )
+
+    assert "quelle=argument" in r.stdout, r.stdout
+    assert "läuft=claude-fable-5" in r.stdout
