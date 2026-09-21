@@ -419,6 +419,14 @@ def urteile_dazu(daten: dict, fid: str, urteil: str, grund: str) -> dict | None:
             "phase": (eintrag or {}).get("phase") or fid.split("::")[0],
             "repo": (eintrag or {}).get("repo") or (fid.split("::") + ["-"])[1],
             "urteil": urteil,
+            # Der BEURTEILTE Text, nicht die Begruendung des Urteils. `grund`
+            # entsteht NACH dem Urteil und nennt es meist mit — als Eingabe fuer
+            # eine spaetere Auswertung verraet er die Antwort. `eingabe` ist das,
+            # was der Melder gemeldet hat, bevor jemand darauf geschaut hat.
+            # Ohne dieses Feld sind die Urteile Etiketten ohne Gegenstand: die
+            # 51 Urteile bis zum 2026-09-21 lassen sich nicht mehr zuordnen,
+            # weil ihre Meldetexte nirgends mitgeschrieben wurden (#3337).
+            "eingabe": (eintrag or {}).get("letzte_note"),
             "grund": grund,
             "datum": _heute(),
         }
