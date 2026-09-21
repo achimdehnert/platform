@@ -615,6 +615,7 @@ def test_should_create_voucher_without_account_when_konto_not_given(
         "beschreibung": "TEST-RE-0001",
         "brutto": "119.00",
         "konto": "LEER (nicht zugeordnet — Owner)",
+        "kostenstelle": None,
     }
 
 
