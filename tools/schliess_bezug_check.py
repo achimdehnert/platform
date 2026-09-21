@@ -19,10 +19,6 @@ Issue nennen, ohne es zu erledigen. Dann erwartet der Check aber einen Grund
 in derselben Zeile wie die Nummer; welche Begleitmarker gelten, steht in
 `_BEGRUENDET_RE` weiter unten.
 
-(Die Marker sind hier bewusst NICHT ausgeschrieben: der Aufschub-Anker-Gate
-liest diesen Docstring und hielt die Aufzaehlung fuer eine angekuendigte
-Auslassung — ein Werkzeug, das ein Muster dokumentiert, loest den Melder fuer
-genau dieses Muster aus.)
 
 Aufruf:
   python3 tools/schliess_bezug_check.py --text-datei pr.md
