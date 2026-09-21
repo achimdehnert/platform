@@ -1056,6 +1056,28 @@ else
   record "0.7.22 flottenbild" "SKIP" "kein Flottenbild unter ~/.claude/flottenbild/ — Timer flottenbild.timer aktivieren (infra/host-maintenance)"
 fi
 
+# ── 0.7.28 GPU-Leerlauf: haelt ein Dienst Speicher, ohne gerufen zu werden? ──
+# Anlass (platform#3352): auf der gx10 hielt vLLM 37,5 GB und hatte seit dem
+# Hochfahren sechs Tage zuvor KEINE Anfrage gesehen. Aufgefallen ist das nicht
+# im Betrieb, sondern weil der Owner nachfragte, als ein weiterer Dienst dazukam.
+# Ein Bereitschaftsdienst haelt Speicher mit Absicht — sechs Tage Stille sind
+# keine Bereitschaft mehr, sondern eine vergessene Sitzung.
+#
+# Der Melder redet ueber ssh mit zwei Knoten; das dauert. Deshalb kurzes
+# Zeitlimit, und ein Abbruch ist eine LUECKE (SKIP), nie ein PASS.
+if [ -f "$PLATFORM_DIR/tools/gpu_leerlauf.py" ]; then
+  GL_OUT=$(timeout 180 python3 "$PLATFORM_DIR/tools/gpu_leerlauf.py" --kurz 2>&1 | tail -1)
+  GL_RC=$?
+  case "$GL_RC" in
+    124) record "0.7.28 gpu-leerlauf" "SKIP" "Zeitlimit — Knoten nicht befragt, KEINE Entwarnung" ;;
+    2)   record "0.7.28 gpu-leerlauf" "SKIP" "$GL_OUT" ;;
+    1)   record "0.7.28 gpu-leerlauf" "WARN" "$GL_OUT" ;;
+    *)   record "0.7.28 gpu-leerlauf" "PASS" "$GL_OUT" ;;
+  esac
+else
+  record "0.7.28 gpu-leerlauf" "SKIP" "tools/gpu_leerlauf.py fehlt"
+fi
+
 # ── 0.7.24 Registry-Erreichbarkeit: die Strecke, an der vier Deploys starben ──
 # Am 2026-09-02 erreichte prod ghcr.io nur in 4 von 10 Versuchen, bei 10 von 10
 # gegen github.com. Vier Deploys scheiterten; zwei Stunden spaeter war der Zustand
