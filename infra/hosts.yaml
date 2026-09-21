@@ -197,21 +197,6 @@ hosts:
             Wer Access besteht, kann alles, was das Modell kann.
           entschieden: 2026-09-02
           bis: 2026-12-02
-        kev-decisions:
-          grund: >
-            Entscheidungsmodell kev-4b (Port 8009) fuer die Messreihe aus
-            platform#3337. KEIN Prod-Dienst im Sinn der Auflage: `prod` ist
-            null, der Port bindet nur auf 127.0.0.1 und ist auch aus wg0 nicht
-            erreichbar. Der Eintrag steht trotzdem hier, weil `prod_host` das
-            einzige Feld ist, das den Knoten benennt — ohne Ausnahme waere die
-            Alternative, den Host zu verschweigen, und das waere schlechter.
-            Owner-Entscheid 2026-09-21: "laufen lassen und registrieren".
-            Die Frist zwingt die offene Frage zurueck auf den Tisch: die gx10
-            ist der passendere Knoten (121 GB, erklaerte Rolle Inferenz), aber
-            aarch64 — Machbarkeit wird gerade geprueft. Faellt sie positiv aus,
-            zieht der Dienst um und diese Ausnahme entfaellt.
-          entschieden: 2026-09-21
-          bis: 2026-12-01
     verified: 2026-08-30                # Vollmessung 13 Agenten + Nachmessung, KONZ-054
 
   gx10:
@@ -257,6 +242,25 @@ hosts:
             bei identischem Recall@1 (5/5) und auf vier Nachkommastellen
             identischen Aehnlichkeitswerten.
           entschieden: 2026-09-01
+          bis: 2026-12-01
+        kev-decisions:
+          grund: >
+            Entscheidungsmodell kev-4b (Port 8009) fuer die Messreihe aus
+            platform#3337 — dieselbe Klasse wie `embedder`: ein Inferenzdienst,
+            und damit genau die Rolle, fuer die der Knoten angeschafft wurde.
+            Gebunden auf 127.0.0.1:8009, NICHT 0.0.0.0 (am Knoten gegengeprueft
+            mit `ss -ltn`), damit `oeffentlicher_ingress: false` gilt. Kein
+            Container, kein App-Hub: systemd-Nutzerdienst mit Linger.
+            Umgezogen 2026-09-21 von der gpu-box; dort wurden 21 GB frei.
+            Gemessen auf denselben 78 Faellen: erzwungene Trefferquote 0,859
+            statt 0,897 auf der 4090, 73 von 78 Antworten identisch. Die
+            Differenz von drei Faellen liegt im Rauschen dieser Stichprobe und
+            ist NICHT als Gleichwertigkeit belegt — die Numerik unterscheidet
+            sich real (bf16 auf Blackwell mit torch 2.14 gegen Ada mit torch
+            2.8; groesste Einzelabweichung einer Wahrscheinlichkeit 0,270).
+            Die Messreihe bleibt deshalb ab jetzt auf diesem Knoten; die
+            4090-Zahlen sind kein Vergleichsmass.
+          entschieden: 2026-09-21
           bis: 2026-12-01
         ollama:
           grund: >

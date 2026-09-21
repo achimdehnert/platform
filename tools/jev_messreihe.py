@@ -55,16 +55,21 @@ MINDESTENS_JE_KLASSE = 10
 #: beim Handlauf am 2026-09-21, sonst ist die Reihe nicht vergleichbar.
 FRAGE = "Beschreibt dieser Text einen echten Befund, der Arbeit ausloest?"
 
-#: Zugang zur GPU-Box: prod -> wg0-Peer -> WSL. Der kev-Dienst lauscht dort
-#: nur auf 127.0.0.1, deshalb laeuft die Schleife AUF der Box statt hier.
-HOP = "ssh -o BatchMode=yes achim@10.99.0.2"
-WSL = "wsl -d Ubuntu -u root -e bash -c"
+#: Zugang zur gx10: prod -> wg0-Peer. Der kev-Dienst lauscht dort nur auf
+#: 127.0.0.1, deshalb laeuft die Schleife AUF dem Knoten statt hier.
+#:
+#: Stand 2026-09-21 auf der gx10 (vorher gpu-box mit WSL2; der Umzug kostete
+#: die cmd.exe-Anfuehrungszeichen-Falle und ein Python-3.14-Problem). WICHTIG
+#: fuer die Vergleichbarkeit der Reihe: die Werte der beiden Knoten sind NICHT
+#: austauschbar — auf denselben 78 Faellen 0,859 hier gegen 0,897 dort, 73/78
+#: identische Antworten. Wer den Knoten wechselt, beginnt eine neue Reihe.
+HOP = "ssh -o BatchMode=yes adehnert@10.99.0.4"
+HEIM = "/home/adehnert"
 FERN_SKRIPT = Path(__file__).with_name("jev_frag_remote.py")
 
 
 def _ssh(inneres: str, eingabe: str | None = None) -> subprocess.CompletedProcess:
-    """Ein Befehl in der WSL der Box. Anfuehrungszeichen ueberleben cmd.exe
-    nicht — deshalb nur einfache Befehle hier, alles andere per Datei."""
+    """Ein Befehl auf der gx10, ueber den Sprung via prod."""
     return subprocess.run(
         [
             "ssh",
@@ -73,7 +78,7 @@ def _ssh(inneres: str, eingabe: str | None = None) -> subprocess.CompletedProces
             "-o",
             "ConnectTimeout=10",
             "hetzner-prod",
-            f"{HOP} '{WSL} \"{inneres}\"'",
+            f"{HOP} '{inneres}'",
         ],
         input=eingabe,
         capture_output=True,
@@ -124,10 +129,10 @@ def frage_modell(texte: list[str]) -> list[float] | None:
     # Die Frageform wandert bei JEDEM Lauf mit, sonst misst eine spaetere
     # Messung womoeglich gegen eine alte Datei auf der Box.
     for inneres, inhalt in (
-        ("cat > /root/jev_frag_remote.py", FERN_SKRIPT.read_text(encoding="utf-8")),
-        ("cat > /root/messreihe_fragen.json", fragen),
+        (f"cat > {HEIM}/jev_frag_remote.py", FERN_SKRIPT.read_text(encoding="utf-8")),
+        (f"cat > {HEIM}/messreihe_fragen.json", fragen),
         (
-            "cat > /root/messreihe_texte.txt",
+            f"cat > {HEIM}/messreihe_texte.txt",
             "\n".join(t.replace("\n", " ") for t in texte) + "\n",
         ),
     ):
@@ -135,8 +140,8 @@ def frage_modell(texte: list[str]) -> list[float] | None:
             return None
 
     lauf = _ssh(
-        "python3 /root/jev_frag_remote.py /root/messreihe_texte.txt "
-        "/root/messreihe_fragen.json --json"
+        f"python3 {HEIM}/jev_frag_remote.py {HEIM}/messreihe_texte.txt "
+        f"{HEIM}/messreihe_fragen.json --json"
     )
     if lauf.returncode != 0:
         return None
