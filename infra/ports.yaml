@@ -751,6 +751,32 @@ services:
       Port 8000 liegt im Band 8000-8019 (Infra-APIs); auf gx10 frei, die
       Belegung auf gpu-box (ComfyUI) ist ein anderer Knoten.
 
+  kev-decisions:
+    prod: null
+    staging: null
+    dev: 8009
+    prod_host: gpu-box
+    container_name: null            # systemd-Unit `kev.service` in der WSL-Ubuntu, kein Container
+    domain_prod: null
+    domain_staging: null
+    repo: achimdehnert/platform
+    betriebsstatus: aktiv
+    betriebsstatus_grund: >
+      Entscheidungsmodell `jaredpalmer/kev-4b` fuer die Messreihe aus
+      platform#3337, serviert ueber die System-One-Schnittstelle. Bindet
+      ausschliesslich auf 127.0.0.1 — von aussen und auch aus wg0 NICHT
+      erreichbar, deshalb kein prod-Port und keine Domain. Haelt rund 22 von
+      24,6 GB Grafikspeicher; ein zweites Modell passt daneben nicht.
+      Abschaltweg auf dem Knoten: `systemctl stop kev && systemctl reset-failed kev`
+      (Modell bleibt im Zwischenspeicher /root/hf, Neustart in Sekunden).
+      Eingetragen 2026-09-21 nach Owner-Entscheid "laufen lassen und
+      registrieren" (platform#3352). Die Luecke fand ein Pruefer beim
+      Sitzungsende, nicht die Sitzung selbst.
+      Offene Frage aus demselben Zug: der Knoten traegt auch den CI-Runner
+      `ci-gpu` (writing-hub) — 22 GB Dauerbelegung konkurriert damit. Die
+      gx10 waere der passendere Ort (121 GB, erklaerte Rolle Inferenz), ist
+      aber aarch64 und traegt bereits vLLM mit 36 GB; Machbarkeit ungeprueft.
+
   gpu-ollama:
     prod: 11434
     staging: null
