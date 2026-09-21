@@ -1,0 +1,73 @@
+name: Schliess-Bezug
+
+# Verdrahtet tools/schliess_bezug_check.py.
+#
+# WARUM: Owner-Ziel vom 2026-09-21 — Issues und PRs sollen so schnell wie
+# moeglich geschlossen werden und verschwinden. Gemessen war das Gegenteil:
+# Zufluss 69 Issues/Woche gegen Abfluss 41, und genau EIN offenes Issue von 445
+# hatte einen verknuepften PR. Ursache ist nicht Unwille, sondern Wortwahl —
+# 53 % der gemergten PRs nennen die Nummer nackt, 17 % schreiben `Refs`.
+#
+# MODUS: advisory. Der Job kommentiert und faellt NICHT rot aus. Grund: Die
+# Unterscheidung "erledigt / nicht erledigt" ist ein Urteil des Autors, keine
+# Regel — ein blockierender Check wuerde zum Ankreuzen erziehen statt zum
+# Nachdenken, und das Gegenteil von Schliessen ist eine falsche Schliessung.
+# Ueber die Wirkung entscheidet der Owner nach einem Kalibrierfenster; das
+# Muster (advisory -> messen -> blocking) stammt aus aufschub-anker-gate.yml.
+#
+# REICHWEITE, ausdruecklich: dieser Kontext steht NICHT im Ruleset
+# `main-required-checks`. Die Wirkung ist "Kommentar am PR", nicht
+# "Merge unmoeglich".
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  pull-requests: write
+  contents: read
+  issues: read
+
+concurrency:
+  group: schliess-bezug-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  schliess-bezug:
+    name: Nennt dieser PR ein Issue, ohne es zu schliessen?
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Die Gate-Logik muss korrekt sein, bevor ihr Verdikt jemanden erreicht.
+      # Muster uebernommen von test-claim-check.yml / aufschub-anker-gate.yml.
+      - name: Selbsttest des Werkzeugs
+        run: python3 -m pytest tools/tests/test_schliess_bezug_check.py -q
+
+      - name: Pruefen
+        id: pruefen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          python3 tools/schliess_bezug_check.py \
+            --pr "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" > bericht.txt 2>&1
+          echo "code=$?" >> "$GITHUB_OUTPUT"
+          cat bericht.txt
+
+      - name: Kommentar am PR
+        if: steps.pruefen.outputs.code == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "### Schliess-Bezug (Hinweis, kein Blocker)"
+            echo
+            echo '```'
+            cat bericht.txt
+            echo '```'
+            echo
+            echo "Hintergrund: [#3226](https://github.com/achimdehnert/platform/issues/3226)."
+          } > kommentar.md
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file kommentar.md

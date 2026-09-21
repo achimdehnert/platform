@@ -401,9 +401,7 @@ def kontoabschluss_paare(abgaenge: list[dict], regeln: list[dict]) -> dict:
     real „per 30.02.2026"), ueber die im USt-Zweck genannte Bemessungsgrundlage.
     Ein Paar gilt nur, wenn 19 % der Gebuehr die USt-Zeile auf 1 Cent treffen.
     """
-    regel = next(
-        (r for r in regeln if r.get("klasse") == KLASSE_KONTOABSCHLUSS), None
-    )
+    regel = next((r for r in regeln if r.get("klasse") == KLASSE_KONTOABSCHLUSS), None)
     if regel is None or not regel.get("ust_muster"):
         return {"_ust_ids": set()}
     ust_re = re.compile(regel["ust_muster"], re.IGNORECASE)
@@ -429,7 +427,11 @@ def kontoabschluss_paare(abgaenge: list[dict], regeln: list[dict]) -> dict:
         netto = abs(float(g.get("amount") or 0))
         per = RE_PER_DATUM.search(g.get("paymtPurpose") or "")
         per = per.group(1) if per else ""
-        kand = [u for u in usts if u[0]["id"] not in paare["_ust_ids"] and per and u[2] == per]
+        kand = [
+            u
+            for u in usts
+            if u[0]["id"] not in paare["_ust_ids"] and per and u[2] == per
+        ]
         if not kand:
             kand = [
                 u
@@ -456,7 +458,9 @@ def konto_guidance(client_, konto: str) -> tuple[str | None, set[str]]:
     nicht im Kontenrahmen"). Bei einem Treffer antwortet sevdesk mit einem Dict
     statt einer Liste (#3109). Konto ohne Guidance (7600) → (None, set()).
     """
-    r = client_.get("/ReceiptGuidance/forAccountNumber", params={"accountNumber": konto})
+    r = client_.get(
+        "/ReceiptGuidance/forAccountNumber", params={"accountNumber": konto}
+    )
     r.raise_for_status()
     objekte = r.json().get("objects") or []
     if isinstance(objekte, dict):
@@ -480,7 +484,9 @@ def intern_buchen(client_, position: dict) -> dict:
     taxrule = str(regel.get("taxrule") or "9")
     konto_id, erlaubt = konto_guidance(client_, konto)
     if konto_id is None:
-        raise RuntimeError(f"Konto {konto}: keine ReceiptGuidance — per Beleg nicht buchbar")
+        raise RuntimeError(
+            f"Konto {konto}: keine ReceiptGuidance — per Beleg nicht buchbar"
+        )
     if taxrule not in erlaubt:
         raise RuntimeError(
             f"Konto {konto}: Steuerregel {taxrule} laut ReceiptGuidance nicht erlaubt"
@@ -496,7 +502,9 @@ def intern_buchen(client_, position: dict) -> dict:
         steuer = round(brutto - netto, 2)
     brutto = round(netto + steuer, 2)
     monat = f"{position['datum'][5:7]}/{position['datum'][:4]}"
-    beschreibung = f"{regel.get('beschreibung') or regel.get('bezeichnung') or konto} {monat}"
+    beschreibung = (
+        f"{regel.get('beschreibung') or regel.get('bezeichnung') or konto} {monat}"
+    )
     zahler = position["zahler"] if position["zahler"] != "—" else ""
     # saveVoucher ohne supplierName antwortet 422 (Echtprobe 2026-09-17).
     lieferant = regel.get("lieferant") or zahler or regel.get("bezeichnung") or konto
@@ -537,7 +545,10 @@ def intern_buchen(client_, position: dict) -> dict:
             "amount": -abs(betrag),
             "date": _iso_zu_dd_mm_yyyy(datum),
             "type": "N" if partner else "FULL_PAYMENT",
-            "checkAccount": {"id": checkaccount.get("id"), "objectName": "CheckAccount"},
+            "checkAccount": {
+                "id": checkaccount.get("id"),
+                "objectName": "CheckAccount",
+            },
             "checkAccountTransaction": {
                 "id": umsatz_id,
                 "objectName": "CheckAccountTransaction",
@@ -554,7 +565,11 @@ def intern_buchen(client_, position: dict) -> dict:
         raise RuntimeError(
             f"Beleg {beleg_id} nach Buchung Status {danach.get('status')}, nicht 1000"
         )
-    return {"beleg_id": beleg_id, "typ": "N" if partner else "FULL_PAYMENT", "warnung": None}
+    return {
+        "beleg_id": beleg_id,
+        "typ": "N" if partner else "FULL_PAYMENT",
+        "warnung": None,
+    }
 
 
 def entwurf_buchen(client_, beleg: dict) -> dict:
@@ -614,7 +629,9 @@ def buchen(client_, position: dict, heute: dt.date) -> dict:
         # Mit positivem Betrag entstand am 2026-09-13 bei 25 Belegen paidAmount
         # -x, Status 750 und "offen 2x" — alle per resetToOpen + Neubuchung
         # repariert. Der Vorzeichen-Fehler war durch Fakes nicht sichtbar.
-        "amount": -abs(position["betrag"] if differenz else voucher_offener_betrag(beleg)),
+        "amount": -abs(
+            position["betrag"] if differenz else voucher_offener_betrag(beleg)
+        ),
         "date": _dd_mm_yyyy(heute),
         "type": "O" if differenz else "FULL_PAYMENT",
         "checkAccount": {"id": checkaccount.get("id"), "objectName": "CheckAccount"},
@@ -749,7 +766,11 @@ def positionen_ermitteln(
         regel = regel_treffer(f"{anzeige} {zweck}", regeln)
         paar = paare.get(t.get("id"))
         buchbar = False
-        if ergebnis["status"] == "fehlend" and regel and regel.get("beleg") == BELEG_OHNE_DOKUMENT:
+        if (
+            ergebnis["status"] == "fehlend"
+            and regel
+            and regel.get("beleg") == BELEG_OHNE_DOKUMENT
+        ):
             _k, _b, anmerkung = regel_zuordnen(f"{anzeige} {zweck}", betrag, regeln)
             if anmerkung.startswith(("NUR TEILWEISE", "BETRAG UNBEKANNT")):
                 ergebnis["grund"] = f"Regel {regel['konto']}: {anmerkung}"
@@ -768,7 +789,7 @@ def positionen_ermitteln(
                     "kandidaten": [],
                     "grund": f"Beleg ohne Dokument nach Regel {regel['konto']}"
                     + (" (Paar Gebuehr + USt)" if paar else "")
-                    + ("" if buchbar else " — Mandat fehlt (\"autonom\": true)"),
+                    + ("" if buchbar else ' — Mandat fehlt ("autonom": true)'),
                 }
         vorschlag, vorschlag_grund = kontovorschlag(
             regeln, guidance, anzeige, zweck, betrag
@@ -789,7 +810,9 @@ def positionen_ermitteln(
                 "kursdifferenz": kursdifferenz,
                 "regel": regel if ergebnis["status"] == STATUS_INTERN else None,
                 "buchbar": buchbar,
-                "partner": paar["partner"] if (paar and ergebnis["status"] == STATUS_INTERN) else None,
+                "partner": paar["partner"]
+                if (paar and ergebnis["status"] == STATUS_INTERN)
+                else None,
                 "netto": paar["netto"] if paar else None,
                 "steuer": paar["steuer"] if paar else None,
                 "konto_vorschlag": vorschlag,
@@ -1016,7 +1039,9 @@ def main() -> int:
         args.ziel.write_text(text, encoding="utf-8")
         print(f"geschrieben: {args.ziel}")
 
-    if positionen and not (unklar or fehlend or [q for q in intern if not q["buchbar"]]):
+    if positionen and not (
+        unklar or fehlend or [q for q in intern if not q["buchbar"]]
+    ):
         return 0
     if not positionen:
         return 0
