@@ -197,6 +197,21 @@ hosts:
             Wer Access besteht, kann alles, was das Modell kann.
           entschieden: 2026-09-02
           bis: 2026-12-02
+        kev-decisions:
+          grund: >
+            Entscheidungsmodell kev-4b (Port 8009) fuer die Messreihe aus
+            platform#3337. KEIN Prod-Dienst im Sinn der Auflage: `prod` ist
+            null, der Port bindet nur auf 127.0.0.1 und ist auch aus wg0 nicht
+            erreichbar. Der Eintrag steht trotzdem hier, weil `prod_host` das
+            einzige Feld ist, das den Knoten benennt — ohne Ausnahme waere die
+            Alternative, den Host zu verschweigen, und das waere schlechter.
+            Owner-Entscheid 2026-09-21: "laufen lassen und registrieren".
+            Die Frist zwingt die offene Frage zurueck auf den Tisch: die gx10
+            ist der passendere Knoten (121 GB, erklaerte Rolle Inferenz), aber
+            aarch64 — Machbarkeit wird gerade geprueft. Faellt sie positiv aus,
+            zieht der Dienst um und diese Ausnahme entfaellt.
+          entschieden: 2026-09-21
+          bis: 2026-12-01
     verified: 2026-08-30                # Vollmessung 13 Agenten + Nachmessung, KONZ-054
 
   gx10:
