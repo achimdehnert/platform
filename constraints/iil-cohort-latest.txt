@@ -25,7 +25,7 @@ iil-authoringfw==0.11.6  # strategy=aktiv, released=2026-07-31
 iil-codeguard==2026.5.1  # strategy=aktiv, released=2026-05-10
 iil-django-commons==0.3.0  # strategy=einfrieren, released=2026-03-24
 iil-django-lms-lite==0.1.1  # strategy=aktiv, released=2026-07-27
-iil-doc-templates==0.3.1  # strategy=aktiv, released=2026-07-08
+iil-doc-templates==0.11.0  # strategy=aktiv, released=2026-07-08
 iil-fieldprefill==0.2.0  # strategy=aktiv, released=2026-04-08
 iil-gpufw==0.1.1  # strategy=aktiv, released=2026-08-16
 iil-illustrationfw==0.6.0  # strategy=aktiv, released=2026-08-04
