@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 """jev_messreihe.py — alle zwei Tage: waechst der Lerndatensatz, und trennt er?
 
-Hintergrund (platform#3337): Stufe 1 hat gezeigt, dass ein Entscheidungsmodell
-von der Stange die Melder-Triage NICHT kann — AUC 0,477 gegen acht PASS- und
-acht WARN-Zeilen, also Zufall. Was ein echter Befund ist, steht nicht in der
+Hintergrund (platform#3337): Ein Handlauf am 2026-09-21 gegen acht PASS- und
+acht WARN-Zeilen ergab fuer ein Entscheidungsmodell von der Stange eine AUC von
+0,477 — kein Signal. **Das ist ein Anhaltspunkt, kein Urteil:** acht Faelle je
+Klasse liegen unter der Schwelle, die dieses Werkzeug selbst verlangt (siehe
+MINDESTENS_JE_KLASSE weiter unten), und was dort fuer andere gilt, gilt auch
+fuer den eigenen Gruendungsbefund. Genau deshalb gibt es dieses Werkzeug: um
+die Frage mit genug Faellen noch einmal zu stellen.
+
+Die Arbeitsannahme dahinter: Was ein echter Befund ist, steht nicht in der
 Meldung, sondern in unserer Vorgeschichte mit dem Melder. Die liegt allein in
 unseren eigenen Urteilen vor.
 
