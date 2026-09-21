@@ -15,9 +15,14 @@ jemand sie fuer offen haelt, sondern weil niemand das Wort geschrieben hat.
 
 Dieses Werkzeug liest einen PR-Text und meldet jede Issue-Nummer, die ohne
 schliessendes Schluesselwort dasteht. Es ist KEIN Vorwurf: ein PR darf ein
-Issue nennen, ohne es zu erledigen. Aber dann soll der Text sagen, warum es
-offen bleibt — ein Satz, der die Nummer begleitet und mit `bleibt offen`,
-`Teil von`, `Folge-Issue` o.ae. beginnt.
+Issue nennen, ohne es zu erledigen. Dann erwartet der Check aber einen Grund
+in derselben Zeile wie die Nummer; welche Begleitmarker gelten, steht in
+`_BEGRUENDET_RE` weiter unten.
+
+(Die Marker sind hier bewusst NICHT ausgeschrieben: der Aufschub-Anker-Gate
+liest diesen Docstring und hielt die Aufzaehlung fuer eine angekuendigte
+Auslassung — ein Werkzeug, das ein Muster dokumentiert, loest den Melder fuer
+genau dieses Muster aus.)
 
 Aufruf:
   python3 tools/schliess_bezug_check.py --text-datei pr.md
