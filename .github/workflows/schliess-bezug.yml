@@ -42,7 +42,12 @@ jobs:
       # Die Gate-Logik muss korrekt sein, bevor ihr Verdikt jemanden erreicht.
       # Muster uebernommen von test-claim-check.yml / aufschub-anker-gate.yml.
       - name: Selbsttest des Werkzeugs
-        run: python3 -m pytest tools/tests/test_schliess_bezug_check.py -q
+        # pytest liegt auf ubuntu-latest nicht vor — erster Lauf am 2026-09-21
+        # fiel genau daran rot aus ("No module named pytest"). Installation
+        # wie in test-claim-check.yml.
+        run: |
+          pip install pytest --quiet --break-system-packages
+          python3 -m pytest tools/tests/test_schliess_bezug_check.py -q
 
       - name: Pruefen
         id: pruefen
