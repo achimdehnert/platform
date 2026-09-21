@@ -527,6 +527,11 @@ def test_should_accept_id_known_only_from_urteile_history(journal: Path) -> None
         "phase": "0.7 deploy-scan",
         "repo": "x",
         "urteil": "falsch",
+        # Der Befund ist geheilt und steht nicht mehr in `befunde` — sein
+        # Meldetext ist damit weg. `eingabe` sagt das ehrlich als None, statt
+        # ersatzweise den `grund` einzusetzen. Folge fuers Lernen: ein Urteil,
+        # das erst NACH der Heilung faellt, taugt nicht als Beispiel (#3337).
+        "eingabe": None,
         "grund": "zweite Notiz",
         "datum": daten["urteile"][-1]["datum"],
     }
@@ -646,3 +651,64 @@ def test_should_still_warn_on_three_false_judgements_after_geschaerft_am() -> No
     bericht = bj.praezisions_bericht(daten, register)
     assert "🚨" in bericht
     assert "(seit 2026-09-07, 3 Urteile)" in bericht
+
+
+# ── Urteil haelt den beurteilten Text fest (#3337) ──────────────────────────
+
+
+def test_should_store_the_judged_note_as_eingabe() -> None:
+    """Ein Urteil ohne seinen Meldetext ist ein Etikett ohne Gegenstand.
+
+    Befund aus Stufe 0 zu #3337: 51 Urteile lagen vor, aber kein einziger der
+    beurteilten Meldetexte — als Lerndaten damit wertlos.
+    """
+    daten = {
+        "befunde": {
+            "0.7 deploy-scan::travel-beat": {
+                "phase": "0.7 deploy-scan",
+                "repo": "travel-beat",
+                "letzte_note": "failure:travel-beat — Deploy rot seit 12.07.",
+            }
+        }
+    }
+
+    bj.urteile_dazu(daten, "0.7 deploy-scan::travel-beat", "echt", "war real rot")
+
+    urteil = daten["urteile"][-1]
+    assert urteil["eingabe"] == "failure:travel-beat — Deploy rot seit 12.07."
+    assert urteil["grund"] == "war real rot"
+
+
+def test_should_keep_eingabe_separate_from_grund() -> None:
+    """`grund` entsteht nach dem Urteil und nennt es mit — er darf die Eingabe
+    nicht ersetzen, sonst verraet der Lerndatensatz seine eigene Antwort."""
+    daten = {
+        "befunde": {
+            "0.7.4 prio-referenzen::platform": {
+                "phase": "0.7.4 prio-referenzen",
+                "repo": "platform",
+                "letzte_note": "2 Prio-Referenz(en) zeigen auf Erledigtes",
+            }
+        }
+    }
+
+    bj.urteile_dazu(
+        daten,
+        "0.7.4 prio-referenzen::platform",
+        "falsch",
+        "Zitiert einen gemergten PR als historischen Kontext",
+    )
+
+    urteil = daten["urteile"][-1]
+    assert urteil["eingabe"] != urteil["grund"]
+    assert "gemergten PR" not in urteil["eingabe"]
+
+
+def test_should_record_eingabe_as_none_when_befund_is_unknown() -> None:
+    """Urteil zu einem Befund, den das Journal nicht (mehr) kennt: kein Text,
+    aber auch kein Absturz — und `eingabe` sagt ehrlich None statt zu raten."""
+    daten: dict = {}
+
+    bj.urteile_dazu(daten, "0.9 staging::mcp-hub", "echt", "nachgetragen")
+
+    assert daten["urteile"][-1]["eingabe"] is None
