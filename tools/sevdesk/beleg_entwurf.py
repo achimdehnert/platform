@@ -142,6 +142,45 @@ def kostenstelle_aufloesen(client, name: str) -> dict | None:
     return {"id": k["id"], "objectName": "CostCentre"}
 
 
+KATEGORIE_LIEFERANT = 2  # GET /Category objectType=Contact: 2 Lieferant, 3 Kunde
+
+
+def kontakt_finden(client, name: str) -> dict | None:
+    """Kontakt zum Lieferantennamen — Teilstring in beide Richtungen, Gross/Klein
+    egal; genau ein Treffer oder None (nie raten)."""
+    r = client.get("/Contact", params={"limit": 1000, "depth": 1})
+    r.raise_for_status()
+    such = _dedup_schluessel(name)
+    treffer = []
+    for k in r.json()["objects"]:
+        kn = _dedup_schluessel(k.get("name") or "")
+        if kn and (such in kn or kn in such):
+            treffer.append(k)
+    return treffer[0] if len(treffer) == 1 else None
+
+
+def kontakt_anlegen(client, name: str, bankdaten: dict) -> dict:
+    """Legt einen Lieferanten-Kontakt an (#3342) — mit IBAN/BIC/USt-ID/Steuernr.,
+    soweit im Rechnungstext gefunden. Ohne Kontakt kann sevdesk den Beleg nicht
+    aus der Oberflaeche heraus bezahlen (Bankverbindung leer)."""
+    daten = {
+        "name": name,
+        "category": {"id": KATEGORIE_LIEFERANT, "objectName": "Category"},
+        "status": 100,
+    }
+    if bankdaten.get("iban"):
+        daten["bankAccount"] = bankdaten["iban"]
+    if bankdaten.get("bic"):
+        daten["bankNumber"] = bankdaten["bic"]
+    if bankdaten.get("ustid"):
+        daten["vatNumber"] = bankdaten["ustid"]
+    if bankdaten.get("steuernummer"):
+        daten["taxNumber"] = bankdaten["steuernummer"]
+    r = client.post("/Contact", json=daten)
+    r.raise_for_status()
+    return r.json()["objects"]
+
+
 def konto_validieren(client, konto: str, taxrule: str) -> tuple[bool, str]:
     """Prüft Konto + taxRule gegen GET /ReceiptGuidance/forAccountNumber.
 
@@ -458,6 +497,14 @@ def _dd_mm_yyyy(iso: str) -> str:
     return f"{t_}.{m}.{j}"
 
 
+def _kontakt_anzeige(args, kontakt, kontakt_neu: bool, bankdaten: dict) -> dict | None:
+    if not getattr(args, "kontakt", False):
+        return None
+    if kontakt:
+        return {"id": kontakt["id"], "name": kontakt.get("name"), "neu": False}
+    return {"name": args.lieferant, "neu": True, "bankdaten": sorted(bankdaten)}
+
+
 def anlegen(args) -> int:
     start = time.monotonic()
     brutto = round(float(args.brutto), 2)
@@ -482,6 +529,12 @@ def anlegen(args) -> int:
                 "ABBRUCH: Kostenstelle unbekannt — in sevdesk anlegen oder Tag korrigieren."
             )
             return 2
+    kontakt = None
+    kontakt_neu = False
+    if getattr(args, "kontakt", False):
+        kontakt = kontakt_finden(client, args.lieferant)
+        kontakt_neu = kontakt is None
+    bankdaten = getattr(args, "bankdaten", None) or {}
     belege = beleg_bestand(client)
 
     vorhanden = duplikat(belege, args.beschreibung)
@@ -573,6 +626,7 @@ def anlegen(args) -> int:
                     "taxrule": args.taxrule,
                     "konto": args.konto or "LEER (nicht zugeordnet — Owner)",
                     "kostenstelle": getattr(args, "kostenstelle", None),
+                    "kontakt": _kontakt_anzeige(args, kontakt, kontakt_neu, bankdaten),
                     "vorschlaege": vorschlaege_liste,
                 },
                 ensure_ascii=False,
@@ -589,6 +643,9 @@ def anlegen(args) -> int:
             JOURNAL_DATEI,
         )
         return 0
+
+    if kontakt_neu:
+        kontakt = kontakt_anlegen(client, args.lieferant, bankdaten)
 
     intern = None
     if not getattr(args, "ohne_dokument", False):
@@ -640,6 +697,9 @@ def anlegen(args) -> int:
     if kostenstelle:
         daten["voucher[costCentre][id]"] = str(kostenstelle["id"])
         daten["voucher[costCentre][objectName]"] = "CostCentre"
+    if kontakt:
+        daten["voucher[supplier][id]"] = str(kontakt["id"])
+        daten["voucher[supplier][objectName]"] = "Contact"
 
     r = client.post("/Voucher/Factory/saveVoucher", data=daten)
     r.raise_for_status()
@@ -653,6 +713,7 @@ def anlegen(args) -> int:
                 "brutto": f"{brutto:.2f}",
                 "konto": args.konto or "LEER (nicht zugeordnet — Owner)",
                 "kostenstelle": getattr(args, "kostenstelle", None),
+                "kontakt": _kontakt_anzeige(args, kontakt, kontakt_neu, bankdaten),
             },
             ensure_ascii=False,
         )
@@ -692,6 +753,10 @@ def paperless_anwenden(args, p: argparse.ArgumentParser) -> None:
     if not args.pdf and not getattr(args, "ohne_dokument", False):
         ziel = Path(os.environ.get("TMPDIR", "/tmp")) / "sevdesk-paperless"
         args.pdf = str(paperless.pdf_holen(dok, ziel))
+    # Ein Beleg aus Paperless soll aus sevdesk heraus bezahlbar sein (#3342):
+    # Kontakt immer, Bankdaten aus dem OCR-Text.
+    args.kontakt = True
+    args.bankdaten = paperless.bankdaten_aus_text(dok.get("content") or "")
     print(
         json.dumps(
             {
@@ -701,6 +766,10 @@ def paperless_anwenden(args, p: argparse.ArgumentParser) -> None:
                 "mandant": args.mandant,
                 "kostenstelle": args.kostenstelle,
                 "pdf": args.pdf,
+                "bankdaten": {
+                    k: (v[:4] + "…") if k == "iban" else v
+                    for k, v in args.bankdaten.items()
+                },
             },
             ensure_ascii=False,
         )
@@ -717,6 +786,12 @@ def main() -> int:
         metavar="DOK_ID",
         help="Paperless-Dokument als Quelle: PDF wird geholt, Tags edv/iil -> Mandant, "
         "Tag mit Kostenstellen-Namen -> --kostenstelle (explizite Flags gewinnen)",
+    )
+    p.add_argument(
+        "--kontakt",
+        action="store_true",
+        help="Lieferanten-Kontakt suchen (Teilstring) oder anlegen und am Beleg verknuepfen; "
+        "bei --paperless immer an (Bankdaten aus dem Rechnungstext)",
     )
     p.add_argument(
         "--kostenstelle",

@@ -75,3 +75,81 @@ def test_should_resolve_cost_centre_to_sevdesk_reference():
 def test_should_leave_cost_centre_empty_when_unknown(capsys):
     assert be.kostenstelle_aufloesen(_client(), "wagen-z") is None
     assert "Kostenstelle 'wagen-z'" in capsys.readouterr().out
+
+
+# ── Lieferanten-Kontakt mit Bankdaten (#3342) ──────────────────────────────
+
+RECHNUNGSTEXT = """Musterwerkstatt GmbH  Steuernummer: 123/456/78901
+USt-IdNr.: DE 123456789
+Bankverbindung: Musterbank
+IBAN: DE89 3704 0044 0532 0130 00 - BIC
+COBADEFFXXX
+"""
+
+
+def test_should_extract_bank_and_tax_ids_from_invoice_text():
+    d = pl.bankdaten_aus_text(RECHNUNGSTEXT)
+    assert d == {
+        "iban": "DE89370400440532013000",
+        "bic": "COBADEFFXXX",
+        "ustid": "DE123456789",
+        "steuernummer": "123/456/78901",
+    }
+
+
+def test_should_omit_fields_that_are_not_in_the_text():
+    assert pl.bankdaten_aus_text("Rechnung ohne Bankdaten, Betrag 10,00 EUR") == {}
+
+
+def _kontakt_client(kontakte: list[dict], angelegt: list[dict]) -> httpx.Client:
+    def handler(req: httpx.Request) -> httpx.Response:
+        if req.method == "GET" and req.url.path.endswith("/Contact"):
+            return httpx.Response(200, json={"objects": kontakte})
+        if req.method == "POST" and req.url.path.endswith("/Contact"):
+            import json
+
+            body = json.loads(req.content)
+            angelegt.append(body)
+            return httpx.Response(201, json={"objects": {"id": "k-neu", **body}})
+        raise AssertionError(req.url.path)
+
+    return httpx.Client(
+        base_url="https://sevdesk.test/api/v1", transport=httpx.MockTransport(handler)
+    )
+
+
+def test_should_find_contact_by_substring_ignoring_case():
+    kontakte = [
+        {"id": "1", "name": "Musterwerkstatt GmbH"},
+        {"id": "2", "name": "Anderer"},
+    ]
+    assert (
+        be.kontakt_finden(_kontakt_client(kontakte, []), "musterwerkstatt")["id"] == "1"
+    )
+
+
+def test_should_not_guess_when_two_contacts_match():
+    kontakte = [{"id": "1", "name": "Muster A"}, {"id": "2", "name": "Muster B"}]
+    assert be.kontakt_finden(_kontakt_client(kontakte, []), "Muster") is None
+
+
+def test_should_create_supplier_contact_with_bank_data():
+    angelegt: list[dict] = []
+    k = be.kontakt_anlegen(
+        _kontakt_client([], angelegt),
+        "Musterwerkstatt GmbH",
+        {
+            "iban": "DE89370400440532013000",
+            "bic": "COBADEFFXXX",
+            "ustid": "DE123456789",
+        },
+    )
+    assert k["id"] == "k-neu"
+    assert angelegt[0]["category"] == {
+        "id": be.KATEGORIE_LIEFERANT,
+        "objectName": "Category",
+    }
+    assert angelegt[0]["bankAccount"] == "DE89370400440532013000"
+    assert angelegt[0]["bankNumber"] == "COBADEFFXXX"
+    assert angelegt[0]["vatNumber"] == "DE123456789"
+    assert "taxNumber" not in angelegt[0]

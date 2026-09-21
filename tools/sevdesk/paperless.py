@@ -32,6 +32,16 @@ MANDANTEN_TAGS = ("edv", "iil")
 
 _TAG_MIT_ID = re.compile(r"^(?P<name>.+?)\s+(?P<id>\d{3,})$")
 
+# Bankdaten im OCR-Text einer Rechnung. IBAN darf Leerzeichen in 4er-Gruppen
+# tragen (so drucken es die meisten Lieferanten); BIC 8 oder 11 Zeichen.
+_IBAN = re.compile(
+    r"\bIBAN\s*:?\s*([A-Z]{2}\d{2}(?:\s?[A-Z0-9]{4}){2,7}\s?[A-Z0-9]{1,4})"
+)
+_BIC = re.compile(r"\bBIC\s*:?\s*([A-Z]{6}[A-Z0-9]{2}(?:[A-Z0-9]{3})?)\b")
+_USTID = re.compile(r"USt\.?-?\s*Id\.?-?\s*Nr\.?\s*:?\s*(DE\s?\d{9})", re.I)
+_STNR = re.compile(r"Steuer-?\s*Nr\.?|Steuernummer", re.I)
+_STNR_WERT = re.compile(r"(\d{2,3}\s?/\s?\d{3}\s?/\s?\d{4,5})")
+
 
 def _shell(code: str) -> str:
     """Fuehrt Python im Paperless-Container aus, gibt stdout zurueck."""
@@ -58,6 +68,7 @@ print("JSON " + json.dumps({{
     "correspondent": str(d.correspondent) if d.correspondent else None,
     "created": str(d.created),
     "source_path": str(d.source_path),
+    "content": (d.content or "")[:20000],
 }}))
 """
     for zeile in _shell(code).splitlines():
@@ -113,3 +124,28 @@ def kostenstelle_aus_tags(tags: list[str], kostenstellen: list[dict]) -> dict | 
             continue
         treffer.append(k)
     return treffer[0] if len(treffer) == 1 else None
+
+
+def bankdaten_aus_text(text: str) -> dict:
+    """IBAN, BIC, USt-IdNr, Steuernummer aus dem Rechnungstext — nur was sicher
+    erkennbar ist; fehlende Felder fehlen im Dict (nie raten).
+
+    Die IBAN wird ohne Leerzeichen zurueckgegeben (so will sie sevdesk);
+    Steuernummer nur in der Form ``NNN/NNN/NNNNN`` nach dem Wort Steuernummer.
+    """
+    daten: dict[str, str] = {}
+    m = _IBAN.search(text)
+    if m:
+        daten["iban"] = re.sub(r"\s", "", m.group(1))
+    m = _BIC.search(text)
+    if m:
+        daten["bic"] = m.group(1)
+    m = _USTID.search(text)
+    if m:
+        daten["ustid"] = re.sub(r"\s", "", m.group(1)).upper()
+    m = _STNR.search(text)
+    if m:
+        w = _STNR_WERT.search(text, m.end())
+        if w:
+            daten["steuernummer"] = re.sub(r"\s", "", w.group(1))
+    return daten
