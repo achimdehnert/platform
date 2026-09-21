@@ -1,0 +1,9 @@
+{
+ "slug": "direct-gh-pr-merge-bypasses-sa-m",
+ "quelle": "Retro 50d29a (2026-09-17) + Retro f1d54f 3b NEU F18 (2026-09-21, platform#3348); Memory project_sa_m_merge_autonomy (aifw#62)",
+ "kern": "`gh pr merge` direkt aus der Sitzung statt ueber `tools/pr_merge_sa.py` (liest PR-Status, prueft Mandat, schreibt ~/.claude/pr-merge-sa.jsonl). Realfall 2026-09-21 11:12:27: Merge-Kommando auf PR #3343, der 72 Min vorher vom Owner gemergt war — Wirkung null, aber blind und ohne Journal. Gate-Vorschlag: PreToolUse-Hook, der Bash-Kommandos mit `gh pr merge` abweist, sofern nicht aus `pr_merge_sa.py` heraus (Env-Marker), plus Drill mit Positivkontrolle (dieses Kommando) und Negativkontrolle (`gh pr view`). Hook = Permissions-nah (Charta Art. 3): Vorschlag, Owner-Zug.",
+ "zustand": "schranke-kandidat",
+ "vorkommen": 2,
+ "letztes_vorkommen": "2026-09-21",
+ "erhoben": "2026-09-21"
+}
