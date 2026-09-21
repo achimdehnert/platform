@@ -15,9 +15,14 @@ ist, mit dem die Policies zuletzt bewertet wurden.
 model-changes.log trägt nur den settings-Alias, z.B. "fable"/"opus" — NICHT
 die Gewichtsmatrix, also nie direkt vergleichbar mit `assessed_with`):
   (a) `--laufend <id>` — explizite Angabe, höchste Priorität;
-  (b) neuestes Transkript des aktuellen Projekts
-      (~/.claude/projects/<slug>/*.jsonl, slug = cwd mit "/"→"-"): letzte
-      assistant-Zeile mit `message.model` beginnend "claude-";
+  (b) das Transkript der EIGENEN Sitzung
+      (~/.claude/projects/<slug>/$CLAUDE_CODE_SESSION_ID.jsonl, slug = cwd mit
+      "/"→"-"): letzte assistant-Zeile mit `message.model` beginnend "claude-".
+      Fehlt die Sitzungs-ID oder ihre Datei, faellt der Check auf das juengste
+      *.jsonl zurueck — und meldet `quelle=transkript-unsicher`, sobald weitere
+      Transkripte im selben Zeitfenster geschrieben wurden (Parallel-Sitzung,
+      platform#3333). Unsicher heisst: NICHT faellig, sondern `--laufend`
+      nachreichen;
   (c) NUR als letzter Fallback: die Alias-Tabelle unten, angewandt auf das
       `neu`-Feld der letzten model-changes.log-Zeile — mit Warnhinweis im
       Bericht ("Tabelle altert, Transkript fehlte"). Ein unbekannter Alias
@@ -44,6 +49,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 from collections import Counter
 from dataclasses import dataclass
@@ -173,21 +179,62 @@ def cwd_slug() -> str:
     return str(Path.cwd()).replace("/", "-")
 
 
-def find_latest_transcript_model(transcript_dir: Path) -> str | None:
-    """Neuestes *.jsonl im Projektordner; darin die LETZTE assistant-Zeile mit
+#: Zeitfenster, innerhalb dessen ein zweites Transkript als "gleichzeitig
+#: geschrieben" gilt. Der Realfall aus platform#3333 lag bei einer Sekunde
+#: Abstand; 300 s sind bewusst grosszuegig — lieber einmal zu oft "unsicher"
+#: als noch einmal ein erfundener MAJOR.
+PARALLEL_FENSTER_S = 300
 
-    `message.model`. None wenn Ordner/Dateien fehlen oder keine Zeile passt.
+
+def waehle_transkript(transcript_dir: Path) -> tuple[Path | None, str, str]:
+    """(Datei, quelle, hinweis) — die EIGENE Sitzung schlaegt die juengste Datei.
+
+    `CLAUDE_CODE_SESSION_ID` benennt das Transkript der laufenden Sitzung direkt.
+    Ohne die ID bleibt nur die mtime-Reihenfolge, und die zeigt bei parallelen
+    Sitzungen im selben Repo auf die FREMDE Sitzung (platform#3333: eine zweite
+    Sitzung auf anderem Modell war eine Sekunde juenger und wurde gelesen —
+    Ergebnis war ein MAJOR, den es nie gab, samt "Vollmachten suspendiert").
     """
     if not transcript_dir.is_dir():
-        return None
+        return None, "unbekannt", ""
+    sid = os.environ.get("CLAUDE_CODE_SESSION_ID", "").strip()
+    if sid:
+        eigen = transcript_dir / f"{sid}.jsonl"
+        if eigen.is_file():
+            return eigen, "transkript", ""
     files = sorted(
         transcript_dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True
     )
     if not files:
-        return None
+        return None, "unbekannt", ""
+    grund = "keine CLAUDE_CODE_SESSION_ID" if not sid else f"{sid}.jsonl fehlt"
+    juengste = files[0].stat().st_mtime
+    parallel = [
+        f.name for f in files[1:] if juengste - f.stat().st_mtime <= PARALLEL_FENSTER_S
+    ]
+    if parallel:
+        return (
+            files[0],
+            "transkript-unsicher",
+            f"{grund}; {len(parallel)} weitere(s) Transkript(e) im selben "
+            f"Zeitfenster — Parallel-Sitzung moeglich, --laufend nachreichen",
+        )
+    return files[0], "transkript", grund
+
+
+def find_latest_transcript_model(transcript_dir: Path) -> str | None:
+    """Modell aus dem Transkript der eigenen Sitzung (Rueckwaertskompatible Form)."""
+    return read_transcript_model(transcript_dir)[0]
+
+
+def read_transcript_model(transcript_dir: Path) -> tuple[str | None, str, str]:
+    """(Modell, quelle, hinweis) — LETZTE assistant-Zeile mit `message.model`."""
+    datei, quelle, hinweis = waehle_transkript(transcript_dir)
+    if datei is None:
+        return None, quelle, hinweis
     model: str | None = None
     try:
-        with files[0].open(encoding="utf-8") as fh:
+        with datei.open(encoding="utf-8") as fh:
             for line in fh:
                 line = line.strip()
                 if not line:
@@ -204,14 +251,18 @@ def find_latest_transcript_model(transcript_dir: Path) -> str | None:
                     if isinstance(candidate, str) and candidate.startswith("claude-"):
                         model = candidate
     except OSError:
-        return None
-    return model
+        return None, "unbekannt", ""
+    if model is None:
+        return None, "unbekannt", ""
+    return model, quelle, hinweis
 
 
 @dataclass
 class RunningModel:
     model_id: str | None
-    quelle: str  # argument | transkript | alias-tabelle | alias-unbekannt | unbekannt
+    # argument | transkript | transkript-unsicher | alias-tabelle |
+    # alias-unbekannt | unbekannt
+    quelle: str
     hinweis: str
 
 
@@ -220,9 +271,9 @@ def resolve_running_model(
 ) -> RunningModel:
     if laufend_arg:
         return RunningModel(laufend_arg, "argument", "")
-    transcript_model = find_latest_transcript_model(transcript_dir)
+    transcript_model, quelle, hinweis = read_transcript_model(transcript_dir)
     if transcript_model:
-        return RunningModel(transcript_model, "transkript", "")
+        return RunningModel(transcript_model, quelle, hinweis)
     if log_neu is None:
         return RunningModel(
             None, "unbekannt", "kein --laufend, kein Transkript, kein Log"
@@ -405,14 +456,23 @@ def main() -> int:
     klasse = "GLEICH" if assessed == running else classify_change(assessed, running)
 
     paar = paar_schluessel(assessed, running)
-    if args.behandelt:
+    # Eine unsichere Quelle darf nichts abhaken: "behandelt" wuerde ein Paar
+    # festschreiben, dessen zweite Haelfte aus einer fremden Sitzung stammen
+    # kann (platform#3333).
+    unsicher = running_info.quelle == "transkript-unsicher"
+    if args.behandelt and not unsicher:
         mark_handled(args.handled, paar)
         if entry is not None:
             mark_handled(args.handled, entry.raw)  # Spur, wie bisher
 
     behandelt = paar in read_handled(args.handled)
-    faellig = klasse in ("MAJOR", "MINOR") and not behandelt
-    if klasse in ("MAJOR", "MINOR") and behandelt:
+    faellig = klasse in ("MAJOR", "MINOR") and not behandelt and not unsicher
+    if klasse in ("MAJOR", "MINOR") and unsicher:
+        konsequenz = (
+            f"{klasse} UNBESTAETIGT — laufendes Modell koennte aus einer fremden "
+            "Sitzung stammen; kein Ritual, mit --laufend <id> nachmessen"
+        )
+    elif klasse in ("MAJOR", "MINOR") and behandelt:
         konsequenz = f"{klasse} {BEHANDELT_HINWEIS}"
     else:
         konsequenz = KONSEQUENZ[klasse]
