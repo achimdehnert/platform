@@ -2559,3 +2559,11 @@ Wiedervorlage 14.09.) bleibt oben als Kurzzeile mit Anker auf den Schluss-Kommen
 **Auftrag [#3149](https://github.com/achimdehnert/platform/issues/3149) geschlossen:** Groq rotiert und verteilt, Zeitung liefert (news-hub#46); Schlüsseldateien bare 56 → 0 über toleranten Leser (#3141 + 10 Fleet-PRs, [#3129](https://github.com/achimdehnert/platform/issues/3129)); Fixture #3157 + 9 Kopien (#3155); Staging-Gate fing risk-hub#753/#754, Prod unberührt; Retro #3156, Gate-Revisionen #3160; Kalender-Löschen #3163; Termine in „Achim / Lotse" (chat-hub#93). Eigene Fehler gemeldet und verankert (Sourcing-Leck, Deploy vor Build, Worktree-Aufräumen per Datum → #3164). Älterer Stand 2026-09-12/13 im Archiv; der Referenz-Parser liest dort news-hub#44/chat-hub#88 als achimdehnert/hub#88 und chat-hub#88 ohne Org (#3165).
 
 **Zielzustand #3149:** K1–K6 erfüllt (fremder Blick 0d: K2 „teilweise", Gegenprobe über PR-Text und Issue-Body: vollständig). **SA-4:** 27 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen. **0h:** beide Agenten gelaufen, Lücken aus 0e geschlossen. Anker: pgvector `session:platform:20260914:0117jbqx`.
+
+## 2026-09-21 — ausgelagert bei Sitzung 4a9700d (Herkunft: AGENT_HANDOVER.md "Offene Fäden", Anlass: Session-Start 0.7.4)
+
+Beide Zeilen zeigten auf geschlossene Issues (`state=CLOSED`, `reason=COMPLETED`) und gehören
+damit nach der Konvention „Jede Zeile zeigt auf ein **offenes** Issue" ins Archiv:
+
+- **[3073]** 20 Dateien Format-Schuld (ruff format) — geschlossen 2026-09-17 — https://github.com/achimdehnert/platform/issues/3073
+- Prio 4 KONZ-052-Rest: `PYPI_API_TOKEN` löschen, Erstrelease iil-enrichment/gaeb-toolkit — [#2380](https://github.com/achimdehnert/platform/issues/2380) geschlossen 2026-09-16, das darin genannte [#1904](https://github.com/achimdehnert/platform/issues/1904) ebenfalls geschlossen — kein verwaister Owner-Rest, daher kein neuer Anker.
