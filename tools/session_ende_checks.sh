@@ -281,9 +281,9 @@ fi
 # E.3, das die ZAHL aus E.2 braucht, und die entsteht erst beim Ernten.
 # Gestartet wird hier, geerntet unten an der angestammten Phasenstelle.
 #
-# BEWUSST NICHT im Vorlauf: E.8 (`git worktree prune` veraendert den Baum) und
-# die LLM-Laeufe in E.5, die erst wissen koennen, welche PRs zu pruefen sind —
-# die laufen dort untereinander nebeneinander.
+# Sequenziell bleibt E.8: `git worktree prune` veraendert den Baum. Die
+# LLM-Laeufe in E.5 koennen erst starten, wenn die PR-Liste da ist — sie laufen
+# dort untereinander nebeneinander.
 _dirty_scan() { # E.7: ein `git status` je Repo unter $GITHUB_DIR
   for d in "$GITHUB_DIR"/*/; do
     [ -e "${d}.git" ] || continue

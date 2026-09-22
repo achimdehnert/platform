@@ -220,7 +220,8 @@ jedem `log`/`show` **desselben** Repos; zwischen verschiedenen Repos gibt es kei
 | `/session-ende` | 302,5 s → **94,9 s** | E.6 bleibt mit 86 s die Einzelphase, an der alles hängt |
 | `/session-retro` | 6 → **2** Wartepunkte | zwei Agenten-Runden plus die Phasen, die der Lotse selbst macht (0, 3.5, 4, 7) |
 
-Wer weiter will, muss an die Inhalte: `0.4.5 auto-reap` (26 s) ließe sich nebenläufig starten,
+Wer weiter will, muss an die Inhalte: `0.4.5 auto-reap` (25 s) ließe sich nebenläufig starten,
 wenn man in Kauf nimmt, dass `sichtbarkeits_drift_melder.py` dabei lokale Klone zählt, die
 gerade abgeräumt werden. Das ist ein Tausch von Laufzeit gegen Melder-Genauigkeit und gehört
-dem Owner vorgelegt, nicht still entschieden.
+dem Owner vorgelegt, nicht still entschieden — Refs
+[#3379](https://github.com/achimdehnert/platform/issues/3379) mit den drei möglichen Antworten.

@@ -127,11 +127,13 @@ record() {
 # record-Aufrufe bleiben unveraendert — nur die Wartezeit laeuft jetzt
 # uebereinander statt hintereinander.
 #
-# BEWUSST NICHT im Vorlauf:
+# Sequenziell bleiben zwei Gruppen, und zwar aus demselben Grund: dort bewegt
+# jemand Dateien, und ein Leser, der nebenher misst, saehe Zwischenstaende —
+# ein Melder, der sich selbst belaugt.
 #   * alles vor 0.4.2 — 0.2/0.4/0.4.1 ziehen `git pull`, 0.4.5 raeumt Worktrees
-#     ab, 0.5 startet den Tunnel. Ein Leser, der nebenher laeuft, waehrend ein
-#     Schreiber dieselben Dateien bewegt, misst Zwischenstaende; das waere ein
-#     Melder, der sich selbst belaugt.
+#     ab, 0.5 startet den Tunnel. Damit bleibt ein Boden von rund 62 s; ob der
+#     teuerste Posten darin (0.4.5, 25 s) diesen Schutz wert ist, entscheidet
+#     der Owner — Refs #3379.
 #   * die Selbstheilungen in 0.7.5/0.7.13 und der Schreibschritt in 0.7.19 —
 #     nur die VORmessung wird vorgezogen, geheilt und nachgemessen wird
 #     weiterhin sequenziell an Ort und Stelle.
