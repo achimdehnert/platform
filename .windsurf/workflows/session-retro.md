@@ -131,6 +131,12 @@ Nummern, Repos, Host-Dienste) und gibst sie jedem Finder-Prompt mit. Ermitteln d
   `log --oneline --since='<YYYY-MM-DD> 00:00'` gegen `origin/<default-branch>`
 Du **bewertest** dabei nichts (Regel 1) — die Liste ist Scope, kein Befund.
 
+**Die Sammel-Befehle hängen nicht voneinander ab: in EINER Nachricht absetzen** (platform#3373)
+— je Scope-Repo `git fetch`, dazu `gh pr list`/`gh issue list` und
+`retro_transkript_kennzahlen.py`. Einzige Reihenfolge-Pflicht bleibt die Frisch-Checkout-Regel
+oben: `git fetch` **vor** jedem `log`/`show` **desselben** Repos — zwischen verschiedenen Repos
+gibt es keine.
+
 **Transkript-Kennzahlen per Skript, nicht per Sammler (Owner-Entscheid 2026-09-14, Streichkandidat
 `retro-phase1-sammler-transkriptauswertung`):** Ablehnungen, Fehlerläufe (auch ohne `is_error`),
 Silent-Reminder mit Abstand zum nächsten sichtbaren Text und Nutzer-Nachrichten liefert
@@ -157,6 +163,14 @@ Längsschnitt-Gate-Kandidat, kein Einzelfix.
 > wegklassifizieren. Ein gegebener Transkript-Pfad erdet die Session-Grenze.
 
 ## Phase 2 — Find (frischer Kontext, je Dimension)
+
+**Alle Finder in EINER Nachricht starten (PFLICHT — NEU 2026-09-22, platform#3373).** Die
+Dimensionen wissen nichts voneinander; nacheinander gestartet wartet die Retro dreimal
+hintereinander auf denselben Schritt. Das Budget aus 0.1 bleibt unverändert — es zählt
+Agenten, nicht Runden. Gleiches gilt für die Skeptiker in Phase 3: erst alle starten, dann
+alle einsammeln. Wer einen Finder startet, sein Ergebnis liest und **dann** den nächsten
+startet, hat die Prüftiefe nicht erhöht, nur die Wartezeit verdreifacht.
+
 Je Dimension ein **eigener** Subagent (kennt die Session-Erzählung nicht), geerdet im Footprint:
 - **Soll-Ist & Scope** — Ziel vs. Geliefertes; Scope Creep; still Weggelassenes; Offenes, das das Ziel verfehlt.
 - **Entscheidungen & Fehler** — tragfähig vs. fragwürdig; Anti-Patterns; Konventionsverstöße; Tech-Debt; verfrühte Festlegungen.
@@ -185,6 +199,9 @@ Beleg-Spalte, nicht in ein drittes Verdikt).
 **Vorher sortieren:** kommandobelegte Befunde überspringen, Skeptiker nur auf Bewertungsbefunde
 (Klassentabelle 0.1). Bei ≤2 Bewertungsbefunden ist ein Skeptiker **je Befund** günstiger und
 schärfer; das Budget-Argument greift erst ab etwa vier.
+
+**Auch hier: alle Skeptiker in EINER Nachricht starten** (Phase 2, platform#3373) — sie prüfen
+verschiedene Dimensionen und ziehen ihre Belege ohnehin unabhängig neu.
 
 **Eiserne Verify-Regel:** Der Skeptiker bekommt **nur die Behauptung, NICHT den Finder-Befehl** —
 und muss den Beleg **unabhängig neu ziehen**, breiter/rekursiv (`find -name` statt `ls <dir>`,
@@ -466,6 +483,7 @@ bleiben bewusst außerhalb, damit der erste Lauf nicht mit Altlasten rot wird.
 | 18 | Extern-Handoff geschrieben oder begründet n/a (Phase 6) | ☐ |
 | 19 | **Vierklang vorhanden: getan · angenommen · nicht verifizierbar · offen geblieben (Regel 5)** | ☐ |
 | 20 | `retro_report_check.py` über den Report gelaufen, Exit 0 (Phase 8) | ☐ |
+| 21 | **Finder (2) und Skeptiker (3) je in EINER Nachricht gestartet, Collect-Befehle gebündelt (Phase 1/2/3)** | ☐ |
 
 > **Pflicht-Selbstcheck (nicht überspringen):** zähle die als PFLICHT/NEU markierten
 > `##`/`###`-Überschriften oben gegen diese Tabelle — jede neue Pflicht-Phase braucht hier eine
@@ -474,6 +492,13 @@ bleiben bewusst außerhalb, damit der erste Lauf nicht mit Altlasten rot wird.
 ## Changelog
 
 Vollständige Historie: `docs/governance/session-skills-lehren/retro.md` § Changelog-Historie.
+
+- 2026-09-22: **Nebenläufig starten statt nacheinander warten** (platform#3373, Auftrag
+  „Session-Skills auf Laufzeit optimieren"). Phase 1 bündelt ihre Sammel-Befehle, Phase 2 und
+  Phase 3 starten alle Subagenten in EINER Nachricht; Checklisten-Zeile 21. Kein Budget, keine
+  Dimension, keine Pflicht-Phase gestrichen — die Wartepunkte auf dem kritischen Pfad sinken
+  bei `full` (3 Finder + 3 Skeptiker) von 6 auf 2. Zahlen und Messung:
+  `docs/governance/session-skills-lehren/laufzeit.md`.
 
 - 2026-09-16: **Phase 1 Sammler-Subagent gestrichen** (Streichbahn Retro 916eb7, platform#3238,
   Owner-Wort „R9 streichen"). Belegart „kein Effekt": alle drei Finder zogen dieselben
