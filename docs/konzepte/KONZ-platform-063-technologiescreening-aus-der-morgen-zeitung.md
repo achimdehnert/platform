@@ -152,7 +152,7 @@ je Tag: nicht erhoben" (C6). Genau daran hängt das Kill-Gate von KONZ-057.
 | `pruefe_go_reaktion` (C10) | ja | ganz | – | mittel | 👍 bindet an genau ein Ereignis, einmalig, Owner-only — aber dieselbe Geste wie für Befund-Fragen |
 | `web_naht.py` (fav0) (C22) | ja | Muster für eine zweite freie Quelle | um `latent.space/feed` | mittel | Ausgabe muss den Vertrag aus `naht.py` unverändert passieren — das ist der eigentliche Test |
 | `vertiefung.py` + `news-hub-vertiefen.timer` (C21) | ja | ganz | – | niedrig | Tiefenrecherche je Thema existiert samt Warteschlange und verschärfter Beleg-Pflicht; das Screening fordert sie an, statt eine eigene zu bauen |
-| Genesor `pipeline_status` | ja | `idea` | – | niedrig | Off-Ramp über `review_by` 2026-09-28 |
+| Genesor `pipeline_status` | ja | `idea` | – | niedrig | Off-Ramp über `review_by` 2026-10-09 |
 | I4 Namensraum | ja | – | – | **hoch** | `manage.py digest_trend` ist bereits für das Kennzahlen-Journal reserviert (C6) — Name ist verbrannt |
 | Deploy news-hub (C14) | ja | Tageslauf-Unit | – | hoch | `deploy.yml` bringt Host-Skripte/Units nicht auf den Host (#65) → **kein neuer Timer** |
 | platform ist PUBLIC | ja | – | – | hoch | Vorschlagstexte landen in einem öffentlichen Issue-Tracker — Newsletter-Zitate und Absender haben dort nichts verloren |
@@ -239,7 +239,7 @@ keine Empfehlung mit Außenwirkung.
 | Artefakt | Neu/Geändert | Owner | Normativ? | Generiert? | Lebenszyklus | Risiko |
 |---|---|---|---|---|---|---|
 | `tools/screening_backtest.py` (platform) | neu, **Stufe 0** | Achim | nein | nein | stirbt mit dem Konzept | niedrig |
-| `docs/konzepte/KONZ-platform-063*.md` | neu | Achim | nein | nein | `review_by` 2026-09-28 | niedrig |
+| `docs/konzepte/KONZ-platform-063*.md` | neu | Achim | nein | nein | `review_by` 2026-10-09 | niedrig |
 | `manage.py technologie_nennungen` (news-hub) | neu, **Stufe 1** | Achim | nein | nein | an Tageslauf gehängt | mittel |
 | `manage.py technologie_woche` (news-hub) | neu, **Stufe 1** | Achim | nein | nein | montags im Tageslauf | mittel |
 | Register (Tabelle `Technologie`) | neu, **Stufe 1** | Achim | **ja** (einzige Wahrheit über Status) | nein | Amendment ADR-299 | hoch |
