@@ -13,6 +13,7 @@ belegt das gegen das Original (subprocess, kein Reimplementieren des Tests).
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -524,6 +525,11 @@ def test_should_mark_source_unsicher_when_parallel_transcripts_and_no_session_id
     _write_policy(policies, "adr-threshold.md", "claude-opus-5")
     _write_transcript(transcripts, "claude-opus-5", filename="alt.jsonl")
     _write_transcript(transcripts, "claude-sonnet-5", filename="neu.jsonl")
+    # Beide Dateien entstehen in derselben Sekunde; bei gleicher mtime entscheidet
+    # die glob-Reihenfolge, welches "das juengste" ist — der Test kippte je nach
+    # Dateisystem. Das Zeitfenster bleibt, nur die Reihenfolge wird eindeutig.
+    alt = (transcripts / "alt.jsonl").stat().st_mtime
+    os.utime(transcripts / "neu.jsonl", (alt + 5, alt + 5))
     monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
 
     r = _run_cli(tmp_path, "--kurz", transcript_dir=transcripts)

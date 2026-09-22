@@ -399,8 +399,7 @@ runners:
 
   gpu-box:
     host: gpu-box                      # Host-Block oben; wg0 10.99.0.2, nur von prod erreichbar
-    status: offline                    # seit 2026-09-22 (WSL aus); Abmeldung bei GitHub = Owner-Klick
-                                       # (writing-hub → Settings → Actions → Runners), dann `deleted`.
+    status: deleted                    # 2026-09-22 vom Owner bei GitHub entfernt (gh api runners: nur noch prod-server);
                                        # registriert 2026-08-28, letzter Job 2026-09-19 (Zufallszuteilung)
     labels: [self-hosted, Linux, X64, ci-gpu]
     scope: per-repo
@@ -415,8 +414,13 @@ runners:
       (.wslconfig vmIdleTimeout=-1 + Aufgabe WSLKeepAlive), obwohl seit 2026-09-01 kein
       Workflow mehr `ci-gpu` anforderte. Er bekam nur noch shared-ci-Jobs ohne runs_on
       per Zufall (Resolve/Build/Notify) — die gehen jetzt deterministisch an prod-server.
+      Box-Seite 2026-09-22 ueber den prod-Hop: Aufgabe WSLKeepAlive geloescht, in
+      %USERPROFILE%\.wslconfig die Zeile vmIdleTimeout=-1 entfernt (Sicherung
+      .wslconfig.bak-20260922; memory/processors-Deckel bleiben), `wsl --shutdown`;
+      danach kein vmmemWSL-Prozess mehr. Die VM war nach dem Owner-Shutdown schon
+      wieder hochgekommen (1,9 GB) — genau der Effekt der Keepalive-Aufgabe.
       Wiederinbetriebnahme: WSL starten, Bootstrap-Skript, dann hier `status: online`.
-    verified: 2026-09-22               # Runner offline (gh api runners), noch registriert
+    verified: 2026-09-22               # Runner bei GitHub entfernt, vmmemWSL nicht mehr aktiv
   dev-hetzner-2:
     host: UNKNOWN                       # auf keinem erreichbaren Host installiert
     status: deleted                     # 2026-06-17 dereg. (id=23 auf risk-hub gelöscht)
