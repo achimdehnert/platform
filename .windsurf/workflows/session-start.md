@@ -34,7 +34,17 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
   "${TARGET_REPO:-$(basename $(git rev-parse --show-toplevel 2>/dev/null) 2>/dev/null || echo platform)}"
 ```
 
-→ Ende = Summary `| Phase | Status | Repo | Note |` + Befund-Journal + `RESULT: OK|FAIL`.
+→ Ende = Summary `| Phase | Status | Repo | Note |` + `LAUFZEIT:`-Zeile + Befund-Journal +
+  `RESULT: OK|FAIL`.
+→ **`LAUFZEIT:`** nennt die Gesamtdauer und die fünf teuersten Phasen. Steigt sie merklich
+  (Richtwert: > 150 s), ist das ein Befund über den Runner, kein Grund zum Warten —
+  Einzelwerte je Phase mit `SESSION_CHECKS_TIMING=voll`. Die Melder laufen seit
+  [#3373](https://github.com/achimdehnert/platform/issues/3373) nebenläufig; enger stellen
+  lässt sich das mit `SESSION_CHECKS_PARALLEL` (frei, Default 8),
+  `SESSION_CHECKS_PARALLEL_SSH` (Prod-Hosts, 3) und `SESSION_CHECKS_PARALLEL_GIT` (1),
+  `SESSION_CHECKS_PARALLEL=1` schaltet auf den alten sequenziellen Ablauf zurück.
+  Fällt ein Melder nur im Vorlauf aus: `SESSION_CHECKS_VORLAUF_BEHALTEN=1` behält
+  `.out`/`.err`/`.rc` je Auftrag. → `LEHREN` bzw. `session-skills-lehren/laufzeit.md`
 → **`RESULT: FAIL`** (einziger Hard-FAIL: pgvector-Tunnel 0.5) → Session NICHT fortsetzen,
   **kein** Fallback auf lokales Memory (ADR-154).
 → **Spalte `Repo` nennt das Repo, um das es GEHT**, nicht das der Sitzung. Journal mit
@@ -256,6 +266,7 @@ SA-4 aus `policies/autonomy-gates.md`):
 | 7b | Zielzustand geklärt: referenziert ODER akzeptiert ODER Überspringen begründet | ☐ |
 | 8 | Arbeitsplan aufgestellt (Phase 3, gegen den Zielzustand) | ☐ |
 | 8a | Auftragsraum abgearbeitet: `offen` gelesen, Kurzbefehle angewendet, Aufträge/Korrekturen verankert (1.8) | ☐ |
+| 8b | `LAUFZEIT:`-Zeile gelesen; auffälliger Anstieg als Befund gespiegelt, nicht hingenommen (0.R) | ☐ |
 
 **Neue Pflicht-Phase ⇒ Checklisten-Zeile im selben PR**; Auswahl über
 `grep -n "^## \|^### "` und Einzelbeurteilung, **nicht** über das Wort „PFLICHT".
@@ -280,6 +291,15 @@ SA-4 aus `policies/autonomy-gates.md`):
 ## Changelog
 
 > Nur die letzten drei Einträge (Policy seit #2696). Volle Historie: `LEHREN#changelog-historie`.
+
+- 2026-09-22: **Runner misst sich selbst und wartet nebenläufig** (platform#3373). Neue
+  `LAUFZEIT:`-Zeile + Checklisten-Zeile 8b; die Melder ab 0.4.2 starten zusammen und werden an
+  ihrer Phasenstelle geerntet — Summary-Reihenfolge, Notiz-Wortlaut und Phasenzahl unverändert.
+  Drei Spuren mit eigener Breite (frei 8 · ssh 3 · git 1), weil acht gleichzeitige ssh-Melder
+  Verbindungen verloren und drei parallele `git fetch` um dieselbe Ref-Sperre stritten.
+  `SESSION_CHECKS_PARALLEL=1` stellt den alten Ablauf wieder her. Nebenbei korrigiert: 0.7.28
+  las den Exit-Code von `tail` statt vom Melder, wodurch dort jede Lage als PASS endete.
+  Messung und Herleitung: `docs/governance/session-skills-lehren/laufzeit.md`.
 
 - 2026-09-17: **Phase 0.7.7 `gate-wirkung` gestrichen** (Streichbahn Retro 8185e1, Owner-Wort
   M9, Belegart kein Leser): drei Journal-Läufe, kein Session-Start-Board führte den Befund als

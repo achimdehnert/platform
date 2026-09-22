@@ -436,7 +436,28 @@ Memory-Upserts deduplizieren per `content_hash`.
 
 ---
 
+## Laufzeit
+
+Der Runner endet mit einer `LAUFZEIT:`-Zeile (Gesamtdauer + fünf teuerste Phasen);
+`SESSION_CHECKS_TIMING=voll` gibt jede Phase einzeln aus. Die Prüfungen laufen seit
+[#3373](https://github.com/achimdehnert/platform/issues/3373) nebenläufig —
+`SESSION_CHECKS_PARALLEL` (Default 8) stellt das enger, `=1` schaltet auf den alten
+sequenziellen Ablauf zurück, `SESSION_CHECKS_VORLAUF_BEHALTEN=1` behält `.out`/`.err`/`.rc`
+je Auftrag für die Fehlersuche. E.6 prüft die Repos seither ebenfalls nebenläufig
+(`DRIFT_CHECK_PARALLEL`, Default 6; `=1` = alter Ablauf) — es bleibt mit Abstand die teuerste
+Phase, also dort zuerst nachsehen, wenn die Zeile auffällig steigt. Herleitung und Messung:
+`docs/governance/session-skills-lehren/laufzeit.md`.
+
 ## Changelog
+
+- 2026-09-22: **Runner misst sich selbst und wartet nebenläufig** (platform#3373). Neue
+  `LAUFZEIT:`-Zeile; E.1–E.7/E.9/E.10 starten zusammen und werden an ihrer Phasenstelle
+  geerntet, die bis zu drei Zusagen-Prüfungen in E.5 laufen untereinander nebeneinander,
+  E.9 prüft seine drei Lanes in EINEM Auftrag (drei gleichzeitige `git fetch` stritten um
+  dieselbe Ref-Sperre). Weil danach eine einzige Phase 254 von 264 s ausmachte, prüft auch
+  `scripts/drift_check.py` die Repos jetzt nebenläufig (259 s → 92 s, Ausgabe zeichengleich).
+  Gesamt 302,5 s → 94,9 s, Status aller 11 Phasen unverändert. Messung:
+  `docs/governance/session-skills-lehren/laufzeit.md`.
 
 - 2026-09-16: **Phase 0b-fragment + Runner mit `--session-id`** (#1944 K6, KONZ-platform-027) —
   in Repos mit `docs/handover.d/` schreibt jede Sitzung ihr eigenes Fragment statt die

@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import base64
 import binascii
+import concurrent.futures
 import copy
 import json
 import os
@@ -1195,22 +1196,65 @@ def print_json_output(drifts: list[RepoDrift]) -> None:
 
 def _scanne(targets: dict, token: str, iil_latest: dict[str, str]) -> list[RepoDrift]:
     """Der eigentliche Durchlauf — ausgelagert, damit `main` ihn in die Sperre
-    einwickeln kann, ohne dass die Schleife selbst davon weiss."""
-    results: list[RepoDrift] = []
-    for repo, props in targets.items():
-        repo_type = props.get("type", "?") if isinstance(props, dict) else "?"
-        registry_archived = (
-            bool(props.get("archived")) if isinstance(props, dict) else False
+    einwickeln kann, ohne dass die Schleife selbst davon weiss.
+
+    Die Repos werden nebenlaeufig geprueft (platform#3373). `check_repo` haelt
+    keinen Zustand: es bekommt Repo, Typ, Token und die PyPI-Tabelle uebergeben
+    und liest ueber `_api_get` nur; es gibt keinen Cache und keine veraenderliche
+    Modulvariable, die sich zwei Threads teilen wuerden.
+
+    Motiv: dieser Durchlauf ist mit Abstand der teuerste Schritt von
+    `/session-ende` (E.6, gemessen 254 s von 264 s Gesamtlauf) und besteht fast
+    nur aus Wartezeit auf die GitHub-API. Die Breite ist absichtlich klein und
+    ueber `DRIFT_CHECK_PARALLEL` einstellbar: GitHub drosselt oberhalb einer
+    gewissen Gleichzeitigkeit, und ein gedrosselter Lauf meldet `None` statt
+    eines Inhalts — also eine Drift, die keine ist. `=1` faellt exakt auf den
+    alten, sequenziellen Ablauf zurueck.
+
+    Ausgabe-Reihenfolge und -Wortlaut bleiben die der Registry: eingesammelt
+    wird in Reihenfolge der Eingabe, nicht in Reihenfolge des Eintreffens.
+    """
+    posten = [
+        (
+            repo,
+            props.get("type", "?") if isinstance(props, dict) else "?",
+            bool(props.get("archived")) if isinstance(props, dict) else False,
         )
-        print(f"  {repo}...", end="", flush=True)
-        result = check_repo(repo, repo_type, token, iil_latest, registry_archived)
+        for repo, props in targets.items()
+    ]
+    try:
+        breite = int(os.environ.get("DRIFT_CHECK_PARALLEL", "6"))
+    except ValueError:
+        breite = 6
+    breite = max(1, min(breite, len(posten) or 1))
+
+    def _melde(repo: str, result: RepoDrift) -> None:
         if result.archived:
-            print(" ⏸ archiviert — uebersprungen")
+            print(f"  {repo}... ⏸ archiviert — uebersprungen")
         else:
             print(
-                f" {result.status_icon} ({len(result.errors)}E, {len(result.warnings)}W)"
+                f"  {repo}... {result.status_icon} "
+                f"({len(result.errors)}E, {len(result.warnings)}W)"
             )
-        results.append(result)
+
+    if breite == 1:
+        results = []
+        for repo, repo_type, registry_archived in posten:
+            r = check_repo(repo, repo_type, token, iil_latest, registry_archived)
+            _melde(repo, r)
+            results.append(r)
+        return results
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=breite) as pool:
+        futures = [
+            pool.submit(check_repo, repo, repo_type, token, iil_latest, archiviert)
+            for repo, repo_type, archiviert in posten
+        ]
+        results = []
+        for (repo, _typ, _arch), fut in zip(posten, futures, strict=True):
+            r = fut.result()
+            _melde(repo, r)
+            results.append(r)
     return results
 
 
