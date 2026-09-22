@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-16",
+  "generated": "2026-09-22",
   "total": 253,
   "next_free": 308,
   "adrs": [
@@ -4508,8 +4508,8 @@
       "id": "ADR-249",
       "file": "ADR-249-telefonagent-produkt-swappable-ports.md",
       "title": "Telefon-/Sprachagent als eigenständiges iilgmbh-Produkt: Swappable-Ports-Architektur + Souveränitäts-Profil, MVP mPA, erster regulierter Pilot meiki-hub",
-      "status": "proposed",
-      "date": "2026-06-17",
+      "status": "accepted",
+      "date": "2026-09-22",
       "domains": [
         "product",
         "architecture",
