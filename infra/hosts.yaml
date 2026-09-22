@@ -159,6 +159,16 @@ hosts:
             ein Rueckschritt, Umzug nach prod-b unverhaeltnismaessig.
           entschieden: 2026-09-01
           bis: 2026-12-01
+        lotse-raum:
+          grund: >
+            Werkzeug des Owners (Raum-Sitzung "Achim / Lotse", Matrix-Client ohne
+            Listener, systemd --user Zeitgeber, STT/TTS auf CPU). Kein Container,
+            kein Ingress, kein Prod-Workload; der Krypto-Store des zweiten Geraets
+            liegt hier (~/.local/share/chat-hub/lotse-achim), ein Umzug hiesse
+            neues Geraet + neue Schluessel. Derselbe Fall wie mail-links.
+            Owner-Wort 2026-09-22 (Kapitaens-Kanal): "43 ja, ausnahme eintragen".
+          entschieden: 2026-09-22
+          bis: 2026-12-01
     verified: 2026-08-30                # Vollmessung 13 Agenten + Nachmessung, KONZ-054
 
   gpu-box:
