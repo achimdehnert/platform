@@ -15,6 +15,10 @@
     {
       "fall": "Gate ohne `faengt`-Feld gilt als ungeprueft, nicht als gruen",
       "probe": "ungeprueft"
+    },
+    {
+      "fall": "Pruefung im Code behauptet per Name/Titel Haerte, deckt aber nur die eigene Beispielmenge (chat-hub#125 -> #132)",
+      "probe": "namensanspruch_ohne_gegenprobe"
     }
   ],
   "zustand": "schranke",
@@ -22,8 +26,15 @@
   "covers": [
     "gate-matches-spelling-not-substance"
   ],
-  "revised": "2026-08-31",
-  "revision_note": "covers-Eintrag 2026-08-31 (Gate-Deckungs-Triage, platform#2234): dieses Gate IST der Nachfolge-Vorschlag zum widerrufenen Verzicht auf gate-matches-spelling-not-substance (Owner-Kommentar #2234 vom 2026-08-23) und war seit dem Bau nie als Deckung registriert — der Slug lief deshalb 11 Laeufe lang als ungedeckt mit. Zusatzdeckung: evidence_claim_scanner Rev 3 (Zahlwoerter). BEKANNTE REICHWEITEN-GRENZE (Retro fdd368 2026-08-26, 'ausweiten'): geprueft werden Registry-Drills in platform, nicht Test-Gates in Produkt-Repos — die Ausweitung ist Programm-Punkt in #2234.",
+  "revised": "2026-09-22",
+  "revision_note": "Rueckfall (3 nach Bau, zuletzt 2026-09-17): ausgeweitet. Das Modul prueft bisher nur Registry-Eintraege (Gate nennt einen Fall, den sein Drill nicht beruehrt). Am 2026-09-22 trat dieselbe Familie im CODE auf: eine Sperrliste in iilgmbh/chat-hub deploy/lotse_auftrag.py hiess im PR-Titel 'harte Sperrliste' und liess 7 von 10 alltaeglichen Formulierungen durch (Komposita, Plural). Eine Pruefung, deren Name mehr verspricht als ihre Substanz — genau der namensgebende Fall, aber ausserhalb der Registry. Ausweitung: auch code-seitige Pruefungen erfassen, deren Bezeichnung (Funktionsname, PR-Titel, Docstring) eine Haerte behauptet.",
   "expires": "2026-10-31",
-  "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
+  "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet.",
+  "positivkontrolle": {
+    "ref": "iilgmbh/chat-hub tests/test_lotse_auftrag.py::test_should_refuse_reaction_for_outward_effect",
+    "fall": "Die Sperrliste aus chat-hub#125 hiess im PR-Titel 'harte Sperrliste' und liess 7 von 10 alltaeglichen Formulierungen durch ('Deployment', 'Secrets rotieren', 'Berechtigungen', 'Datenloeschung', 'Produktivumgebung', 'Tokens', 'Zugangsdaten').",
+    "beleg": "Messung 2026-09-22 gegen origin/main vor chat-hub#132: 7 von 10 Proben falsch. Nach dem Fix: 0 von 11. Der Test wurde von 5 auf 15 Faelle erweitert, davon 10 adversarial (nicht aus der eigenen Wortliste abgeleitet) plus 5 Gegenproben, die durchgehen muessen — ein Test, der bei der alten Regex ROT wird.",
+    "negativkontrolle": "Gegenproben ('Arbeitskopien nachziehen', 'Issue fuer die Leases anlegen', 'Termin am Dienstag eintragen') duerfen NICHT sperren — sonst faengt die Sperre alles und der Daumen-Weg ist zwar sicher, aber nutzlos.",
+    "datum": "2026-09-22"
+  }
 }

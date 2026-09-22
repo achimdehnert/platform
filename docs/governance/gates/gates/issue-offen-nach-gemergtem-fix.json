@@ -28,6 +28,9 @@
   "expires_note": "blocking oder gestrichen bis dahin - Owner-Entscheid E4 (platform#2606).",
   "positivkontrolle": {
     "ref": "tools/tests/test_session_abgleich.py::test_should_flag_issue_still_open_after_its_fix_merged (ausschreibungs-hub #184 OPEN neben gemergtem #195), ::test_should_flag_refs_instead_of_closes (writing-hub) und ::test_should_flag_closed_issue_with_unchecked_dod_boxes (chat-hub #27) - je mit gruener Gegenprobe. Dazu ein echter Lauf am 2026-09-07 gegen dieses Repo: Issue #2895 ist OPEN, obwohl der zugehoerige PR #2905 MERGED ist (Refs statt Closes) - ein wahrer Treffer aus dem Bestand, nicht aus einer Fixture.",
-    "datum": "2026-09-07"
-  }
+    "datum": "2026-09-07",
+    "nachtrag_2026_09_22": "python3 tools/session_abgleich.py --repo iilgmbh/chat-hub --issues --seit 2026-09-22 meldet 7 Befunde, darunter #124 OPEN trotz gemergtem #128 — Melder trifft den Fall."
+  },
+  "revised": "2026-09-22",
+  "revision_note": "Rueckfall (3 nach Bau, zuletzt 2026-09-17; erneut 2026-09-22): nachgeschaerft, Ursache an der Quelle — das Modul laeuft erst in /session-ende, da sind die Issues schon liegen geblieben. Gemessen am 2026-09-22: session_abgleich.py --issues nennt iilgmbh/chat-hub#123/#124 als offen und sechs weitere mit unangehakten Kaestchen, also KORREKT — nur zu spaet. Schaerfung: der Aufruf gehoert vor das Schliessen einer Stufe, nicht ans Sitzungsende (Soll-Ablauf Retro 8946e8, Zeile zu Befund 4/6)."
 }
