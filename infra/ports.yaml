@@ -691,7 +691,7 @@ services:
     domain_prod: null
     domain_staging: null
     repo: iilgmbh/chat-hub          # deploy/chat_lotse.py, deploy/raum-sessions/achim/
-    betriebsstatus: aktiv
+    betriebsstatus: blockiert
     betriebsstatus_grund: >
       Lotse im Raum "Achim / Lotse" (chat-hub#48, KONZ-platform-059 Auftragsraum,
       KONZ-platform-060 Stimme). Zweites Geraet des Lotsen-Kontos mit eigenem
@@ -699,9 +699,10 @@ services:
       dev-desktop gebunden. Bestandteile ohne Port: STT faster-whisper `small`
       (CPU, deploy/stt.py) und TTS Piper `de_DE-thorsten-medium` (CPU,
       deploy/tts.py, chat-hub#117); keine Route zur gx10, gemessen 2026-09-22.
-      Kein Container, kein Ingress — faellt nicht unter die
-      prod_container-Auflage des dev-desktop (ADR-257/ADR-292). Bis 2026-09-22
-      in keiner SoT deklariert (dieselbe Luecke wie mail-links, platform#2507).
+      Kein Container, kein Ingress — laeuft aber auf dem dev-desktop gegen
+      auflage.prod_container=false (ADR-257/ADR-292), deshalb wie mail-links und
+      todo-board als blockiert gefuehrt (platform#2507): laeuft, Entscheidung
+      bleiben/umziehen ist Owner-Zug. Bis 2026-09-22 in keiner SoT deklariert.
   robo-twin:
     prod: 8790
     staging: 8790
