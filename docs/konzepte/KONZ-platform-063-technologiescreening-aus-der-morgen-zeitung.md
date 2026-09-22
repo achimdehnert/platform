@@ -28,6 +28,10 @@ evidence_manifest:
   - {claim_id: C16, source_path: "journalctl -u news-hub-tageslauf.service, 2026-09-22 06:16 UTC", commit_or_pr: "2026-09-22", opened_in_session: true}
   - {claim_id: C17, source_path: "Ordner-Inventar iil/AI-News · tools/mail_agent/graph_mail.py --find --all --source AI-News", commit_or_pr: "2026-09-22", opened_in_session: true}
   - {claim_id: C18, source_path: news-hub/deployment/scripts/tageslauf.sh, commit_or_pr: 8bf3fa9, opened_in_session: true}
+  - {claim_id: C19, source_path: "Messung 2 (Variante C) — Urteil des Sitzungsmodells über das Fenster 09-15…09-21, Protokoll in platform#3383", commit_or_pr: "2026-09-22", opened_in_session: true}
+  - {claim_id: C20, source_path: "https://www.latent.space/feed + /robots.txt, HTTP 200, 20 Einträge", commit_or_pr: "2026-09-22", opened_in_session: true}
+  - {claim_id: C21, source_path: news-hub/apps/digest/services/vertiefung.py, commit_or_pr: 8bf3fa9, opened_in_session: true}
+  - {claim_id: C22, source_path: news-hub/apps/digest/services/web_naht.py, commit_or_pr: 8bf3fa9, opened_in_session: true}
 created: 2026-09-22
 updated: 2026-09-22
 ---
@@ -77,11 +81,20 @@ Redaktionsagenda der abonnierten Newsletter.
 Analyse des Ordners AI-News").** Der Ordner ist ausgezählt: **101 Mails seit dem 2026-08-04 von
 genau drei Absendern** — `medium.com` (44), `thesequence@substack.com` (30),
 `theprohuman@mail.beehiiv.com` (27), C17. Medium ist damit bereits die stärkste Quelle des
-Screenings, nicht die fehlende. Fehlend ist `latent.space` — und es braucht keinen Bau: der
-Ordner `AI-News` steht im Umfang des Tageslaufs (C18), ein Abo landet dort und fließt ohne eine
-Zeile Code in Zeitung *und* Screening (REC-13). Der einzige Fehltreffer der Erstmessung stammt
+Screenings, nicht die fehlende. Der einzige Fehltreffer der Erstmessung stammt
 aus der Heftzeile eines dieser drei Absender — Rauschen ist damit absenderspezifisch und gezielt
 dämpfbar (REC-14), statt über immer längere Allgemeinwortlisten.
+
+**Zweiter Nachtrag, wenige Stunden später (Owner-Wort: „nur free verwenden und selbst — auf
+Basis der Themen, LLM soll beurteilen — tiefer recherchieren").** Das kippt die Konstruktion
+zum Besseren und macht das vorherige REC-13 (Abo) gegenstandslos: `latent.space` kommt über
+seinen öffentlichen Feed als zweite Web-Naht neben `fav0` (C20, C22), also frei und ohne
+Postfach; die Auswahl trifft ein **Urteil** statt einer Wortregel; und die Tiefe holt die
+bereits gebaute `Vertiefung` (C21), die je Thema mehr Quellen zieht und jede Aussage an einen
+nummerierten Beleg mit Auszug bindet. Gegenprobe auf demselben Fenster: die Wortregel fand
+einen brauchbaren Namen, das Urteil sieben (C19). Einschränkung, die dazugehört: geurteilt hat
+das Sitzungsmodell, nicht das günstige Modell, das später laufen soll — Messung 2 wiederholt es
+damit.
 
 ---
 
@@ -133,6 +146,8 @@ je Tag: nicht erhoben" (C6). Genau daran hängt das Kill-Gate von KONZ-057.
 | `lotse_briefing.sh` (C11) | ja | ganz | – | niedrig | Kommando steht in der Erlaubnisliste, Ausgabe wird unverändert angehängt — kein chat-hub-Eingriff nötig |
 | `lotse_auftrag.py uebergeben` (C10) | ja | ganz | – | niedrig | Auswahl = Issue `uebergabe-kapitaen`; die Kapitäns-Sitzung liest es mit `#N weiter` |
 | `pruefe_go_reaktion` (C10) | ja | ganz | – | mittel | 👍 bindet an genau ein Ereignis, einmalig, Owner-only — aber dieselbe Geste wie für Befund-Fragen |
+| `web_naht.py` (fav0) (C22) | ja | Muster für eine zweite freie Quelle | um `latent.space/feed` | mittel | Ausgabe muss den Vertrag aus `naht.py` unverändert passieren — das ist der eigentliche Test |
+| `vertiefung.py` + `news-hub-vertiefen.timer` (C21) | ja | ganz | – | niedrig | Tiefenrecherche je Thema existiert samt Warteschlange und verschärfter Beleg-Pflicht; das Screening fordert sie an, statt eine eigene zu bauen |
 | Genesor `pipeline_status` | ja | `idea` | – | niedrig | Off-Ramp über `review_by` 2026-10-01 |
 | I4 Namensraum | ja | – | – | **hoch** | `manage.py digest_trend` ist bereits für das Kennzahlen-Journal reserviert (C6) — Name ist verbrannt |
 | Deploy news-hub (C14) | ja | Tageslauf-Unit | – | hoch | `deploy.yml` bringt Host-Skripte/Units nicht auf den Host (#65) → **kein neuer Timer** |
@@ -288,13 +303,45 @@ davon 2 an ≥2 Tagen. **Das reißt die Schwelle heute klar.** Die naheliegende 
 widerlegt, bevor eine Zeile Produktionscode dafür geschrieben wurde — das ist der Zweck dieser
 Stufe.
 
+### 5.9a Variante C — das Modell urteilt, die Wortregel zählt nur (Owner-Weisung 2026-09-22)
+
+**Owner-Wort:** „nur free verwenden und selbst (auf Basis der Themen — LLM soll beurteilen)
+tiefer recherchieren." Damit ist die Konstruktion entschieden: nicht mehr Zufluss abwarten,
+sondern aus dem vorhandenen Zufluss **urteilen** und die Tiefe selbst holen.
+
+**Warum das die gemessene Sackgasse verlässt.** Variante A und B zählen Wortketten und finden im
+gemessenen Fenster zwei Namen, davon einen Fehltreffer (C13). Dasselbe Fenster, von einem Modell
+beurteilt statt gezählt, liefert **sieben** konkrete, einsortierbare Technologien (C19) — die
+Rohdaten waren nie das Problem, die Regel war es.
+
+**Zwei freie Quellen statt eines Abos** (C17, C20):
+
+1. Der Bestand, der ohnehin da ist — drei Absender im Ordner `AI-News`.
+2. `latent.space` als **zweite Web-Naht nach dem Muster von `fav0`**: der öffentliche Feed
+   `https://www.latent.space/feed` antwortet mit HTTP 200 und liegt nicht unter den in
+   `robots.txt` gesperrten Pfaden; 20 Einträge, fast täglich, davon die `[AINews]`-Tagesschau.
+   Kein Postfach, kein Abo, kein vierter Zugang im Sinne von ADR-299 §4.1 — dieselbe Naht, die
+   `fav0.com` schon benutzt.
+
+**Tiefe kommt aus der vorhandenen Vertiefung.** `apps/digest/services/vertiefung.py` holt je
+Thema mehr Quellen als der Tageslauf, nimmt den Kontext der tragenden Nachrichten dazu und
+synthetisiert über dasselbe Groq-Modell — mit verschärfter Beleg-Pflicht: jede Aussage verweist
+auf eine nummerierte Quelle **und** jede Quelle trägt einen echten Auszug (C21). Das Screening
+fordert diese Vertiefung für die beurteilten Kandidaten an, statt eine eigene Recherche zu bauen.
+Der Warteschlangen-Läufer dafür existiert (`news-hub-vertiefen.timer`, alle fünf Minuten).
+
+**Kosten bleiben, wo sie sind:** ein Urteil je Woche über die Titel des Fensters, Vertiefung nur
+für die Kandidaten, alles auf dem T1a-Modell aus `policies/llm-routing.md` — kein neuer Anbieter,
+kein Abo, keine bezahlte Quelle.
+
 ### 5.10 Full Concept (Stufe 1, nur nach bestandener Messung)
 
-Register als Neuheits-Maßstab statt Zeitfenster; ein LLM-Aufruf **pro Woche** (nicht pro Lauf),
-der aus den Titeln der Woche die konkreten Technologien benennt, die noch nicht im Register
-stehen; Einordnung in `kompetenz`/`portfolio` mit einem Satz Begründung; eine Frage montags über
-den bestehenden Kanal; 👍 ⇒ Issue; Register hält den Status. Kein neuer Timer: das Wochenkommando
-hängt am Tageslauf und prüft selbst, ob Montag ist.
+Register als Neuheits-Maßstab statt Zeitfenster; ein LLM-Urteil **pro Woche** (nicht pro Lauf)
+über die Titel des Fensters, das die konkreten Technologien benennt, die noch nicht im Register
+stehen; Einordnung in `kompetenz`/`portfolio` mit einem Satz Begründung; je Kandidat eine
+angeforderte Vertiefung als Beleg; eine Frage montags über den bestehenden Kanal; 👍 ⇒ Issue;
+Register hält den Status. Kein neuer Timer: das Wochenkommando hängt am Tageslauf und prüft
+selbst, ob Montag ist.
 
 ---
 
@@ -440,6 +487,8 @@ Drei Rollen liefen als unabhängige Agenten ohne Sicht aufeinander; die Konflikt
 | PRO-2 | Messung | Daten | Alle 116 Themen tragen einen Titel — das Extraktionsfeld ist belastbar. | C12 | positiv | hoch | Extraktion |
 | PRO-3 | Betrieb | Melder | Die Melderkette funktioniert: 0 Themen heute ⇒ Exit 1 ⇒ OnFailure-Alarm. | C16 | positiv | hoch | Betrieb |
 | AD-1 | Diabolus | Konstruktion | Die naheliegende Aufsteiger-Regel liefert auf dem echten Bestand 2 Treffer, davon 1 Müll. | C13 | **hoch** | hoch | Schwellwert |
+| PRO-4 | Messung | Konstruktion | Dasselbe Fenster, von einem Modell beurteilt statt gezählt, liefert 7 einsortierbare Technologien ohne Fehltreffer — die Rohdaten trugen, die Regel nicht. | C19 | stark positiv | **mittel** — geurteilt hat das Sitzungsmodell, nicht das T1a-Modell | Konstruktion |
+| SRC-3 | eigen | Scope | `latent.space` ist über den öffentlichen Feed erreichbar (HTTP 200, nicht in `robots.txt` gesperrt) — eine vierte Quelle braucht kein Abo und kein Postfach. | C20 | positiv | hoch | Korpus |
 | AD-4 | Diabolus | Scope | Das Screening misst den Zufluss des Owners, nicht den Markt (NIS2/Voice 0 von 393). | C14 | **hoch** | hoch | Aussagekraft |
 | SRC-1 | eigen | Scope | Der Ordner `AI-News` trägt genau **drei** Absender, zwei davon Sammel-Newsletter — die Breite des Screenings ist damit gemessen, nicht geschätzt. | C17 | **hoch** | hoch | Korpus |
 | SRC-2 | eigen | Konstruktion | Der einzige Fehltreffer der Erstmessung ist die Heftzeile eines dieser drei Absender („The Sequence Radar · Issue N · Last Week in AI") — Rauschen ist absenderspezifisch, nicht zufällig. | C13, C17 | mittel | hoch | Extraktion |
@@ -485,7 +534,10 @@ Drei Rollen liefen als unabhängige Agenten ohne Sicht aufeinander; die Konflikt
 | REC-10 | SEC-1 | Öffentliches Repo respektieren | Vorschlagstext trägt nur Name, Zählwert, externe URL — nie Newsletter-Text, nie Absender | S | Review des ersten Issues | Erstes Issue ohne Zitat | ich |
 | REC-11 | OPS-2, M28-9 | Kein toter Timer | Wochenlauf hängt am bestehenden Tageslauf und prüft selbst den Wochentag | S | journalctl nach erstem Montag | Lauf im Log | ich |
 | REC-12 | OPS-4 | Leere Ausgabe von heute klären | news-hub-Issue: warum lieferte die Naht Themen, aber 0 wurden gespeichert (Beleg-Pflicht?) | S | Issue angelegt | news-hub#73 | ich |
-| REC-13 | SRC-1, AD-4 | Vierte Quelle ohne neuen Zugang | `latent.space` abonnieren; die Bestätigungsmail nach `AI-News` legen — der Ordner steht bereits im Umfang des Tageslaufs (C18), also fließt sie ohne eine Zeile Code ein | S | Absenderzählung nach 7 Tagen wiederholen | ein vierter Absender in `AI-News` | **du** (Abo ist Außenwirkung) |
+| ~~REC-13~~ | — | **ersetzt am 2026-09-22** durch REC-16 (Owner: „nur free verwenden") — ein Abo wäre ein bezahlter Zugang und eine Außenwirkung, beides unnötig | – | – | – | – | – |
+| REC-16 | SRC-1, AD-4 | Vierte Quelle ohne Abo und ohne Postfach | Zweite Web-Naht nach dem Muster von `web_naht.py` (fav0) auf `https://www.latent.space/feed` — HTTP 200, nicht in `robots.txt` gesperrt, 20 Einträge, fast täglich (C20, C22) | M | Parser-Test gegen eine Fixture, Ausgabe muss `naht.nachrichten_aus_datei` unverändert passieren | Feed-Einträge erscheinen als Quellen im Tageslauf | ich, nach Stufe-1-Freigabe |
+| REC-17 | AD-1, AD-4 | Urteil statt Wortregel | Variante C wird die tragende Regel: ein Wochenurteil über die Titel des Fensters; Variante A/B bleiben nur als Gegenprobe im Messwerkzeug | S | Messung 2 und 3 nach demselben Muster | ≥3 konkrete Technologien je Messung | ich |
+| REC-18 | AD-4, SRC-1 | Tiefe selbst holen statt Zufluss abwarten | Je beurteiltem Kandidaten eine `Vertiefung` anfordern (Modell und Warteschlange existieren, C21); der Vorschlag trägt deren Belege | M | Vertiefung mit Status `fertig` und ≥1 Quelle mit Auszug | erster Vorschlag mit Beleg-Liste | ich, nach Stufe-1-Freigabe |
 | REC-14 | SRC-2 | Absender-Rauschen gezielt dämpfen | Heftzeilen je Absender aussortieren (`The Sequence Radar`, `Issue N`, `Last Week in AI`), nicht durch weitere Allgemeinwörter in der Wortliste | S | Fehltreffer der Erstmessung verschwindet, Trefferzahl bleibt | Negativtest im Testfall | ich, in Messung 2 |
 | REC-15 | SRC-1 | Blinde Felder benennen statt behaupten | NIS2, Voice und Robotik bleiben ohne Quelle — in jeder Messung mitschreiben, welche der drei Lücken noch offen ist (news-hub#19) | S | Zeile im Protokoll | steht im Tracking-Issue | ich |
 
@@ -508,11 +560,18 @@ Schwelle.
 
 | Kriterium | Status | Beleg |
 |---|---|---|
-| K1: Drei Messungen (24.09., 29.09., 01.10.) durchgeführt | 1 von 3 erledigt | Protokolle im Tracking-Issue |
-| K2: In ≥2 von 3 Messungen je ≥3 konkrete Technologien | offen | Messprotokoll |
-| K3: Je Messung höchstens 1 Fehltreffer | **Erstmessung gerissen** (1 von 2 Treffern Müll) | C13 |
+| K1: Drei Messungen (24.09., 29.09., 01.10.) durchgeführt | 1 von 3 erledigt (Erstmessung 22.09.) | Protokolle im Tracking-Issue |
+| K2: In ≥2 von 3 Messungen je ≥3 konkrete Technologien | Erstmessung: **Wortregel 1, Urteil 7** | C13, C19 |
+| K3: Je Messung höchstens 1 Fehltreffer | Erstmessung: **Wortregel gerissen** (1 von 2), **Urteil erfüllt** (0 von 7) | C13, C19 |
 | K4: Morgen-Zeitung überlebt ihr eigenes Kill-Gate am 2026-10-09 | offen, entscheidet sich **nach** K1–K3 | KONZ-platform-057 |
 | K5: Stufe 1 nur mit ausdrücklicher Owner-Freigabe | offen | – |
+
+**Offene Schwäche der Urteilszahl (C19).** Geurteilt hat das **Sitzungsmodell**, nicht das
+T1a-Modell aus `policies/llm-routing.md`, das in Stufe 1 laufen würde. Die sieben Kandidaten
+belegen deshalb, dass der Korpus sie *hergibt* — nicht, dass das günstigere Modell sie findet.
+Messung 2 am 24.09. wiederholt dasselbe Fenster mit dem T1a-Modell; erst der Vergleich beider
+Listen darf als Grundlage für Stufe 1 gelten. Bis dahin ist K2 *vorläufig* erfüllt, nicht
+abgehakt.
 
 **Termine vorgezogen (Owner-Wort 2026-09-22: „7 früher → 24.09 oder asap; 8 früher").** Die
 Messungen liegen jetzt 2–5 Tage auseinander statt sieben; die Fenster überlappen dadurch. Das
