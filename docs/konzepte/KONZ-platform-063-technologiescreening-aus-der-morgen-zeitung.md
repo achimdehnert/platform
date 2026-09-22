@@ -6,7 +6,7 @@ tier: T3
 owner: Achim Dehnert
 spec_refs: []
 adr_threshold: kein ADR — ADR-299 entscheidet die Architektur der Zeitung; hier kommt ein dritter Leser desselben Bestands dazu, keine neue Architektur. Wird Stufe 1 gebaut und bekommt das Register eine eigene Tabelle, ist das ein Amendment an ADR-299, kein neuer ADR.
-review_by: 2026-09-28
+review_by: 2026-10-09
 kill_criteria: "Stufe 1 wird nicht gebaut, wenn die Messreihe aus Stufe 0 bis 2026-09-28 nicht in mindestens zwei von drei Messungen je ≥3 konkrete Technologien mit höchstens 1 Fehltreffer liefert. Unabhängig davon stirbt dieses Konzept am selben Tag wie die Morgen-Zeitung, falls deren Kill-Gate (KONZ-platform-057, 2026-10-09) zieht."
 superseded_by_spec: null
 evidence_manifest:
@@ -467,12 +467,17 @@ Drei Rollen liefen als unabhängige Agenten ohne Sicht aufeinander; die Konflikt
 
 ### 6.3 Konfliktmatrix (belegte Dissense)
 
+> **Kennungen `KM…`, nicht `K…`.** Die Kill-Gate-Kriterien in §13 heißen K1–K5;
+> stünden hier ebenfalls K1–K4, verweisen „K3" und „K4" je nach Tabelle auf
+> Verschiedenes. Aufgefallen 2026-09-22, als ein Prüfer die Kill-Gate-Zeilen
+> gegen die Zeilen dieser Tabelle hielt.
+
 | # | Streitpunkt | Steelman | Diabolus | Maintainer 2028 | Auflösung (mit Beleg) |
 |---|---|---|---|---|---|
-| K1 | Reicht die Historie für einen Backtest am Bautag? | ja, 31 Läufe | nein, erster gültiger Vergleich 2026-10-06 | – | **Diabolus hat recht für Variante A**, Steelman für die *Messung* — beide gelten: der Backtest ist möglich, sein Ergebnis widerlegt die Regel (C13) |
-| K2 | Taugt `Thema.titel` als Extraktionsfeld? | ja, technologiedicht | nein, „nicht Identität", oft leer | ja, aber besser Quellen-Titel | **Messung entscheidet: 0 von 116 leer** (C12) — Steelman/M28 bestätigt, Diabolus in diesem Punkt falsifiziert |
-| K3 | Braucht Stufe 1 ein Modell? | nein („kein Modell" im Minimalbau) | ja, sonst keine Namen | ja, aber dann Melder auf 0 Kandidaten | **Kompromiss:** Stufe 0 ohne Modell (C13 zeigt, dass es deterministisch geht, aber verrauscht), Stufe 1 mit **einem Wochenaufruf** |
-| K4 | Ist eine eigene Tabelle gerechtfertigt? | Frage nicht gestellt | nein, Doppelquelle | ja, sonst Zustand an drei Orten | **Beide zugleich lösbar:** Tabelle hält *nur* Entscheidungen, Abgleich-Kommando mit Exit-Code (REC-6) |
+| KM1 | Reicht die Historie für einen Backtest am Bautag? | ja, 31 Läufe | nein, erster gültiger Vergleich 2026-10-06 | – | **Diabolus hat recht für Variante A**, Steelman für die *Messung* — beide gelten: der Backtest ist möglich, sein Ergebnis widerlegt die Regel (C13) |
+| KM2 | Taugt `Thema.titel` als Extraktionsfeld? | ja, technologiedicht | nein, „nicht Identität", oft leer | ja, aber besser Quellen-Titel | **Messung entscheidet: 0 von 116 leer** (C12) — Steelman/M28 bestätigt, Diabolus in diesem Punkt falsifiziert |
+| KM3 | Braucht Stufe 1 ein Modell? | nein („kein Modell" im Minimalbau) | ja, sonst keine Namen | ja, aber dann Melder auf 0 Kandidaten | **Kompromiss:** Stufe 0 ohne Modell (C13 zeigt, dass es deterministisch geht, aber verrauscht), Stufe 1 mit **einem Wochenaufruf** |
+| KM4 | Ist eine eigene Tabelle gerechtfertigt? | Frage nicht gestellt | nein, Doppelquelle | ja, sonst Zustand an drei Orten | **Beide zugleich lösbar:** Tabelle hält *nur* Entscheidungen, Abgleich-Kommando mit Exit-Code (REC-6) |
 
 ---
 
@@ -630,7 +635,13 @@ Schwelle.
 | K2: In ≥2 von 3 Messungen je ≥3 konkrete Technologien | **erfüllt** — 7 (teures Urteil), 8 (T1a mit Belegpflicht), 8 (zurückgehaltenes Fenster) | C19, C23, C25 |
 | K3: Je Messung höchstens 1 Fehltreffer | **gemischt** — teures Urteil 0 von 7 ✅; Wortregel 1 von 2 ⛔; T1a auf dem starken Fenster ~4 von 8 ohne Geschäftsnähe ⛔; T1a auf dem schwachen Fenster 2 Nicht-Technologien ⛔ | C13, C19, C23, C25 |
 | K4: Morgen-Zeitung überlebt ihr eigenes Kill-Gate am 2026-10-09 | offen, entscheidet sich **nach** K1–K3 | KONZ-platform-057 |
-| K5: Stufe 1 nur mit ausdrücklicher Owner-Freigabe | offen | – |
+| K5: Stufe 1 nur mit ausdrücklicher Owner-Freigabe | **erteilt** 2026-09-22 („33 go" im Kapitäns-Kanal) | [platform#3383 (Kommentar)](https://github.com/achimdehnert/platform/issues/3383#issuecomment-5782651888) |
+
+**Die Freigabe kam, während K3 gemischt und K4 offen ist.** Das ist kein Versehen und wird nicht
+nachträglich geglättet: der Owner hat den Stand gekannt — die Fehltrefferquote der billigen Läufe
+und der Abstand von elf Tagen zum Kill-Gate der Zeitung standen beide im Board, bevor „go" fiel.
+Festgehalten, damit später niemand rekonstruieren muss, ob die Kriterien erfüllt *waren* oder
+überstimmt *wurden*: sie wurden überstimmt, bewusst.
 
 **Geschlossen am selben Tag (C23).** Die Schwäche von C19 — geurteilt hatte das Sitzungsmodell,
 nicht das günstige — ist nicht stehen geblieben: Messung 2 wurde vorgezogen und schickte dasselbe
