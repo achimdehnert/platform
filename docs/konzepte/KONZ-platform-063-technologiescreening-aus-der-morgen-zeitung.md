@@ -6,8 +6,8 @@ tier: T3
 owner: Achim Dehnert
 spec_refs: []
 adr_threshold: kein ADR — ADR-299 entscheidet die Architektur der Zeitung; hier kommt ein dritter Leser desselben Bestands dazu, keine neue Architektur. Wird Stufe 1 gebaut und bekommt das Register eine eigene Tabelle, ist das ein Amendment an ADR-299, kein neuer ADR.
-review_by: 2026-10-13
-kill_criteria: "Stufe 1 wird nicht gebaut, wenn die Wochenmessung aus Stufe 0 bis 2026-10-13 nicht in mindestens zwei von drei Wochen je ≥3 konkrete Technologien mit höchstens 1 Fehltreffer liefert. Unabhängig davon stirbt dieses Konzept am selben Tag wie die Morgen-Zeitung, falls deren Kill-Gate (KONZ-platform-057, 2026-10-09) zieht."
+review_by: 2026-10-01
+kill_criteria: "Stufe 1 wird nicht gebaut, wenn die Messreihe aus Stufe 0 bis 2026-10-01 nicht in mindestens zwei von drei Messungen je ≥3 konkrete Technologien mit höchstens 1 Fehltreffer liefert. Unabhängig davon stirbt dieses Konzept am selben Tag wie die Morgen-Zeitung, falls deren Kill-Gate (KONZ-platform-057, 2026-10-09) zieht."
 superseded_by_spec: null
 evidence_manifest:
   - {claim_id: C1, source_path: news-hub/apps/digest/models.py, commit_or_pr: 8bf3fa9, opened_in_session: true}
@@ -22,11 +22,14 @@ evidence_manifest:
   - {claim_id: C10, source_path: chat-hub/deploy/lotse_auftrag.py, commit_or_pr: 53f705e, opened_in_session: true}
   - {claim_id: C11, source_path: chat-hub/deploy/lotse_briefing.sh, commit_or_pr: "chat-hub#128", opened_in_session: true}
   - {claim_id: C12, source_path: "Prod-Messung 88.198.191.108 · docker exec news_hub_web manage.py shell", commit_or_pr: "2026-09-22", opened_in_session: true}
-  - {claim_id: C13, source_path: tools/screening_backtest.py, commit_or_pr: "diese PR", opened_in_session: true}
+  - {claim_id: C13, source_path: tools/screening_backtest.py, commit_or_pr: "#3382", opened_in_session: true}
   - {claim_id: C14, source_path: "news-hub#19, #33, #65", commit_or_pr: "gh issue list news-hub", opened_in_session: true}
   - {claim_id: C15, source_path: "platform#3375", commit_or_pr: "#3375", opened_in_session: true}
   - {claim_id: C16, source_path: "journalctl -u news-hub-tageslauf.service, 2026-09-22 06:16 UTC", commit_or_pr: "2026-09-22", opened_in_session: true}
+  - {claim_id: C17, source_path: "Ordner-Inventar iil/AI-News · tools/mail_agent/graph_mail.py --find --all --source AI-News", commit_or_pr: "2026-09-22", opened_in_session: true}
+  - {claim_id: C18, source_path: news-hub/deployment/scripts/tageslauf.sh, commit_or_pr: 8bf3fa9, opened_in_session: true}
 created: 2026-09-22
+updated: 2026-09-22
 ---
 
 # KONZ-platform-063: Laufendes Technologiescreening aus der Morgen-Zeitung
@@ -67,8 +70,18 @@ der dritte Leser erbt eine Kette, die läuft. **Wichtigstes Risiko:** das Screen
 Quellenlage, und die ist das Postfach des Owners, nicht der Markt (0 von 393 Nachrichten zu
 NIS2 und Voice Agents, C14). **Kleinste sinnvolle Version:** ein lesendes Messkommando, das
 zeigt, was die Regel in den letzten Wochen geliefert *hätte* — ohne eine Zeile zu schreiben.
-**Größte Unsicherheit:** ob aus vier Newsletter-Ordnern überhaupt ein Vorlauf entsteht oder nur
-ein Nachlauf auf die Redaktionsagenda der abonnierten Newsletter.
+**Größte Unsicherheit:** ob daraus überhaupt ein Vorlauf entsteht oder nur ein Nachlauf auf die
+Redaktionsagenda der abonnierten Newsletter.
+
+**Nachtrag 2026-09-22, nach dem Merge (Owner-Auftrag „latent.space bzw. medium — bzw. eine
+Analyse des Ordners AI-News").** Der Ordner ist ausgezählt: **101 Mails seit dem 2026-08-04 von
+genau drei Absendern** — `medium.com` (44), `thesequence@substack.com` (30),
+`theprohuman@mail.beehiiv.com` (27), C17. Medium ist damit bereits die stärkste Quelle des
+Screenings, nicht die fehlende. Fehlend ist `latent.space` — und es braucht keinen Bau: der
+Ordner `AI-News` steht im Umfang des Tageslaufs (C18), ein Abo landet dort und fließt ohne eine
+Zeile Code in Zeitung *und* Screening (REC-13). Der einzige Fehltreffer der Erstmessung stammt
+aus der Heftzeile eines dieser drei Absender — Rauschen ist damit absenderspezifisch und gezielt
+dämpfbar (REC-14), statt über immer längere Allgemeinwortlisten.
 
 ---
 
@@ -95,6 +108,8 @@ offene Issues news-hub #19/#33/#65.
 | Tage mit Inhalt | 10 von 14 (leer: 09-11…09-13 wegen Groq-401, 09-22) | C12, C16 |
 | Rückrechnung Aufsteiger-Regel | 2 Treffer, davon 1 Müll | C13 |
 | Namenskandidaten im Korpus | 307 aus 464 Zeilen | C13 |
+| **Absender im Ordner `AI-News`** | **3** — `medium.com` 44, `thesequence@substack.com` 30, `theprohuman@mail.beehiiv.com` 27 | C17 |
+| Zeitraum des Ordners | 101 Mails, 2026-08-04…09-22 | C17 |
 
 **Annahmen (markiert):** dass der Owner wöchentlich *einen* Vorschlag lieber liest als täglich
 drei (H — aus der Attention-Begründung in `vorschlaege.py`, nicht gemessen); dass ein
@@ -118,7 +133,7 @@ je Tag: nicht erhoben" (C6). Genau daran hängt das Kill-Gate von KONZ-057.
 | `lotse_briefing.sh` (C11) | ja | ganz | – | niedrig | Kommando steht in der Erlaubnisliste, Ausgabe wird unverändert angehängt — kein chat-hub-Eingriff nötig |
 | `lotse_auftrag.py uebergeben` (C10) | ja | ganz | – | niedrig | Auswahl = Issue `uebergabe-kapitaen`; die Kapitäns-Sitzung liest es mit `#N weiter` |
 | `pruefe_go_reaktion` (C10) | ja | ganz | – | mittel | 👍 bindet an genau ein Ereignis, einmalig, Owner-only — aber dieselbe Geste wie für Befund-Fragen |
-| Genesor `pipeline_status` | ja | `idea` | – | niedrig | Off-Ramp über `review_by` 2026-10-13 |
+| Genesor `pipeline_status` | ja | `idea` | – | niedrig | Off-Ramp über `review_by` 2026-10-01 |
 | I4 Namensraum | ja | – | – | **hoch** | `manage.py digest_trend` ist bereits für das Kennzahlen-Journal reserviert (C6) — Name ist verbrannt |
 | Deploy news-hub (C14) | ja | Tageslauf-Unit | – | hoch | `deploy.yml` bringt Host-Skripte/Units nicht auf den Host (#65) → **kein neuer Timer** |
 | platform ist PUBLIC | ja | – | – | hoch | Vorschlagstexte landen in einem öffentlichen Issue-Tracker — Newsletter-Zitate und Absender haben dort nichts verloren |
@@ -170,8 +185,15 @@ bedient. Die fehlende Hälfte ist ausschließlich die Erkennung.
 kuratieren. Falsifikation: bei drei ausgewählten Vorschlägen prüfen, ob der Owner sie vorher
 schon kannte; kannte er alle, ist es Nachlauf, kein Vorlauf.
 
-**Offene Frage.** Ob vier Newsletter-Ordner als Screening-Grundlage taugen, wenn zwei der vom
-Owner selbst genannten Themen darin 0 Treffer haben (C14, news-hub#19).
+**Beobachtung (nachgetragen 2026-09-22).** Die Grundlage ist schmaler als „vier Ordner"
+vermuten lässt: der Ordner `AI-News` trägt genau drei Absender (C17). Zwei davon sind
+Sammel-Newsletter, die dieselben Meldungen weiterverarbeiten — Übereinstimmung zwischen ihnen
+belegt also nicht, dass ein Thema breit auftaucht, sondern dass zwei Redaktionen dieselbe
+Quelle gelesen haben.
+
+**Offene Frage.** Ob diese Grundlage für ein Screening taugt, wenn zwei der vom Owner selbst
+genannten Themen darin 0 Treffer haben (C14, news-hub#19) — und ob eine vierte Quelle
+(REC-13) daran genug ändert.
 
 **Warum jetzt.** Weil der Bestand jetzt groß genug ist, um die Frage *zu messen* (10 Tage mit
 Inhalt), und noch klein genug, dass eine Fehlkonstruktion billig zurückzubauen ist.
@@ -198,7 +220,7 @@ keine Empfehlung mit Außenwirkung.
 | Artefakt | Neu/Geändert | Owner | Normativ? | Generiert? | Lebenszyklus | Risiko |
 |---|---|---|---|---|---|---|
 | `tools/screening_backtest.py` (platform) | neu, **Stufe 0** | Achim | nein | nein | stirbt mit dem Konzept | niedrig |
-| `docs/konzepte/KONZ-platform-063*.md` | neu | Achim | nein | nein | `review_by` 2026-10-13 | niedrig |
+| `docs/konzepte/KONZ-platform-063*.md` | neu | Achim | nein | nein | `review_by` 2026-10-01 | niedrig |
 | `manage.py technologie_nennungen` (news-hub) | neu, **Stufe 1** | Achim | nein | nein | an Tageslauf gehängt | mittel |
 | `manage.py technologie_woche` (news-hub) | neu, **Stufe 1** | Achim | nein | nein | montags im Tageslauf | mittel |
 | Register (Tabelle `Technologie`) | neu, **Stufe 1** | Achim | **ja** (einzige Wahrheit über Status) | nein | Amendment ADR-299 | hoch |
@@ -419,6 +441,8 @@ Drei Rollen liefen als unabhängige Agenten ohne Sicht aufeinander; die Konflikt
 | PRO-3 | Betrieb | Melder | Die Melderkette funktioniert: 0 Themen heute ⇒ Exit 1 ⇒ OnFailure-Alarm. | C16 | positiv | hoch | Betrieb |
 | AD-1 | Diabolus | Konstruktion | Die naheliegende Aufsteiger-Regel liefert auf dem echten Bestand 2 Treffer, davon 1 Müll. | C13 | **hoch** | hoch | Schwellwert |
 | AD-4 | Diabolus | Scope | Das Screening misst den Zufluss des Owners, nicht den Markt (NIS2/Voice 0 von 393). | C14 | **hoch** | hoch | Aussagekraft |
+| SRC-1 | eigen | Scope | Der Ordner `AI-News` trägt genau **drei** Absender, zwei davon Sammel-Newsletter — die Breite des Screenings ist damit gemessen, nicht geschätzt. | C17 | **hoch** | hoch | Korpus |
+| SRC-2 | eigen | Konstruktion | Der einzige Fehltreffer der Erstmessung ist die Heftzeile eines dieser drei Absender („The Sequence Radar · Issue N · Last Week in AI") — Rauschen ist absenderspezifisch, nicht zufällig. | C13, C17 | mittel | hoch | Extraktion |
 | AD-5 | Diabolus | Zeit | Ein 21-Tage-Baseline-Vergleich wäre erstmals am 2026-10-06 gültig — drei Tage vor dem Kill-Gate der Zeitung. | C8, C12 | **hoch** | hoch | Zeitplan |
 | AD-8 | Diabolus | SSoT | Was an der Beleg-Pflicht scheitert, ist für das Screening unsichtbar — heute traf das 100 % des Tages. | C7, C12, C16 | **hoch** | hoch | Korpus |
 | SSOT-1 | Diabolus | SSoT | Eine Nennungs-Tabelle wäre eine zweite Wahrheit neben `Thema`/`Quelle`. | C1 | mittel | hoch | Datenmodell |
@@ -449,7 +473,7 @@ Drei Rollen liefen als unabhängige Agenten ohne Sicht aufeinander; die Konflikt
 
 | REC | Bezug | Ziel | Konkrete Änderung | Aufwand | Verifikation | Akzeptanzkriterium | Owner |
 |---|---|---|---|---|---|---|---|
-| REC-1 | AD-1, AD-5, M28-1 | Vor dem Bau messen | `tools/screening_backtest.py` (diese PR) + drei Wochenläufe, Ergebnis ins Tracking-Issue | S | Test `tools/tests/test_screening_backtest.py` grün | drei Protokolle im Issue bis 2026-10-13 | ich |
+| REC-1 | AD-1, AD-5, M28-1 | Vor dem Bau messen | `tools/screening_backtest.py` + drei Messungen am 24.09., 29.09. und 01.10., Ergebnis ins Tracking-Issue | S | Test `tools/tests/test_screening_backtest.py` grün | drei Protokolle im Issue bis 2026-10-01 | ich |
 | REC-2 | AD-5 | Neuheit ohne statistisches Fenster | Stufe 1 misst gegen Register, nicht gegen 21 Tage (§5.6) | M | – | Entwurf im Stufe-1-PR | ich |
 | REC-3 | OPS-1, M28-5 | Stiller Ausfall unmöglich | Eigener Exit-Code auf *Kandidaten je Wochenlauf > 0*, Muster `digest_frische.py` | S | Positivkontrolle mit leerem Korpus | Exit 1 bei 0 Kandidaten | ich |
 | REC-4 | GOV-1, AD-10 | Aufmerksamkeitsbudget regeln | In `vorschlaege.py`: Technologie-Frage zählt gegen `MAX_FRAGEN` und rangiert **hinter** Befunden; höchstens 1 je Woche | S | Test mit 3 Befunden + 1 Technologie ⇒ Technologie fällt raus | Testfall grün | ich |
@@ -460,7 +484,10 @@ Drei Rollen liefen als unabhängige Agenten ohne Sicht aufeinander; die Konflikt
 | REC-9 | DOC-1 | Namenskollision vermeiden | Kommandonamen `technologie_nennungen` / `technologie_woche`; `digest_trend` bleibt dem Kennzahlen-Journal | S | grep in news-hub | kein Doppelname | ich |
 | REC-10 | SEC-1 | Öffentliches Repo respektieren | Vorschlagstext trägt nur Name, Zählwert, externe URL — nie Newsletter-Text, nie Absender | S | Review des ersten Issues | Erstes Issue ohne Zitat | ich |
 | REC-11 | OPS-2, M28-9 | Kein toter Timer | Wochenlauf hängt am bestehenden Tageslauf und prüft selbst den Wochentag | S | journalctl nach erstem Montag | Lauf im Log | ich |
-| REC-12 | OPS-4 | Leere Ausgabe von heute klären | news-hub-Issue: warum lieferte die Naht Themen, aber 0 wurden gespeichert (Beleg-Pflicht?) | S | Issue angelegt | – | ich |
+| REC-12 | OPS-4 | Leere Ausgabe von heute klären | news-hub-Issue: warum lieferte die Naht Themen, aber 0 wurden gespeichert (Beleg-Pflicht?) | S | Issue angelegt | news-hub#73 | ich |
+| REC-13 | SRC-1, AD-4 | Vierte Quelle ohne neuen Zugang | `latent.space` abonnieren; die Bestätigungsmail nach `AI-News` legen — der Ordner steht bereits im Umfang des Tageslaufs (C18), also fließt sie ohne eine Zeile Code ein | S | Absenderzählung nach 7 Tagen wiederholen | ein vierter Absender in `AI-News` | **du** (Abo ist Außenwirkung) |
+| REC-14 | SRC-2 | Absender-Rauschen gezielt dämpfen | Heftzeilen je Absender aussortieren (`The Sequence Radar`, `Issue N`, `Last Week in AI`), nicht durch weitere Allgemeinwörter in der Wortliste | S | Fehltreffer der Erstmessung verschwindet, Trefferzahl bleibt | Negativtest im Testfall | ich, in Messung 2 |
+| REC-15 | SRC-1 | Blinde Felder benennen statt behaupten | NIS2, Voice und Robotik bleiben ohne Quelle — in jeder Messung mitschreiben, welche der drei Lücken noch offen ist (news-hub#19) | S | Zeile im Protokoll | steht im Tracking-Issue | ich |
 
 ---
 
@@ -472,8 +499,8 @@ Schwelle.
 - **Wichtigste Begründung:** die Hälfte des Wunsches ist gebaut, und die andere Hälfte lässt sich
   für den Preis einer Datei *messen*, statt sie zu raten.
 - **Stärke:** kein neuer Zustellweg, kein Timer, keine neue Freigabegeste.
-- **Schwäche:** die Aussagekraft hängt an vier Newsletter-Ordnern.
-- **Sofortmaßnahme:** `tools/screening_backtest.py` + Tracking-Issue (diese PR).
+- **Schwäche:** die Aussagekraft hängt an drei Absendern im Ordner `AI-News` (C17).
+- **Sofortmaßnahme:** Messreihe 24.09./29.09./01.10. und eine vierte Quelle abonnieren (REC-13).
 - **Unsicherheit:** ob der Register-Ansatz mehr trifft als das Zeitfenster — ungemessen.
 - **Threshold-Status:** kein ADR nötig; Stufe 1 wäre ein Amendment an ADR-299.
 
@@ -481,22 +508,32 @@ Schwelle.
 
 | Kriterium | Status | Beleg |
 |---|---|---|
-| K1: Drei Wochenmessungen bis 2026-10-13 durchgeführt | offen | Protokolle im Tracking-Issue |
-| K2: In ≥2 von 3 Wochen je ≥3 konkrete Technologien | offen | Messprotokoll |
-| K3: Je Woche höchstens 1 Fehltreffer | **heute gerissen** (1 von 2 Treffern Müll) | C13 |
-| K4: Morgen-Zeitung überlebt ihr eigenes Kill-Gate am 2026-10-09 | offen | KONZ-platform-057 |
+| K1: Drei Messungen (24.09., 29.09., 01.10.) durchgeführt | 1 von 3 erledigt | Protokolle im Tracking-Issue |
+| K2: In ≥2 von 3 Messungen je ≥3 konkrete Technologien | offen | Messprotokoll |
+| K3: Je Messung höchstens 1 Fehltreffer | **Erstmessung gerissen** (1 von 2 Treffern Müll) | C13 |
+| K4: Morgen-Zeitung überlebt ihr eigenes Kill-Gate am 2026-10-09 | offen, entscheidet sich **nach** K1–K3 | KONZ-platform-057 |
 | K5: Stufe 1 nur mit ausdrücklicher Owner-Freigabe | offen | – |
 
-Reißt K2 oder K3 am 2026-10-13, oder zieht K4, wird dieses Konzept auf `sunset` gesetzt und
+**Termine vorgezogen (Owner-Wort 2026-09-22: „7 früher → 24.09 oder asap; 8 früher").** Die
+Messungen liegen jetzt 2–5 Tage auseinander statt sieben; die Fenster überlappen dadurch. Das
+ist vertretbar, weil hier die **Brauchbarkeit der Namen** geprüft wird und nicht eine
+statistische Hypothese. Preis der Vorverlegung: die Entscheidung über Stufe 1 fällt am
+2026-10-01 und damit **vor** dem Kill-Gate der Zeitung (2026-10-09) — es kann also gebaut
+werden für eine Zeitung, die acht Tage später stirbt. Abgesichert ist das allein durch die
+Kill-Gate-Zeile in KONZ-057: das Screening stirbt dann mit.
+
+Reißt K2 oder K3 am 2026-10-01, oder zieht K4, wird dieses Konzept auf `sunset` gesetzt und
 `screening_backtest.py` gelöscht. **Exception-Budget:** genau eine Verlängerung um 14 Tage
 (bis 2026-10-27) ist zulässig, falls die Zeitung zwischenzeitlich Tage ohne Inhalt hatte —
 wie am 2026-09-11…13 und am 2026-09-22 (C12, C16). Danach keine weitere.
 
 **30/60/90.**
-- **30 Tage (bis 2026-10-22):** Owner benannt, Messkommando im Repo, drei Wochenprotokolle,
+- **10 Tage (bis 2026-10-01):** drei Messprotokolle, vierte Quelle abonniert,
   Kill-Gate-Entscheidung getroffen.
-- **60 Tage (bis 2026-11-21):** falls angenommen — Register, Wochenkommando, Melder und die
+- **30 Tage (bis 2026-10-22):** falls angenommen — Register, Wochenkommando, Melder und die
   zweite Quelle in `vorschlaege.py` im Betrieb; erster Vorschlag im Raum; erstes Issue aus einem
   Daumen.
+- **60 Tage (bis 2026-11-21):** erste ausgewählte Technologie hat einen gemergten PR oder ist
+  begründet liegengeblieben.
 - **90 Tage (bis 2026-12-21):** Trefferquote gemessen (wie viele vorgeschlagene Technologien
   kannte der Owner nicht), Entscheidung über A3 (Owner benennt selbst) als Ergänzung.
