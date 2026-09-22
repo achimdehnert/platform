@@ -219,13 +219,22 @@ Bauentscheidung: Gelingt der Beitritt zu einem E2EE-Call mit hörbarem Audio, wi
 hört der Lotse Stille, endet S4 in dieser Form und ALT-1 (Halbduplex) rückt nach. Die Empfehlungen REC-6 bis REC-8 sind davon unabhängig und lohnen sich auch,
 wenn S4 nie kommt.
 
+> **Stand dieser Tabelle: 2026-09-22 Abend** (Rev 4). Sie ist der maßgebliche
+> Statusträger — widerspricht ihr der Fließtext oben, gilt die Tabelle. Die
+> Session-Retro fand genau diesen Widerspruch: Prosa und REC-1 meldeten V1 als
+> bestanden, während hier noch „offen" mit dem Ausgangswert stand.
+
 | Kriterium | Status | Beleg |
 |---|---|---|
-| V1: P50 < 2,0 s und P95 < 4,0 s über 20 Turns bis 2026-11-30 | offen | Ausgangswert 45,5 s / 150,6 s (C1) |
-| V2: Bot hört im E2EE-Call echtes Audio (RMS > Rauschgrenze) | offen | — |
-| V2b: UDP 7882 dev-desktop → prod-b offen | offen | `turn.enabled: false` (C4) |
-| ADR-249 entschieden (accepted oder abgelöst) | offen | `status: proposed` (C2) |
-| Aufbewahrungsfrist für Audio festgelegt | offen | — |
+| V1: P50 < 2,0 s und P95 < 4,0 s über 20 Turns | ✅ **erfüllt** 2026-09-22 | P50 0,39 s, P95 0,94 s bis erstes hörbares Wort (C8) |
+| V2: Bot hört im E2EE-Call echtes Audio | **offen** | noch kein Beitritt versucht; H1 (MatrixRTC-Schlüssel im SDK) unverändert ungeprüft |
+| V2b: Medienstrecke dev-desktop → prod-b offen | ✅ **erfüllt** 2026-09-22 | Firewall-Regeln 7881/7882 ergänzt (#3374); Owner-Abnahme mit echtem Videoanruf, Bild und Ton (chat-hub#127) |
+| ADR-249 entschieden (accepted oder abgelöst) | ✅ **erfüllt** 2026-09-22 | `status: accepted`, Rev 2 mit Abgrenzung §2.0 (C10) |
+| Knoten für den Gesprächs-Denker benannt (REC-1b) | ✅ **erfüllt** 2026-09-22 | gx10, warm 0,34–0,64 s, kalt 3,7 s (C11) |
+| Aufbewahrungsfrist für Audio festgelegt | **offen** | Owner-Entscheidung, REC-8 |
+
+**Damit steht S4 auf zwei offenen Punkten: V2 und der Aufbewahrungsfrist.** Beide
+sind Vorbedingung, nicht Begleitarbeit — vor ihnen wird nichts gebaut.
 
 **30 Tage** (bis 2026-10-22): REC-6/7/8 erledigt; KONZ-060-Kill-Gate ausgewertet — nutzt der
 Owner Sprachnachrichten überhaupt?
