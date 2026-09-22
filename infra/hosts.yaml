@@ -73,7 +73,15 @@ hosts:
     datacenter: hel1-dc2               # Finnland — siehe Standort-Auflage unten
     os: Ubuntu 24.04.4 LTS
     provider: Hetzner (hel1)
-    firewall: prod-b-web               # id 11351382 — nur 22/80/443 + ICMP
+    firewall: prod-b-web               # id 11351382
+    firewall_eingehend:                # Stand 2026-09-22, gegen die Hetzner-API gelesen
+      - "22/tcp, 80/tcp, 443/tcp, icmp"   # von ueberall
+      - "9100/tcp, 9338/tcp"              # nur 46.225.127.211 (Monitoring)
+      - "7881/tcp, 7882/udp"              # LiveKit-Medienstrecke Element Call,
+        # ergaenzt 2026-09-22 nach Owner-Freigabe (chat-hub#127): der SFU lauschte
+        # seit dem Aufbau im August, die Ports waren aber von aussen gefiltert —
+        # Video war damit nie moeglich (`turn.enabled: false`, kein Fallback).
+        # Gegenprobe nach der Aenderung: TCP 7881 vom dev-desktop offen.
     role: >
       Zweiter Prod-Host fuer den Long Tail der Hubs (prod_host=prod-b, ADR-292).
       Entstanden 2026-07-22 durch Rebuild der ungenutzten Maschine lastwar-bot (Snapshot
