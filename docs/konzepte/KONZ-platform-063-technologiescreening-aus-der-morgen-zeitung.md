@@ -6,8 +6,8 @@ tier: T3
 owner: Achim Dehnert
 spec_refs: []
 adr_threshold: kein ADR — ADR-299 entscheidet die Architektur der Zeitung; hier kommt ein dritter Leser desselben Bestands dazu, keine neue Architektur. Wird Stufe 1 gebaut und bekommt das Register eine eigene Tabelle, ist das ein Amendment an ADR-299, kein neuer ADR.
-review_by: 2026-10-01
-kill_criteria: "Stufe 1 wird nicht gebaut, wenn die Messreihe aus Stufe 0 bis 2026-10-01 nicht in mindestens zwei von drei Messungen je ≥3 konkrete Technologien mit höchstens 1 Fehltreffer liefert. Unabhängig davon stirbt dieses Konzept am selben Tag wie die Morgen-Zeitung, falls deren Kill-Gate (KONZ-platform-057, 2026-10-09) zieht."
+review_by: 2026-09-28
+kill_criteria: "Stufe 1 wird nicht gebaut, wenn die Messreihe aus Stufe 0 bis 2026-09-28 nicht in mindestens zwei von drei Messungen je ≥3 konkrete Technologien mit höchstens 1 Fehltreffer liefert. Unabhängig davon stirbt dieses Konzept am selben Tag wie die Morgen-Zeitung, falls deren Kill-Gate (KONZ-platform-057, 2026-10-09) zieht."
 superseded_by_spec: null
 evidence_manifest:
   - {claim_id: C1, source_path: news-hub/apps/digest/models.py, commit_or_pr: 8bf3fa9, opened_in_session: true}
@@ -34,6 +34,7 @@ evidence_manifest:
   - {claim_id: C22, source_path: news-hub/apps/digest/services/web_naht.py, commit_or_pr: 8bf3fa9, opened_in_session: true}
   - {claim_id: C23, source_path: "Messung 2 (vorgezogen) — vier T1a-Läufe (openai/gpt-oss-120b) über dasselbe Fenster, Protokoll in platform#3383", commit_or_pr: "2026-09-22", opened_in_session: true}
   - {claim_id: C25, source_path: "Messung 3 — T1a mit Belegpflicht auf dem zurueckgehaltenen Fenster 2026-09-09…09-14, 8 Kandidaten, 8/8 Belege streng bestanden, 2 Nicht-Technologien", commit_or_pr: "2026-09-22", opened_in_session: true}
+  - {claim_id: C26, source_path: "Ausgangswert Gedaechtnis-Nutzung — echte tool_use-Aufrufe in ~/.claude/projects (14 Tage): 1.233 agent_memory_upsert vs. 65 agent_memory_search; alle Upserts aus einem Repo, Eintragsschluessel klickdummy:/klickdummy-adr:", commit_or_pr: "2026-09-22", opened_in_session: true}
   - {claim_id: C24, source_path: "Positivkontrolle des Beleg-Checks — 8 Proben (echt/frei erfunden/plausibel erfunden/halb erfunden/Kurzwort/leer), lax 2 Fehlurteile, verschärft 0; Wiederholungslauf 8/8 streng bestanden", commit_or_pr: "2026-09-22", opened_in_session: true}
 created: 2026-09-22
 updated: 2026-09-22
@@ -151,7 +152,7 @@ je Tag: nicht erhoben" (C6). Genau daran hängt das Kill-Gate von KONZ-057.
 | `pruefe_go_reaktion` (C10) | ja | ganz | – | mittel | 👍 bindet an genau ein Ereignis, einmalig, Owner-only — aber dieselbe Geste wie für Befund-Fragen |
 | `web_naht.py` (fav0) (C22) | ja | Muster für eine zweite freie Quelle | um `latent.space/feed` | mittel | Ausgabe muss den Vertrag aus `naht.py` unverändert passieren — das ist der eigentliche Test |
 | `vertiefung.py` + `news-hub-vertiefen.timer` (C21) | ja | ganz | – | niedrig | Tiefenrecherche je Thema existiert samt Warteschlange und verschärfter Beleg-Pflicht; das Screening fordert sie an, statt eine eigene zu bauen |
-| Genesor `pipeline_status` | ja | `idea` | – | niedrig | Off-Ramp über `review_by` 2026-10-01 |
+| Genesor `pipeline_status` | ja | `idea` | – | niedrig | Off-Ramp über `review_by` 2026-09-28 |
 | I4 Namensraum | ja | – | – | **hoch** | `manage.py digest_trend` ist bereits für das Kennzahlen-Journal reserviert (C6) — Name ist verbrannt |
 | Deploy news-hub (C14) | ja | Tageslauf-Unit | – | hoch | `deploy.yml` bringt Host-Skripte/Units nicht auf den Host (#65) → **kein neuer Timer** |
 | platform ist PUBLIC | ja | – | – | hoch | Vorschlagstexte landen in einem öffentlichen Issue-Tracker — Newsletter-Zitate und Absender haben dort nichts verloren |
@@ -238,7 +239,7 @@ keine Empfehlung mit Außenwirkung.
 | Artefakt | Neu/Geändert | Owner | Normativ? | Generiert? | Lebenszyklus | Risiko |
 |---|---|---|---|---|---|---|
 | `tools/screening_backtest.py` (platform) | neu, **Stufe 0** | Achim | nein | nein | stirbt mit dem Konzept | niedrig |
-| `docs/konzepte/KONZ-platform-063*.md` | neu | Achim | nein | nein | `review_by` 2026-10-01 | niedrig |
+| `docs/konzepte/KONZ-platform-063*.md` | neu | Achim | nein | nein | `review_by` 2026-09-28 | niedrig |
 | `manage.py technologie_nennungen` (news-hub) | neu, **Stufe 1** | Achim | nein | nein | an Tageslauf gehängt | mittel |
 | `manage.py technologie_woche` (news-hub) | neu, **Stufe 1** | Achim | nein | nein | montags im Tageslauf | mittel |
 | Register (Tabelle `Technologie`) | neu, **Stufe 1** | Achim | **ja** (einzige Wahrheit über Status) | nein | Amendment ADR-299 | hoch |
@@ -550,6 +551,8 @@ Drei Rollen liefen als unabhängige Agenten ohne Sicht aufeinander; die Konflikt
 | AD-4 | Diabolus | Scope | Das Screening misst den Zufluss des Owners, nicht den Markt (NIS2/Voice 0 von 393). | C14 | **hoch** | hoch | Aussagekraft |
 | SRC-1 | eigen | Scope | Der Ordner `AI-News` trägt genau **drei** Absender, zwei davon Sammel-Newsletter — die Breite des Screenings ist damit gemessen, nicht geschätzt. | C17 | **hoch** | hoch | Korpus |
 | SRC-2 | eigen | Konstruktion | Der einzige Fehltreffer der Erstmessung ist die Heftzeile eines dieser drei Absender („The Sequence Radar · Issue N · Last Week in AI") — Rauschen ist absenderspezifisch, nicht zufällig. | C13, C17 | mittel | hoch | Extraktion |
+| MEM-1 | Messung | Vorfrage zu Kandidat 4 | In 14 Tagen wurde der Orchestrator-Speicher **1.233 mal beschrieben und 65 mal gefragt**; alle Schreibvorgänge stammen aus **einem** Repo und tragen Schlüssel `klickdummy:`/`klickdummy-adr:` — es ist ein Füllprogramm, keine Schreibwut der Sitzungen. | C26 | **hoch** | hoch | Kandidat 4 |
+| MEM-2 | Messung | Vorfrage zu Kandidat 4 | Ein Index, der 65 mal in 14 Tagen befragt wird, liefert kaum Abfragesignal, gegen das SELF-INDEX optimieren könnte — die Vorfrage ist „warum fragt niemand", nicht „wie wird der Index besser". | C26 | **hoch** | mittel — der automatische Erinnerungsweg von Claude Code ist kein Werkzeug-Aufruf und nicht mitgezählt | Kandidat 4 |
 | AD-14 | Messung | Aussagekraft | Auf dem zurückgehaltenen Fenster 09-09…09-14 liefert dasselbe Verfahren 8 belegte Kandidaten, aber davon zwei Nicht-Technologien („Interface-Shift", „70+ Adobe-Tools") und sonst überwiegend Modell-Ankündigungen — die Ausbeute hängt an der Substanz des Fensters, nicht nur am Verfahren. | C25 | **hoch** | hoch | Schwelle |
 | AD-5 | Diabolus | Zeit | Ein 21-Tage-Baseline-Vergleich wäre erstmals am 2026-10-06 gültig — drei Tage vor dem Kill-Gate der Zeitung. | C8, C12 | **hoch** | hoch | Zeitplan |
 | AD-8 | Diabolus | SSoT | Was an der Beleg-Pflicht scheitert, ist für das Screening unsichtbar — heute traf das 100 % des Tages. | C7, C12, C16 | **hoch** | hoch | Korpus |
@@ -581,7 +584,7 @@ Drei Rollen liefen als unabhängige Agenten ohne Sicht aufeinander; die Konflikt
 
 | REC | Bezug | Ziel | Konkrete Änderung | Aufwand | Verifikation | Akzeptanzkriterium | Owner |
 |---|---|---|---|---|---|---|---|
-| REC-1 | AD-1, AD-5, M28-1 | Vor dem Bau messen | `tools/screening_backtest.py` + drei Messungen am 24.09., 29.09. und 01.10., Ergebnis ins Tracking-Issue | S | Test `tools/tests/test_screening_backtest.py` grün | drei Protokolle im Issue bis 2026-10-01 | ich |
+| REC-1 | AD-1, AD-5, M28-1 | Vor dem Bau messen | `tools/screening_backtest.py` + drei Messungen — **alle drei am 2026-09-22 erledigt**, die dritte auf einem zurückgehaltenen Fenster statt auf neuen Tagen | S | Test `tools/tests/test_screening_backtest.py` grün | drei Protokolle im Issue — erfüllt | ich |
 | REC-2 | AD-5 | Neuheit ohne statistisches Fenster | Stufe 1 misst gegen Register, nicht gegen 21 Tage (§5.6) | M | – | Entwurf im Stufe-1-PR | ich |
 | REC-3 | OPS-1, M28-5 | Stiller Ausfall unmöglich | Eigener Exit-Code auf *Kandidaten je Wochenlauf > 0*, Muster `digest_frische.py` | S | Positivkontrolle mit leerem Korpus | Exit 1 bei 0 Kandidaten | ich |
 | REC-4 | GOV-1, AD-10 | Aufmerksamkeitsbudget regeln | In `vorschlaege.py`: Technologie-Frage zählt gegen `MAX_FRAGEN` und rangiert **hinter** Befunden; höchstens 1 je Woche | S | Test mit 3 Befunden + 1 Technologie ⇒ Technologie fällt raus | Testfall grün | ich |
@@ -615,7 +618,7 @@ Schwelle.
   für den Preis einer Datei *messen*, statt sie zu raten.
 - **Stärke:** kein neuer Zustellweg, kein Timer, keine neue Freigabegeste.
 - **Schwäche:** die Aussagekraft hängt an drei Absendern im Ordner `AI-News` (C17).
-- **Sofortmaßnahme:** Messreihe 24.09./29.09./01.10. und eine vierte Quelle abonnieren (REC-13).
+- **Sofortmaßnahme:** Messreihe erledigt (alle drei am 22.09.); Entscheid über Stufe 1 am **28.09.**
 - **Unsicherheit:** ob der Register-Ansatz mehr trifft als das Zeitfenster — ungemessen.
 - **Threshold-Status:** kein ADR nötig; Stufe 1 wäre ein Amendment an ADR-299.
 
@@ -654,22 +657,28 @@ Auswahl) ist keine Kür, sondern das, was zwischen „ein brauchbarer Vorschlag"
 Modell-Ankündigungen" entscheidet; und eine Woche ohne Substanz muss **schweigen** dürfen, statt
 die drei besten Ankündigungen zu melden. Das gehört in Stufe 1 als Untergrenze, nicht als Kappe.
 
-**Termine vorgezogen (Owner-Wort 2026-09-22: „7 früher → 24.09 oder asap; 8 früher").** Die
-Messungen liegen jetzt 2–5 Tage auseinander statt sieben; die Fenster überlappen dadurch. Das
-ist vertretbar, weil hier die **Brauchbarkeit der Namen** geprüft wird und nicht eine
-statistische Hypothese. Preis der Vorverlegung: die Entscheidung über Stufe 1 fällt am
-2026-10-01 und damit **vor** dem Kill-Gate der Zeitung (2026-10-09) — es kann also gebaut
-werden für eine Zeitung, die acht Tage später stirbt. Abgesichert ist das allein durch die
-Kill-Gate-Zeile in KONZ-057: das Screening stirbt dann mit.
+**Termine vorgezogen (Owner-Worte 2026-09-22: „7 früher → 24.09 oder asap", „Messung 3
+wesentlich früher", „Entscheid 28.9").** Alle drei Messungen fielen auf denselben Tag: zwei auf
+demselben Fenster mit verschiedenen Regeln, die dritte auf einem zurückgehaltenen Fenster. Das
+prüft die **Brauchbarkeit der Namen** und die **Stabilität über Fenster hinweg** — es prüft
+nicht, wie das Verfahren auf frisch einlaufendem Stoff arbeitet. Diese Lücke ist benannt und
+verankert: [#3393](https://github.com/achimdehnert/platform/issues/3393) hält den Lauf über ein
+Fenster nach dem 2026-09-22 fest, bewusst **nach** dem Entscheid vom 28.09.
 
-Reißt K2 oder K3 am 2026-10-01, oder zieht K4, wird dieses Konzept auf `sunset` gesetzt und
+**Preis der Vorverlegung:** die Entscheidung über Stufe 1 fällt am **2026-09-28**, elf Tage vor
+dem Kill-Gate der Zeitung (2026-10-09). Es kann also für eine Zeitung gebaut werden, die elf
+Tage später stillgelegt wird — der Abstand ist durch das Vorziehen von acht auf elf Tage
+gewachsen. Abgesichert ist das allein durch die Kill-Gate-Zeile in KONZ-057: das Screening
+stirbt dann mit.
+
+Reißt K2 oder K3 am 2026-09-28, oder zieht K4, wird dieses Konzept auf `sunset` gesetzt und
 `screening_backtest.py` gelöscht. **Exception-Budget:** genau eine Verlängerung um 14 Tage
 (bis 2026-10-27) ist zulässig, falls die Zeitung zwischenzeitlich Tage ohne Inhalt hatte —
 wie am 2026-09-11…13 und am 2026-09-22 (C12, C16). Danach keine weitere.
 
 **30/60/90.**
-- **10 Tage (bis 2026-10-01):** drei Messprotokolle, vierte Quelle abonniert,
-  Kill-Gate-Entscheidung getroffen.
+- **6 Tage (bis 2026-09-28):** drei Messprotokolle (erledigt), Ausgangswert der Gedächtnis-Nutzung
+  (erledigt, C26), Kill-Gate-Entscheidung getroffen.
 - **30 Tage (bis 2026-10-22):** falls angenommen — Register, Wochenkommando, Melder und die
   zweite Quelle in `vorschlaege.py` im Betrieb; erster Vorschlag im Raum; erstes Issue aus einem
   Daumen.
