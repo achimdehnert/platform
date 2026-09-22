@@ -33,6 +33,7 @@ evidence_manifest:
   - {claim_id: C21, source_path: news-hub/apps/digest/services/vertiefung.py, commit_or_pr: 8bf3fa9, opened_in_session: true}
   - {claim_id: C22, source_path: news-hub/apps/digest/services/web_naht.py, commit_or_pr: 8bf3fa9, opened_in_session: true}
   - {claim_id: C23, source_path: "Messung 2 (vorgezogen) — vier T1a-Läufe (openai/gpt-oss-120b) über dasselbe Fenster, Protokoll in platform#3383", commit_or_pr: "2026-09-22", opened_in_session: true}
+  - {claim_id: C24, source_path: "Positivkontrolle des Beleg-Checks — 8 Proben (echt/frei erfunden/plausibel erfunden/halb erfunden/Kurzwort/leer), lax 2 Fehlurteile, verschärft 0; Wiederholungslauf 8/8 streng bestanden", commit_or_pr: "2026-09-22", opened_in_session: true}
 created: 2026-09-22
 updated: 2026-09-22
 ---
@@ -351,6 +352,26 @@ Titel und Bewertung) geschickt wurde. Ergebnis:
    Das ist kein Modellverdienst, sondern dieselbe Beleg-Pflicht, die ADR-299 §4.2 dem Tageslauf
    schon auferlegt — hier nur auf das Urteil angewandt.
 
+**Positivkontrolle des Beleg-Checks (C24) — und ein Loch darin.** Ein Prüfer, der nie anschlägt,
+belegt keine Abwesenheit. Der Check wurde deshalb gegen acht Proben gehalten: zwei echte Zitate,
+ein frei erfundenes, ein plausibel erfundenes („…Two New OCR Models… *and beat Google Cloud
+Vision*"), ein halb erfundenes (ein Wort im echten Zitat getauscht), zwei Kurzwörter, ein leeres.
+
+| Prüfer | Fehlurteile |
+|---|---|
+| die zuerst benutzte, laxe Fassung (`Zitat in Zeile ODER Zeile in Zitat`) | **2 von 8** — „AI" und „Astra" gingen durch, weil jedes Kurzwort Teilzeichenkette irgendeiner Schlagzeile ist |
+| verschärft: Mindestlänge 25 Zeichen **und** nur „Zitat in Zeile" | **0 von 8** |
+
+Der Lauf wurde mit dem verschärften Prüfer wiederholt: **8 von 8 bestehen auch streng**, die
+Belege sind 37–74 normalisierte Zeichen lang, also echte Schlagzeilen. Die Zahl „0 erfunden"
+hält damit — aber sie hielt vorher aus dem falschen Grund mit. In REC-19 steht deshalb die
+verschärfte Fassung, nicht die laxe.
+
+**Nicht bitstabil:** zwei Läufe mit leicht umformulierter Regel 4/5 lieferten 8 Kandidaten mit
+sechs Überschneidungen (`Jev` und `ChatGPT Work` fielen weg, `ChatGPT Desktop` kam dazu).
+Temperatur 0 macht den Aufruf reproduzierbar, den *Prompt* aber nicht — wer die Regeln anfasst,
+misst neu.
+
 **Entscheidung D4 — geteiltes Urteil statt eines Modells.** Das günstige Modell **sammelt breit
 mit Belegpflicht**, ein mechanischer Beleg-Check wirft alles ohne auffindbares Zitat raus, und
 das **teure Modell wählt aus und ordnet ein**. Tragend ist die Messung: der naive T1a-Lauf
@@ -574,7 +595,7 @@ Drei Rollen liefen als unabhängige Agenten ohne Sicht aufeinander; die Konflikt
 | REC-16 | SRC-1, AD-4 | Vierte Quelle ohne Abo und ohne Postfach | Zweite Web-Naht nach dem Muster von `web_naht.py` (fav0) auf `https://www.latent.space/feed` — HTTP 200, nicht in `robots.txt` gesperrt, 20 Einträge, fast täglich (C20, C22) | M | Parser-Test gegen eine Fixture, Ausgabe muss `naht.nachrichten_aus_datei` unverändert passieren | Feed-Einträge erscheinen als Quellen im Tageslauf | ich, nach Stufe-1-Freigabe |
 | REC-17 | AD-1, AD-4 | Urteil statt Wortregel | Variante C wird die tragende Regel: ein Wochenurteil über die Titel des Fensters; Variante A/B bleiben nur als Gegenprobe im Messwerkzeug | S | Messung 2 und 3 nach demselben Muster | ≥3 konkrete Technologien je Messung | ich |
 | REC-18 | AD-4, SRC-1 | Tiefe selbst holen statt Zufluss abwarten | Je beurteiltem Kandidaten eine `Vertiefung` anfordern (Modell und Warteschlange existieren, C21); der Vorschlag trägt deren Belege | M | Vertiefung mit Status `fertig` und ≥1 Quelle mit Auszug | erster Vorschlag mit Beleg-Liste | ich, nach Stufe-1-Freigabe |
-| REC-19 | C23, D4 | Belegpflicht ist der Qualitäts-Hebel, nicht das Modell | Der Sammel-Prompt verlangt je Kandidat das wörtliche Zitat der Schlagzeile; ein Zeichenkettenvergleich gegen den Eingabestoff wirft alles ohne Fundstelle raus, **bevor** ein Mensch es sieht | S | Positivkontrolle mit einem erfundenen Beleg ⇒ Kandidat fällt raus | Prüfung im Testfall | ich |
+| REC-19 | C23, C24, D4 | Belegpflicht ist der Qualitäts-Hebel, nicht das Modell | Sammel-Prompt verlangt das wörtliche Zitat; Prüfung ist **einseitig** (`Zitat in Schlagzeile`) mit **Mindestlänge 25 normalisierten Zeichen** — die zweiseitige Fassung lässt jedes Kurzwort durch (2 von 8 Fehlurteilen, C24) | S | Positivkontrolle: frei/plausibel/halb erfundene Belege müssen feuern, echte durchgehen — 8 Proben, 0 Fehlurteile | Positivkontrolle als Testfall im Repo | ich |
 | REC-20 | C23 | Kein Geld für eine zweite billige Meinung | Die Kritik-Stufe auf demselben Modell entfällt — sie strich 0 von 8 und kostete 1.193 Tokens | S | – | steht nirgends im Entwurf | ich |
 | REC-21 | C23, D4 | Teures Urteil dort, wo es ohnehin läuft | Die Auswahl der 1–3 Vorschläge passiert in der Briefing-Lane (werktags 07:00), nicht als eigener Lauf — damit kostet der teure Schritt keinen zusätzlichen Zeitgeber und kein eigenes Budget | S | Ausgabe erscheint in der Morgen-Meldung | erste Frage im Raum | ich, nach Stufe-1-Freigabe |
 | REC-14 | SRC-2 | Absender-Rauschen gezielt dämpfen | Heftzeilen je Absender aussortieren (`The Sequence Radar`, `Issue N`, `Last Week in AI`), nicht durch weitere Allgemeinwörter in der Wortliste | S | Fehltreffer der Erstmessung verschwindet, Trefferzahl bleibt | Negativtest im Testfall | ich, in Messung 2 |
