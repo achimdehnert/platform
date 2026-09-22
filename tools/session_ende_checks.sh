@@ -135,7 +135,7 @@ _auftrag_ausfuehren() { # _auftrag_ausfuehren <merge 0|1> <schluessel> <befehl..
 
 _vorlauf_loslegen() {
   [ "$VORLAUF_MAX" -le 1 ] && return 0
-  local n=${#VORLAUF_Q[@]} max="$VORLAUF_MAX" i w pid m k
+  local n=${#VORLAUF_Q[@]} max="$VORLAUF_MAX" i w pid k
   [ "$n" -eq 0 ] && return 0
   [ "$max" -gt "$n" ] && max="$n"
   for (( w = 0; w < max; w++ )); do
@@ -148,7 +148,7 @@ _vorlauf_loslegen() {
     # Der Schluessel ist das zweite Feld; alle Schluessel hier sind schlichte
     # Woerter, `printf %q` laesst sie unveraendert.
     for (( i = w; i < n; i += max )); do
-      read -r m k _ <<<"${VORLAUF_Q[$i]}"
+      read -r _ k _ <<<"${VORLAUF_Q[$i]}"
       VORLAUF_PID["$k"]=$pid
     done
   done

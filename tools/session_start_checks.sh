@@ -174,6 +174,7 @@ VORLAUF_MAX_SSH="${SESSION_CHECKS_PARALLEL_SSH:-3}"
 VORLAUF_MAX_GIT="${SESSION_CHECKS_PARALLEL_GIT:-1}"
 declare -A VORLAUF_PID VORLAUF_CMD VORLAUF_MERGE
 declare -A SPUR_MAX=( [frei]="$VORLAUF_MAX" [ssh]="$VORLAUF_MAX_SSH" [git]="$VORLAUF_MAX_GIT" )
+# shellcheck disable=SC2034  # ueber `local -n q="Q_$spur"` benutzt, das shellcheck nicht aufloest
 declare -a Q_frei=() Q_ssh=() Q_git=()
 ERNTE_RC=0
 
@@ -203,8 +204,9 @@ _spur_starten() { # _spur_starten <spur>
   # dann mit "a ist nicht gesetzt" ab.
   local spur="$1"
   local max="${SPUR_MAX[$spur]}"
+  # shellcheck disable=SC2178  # Nameref auf ein Array; shellcheck sieht nur die Zuweisung
   local -n q="Q_$spur"
-  local n=${#q[@]} i w pid m k
+  local n=${#q[@]} i w pid k
   [ "$n" -eq 0 ] && return 0
   [ "$max" -gt "$n" ] && max="$n"
   for (( w = 0; w < max; w++ )); do
@@ -219,7 +221,7 @@ _spur_starten() { # _spur_starten <spur>
     # Der Schluessel ist das zweite Feld; alle Schluessel hier sind schlichte
     # Woerter aus [a-z0-9:-], `printf %q` laesst sie unveraendert.
     for (( i = w; i < n; i += max )); do
-      read -r m k _ <<<"${q[$i]}"
+      read -r _ k _ <<<"${q[$i]}"
       VORLAUF_PID["$k"]=$pid
     done
   done
@@ -247,6 +249,7 @@ _vorlauf_start() { # _vorlauf_start <merge 0|1> <spur frei|ssh|git> <schluessel>
     VORLAUF_MERGE["$key"]="$merge"
     return 0
   fi
+  # shellcheck disable=SC2178  # Nameref auf ein Array; shellcheck sieht nur die Zuweisung
   local -n q="Q_$spur"
   q+=("$(printf '%q ' "$merge" "$key" "$@")")
   return 0
