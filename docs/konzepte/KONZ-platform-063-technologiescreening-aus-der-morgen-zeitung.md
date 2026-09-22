@@ -33,6 +33,7 @@ evidence_manifest:
   - {claim_id: C21, source_path: news-hub/apps/digest/services/vertiefung.py, commit_or_pr: 8bf3fa9, opened_in_session: true}
   - {claim_id: C22, source_path: news-hub/apps/digest/services/web_naht.py, commit_or_pr: 8bf3fa9, opened_in_session: true}
   - {claim_id: C23, source_path: "Messung 2 (vorgezogen) — vier T1a-Läufe (openai/gpt-oss-120b) über dasselbe Fenster, Protokoll in platform#3383", commit_or_pr: "2026-09-22", opened_in_session: true}
+  - {claim_id: C25, source_path: "Messung 3 — T1a mit Belegpflicht auf dem zurueckgehaltenen Fenster 2026-09-09…09-14, 8 Kandidaten, 8/8 Belege streng bestanden, 2 Nicht-Technologien", commit_or_pr: "2026-09-22", opened_in_session: true}
   - {claim_id: C24, source_path: "Positivkontrolle des Beleg-Checks — 8 Proben (echt/frei erfunden/plausibel erfunden/halb erfunden/Kurzwort/leer), lax 2 Fehlurteile, verschärft 0; Wiederholungslauf 8/8 streng bestanden", commit_or_pr: "2026-09-22", opened_in_session: true}
 created: 2026-09-22
 updated: 2026-09-22
@@ -549,6 +550,7 @@ Drei Rollen liefen als unabhängige Agenten ohne Sicht aufeinander; die Konflikt
 | AD-4 | Diabolus | Scope | Das Screening misst den Zufluss des Owners, nicht den Markt (NIS2/Voice 0 von 393). | C14 | **hoch** | hoch | Aussagekraft |
 | SRC-1 | eigen | Scope | Der Ordner `AI-News` trägt genau **drei** Absender, zwei davon Sammel-Newsletter — die Breite des Screenings ist damit gemessen, nicht geschätzt. | C17 | **hoch** | hoch | Korpus |
 | SRC-2 | eigen | Konstruktion | Der einzige Fehltreffer der Erstmessung ist die Heftzeile eines dieser drei Absender („The Sequence Radar · Issue N · Last Week in AI") — Rauschen ist absenderspezifisch, nicht zufällig. | C13, C17 | mittel | hoch | Extraktion |
+| AD-14 | Messung | Aussagekraft | Auf dem zurückgehaltenen Fenster 09-09…09-14 liefert dasselbe Verfahren 8 belegte Kandidaten, aber davon zwei Nicht-Technologien („Interface-Shift", „70+ Adobe-Tools") und sonst überwiegend Modell-Ankündigungen — die Ausbeute hängt an der Substanz des Fensters, nicht nur am Verfahren. | C25 | **hoch** | hoch | Schwelle |
 | AD-5 | Diabolus | Zeit | Ein 21-Tage-Baseline-Vergleich wäre erstmals am 2026-10-06 gültig — drei Tage vor dem Kill-Gate der Zeitung. | C8, C12 | **hoch** | hoch | Zeitplan |
 | AD-8 | Diabolus | SSoT | Was an der Beleg-Pflicht scheitert, ist für das Screening unsichtbar — heute traf das 100 % des Tages. | C7, C12, C16 | **hoch** | hoch | Korpus |
 | SSOT-1 | Diabolus | SSoT | Eine Nennungs-Tabelle wäre eine zweite Wahrheit neben `Thema`/`Quelle`. | C1 | mittel | hoch | Datenmodell |
@@ -597,6 +599,7 @@ Drei Rollen liefen als unabhängige Agenten ohne Sicht aufeinander; die Konflikt
 | REC-18 | AD-4, SRC-1 | Tiefe selbst holen statt Zufluss abwarten | Je beurteiltem Kandidaten eine `Vertiefung` anfordern (Modell und Warteschlange existieren, C21); der Vorschlag trägt deren Belege | M | Vertiefung mit Status `fertig` und ≥1 Quelle mit Auszug | erster Vorschlag mit Beleg-Liste | ich, nach Stufe-1-Freigabe |
 | REC-19 | C23, C24, D4 | Belegpflicht ist der Qualitäts-Hebel, nicht das Modell | Sammel-Prompt verlangt das wörtliche Zitat; Prüfung ist **einseitig** (`Zitat in Schlagzeile`) mit **Mindestlänge 25 normalisierten Zeichen** — die zweiseitige Fassung lässt jedes Kurzwort durch (2 von 8 Fehlurteilen, C24) | S | Positivkontrolle: frei/plausibel/halb erfundene Belege müssen feuern, echte durchgehen — 8 Proben, 0 Fehlurteile | Positivkontrolle als Testfall im Repo | ich |
 | REC-20 | C23 | Kein Geld für eine zweite billige Meinung | Die Kritik-Stufe auf demselben Modell entfällt — sie strich 0 von 8 und kostete 1.193 Tokens | S | – | steht nirgends im Entwurf | ich |
+| REC-22 | AD-14 | Schweigen dürfen | Untergrenze statt Kappe: liefert das teure Urteil in einer Woche **keinen** Kandidaten mit Geschäftsbezug, wird **nicht** gefragt — lieber keine Meldung als vier Modell-Ankündigungen | S | Lauf über das Fenster 09-09…09-14 ⇒ höchstens 1 Frage | Testfall mit schwachem Fenster | ich |
 | REC-21 | C23, D4 | Teures Urteil dort, wo es ohnehin läuft | Die Auswahl der 1–3 Vorschläge passiert in der Briefing-Lane (werktags 07:00), nicht als eigener Lauf — damit kostet der teure Schritt keinen zusätzlichen Zeitgeber und kein eigenes Budget | S | Ausgabe erscheint in der Morgen-Meldung | erste Frage im Raum | ich, nach Stufe-1-Freigabe |
 | REC-14 | SRC-2 | Absender-Rauschen gezielt dämpfen | Heftzeilen je Absender aussortieren (`The Sequence Radar`, `Issue N`, `Last Week in AI`), nicht durch weitere Allgemeinwörter in der Wortliste | S | Fehltreffer der Erstmessung verschwindet, Trefferzahl bleibt | Negativtest im Testfall | ich, in Messung 2 |
 | REC-15 | SRC-1 | Blinde Felder benennen statt behaupten | NIS2, Voice und Robotik bleiben ohne Quelle — in jeder Messung mitschreiben, welche der drei Lücken noch offen ist (news-hub#19) | S | Zeile im Protokoll | steht im Tracking-Issue | ich |
@@ -620,9 +623,9 @@ Schwelle.
 
 | Kriterium | Status | Beleg |
 |---|---|---|
-| K1: Drei Messungen (22.09., Messung 2 vorgezogen auf 22.09., 29.09.) | **2 von 3 erledigt** | C13, C19, C23 |
-| K2: In ≥2 von 3 Messungen je ≥3 konkrete Technologien | **erfüllt** — Urteil 7 (teuer), 8 (T1a mit Belegpflicht) | C19, C23 |
-| K3: Je Messung höchstens 1 Fehltreffer | Wortregel gerissen (1 von 2); teures Urteil 0 von 7; **T1a mit Belegpflicht 0 von 8 erfundenen Belegen** — aber ~4 von 8 ohne Geschäftsnähe, deshalb D4 | C13, C19, C23 |
+| K1: Drei Messungen | **3 von 3 erledigt** — alle am 2026-09-22, Messung 3 auf dem zurückgehaltenen Fenster 09-09…09-14 statt auf neuen Tagen | C13, C19, C23, C25 |
+| K2: In ≥2 von 3 Messungen je ≥3 konkrete Technologien | **erfüllt** — 7 (teures Urteil), 8 (T1a mit Belegpflicht), 8 (zurückgehaltenes Fenster) | C19, C23, C25 |
+| K3: Je Messung höchstens 1 Fehltreffer | **gemischt** — teures Urteil 0 von 7 ✅; Wortregel 1 von 2 ⛔; T1a auf dem starken Fenster ~4 von 8 ohne Geschäftsnähe ⛔; T1a auf dem schwachen Fenster 2 Nicht-Technologien ⛔ | C13, C19, C23, C25 |
 | K4: Morgen-Zeitung überlebt ihr eigenes Kill-Gate am 2026-10-09 | offen, entscheidet sich **nach** K1–K3 | KONZ-platform-057 |
 | K5: Stufe 1 nur mit ausdrücklicher Owner-Freigabe | offen | – |
 
@@ -635,6 +638,21 @@ Beleg und mechanischer Prüfung** liefert es dagegen saubere, überprüfbare Kan
 erfunden) und eine wieder funktionierende Einordnung. Daraus folgt D4: billig sammelt mit
 Belegpflicht, teuer wählt aus. K2 gilt damit als erfüllt — mit der Einschränkung, dass die
 *Relevanz*-Auswahl am teuren Schritt hängt und nicht am Modellpreis gespart werden kann.
+
+**Messung 3 vorgezogen auf ein zurückgehaltenes Fenster (Owner-Wort: „Messung 3 wesentlich
+früher").** Neue Tage lassen sich nicht vorziehen, ein ungesehenes Fenster schon: 09-09…09-14,
+die frühe Zeit des Bestands, in der die Titelbildung noch generische Wörter kürte und drei Tage
+ohne Inhalt lagen. Ergebnis: 8 Kandidaten, alle Belege streng bestanden — aber zwei davon sind
+keine Technologien („Interface-Shift", „70+ Adobe-Tools"), und der Rest sind überwiegend
+Modell-Ankündigungen (DeepSeek V4.1 Flash, GPT-6 Astra, Meta Muse Spark, Gemini 3.8 Flash). Für
+uns verwertbar war genau einer („AI Agent Harness 2.0").
+
+**Das ist die wichtigste Zahl des Tages, und sie ist unbequem:** dasselbe Verfahren, dieselbe
+Belegpflicht, anderes Fenster — und die Ausbeute fällt von sieben auf eins. Was das Screening
+liefert, hängt an der Substanz der Woche, nicht nur an der Methode. Zwei Folgerungen: D4 (teure
+Auswahl) ist keine Kür, sondern das, was zwischen „ein brauchbarer Vorschlag" und „vier
+Modell-Ankündigungen" entscheidet; und eine Woche ohne Substanz muss **schweigen** dürfen, statt
+die drei besten Ankündigungen zu melden. Das gehört in Stufe 1 als Untergrenze, nicht als Kappe.
 
 **Termine vorgezogen (Owner-Wort 2026-09-22: „7 früher → 24.09 oder asap; 8 früher").** Die
 Messungen liegen jetzt 2–5 Tage auseinander statt sieben; die Fenster überlappen dadurch. Das
