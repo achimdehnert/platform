@@ -613,3 +613,13 @@ Gemeldet: „Zusage ohne Tracking in: #155". Die Stellen im PR-Text:
 Beides sind **Reihenfolge-Anweisungen für Merges bereits offener PRs** (#153, #154 — beide am selben Vormittag gemergt), keine vertagte Arbeit; nach den Merges blieb nichts offen. **Fehlalarm** — dasselbe Muster wie writing-hub#1207 („erst … dann" beim Merge selbst), jetzt in der Variante „gestapelter PR".
 
 **Stand damit: 31 Meldungen · 5 richtig · 26 Fehlalarme (Präzision 0,161).**
+
+## 2026-09-21 — achimdehnert/platform#3350 (E.5, Sitzungsende platform f1d54f5c)
+
+Gemeldet: „Zusage ohne Tracking in: #3350". Die Stelle im PR-Text:
+
+> »Der Bau braucht je einen eigenen PR mit Drill + Positivkontrolle + Messpunkt (`gate_verankerung_check.py --neu`) und dein Wort.«
+
+Das ist **vertagte Arbeit** (Bau zweier Gates) — **richtig erkannt**. Anker existierte schon in Form der `kandidaten/`-Einträge (Registry) und platform#2234 (Gate-Deckungs-Programm), stand aber nicht im PR-Text; nachgezogen als Kommentar auf #3350 + Offen-Zeile im Handover-Fragment f1d54f5c.
+
+**Stand damit: 32 Meldungen · 6 richtig · 26 Fehlalarme (Präzision 0,188).**
