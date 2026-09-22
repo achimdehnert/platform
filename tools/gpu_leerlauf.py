@@ -53,12 +53,16 @@ MINDEST_TAGE = 3
 #: ueber eine GPU, und ein falsch geratener Knoten laesst den Melder in einen
 #: Verbindungsfehler laufen statt zu messen.
 #:
-#: Der Wert ist die Huelle um den eigentlichen Befehl. Die gpu-box antwortet mit
-#: Windows-OpenSSH; dort scheitert ein `cat > ~/datei` mit „Das System kann den
-#: angegebenen Pfad nicht finden" — Linux liegt eine Ebene tiefer in der WSL.
+#: Der Wert ist die Huelle um den eigentlichen Befehl, falls ein Knoten eine
+#: braucht (bis 2026-09-22 die gpu-box: `wsl -d Ubuntu -u root -e bash -c "…"`).
+#:
+#: Die gpu-box (RTX 4090) fehlt hier absichtlich: Ihre WSL ist seit dem
+#: 2026-09-22 aus, und jeder wsl-Aufruf wuerde die VM wieder hochfahren — der
+#: Melder haette die Abschaltung selbst unterlaufen. Die GPU-Dienste dort sind
+#: Windows-Dienste ohne systemd-Journal; die Messung unten passt nicht auf sie.
+#: Windows-seitige Variante: platform#3364.
 GPU_KNOTEN: dict[str, str] = {
     "gx10": "{befehl}",
-    "gpu-box": 'wsl -d Ubuntu -u root -e bash -c "{befehl}"',
 }
 
 
