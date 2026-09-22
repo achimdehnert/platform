@@ -5,18 +5,21 @@ pipeline_status: idea
 tier: T3
 owner: Achim Dehnert
 spec_refs: []
-adr_threshold: Amendment   # ADR-249 (status: proposed) beansprucht diese Fähigkeit für ein eigenes Produkt und definiert einen Batch-Port, der Vollduplex strukturell ausschließt. Wer im chat-hub baut, braucht entweder ein Amendment an ADR-249 oder dessen Annahme mit klarer Abgrenzung — nicht beides offen lassen.
+adr_threshold: Amendment   # ERLEDIGT 2026-09-22: ADR-249 ist angenommen (Rev 2) und grenzt in §2.0 ab — Produkt-Voice dort, Assistenten-Stimme im chat-hub. Ein Gespräch (Vollduplex) berührt G-4/G-9 und braucht beim Bau ein Amendment dort, nicht daran vorbei.
 review_by: 2026-12-01
-kill_criteria: "Das Vorhaben ist beendet, wenn Vorprüfung V1 (Antwortlatenz) nicht bis 2026-11-30 einen Antwortpfad mit P50 unter 2,0 s und P95 unter 4,0 s zum ersten hörbaren Wort belegt, gemessen an 20 echten Turns. Bis dahin wird kein LiveKit-Agent gebaut und keine Abhängigkeit aufgenommen. Gemessener Ausgangswert 2026-09-22: P50 45,5 s, P95 150,6 s, 0 von 93 Antworten unter 5 s."
+kill_criteria: "V1 (Antwortlatenz) ist am 2026-09-22 BESTANDEN: P50 0,39 s, P95 0,94 s über 20 Turns bis zum ersten hörbaren Wort (Schwelle war 2,0 / 4,0 s). Das Vorhaben ist beendet, wenn V2 (Beitritt zu einem E2EE-Call mit nachweislich hörbarem Audio) nicht bis 2026-11-30 gelingt ODER der Antwortweg dauerhaft an einem Knoten hängt, dessen Betrieb nicht zugesagt ist (GPU-Box, betriebsstatus blockiert). Ausgangswert des heutigen Lotsen zum Vergleich: P50 45,5 s."
 superseded_by_spec: null
 evidence_manifest:
   - {claim_id: C1, source_path: "Raum Achim / Lotse (chat.iil.pet)", commit_or_pr: "Messung 2026-09-22: 93 Antwortpaare Owner→Lotse aus 400 Ereignissen; P50 45,5 s · P90 119,6 s · P95 150,6 s · min 8,1 s · max 374,1 s; unter 1,5 s: 0; unter 5 s: 0; unter 15 s: 16", opened_in_session: true}
-  - {claim_id: C2, source_path: docs/adr/ADR-249-voice-agent-architektur.md, commit_or_pr: "status: proposed, decision_date 2026-06-17 — NICHT accepted", opened_in_session: true}
+  - {claim_id: C2, source_path: docs/adr/ADR-249-telefonagent-produkt-swappable-ports.md, commit_or_pr: "Stand bei Konzeptschluss: status proposed, decision_date 2026-06-17 — seit Rev 2 accepted, siehe C10", opened_in_session: true}
   - {claim_id: C3, source_path: iil-voice-agent/src/voice_agent/ports/voice.py, commit_or_pr: "VoicePort: transcribe(audio: bytes) -> str, synthesize(text: str) -> bytes — Batch, keine Ströme, kein Abbruch", opened_in_session: true}
   - {claim_id: C4, source_path: chat-hub/deploy/livekit/livekit.yaml, commit_or_pr: "port 7880, udp_port 7882, tcp_port 7881, turn.enabled: false", opened_in_session: true}
   - {claim_id: C5, source_path: chat-hub/deploy/docker-compose.rtc.yml, commit_or_pr: "livekit/livekit-server + element-hq/lk-jwt-service + nginx, beide mit sha256-Pin; LIVEKIT_FULL_ACCESS_HOMESERVERS chat.iil.pet", opened_in_session: true}
   - {claim_id: C6, source_path: docs/konzepte/KONZ-platform-060-lotse-stimme-im-raum.md, commit_or_pr: "Sprachnachrichten-Pfad seit 2026-09-22 in Betrieb; TTS 15,2 s Audio in 2,0 s Rechenzeit auf CPU; gemessener Kreis 10:47:08 -> 10:47:22", opened_in_session: true}
   - {claim_id: C7, source_path: infra/hosts.yaml, commit_or_pr: "dev-desktop auflage.prod_container=false, Ausnahme lotse-raum bis 2026-12-01 (heute eingetragen)", opened_in_session: true}
+  - {claim_id: C8, source_path: "Messung V1 (platform#3370)", commit_or_pr: "2026-09-22, 20 Turns werkzeugloser Denker qwen2.5:7b + Piper: P50 0,39 s, P95 0,94 s bis erstes hoerbares Wort; Kaltstart 32 s; localhost:11434 loest auf ::1 und tunnelt nach 10.99.0.2:11434 (GPU-Box), lokales ollama auf 127.0.0.1 ohne geladenes Modell", opened_in_session: true}
+  - {claim_id: C9, source_path: infra/ports.yaml, commit_or_pr: "gpu-ollama: prod_host gpu-box, Ursprung 10.99.0.2:11434 ueber wg0, betriebsstatus: blockiert", opened_in_session: true}
+  - {claim_id: C10, source_path: docs/adr/ADR-249-telefonagent-produkt-swappable-ports.md, commit_or_pr: "Rev 2, 2026-09-22: status accepted, §2.0 grenzt Produkt-Voice von der Assistenten-Stimme ab (Owner-Wort)", opened_in_session: true}
   - {claim_id: H1, source_path: "matrix-nio / LiveKit Agents SDK", commit_or_pr: "HYPOTHESE, nicht geprueft: MatrixRTC-Schluesselverteilung (Element Call E2EE) wird vom Python-SDK nicht implementiert; nio kennt m.call.member nicht", opened_in_session: false}
 created: 2026-09-22
 ---
@@ -24,33 +27,45 @@ created: 2026-09-22
 # KONZ-platform-062 — Der Lotse im Gespräch
 
 > **Selbstbetreffend** (Charta Art. 3). Auftrag des Owners 2026-09-22: Konzept schreiben,
-> nicht bauen. Dieses Konzept empfiehlt ausdrücklich, **zunächst nicht zu bauen** — und
-> nennt die eine Messung, die darüber entscheidet.
+> nicht bauen. **Rev 2, noch am selben Tag:** V1 wurde ausgeführt und ist bestanden — die
+> Latenz ist kein Ausschlussgrund mehr. Was unten als Hauptargument gegen den Bau stand,
+> ist damit erledigt; an seine Stelle treten zwei andere Fragen (§1 Nachtrag).
 
 ## 1 Executive Summary
 
 Der Lotse kann seit heute sprechen (KONZ-060, C6). Die nächste Stufe wäre das Gespräch:
 Vollduplex im Element Call, unterbrechbar. Der Medienweg dafür läuft bereits produktiv
 (LiveKit SFU + MatrixRTC-Auth, C5), und die Sprachbausteine sind schnell genug (TTS 7,6×
-Echtzeit auf CPU, C6). Trotzdem lautet die Empfehlung: **heute nicht bauen.**
+Echtzeit auf CPU, C6).
 
-Der Grund ist gemessen, nicht vermutet. Ein Gespräch verlangt eine Antwort in rund
-anderthalb Sekunden. Der Lotse antwortet heute im Median nach **45,5 Sekunden**; von 93
-echten Antworten lag **keine einzige** unter fünf Sekunden (C1). Der Engpass ist nicht das
-Netz, nicht die Sprachsynthese und nicht der Videostack — es ist der Denker dahinter, der
-Werkzeuge benutzt, Dateien liest und Befunde prüft. Genau das macht den Lotsen nützlich; es
-macht ihn zugleich gesprächsuntauglich. Ein Vollduplex-Kanal auf einen 45-Sekunden-Denker
-erzeugt entweder Dauerpausen oder Füllwort-Theater.
+Der ursprüngliche Einwand war gemessen, nicht vermutet: Ein Gespräch verlangt eine Antwort
+in rund anderthalb Sekunden, der Lotse antwortet im Median nach **45,5 Sekunden**, und von
+93 echten Antworten lag **keine einzige** unter fünf (C1). Der Engpass ist nicht das Netz,
+nicht die Sprachsynthese und nicht der Videostack — es ist der Denker dahinter, der Werkzeuge
+benutzt, Dateien liest und Befunde prüft. Genau das macht den Lotsen nützlich und zugleich
+gesprächsuntauglich.
 
-Zweiter Befund: Die Fähigkeit ist bereits einem anderen Ort zugesprochen. ADR-249 steht auf
-`proposed` (C2), und sein Sprach-Port ist mit `transcribe(bytes) -> str` /
-`synthesize(str) -> bytes` (C3) strukturell Batch — Vollduplex bräuchte Ströme und Abbruch.
-Wer im chat-hub baut, baut entweder am Kanon vorbei oder ändert ihn; beides offen zu lassen
-ist die teuerste Variante.
+**Nachtrag Rev 2 (V1 ausgeführt, C8):** Ein zweiter, **werkzeugloser** Denker antwortet über
+dieselbe Sprachstrecke in **0,39 s** im Median (P95 0,94 s) bis zum ersten hörbaren Wort —
+die Schwelle lag bei 2,0 s. Die Trennung aus §5 ist damit kein Entwurf mehr, sondern
+gemessen. An die Stelle der Latenz treten zwei neue Fragen:
 
-Deshalb: eine Vorprüfung (V1) mit klarer Schwelle, ein zweiter billiger Test (V2, E2EE), und
-erst danach die Bauentscheidung. Kosten der Vorprüfung: Stunden. Kosten des Irrtums ohne sie:
-Wochen für eine Fähigkeit, die nach der Demo nicht benutzt wird.
+1. **Woran hängt die Antwort?** Der schnelle Weg läuft nicht auf der dev-desktop-CPU,
+   sondern über einen SSH-Tunnel auf die **GPU-Box** — einen Knoten, der im Register als
+   `betriebsstatus: blockiert` geführt wird (C8, C9). Eine Fähigkeit, die an einem nicht
+   zugesagten Knoten hängt, ist keine Fähigkeit, sondern ein Gefallen.
+2. **Kaltstart.** Nach fünf Minuten Stille kostet der erste Satz **32 s**. In der Messung
+   per `keep_alive` im Aufruf umgangen; im Betrieb braucht es eine bewusste Entscheidung,
+   ein Modell vorzuhalten.
+
+Zweiter Befund des Ursprungs, ebenfalls erledigt: Die Fähigkeit war einem anderen Ort
+zugesprochen. ADR-249 ist seit dem 2026-09-22 **angenommen** und grenzt in §2.0 ab —
+Produkt-Voice dort, Assistenten-Stimme hier (C10). Sein Sprach-Port bleibt mit
+`transcribe(bytes) -> str` / `synthesize(str) -> bytes` (C3) Batch; ein Vollduplex-Bau
+braucht dort ein Amendment, nicht ein Vorbeibauen.
+
+Es bleibt: **V2 (Call-Beitritt mit hörbarem Audio im E2EE-Call) zuerst**, dann die
+Bauentscheidung — mit benanntem Knoten für den Gesprächs-Denker.
 
 ## 2 Scope & Evidenzbasis
 
@@ -58,7 +73,7 @@ Wochen für eine Fähigkeit, die nach der Demo nicht benutzt wird.
 Owner allein. **Out of Scope:** Telefonie/SIP, Mehrpersonen-Gespräche, Kundenpiloten — die
 gehören zum Produkt `iil-assist-voice` (ADR-249).
 
-Evidenz: C1–C7 in dieser Sitzung geöffnet und gemessen; H1 ausdrücklich Hypothese.
+Evidenz: C1–C10 in dieser Sitzung geöffnet und gemessen; H1 ausdrücklich Hypothese.
 
 ## 3 Infrastruktur-Fit
 
@@ -68,7 +83,9 @@ Evidenz: C1–C7 in dieser Sitzung geöffnet und gemessen; H1 ausdrücklich Hypo
 | Netzweg dev-desktop → prod-b | ja | — | UDP 7882 prüfen | mittel | `turn.enabled: false` (C4): kein Fallback, wenn UDP blockiert |
 | STT faster-whisper `small` (CPU) | ja | Modell | Streaming statt Batch | mittel | heute Datei-basiert, Gespräch braucht laufende Erkennung |
 | TTS Piper (CPU) | ja | vollständig | Abbruch mitten im Satz | niedrig | 7,6× Echtzeit (C6) reicht |
-| Lotse-Denker (Claude-Code-Sitzung) | ja | **nein** | — | **hoch** | P50 45,5 s (C1) — der Engpass |
+| Lotse-Denker (Claude-Code-Sitzung) | ja | **nein** | — | **hoch** | P50 45,5 s (C1) — der Engpass, deshalb §5 zwei Denker |
+| Gesprächs-Denker (`qwen2.5:7b`, ollama) | ja | vorhanden | Systemsatz, Abbruch | **hoch** | V1 bestanden: P50 0,39 s bis hörbar (C8). ABER: läuft auf der **GPU-Box** über einen SSH-Tunnel, nicht auf der dev-desktop-CPU; die Box ist `betriebsstatus: blockiert` (C9) |
+| Modell-Kaltstart | ja | — | Vorhalten | mittel | 32 s nach Leerlauf (`OLLAMA_KEEP_ALIVE=5m`); in der Messung per `keep_alive` im Aufruf umgangen, ohne Host-Eingriff (C8) |
 | Krypto-Store / E2EE | ja | — | MatrixRTC-Schlüssel | **hoch** | H1: SDK-Unterstützung ungeprüft |
 | Host dev-desktop | ja | — | zweiter Dauerprozess | mittel | Ausnahme endet 2026-12-01 (C7) |
 
@@ -173,7 +190,7 @@ wäre zugleich der ehrlichste Umgang mit der Latenz: nicht verstecken, sondern b
 | # | Risiko | Wirkung | Gegenmittel |
 |---|---|---|---|
 | RISK-1 | Gebaut, dann nicht benutzt (Präzedenz: `iil-assist-voice` als Gerüst) | Wochen verloren | Kill-Gate mit Nutzungszähler vor dem Bau |
-| RISK-2 | Latenz lässt sich nicht drücken | Vorhaben tot nach dem Bau statt davor | V1 ist Vorbedingung, nicht Begleitmessung |
+| RISK-2 | ~~Latenz lässt sich nicht drücken~~ **entschärft**: V1 bestanden (C8). Neu an seiner Stelle: der schnelle Weg hängt an einem Knoten mit `betriebsstatus: blockiert` | Fähigkeit fällt aus, wenn die GPU-Box abgeschaltet wird | REC-1b: Knoten benennen, bevor gebaut wird |
 | RISK-3 | E2EE-Bruch erzwingt unverschlüsselte Calls | Verstoß gegen die eigene Grundregel | V2; bei Fehlschlag Ende |
 | RISK-4 | Dritte werden unbemerkt transkribiert | Einwilligung verletzt | harter Austritt, kein Hinweis-Text |
 | RISK-5 | Hostfrist läuft, Bindung wächst | Ausnahme wird still ewig | Zielhost benennen, Frist als Issue führen |
@@ -182,10 +199,12 @@ wäre zugleich der ehrlichste Umgang mit der Latenz: nicht verstecken, sondern b
 
 | # | Empfehlung | Owner | Aufwand |
 |---|---|---|---|
-| REC-1 | **V1 Latenz-Vorprüfung**: werkzeugloser Gesprächs-Denker (kleines lokales Modell) an den bestehenden Sprachnachrichten-Pfad hängen und 20 echte Turns messen. Schwelle: P50 < 2,0 s, P95 < 4,0 s bis erstes hörbares Wort | ich, nach Owner-Wort | 1–2 Tage |
+| REC-1 | ✅ **erledigt 2026-09-22** — V1 gemessen: P50 0,39 s, P95 0,94 s über 20 Turns (Schwelle 2,0 / 4,0 s), C8 | — | — |
+| REC-1b | **NEU aus V1:** Knoten für den Gesprächs-Denker benennen. Heute die GPU-Box über einen Tunnel, dort `betriebsstatus: blockiert` (C9) — entweder Betrieb zusagen oder einen anderen Knoten wählen | Owner | Entscheidung |
+| REC-1c | **NEU aus V1:** Kaltstart abstellen (32 s nach Leerlauf). Billigster Weg ohne Host-Eingriff: `keep_alive` im Aufruf; dauerhaft: Modell vorhalten | ich | 0,5 Tag |
 | REC-2 | **V2 Call-Vorprüfung**: mit `lk-jwt-service`-Token einem echten Element Call beitreten, 10 s Audio ziehen, Lautstärke messen (Stille = E2EE-Bruch, B5) und UDP 7882 vom dev-desktop prüfen (B4) | ich, nach V1 | 0,5 Tag |
-| REC-3 | ADR-249 annehmen oder als abgelöst markieren; je eine Zeile in beiden READMEs, wo die Fähigkeit lebt | Owner + ich | 0,5 Tag |
-| REC-4 | ALT-1 (Halbduplex) als billigen Zwischenschritt bewerten, falls V1 scheitert | ich | 1 Tag |
+| REC-3 | ✅ **erledigt 2026-09-22** — ADR-249 angenommen (Rev 2), §2.0 grenzt Produkt-Voice von der Assistenten-Stimme ab (C10). Offen bleibt die Zeile in beiden READMEs | ich | 0,25 Tag |
+| REC-4 | ALT-1 (Halbduplex) — nach bestandenem V1 **kein** Rückfallplan mehr, sondern eine eigenständige Option: kommt ohne Echo- und Barge-in-Problem aus | ich | 1 Tag |
 | REC-5 | Regel festschreiben: dritter Teilnehmer im Call → Lotse verlässt ihn sofort | Owner | Entscheidung |
 | REC-6 | `OnFailure=` für alle vier `lotse-*`-Units + „letzter Erfolg"-Zeitstempel je Fähigkeit (B9) | ich | 0,5 Tag, unabhängig nützlich |
 | REC-7 | Modell-Stückliste (Name, Version, URL, sha256, Zielpfad) + ein venv (B10) | ich | 0,5 Tag |
@@ -193,8 +212,10 @@ wäre zugleich der ehrlichste Umgang mit der Latenz: nicht verstecken, sondern b
 
 ## 13 Entscheidung + Kill-Gate + 30/60/90
 
-**Entscheidung:** Kein Bau, keine neue Abhängigkeit, kein LiveKit-Agent — bis V1 und V2
-bestanden sind. Die Empfehlungen REC-6 bis REC-8 sind davon unabhängig und lohnen sich auch,
+**Entscheidung (Rev 2, 2026-09-22):** V1 ist bestanden, ADR-249 ist angenommen und abgegrenzt.
+Weiterhin **kein Bau und keine neue Abhängigkeit**, bis **V2** gelingt und der Knoten für den
+Gesprächs-Denker benannt ist (REC-1b) — eine Fähigkeit, die an einem `blockiert`-Knoten hängt,
+wird nicht gebaut. Die Empfehlungen REC-6 bis REC-8 sind davon unabhängig und lohnen sich auch,
 wenn S4 nie kommt.
 
 | Kriterium | Status | Beleg |
