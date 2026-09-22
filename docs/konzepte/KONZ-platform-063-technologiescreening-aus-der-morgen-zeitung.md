@@ -32,6 +32,7 @@ evidence_manifest:
   - {claim_id: C20, source_path: "https://www.latent.space/feed + /robots.txt, HTTP 200, 20 Einträge", commit_or_pr: "2026-09-22", opened_in_session: true}
   - {claim_id: C21, source_path: news-hub/apps/digest/services/vertiefung.py, commit_or_pr: 8bf3fa9, opened_in_session: true}
   - {claim_id: C22, source_path: news-hub/apps/digest/services/web_naht.py, commit_or_pr: 8bf3fa9, opened_in_session: true}
+  - {claim_id: C23, source_path: "Messung 2 (vorgezogen) — vier T1a-Läufe (openai/gpt-oss-120b) über dasselbe Fenster, Protokoll in platform#3383", commit_or_pr: "2026-09-22", opened_in_session: true}
 created: 2026-09-22
 updated: 2026-09-22
 ---
@@ -323,6 +324,41 @@ Rohdaten waren nie das Problem, die Regel war es.
    Kein Postfach, kein Abo, kein vierter Zugang im Sinne von ADR-299 §4.1 — dieselbe Naht, die
    `fav0.com` schon benutzt.
 
+### 5.9b Wer urteilt? — gemessen, nicht angenommen (2026-09-22, C23)
+
+Die offene Frage aus §13 („taugt das günstige Modell dafür?") wurde am selben Tag beantwortet,
+indem dasselbe Fenster viermal durch das **T1a-Modell** (`openai/gpt-oss-120b`, derselbe Pfad wie
+Titel und Bewertung) geschickt wurde. Ergebnis:
+
+| Lauf | Kandidaten | Fehltreffer | Einordnung | Tokens |
+|---|---|---|---|---|
+| T1a naiv | 17 | ~5 (HP-ZBook-Bundle, Desktop-App für Arch Linux, „AI Data Centers senken Strompreise") | brauchbar gemischt | 3.375 |
+| T1a streng | 8 | 0 formale, aber **eine erfundene Begründung** (Astra als „LLM-Variante für klinische Anwendungen" — stammt aus einer anderen Schlagzeile) | **8 von 8 `portfolio`** — die Einordnung ist zusammengebrochen | 3.018 |
+| T1a streng + billige Selbstkritik | 8 | dieselben | dieselbe | +1.193 |
+| **T1a + Belegpflicht (H3)** | **8** | **0 erfundene Belege** (8/8 Zitate maschinell im Stoff gefunden) | **4 `kompetenz` / 4 `portfolio`** | 3.421 |
+
+**Drei Befunde, alle belegt:**
+
+1. **Allein taugt das günstige Modell nicht.** Naiv nimmt es Hardware-Bundles und Desktop-Apps
+   als „Technologie"; streng verliert es genau die drei wertvollsten Kandidaten der
+   Vergleichsliste (lokales Modell für sensible Daten, OCR-Modelle, selbstfortschreibender
+   Suchindex) und erfindet eine Begründung dazu.
+2. **Eine billige zweite Meinung ist wertlos.** Der Kritik-Durchgang strich **0 von 8** Einträgen
+   und kostete 1.193 Tokens. Zwei billige Läufe sind nicht ein teurer.
+3. **Die Belegpflicht repariert mechanisch, was das Modell nicht kann.** Sobald jeder Kandidat
+   die Schlagzeile wörtlich zitieren muss und ein simpler Zeichenkettenvergleich das prüft,
+   verschwinden erfundene Begründungen (0 von 8) und die Einordnung erholt sich (4/4 statt 8/0).
+   Das ist kein Modellverdienst, sondern dieselbe Beleg-Pflicht, die ADR-299 §4.2 dem Tageslauf
+   schon auferlegt — hier nur auf das Urteil angewandt.
+
+**Entscheidung D4 — geteiltes Urteil statt eines Modells.** Das günstige Modell **sammelt breit
+mit Belegpflicht**, ein mechanischer Beleg-Check wirft alles ohne auffindbares Zitat raus, und
+das **teure Modell wählt aus und ordnet ein**. Tragend ist die Messung: der naive T1a-Lauf
+enthielt 6 der 7 Kandidaten der Vergleichsliste — die Wiedererkennung ist also da, es fehlt die
+Beurteilung der Geschäftsnähe. Der teure Schritt liest danach 8–17 Kandidatenzeilen statt 111
+Schlagzeilen und läuft in der Briefing-Lane, die ohnehin werktags startet — er kostet also
+nichts zusätzlich, während der wöchentliche Sammellauf bei rund 3.400 Tokens liegt.
+
 **Tiefe kommt aus der vorhandenen Vertiefung.** `apps/digest/services/vertiefung.py` holt je
 Thema mehr Quellen als der Tageslauf, nimmt den Kontext der tragenden Nachrichten dazu und
 synthetisiert über dasselbe Groq-Modell — mit verschärfter Beleg-Pflicht: jede Aussage verweist
@@ -538,6 +574,9 @@ Drei Rollen liefen als unabhängige Agenten ohne Sicht aufeinander; die Konflikt
 | REC-16 | SRC-1, AD-4 | Vierte Quelle ohne Abo und ohne Postfach | Zweite Web-Naht nach dem Muster von `web_naht.py` (fav0) auf `https://www.latent.space/feed` — HTTP 200, nicht in `robots.txt` gesperrt, 20 Einträge, fast täglich (C20, C22) | M | Parser-Test gegen eine Fixture, Ausgabe muss `naht.nachrichten_aus_datei` unverändert passieren | Feed-Einträge erscheinen als Quellen im Tageslauf | ich, nach Stufe-1-Freigabe |
 | REC-17 | AD-1, AD-4 | Urteil statt Wortregel | Variante C wird die tragende Regel: ein Wochenurteil über die Titel des Fensters; Variante A/B bleiben nur als Gegenprobe im Messwerkzeug | S | Messung 2 und 3 nach demselben Muster | ≥3 konkrete Technologien je Messung | ich |
 | REC-18 | AD-4, SRC-1 | Tiefe selbst holen statt Zufluss abwarten | Je beurteiltem Kandidaten eine `Vertiefung` anfordern (Modell und Warteschlange existieren, C21); der Vorschlag trägt deren Belege | M | Vertiefung mit Status `fertig` und ≥1 Quelle mit Auszug | erster Vorschlag mit Beleg-Liste | ich, nach Stufe-1-Freigabe |
+| REC-19 | C23, D4 | Belegpflicht ist der Qualitäts-Hebel, nicht das Modell | Der Sammel-Prompt verlangt je Kandidat das wörtliche Zitat der Schlagzeile; ein Zeichenkettenvergleich gegen den Eingabestoff wirft alles ohne Fundstelle raus, **bevor** ein Mensch es sieht | S | Positivkontrolle mit einem erfundenen Beleg ⇒ Kandidat fällt raus | Prüfung im Testfall | ich |
+| REC-20 | C23 | Kein Geld für eine zweite billige Meinung | Die Kritik-Stufe auf demselben Modell entfällt — sie strich 0 von 8 und kostete 1.193 Tokens | S | – | steht nirgends im Entwurf | ich |
+| REC-21 | C23, D4 | Teures Urteil dort, wo es ohnehin läuft | Die Auswahl der 1–3 Vorschläge passiert in der Briefing-Lane (werktags 07:00), nicht als eigener Lauf — damit kostet der teure Schritt keinen zusätzlichen Zeitgeber und kein eigenes Budget | S | Ausgabe erscheint in der Morgen-Meldung | erste Frage im Raum | ich, nach Stufe-1-Freigabe |
 | REC-14 | SRC-2 | Absender-Rauschen gezielt dämpfen | Heftzeilen je Absender aussortieren (`The Sequence Radar`, `Issue N`, `Last Week in AI`), nicht durch weitere Allgemeinwörter in der Wortliste | S | Fehltreffer der Erstmessung verschwindet, Trefferzahl bleibt | Negativtest im Testfall | ich, in Messung 2 |
 | REC-15 | SRC-1 | Blinde Felder benennen statt behaupten | NIS2, Voice und Robotik bleiben ohne Quelle — in jeder Messung mitschreiben, welche der drei Lücken noch offen ist (news-hub#19) | S | Zeile im Protokoll | steht im Tracking-Issue | ich |
 
@@ -560,18 +599,21 @@ Schwelle.
 
 | Kriterium | Status | Beleg |
 |---|---|---|
-| K1: Drei Messungen (24.09., 29.09., 01.10.) durchgeführt | 1 von 3 erledigt (Erstmessung 22.09.) | Protokolle im Tracking-Issue |
-| K2: In ≥2 von 3 Messungen je ≥3 konkrete Technologien | Erstmessung: **Wortregel 1, Urteil 7** | C13, C19 |
-| K3: Je Messung höchstens 1 Fehltreffer | Erstmessung: **Wortregel gerissen** (1 von 2), **Urteil erfüllt** (0 von 7) | C13, C19 |
+| K1: Drei Messungen (22.09., Messung 2 vorgezogen auf 22.09., 29.09.) | **2 von 3 erledigt** | C13, C19, C23 |
+| K2: In ≥2 von 3 Messungen je ≥3 konkrete Technologien | **erfüllt** — Urteil 7 (teuer), 8 (T1a mit Belegpflicht) | C19, C23 |
+| K3: Je Messung höchstens 1 Fehltreffer | Wortregel gerissen (1 von 2); teures Urteil 0 von 7; **T1a mit Belegpflicht 0 von 8 erfundenen Belegen** — aber ~4 von 8 ohne Geschäftsnähe, deshalb D4 | C13, C19, C23 |
 | K4: Morgen-Zeitung überlebt ihr eigenes Kill-Gate am 2026-10-09 | offen, entscheidet sich **nach** K1–K3 | KONZ-platform-057 |
 | K5: Stufe 1 nur mit ausdrücklicher Owner-Freigabe | offen | – |
 
-**Offene Schwäche der Urteilszahl (C19).** Geurteilt hat das **Sitzungsmodell**, nicht das
-T1a-Modell aus `policies/llm-routing.md`, das in Stufe 1 laufen würde. Die sieben Kandidaten
-belegen deshalb, dass der Korpus sie *hergibt* — nicht, dass das günstigere Modell sie findet.
-Messung 2 am 24.09. wiederholt dasselbe Fenster mit dem T1a-Modell; erst der Vergleich beider
-Listen darf als Grundlage für Stufe 1 gelten. Bis dahin ist K2 *vorläufig* erfüllt, nicht
-abgehakt.
+**Geschlossen am selben Tag (C23).** Die Schwäche von C19 — geurteilt hatte das Sitzungsmodell,
+nicht das günstige — ist nicht stehen geblieben: Messung 2 wurde vorgezogen und schickte dasselbe
+Fenster viermal durch das T1a-Modell. Ergebnis in §5.9b. **Das günstige Modell allein reicht
+nicht** (naiv fünf Fehltreffer; streng verliert die drei wertvollsten Kandidaten und erfindet
+eine Begründung; eine billige zweite Meinung streicht 0 von 8). **Mit erzwungenem wörtlichem
+Beleg und mechanischer Prüfung** liefert es dagegen saubere, überprüfbare Kandidaten (0 von 8
+erfunden) und eine wieder funktionierende Einordnung. Daraus folgt D4: billig sammelt mit
+Belegpflicht, teuer wählt aus. K2 gilt damit als erfüllt — mit der Einschränkung, dass die
+*Relevanz*-Auswahl am teuren Schritt hängt und nicht am Modellpreis gespart werden kann.
 
 **Termine vorgezogen (Owner-Wort 2026-09-22: „7 früher → 24.09 oder asap; 8 früher").** Die
 Messungen liegen jetzt 2–5 Tage auseinander statt sieben; die Fenster überlappen dadurch. Das
