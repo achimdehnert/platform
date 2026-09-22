@@ -79,6 +79,23 @@ LINK_REGISTRY = Path.home() / ".claude" / "mail-links.json"
 #: für die Anzeige gedacht ist.
 BOARD_ROOT = Path.home() / ".claude" / "boards"
 
+#: Tondateien zu den Arbeitslisten (Stimmproben, Hörfassungen). Eigener
+#: Unterordner: eine Datei ist nur dann über den Tunnel hörbar, wenn sie bewusst
+#: dorthin gelegt wurde — die Board-Wurzel selbst bleibt reiner Text.
+MEDIEN_ROOT = BOARD_ROOT / "medien"
+
+#: Endung → Medientyp. Allowlist statt ``mimetypes.guess_type``: hier soll
+#: ausschliesslich Ton herausgehen, kein HTML und kein Skript, das der Browser
+#: sonst im Ursprung dieses Dienstes ausführen würde.
+TON_TYPEN = {
+    ".wav": "audio/wav",
+    ".mp3": "audio/mpeg",
+    ".ogg": "audio/ogg",
+    ".opus": "audio/ogg",
+    ".flac": "audio/flac",
+    ".m4a": "audio/mp4",
+}
+
 #: Aus einer Graph-`id` wird der OWA-Deeplink so gebaut (belegt: funktioniert im Board).
 OWA_TEMPLATE = (
     "https://outlook.office365.com/owa/?ItemID={id}&exvsurl=1&viewmodel=ReadMessageItem"
@@ -87,6 +104,8 @@ OWA_TEMPLATE = (
 _UID = re.compile(r"^\d+$")
 _KURZ_ID = re.compile(r"^[A-Za-z0-9_-]{1,24}$")
 _BOARD_NAME = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+#: Dateiname einer Tondatei: wie ein Board-Name, aber mit genau einer Endung.
+_TON_NAME = re.compile(r"^[A-Za-z0-9_-]{1,64}\.[A-Za-z0-9]{1,5}$")
 
 
 def board_pfad(name: str, wurzel: Path = BOARD_ROOT) -> Path | None:
@@ -100,6 +119,23 @@ def board_pfad(name: str, wurzel: Path = BOARD_ROOT) -> Path | None:
     if not _BOARD_NAME.match(name):
         return None
     ziel = (wurzel / f"{name}.md").resolve()
+    try:
+        ziel.relative_to(wurzel.resolve())
+    except (ValueError, OSError):
+        return None
+    return ziel if ziel.is_file() else None
+
+
+def ton_pfad(name: str, wurzel: Path = MEDIEN_ROOT) -> Path | None:
+    """Dateiname aus der URL → Tondatei unter ``wurzel``. None, wenn unbrauchbar.
+
+    Derselbe Schnitt wie bei :func:`board_pfad`, zusätzlich die Endung gegen
+    :data:`TON_TYPEN`: ein ``.html`` im Medienordner wird nicht ausgeliefert,
+    auch wenn es dort liegt.
+    """
+    if not _TON_NAME.match(name) or Path(name).suffix.lower() not in TON_TYPEN:
+        return None
+    ziel = (wurzel / name).resolve()
     try:
         ziel.relative_to(wurzel.resolve())
     except (ValueError, OSError):
@@ -295,6 +331,7 @@ class MailLinkHandler(BaseHTTPRequestHandler):
     ledger_pfad: Path = Path.home() / ".claude" / "mail-vorgaenge.json"
 
     board_root: Path = BOARD_ROOT
+    medien_root: Path = MEDIEN_ROOT
 
     # --- Antwort-Helfer ----------------------------------------------------
 
@@ -362,6 +399,8 @@ class MailLinkHandler(BaseHTTPRequestHandler):
             return self._mail(teile[1:])
         if teile[0] == "d" and len(teile) == 2:
             return self._board(teile[1])
+        if teile[0] == "t" and len(teile) == 2:
+            return self._ton(teile[1])
         return self._fehler(HTTPStatus.NOT_FOUND, "Unbekannter Pfad.")
 
     def _anker(self, teile: list[str]) -> None:
@@ -457,6 +496,34 @@ class MailLinkHandler(BaseHTTPRequestHandler):
         seite = board_als_html(text, name)
         self._sende(HTTPStatus.OK, seite.encode("utf-8"), "text/html; charset=utf-8")
 
+    def _ton(self, name: str) -> None:
+        """`/t/<datei>` — Tondatei aus ``~/.claude/boards/medien/`` abspielen.
+
+        Der Browser spielt sie selbst ab; eine eigene Abspielseite braucht es
+        dafür nicht. Gestreamt statt eingelesen, weil eine Hörfassung mehrere
+        hundert Megabyte hat — ein Kapitel soll nicht erst komplett in den
+        Speicher des Dienstes wandern.
+        """
+        pfad = ton_pfad(name, self.medien_root)
+        if pfad is None:
+            return self._fehler(
+                HTTPStatus.NOT_FOUND, "Keine Tondatei unter diesem Namen."
+            )
+        try:
+            groesse = pfad.stat().st_size
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", TON_TYPEN[pfad.suffix.lower()])
+            self.send_header("Content-Length", str(groesse))
+            self.send_header("Referrer-Policy", "no-referrer")
+            self.end_headers()
+            if self.command == "HEAD":
+                return
+            with pfad.open("rb") as f:
+                while stueck := f.read(256 * 1024):
+                    self.wfile.write(stueck)
+        except OSError as e:
+            return self._fehler(HTTPStatus.INTERNAL_SERVER_ERROR, f"Nicht lesbar: {e}")
+
     def _index(self) -> None:
         eintraege = lade_registry(self.registry_pfad)
         zeilen = (
@@ -491,6 +558,22 @@ class MailLinkHandler(BaseHTTPRequestHandler):
             )
             or "<li><em>keine Arbeitslisten abgelegt</em></li>"
         )
+        try:
+            toene = sorted(
+                p.name
+                for p in self.medien_root.glob("*")
+                if p.is_file() and p.suffix.lower() in TON_TYPEN
+            )
+        except OSError:
+            toene = []
+        ton_zeilen = (
+            "".join(
+                f"<li><a href='/t/{quote(n)}'>{html.escape(n)}</a></li>"
+                for n in toene
+                if _TON_NAME.match(n)
+            )
+            or "<li><em>keine Tondateien abgelegt</em></li>"
+        )
         seite = f"""<!doctype html><meta charset=utf-8><title>Mail-Links</title>
 <body style="font:15px/1.55 -apple-system,Segoe UI,sans-serif;max-width:40rem;margin:3rem auto;padding:0 1rem">
 <h1>Mail-Links</h1>
@@ -508,6 +591,10 @@ verfügbar: {html.escape(konten)}.</p>
 
 <p><code>/d/&lt;name&gt;</code> zeigt eine Arbeitsliste aus <code>~/.claude/boards/</code>.</p>
 <h2>Arbeitslisten</h2><ul>{boards}</ul>
+
+<p><code>/t/&lt;datei&gt;</code> spielt eine Tondatei aus
+<code>~/.claude/boards/medien/</code> ab — Stimmproben und Hörfassungen.</p>
+<h2>Tondateien</h2><ul>{ton_zeilen}</ul>
 <h2>Registrierte Kurz-Links</h2><ul>{zeilen}</ul>
 <p style="color:#777;font-size:.85rem">Nur über Loopback erreichbar. Läuft der Zugriff
 über einen SSH-Tunnel, sieht niemand sonst diese Inhalte.</p>"""
