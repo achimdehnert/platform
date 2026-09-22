@@ -682,6 +682,27 @@ services:
       - rtc-chat.iil.pet
       - app-chat.iil.pet
     repo: iilgmbh/chat-hub                # deploy/ (Repo 2026 nach iilgmbh uebertragen, alter Pfad leitet um)
+  lotse-raum:
+    prod: null                      # kein Listener — Matrix-Client, nur ausgehend
+    staging: null
+    dev: null
+    prod_host: dev-desktop
+    container_name: null            # Raum-Sitzung (claude + chat_lotse.py watch) und systemd --user Zeitgeber lotse-briefing, lotse-auftrag-wache, lotse-vorlesen
+    domain_prod: null
+    domain_staging: null
+    repo: iilgmbh/chat-hub          # deploy/chat_lotse.py, deploy/raum-sessions/achim/
+    betriebsstatus: aktiv
+    betriebsstatus_grund: >
+      Lotse im Raum "Achim / Lotse" (chat-hub#48, KONZ-platform-059 Auftragsraum,
+      KONZ-platform-060 Stimme). Zweites Geraet des Lotsen-Kontos mit eigenem
+      Krypto-Store unter ~/.local/share/chat-hub/lotse-achim — deshalb an den
+      dev-desktop gebunden. Bestandteile ohne Port: STT faster-whisper `small`
+      (CPU, deploy/stt.py) und TTS Piper `de_DE-thorsten-medium` (CPU,
+      deploy/tts.py, chat-hub#117); keine Route zur gx10, gemessen 2026-09-22.
+      Kein Container, kein Ingress. Laeuft auf dem dev-desktop per benannter,
+      befristeter Ausnahme in hosts.yaml (Owner-Wort 2026-09-22, bis 2026-12-01,
+      derselbe Fall wie mail-links, platform#2507). Bis 2026-09-22 in keiner SoT
+      deklariert.
   robo-twin:
     prod: 8790
     staging: 8790
