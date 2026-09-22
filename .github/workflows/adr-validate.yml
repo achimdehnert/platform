@@ -157,11 +157,30 @@ jobs:
           python3 tools/adr_evidence_paths.py --format github
           exit 0
 
-      # ADR Index frisch? (gating) — regeneriert index.json + INDEX.md und vergleicht
-      # gegen committed Stand. Datum-sensitive Zeilen ("generated", Kommentar-Header)
-      # werden beim Diff ausgeblendet, damit der Check tagesstabil ist.
-      # Lösung bei Rot: python3 scripts/gen_adr_index.py lokal ausführen + committen.
-      - name: ADR index freshness (gating)
+  # ADR Index frisch? — regeneriert index.json + INDEX.md und vergleicht gegen den
+  # committeten Stand. Datum-sensitive Zeilen werden beim Diff ausgeblendet, damit
+  # der Check tagesstabil ist. Lösung bei Rot: `python3 scripts/gen_adr_index.py`
+  # lokal ausführen und das Ergebnis committen.
+  #
+  # **Eigener Job seit 2026-09-22 (Retro 8946e8, Befund 12).** Vorher lief er als
+  # Schritt in `platform-checks` und hieß dort „(gating)" — der Job stand aber
+  # nicht in den Required Checks des Rulesets. Folge: ADR-249 wurde mit
+  # `status: accepted` in der Datei und `proposed` im Index gemergt, während der
+  # Schritt zweimal rot war und niemanden aufhielt. Ein Etikett, das nichts
+  # verspricht, ist schlimmer als keins: es lässt den Leser glauben, da sei ein Tor.
+  # Als eigener Job ist er required-fähig, ohne die bewusst als `SUGGEST` geführten
+  # Nachbarschritte mitzublockieren.
+  adr-index-freshness:
+    name: ADR index freshness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
+
+      - name: Index regenerieren und vergleichen
         run: |
           cp docs/adr/index.json docs/adr/index.json.bak
           cp docs/adr/INDEX.md docs/adr/INDEX.md.bak
