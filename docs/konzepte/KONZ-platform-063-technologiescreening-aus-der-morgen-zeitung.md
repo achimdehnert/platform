@@ -676,7 +676,12 @@ nicht, wie das Verfahren auf frisch einlaufendem Stoff arbeitet. Diese Lücke is
 verankert: [#3393](https://github.com/achimdehnert/platform/issues/3393) hält den Lauf über ein
 Fenster nach dem 2026-09-22 fest, bewusst **nach** dem Entscheid vom 28.09.
 
-**Preis der Vorverlegung:** die Entscheidung über Stufe 1 fällt am **2026-09-28**, elf Tage vor
+**Tatsächlich gefallen ist die Entscheidung am 2026-09-22**, sechs Tage vor dem vorgezogenen
+Termin und noch am Tag der Messungen — der Abstand zum Kill-Gate der Zeitung ist damit nicht
+elf, sondern **17 Tage**. Der Absatz darunter beschreibt den geplanten Termin; er bleibt stehen,
+weil er die Überlegung trägt, und wird durch diese Zeile korrigiert, nicht ersetzt.
+
+**Preis der Vorverlegung (Planstand):** die Entscheidung über Stufe 1 fällt am **2026-09-28**, elf Tage vor
 dem Kill-Gate der Zeitung (2026-10-09). Es kann also für eine Zeitung gebaut werden, die elf
 Tage später stillgelegt wird — der Abstand ist durch das Vorziehen von acht auf elf Tage
 gewachsen. Abgesichert ist das allein durch die Kill-Gate-Zeile in KONZ-057: das Screening
@@ -688,7 +693,7 @@ Reißt K2 oder K3 am 2026-09-28, oder zieht K4, wird dieses Konzept auf `sunset`
 wie am 2026-09-11…13 und am 2026-09-22 (C12, C16). Danach keine weitere.
 
 **30/60/90.**
-- **6 Tage (bis 2026-09-28):** drei Messprotokolle (erledigt), Ausgangswert der Gedächtnis-Nutzung
+- **Tag 0 (2026-09-22, alles am selben Tag erledigt):** drei Messprotokolle, Ausgangswert der Gedächtnis-Nutzung
   (erledigt, C26), Kill-Gate-Entscheidung getroffen.
 - **30 Tage (bis 2026-10-22):** falls angenommen — Register, Wochenkommando, Melder und die
   zweite Quelle in `vorschlaege.py` im Betrieb; erster Vorschlag im Raum; erstes Issue aus einem
