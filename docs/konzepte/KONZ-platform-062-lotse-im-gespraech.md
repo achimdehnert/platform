@@ -7,7 +7,7 @@ owner: Achim Dehnert
 spec_refs: []
 adr_threshold: Amendment   # ERLEDIGT 2026-09-22: ADR-249 ist angenommen (Rev 2) und grenzt in §2.0 ab — Produkt-Voice dort, Assistenten-Stimme im chat-hub. Ein Gespräch (Vollduplex) berührt G-4/G-9 und braucht beim Bau ein Amendment dort, nicht daran vorbei.
 review_by: 2026-12-01
-kill_criteria: "V1 (Antwortlatenz) ist am 2026-09-22 BESTANDEN: P50 0,39 s, P95 0,94 s über 20 Turns bis zum ersten hörbaren Wort (Schwelle war 2,0 / 4,0 s). Das Vorhaben ist beendet, wenn V2 (Beitritt zu einem E2EE-Call mit nachweislich hörbarem Audio) nicht bis 2026-11-30 gelingt ODER der Antwortweg dauerhaft an einem Knoten hängt, dessen Betrieb nicht zugesagt ist (GPU-Box, betriebsstatus blockiert). Ausgangswert des heutigen Lotsen zum Vergleich: P50 45,5 s."
+kill_criteria: "V1 BESTANDEN und Knoten benannt (gx10). V1 am 2026-09-22: P50 0,39 s, P95 0,94 s über 20 Turns bis zum ersten hörbaren Wort (Schwelle war 2,0 / 4,0 s). Das Vorhaben ist beendet, wenn V2 (Beitritt zu einem E2EE-Call mit nachweislich hörbarem Audio) nicht bis 2026-11-30 gelingt ODER der Gespraechs-Denker wieder an einem Knoten haengt, dessen Betrieb nicht zugesagt ist (die GPU-Box war nur der Messweg; gebaut wird gegen die gx10). Ausgangswert des heutigen Lotsen zum Vergleich: P50 45,5 s."
 superseded_by_spec: null
 evidence_manifest:
   - {claim_id: C1, source_path: "Raum Achim / Lotse (chat.iil.pet)", commit_or_pr: "Messung 2026-09-22: 93 Antwortpaare Owner→Lotse aus 400 Ereignissen; P50 45,5 s · P90 119,6 s · P95 150,6 s · min 8,1 s · max 374,1 s; unter 1,5 s: 0; unter 5 s: 0; unter 15 s: 16", opened_in_session: true}
@@ -20,6 +20,7 @@ evidence_manifest:
   - {claim_id: C8, source_path: "Messung V1 (platform#3370)", commit_or_pr: "2026-09-22, 20 Turns werkzeugloser Denker qwen2.5:7b + Piper: P50 0,39 s, P95 0,94 s bis erstes hoerbares Wort; Kaltstart 32 s; localhost:11434 loest auf ::1 und tunnelt nach 10.99.0.2:11434 (GPU-Box), lokales ollama auf 127.0.0.1 ohne geladenes Modell", opened_in_session: true}
   - {claim_id: C9, source_path: infra/ports.yaml, commit_or_pr: "gpu-ollama: prod_host gpu-box, Ursprung 10.99.0.2:11434 ueber wg0, betriebsstatus: blockiert", opened_in_session: true}
   - {claim_id: C10, source_path: docs/adr/ADR-249-telefonagent-produkt-swappable-ports.md, commit_or_pr: "Rev 2, 2026-09-22: status accepted, §2.0 grenzt Produkt-Voice von der Assistenten-Stimme ab (Owner-Wort)", opened_in_session: true}
+  - {claim_id: C11, source_path: "Messung gx10 (platform#3370)", commit_or_pr: "2026-09-22 ueber prod nach 10.99.0.4:11434: 6 Modelle inkl. qwen2.5:7b; kalt laden 3,74 s, danach 3 Laeufe 0,34/0,59/0,64 s gesamt. hosts.yaml: gx10 = wg0-Peer 10.99.0.4, Standort Owner-Buero", opened_in_session: true}
   - {claim_id: H1, source_path: "matrix-nio / LiveKit Agents SDK", commit_or_pr: "HYPOTHESE, nicht geprueft: MatrixRTC-Schluesselverteilung (Element Call E2EE) wird vom Python-SDK nicht implementiert; nio kennt m.call.member nicht", opened_in_session: false}
 created: 2026-09-22
 ---
@@ -73,7 +74,7 @@ Bauentscheidung — mit benanntem Knoten für den Gesprächs-Denker.
 Owner allein. **Out of Scope:** Telefonie/SIP, Mehrpersonen-Gespräche, Kundenpiloten — die
 gehören zum Produkt `iil-assist-voice` (ADR-249).
 
-Evidenz: C1–C10 in dieser Sitzung geöffnet und gemessen; H1 ausdrücklich Hypothese.
+Evidenz: C1–C11 in dieser Sitzung geöffnet und gemessen; H1 ausdrücklich Hypothese.
 
 ## 3 Infrastruktur-Fit
 
@@ -84,8 +85,8 @@ Evidenz: C1–C10 in dieser Sitzung geöffnet und gemessen; H1 ausdrücklich Hyp
 | STT faster-whisper `small` (CPU) | ja | Modell | Streaming statt Batch | mittel | heute Datei-basiert, Gespräch braucht laufende Erkennung |
 | TTS Piper (CPU) | ja | vollständig | Abbruch mitten im Satz | niedrig | 7,6× Echtzeit (C6) reicht |
 | Lotse-Denker (Claude-Code-Sitzung) | ja | **nein** | — | **hoch** | P50 45,5 s (C1) — der Engpass, deshalb §5 zwei Denker |
-| Gesprächs-Denker (`qwen2.5:7b`, ollama) | ja | vorhanden | Systemsatz, Abbruch | **hoch** | V1 bestanden: P50 0,39 s bis hörbar (C8). ABER: läuft auf der **GPU-Box** über einen SSH-Tunnel, nicht auf der dev-desktop-CPU; die Box ist `betriebsstatus: blockiert` (C9) |
-| Modell-Kaltstart | ja | — | Vorhalten | mittel | 32 s nach Leerlauf (`OLLAMA_KEEP_ALIVE=5m`); in der Messung per `keep_alive` im Aufruf umgangen, ohne Host-Eingriff (C8) |
+| Gesprächs-Denker (`qwen2.5:7b`, ollama auf **gx10**) | ja | vorhanden | Systemsatz, Abbruch | mittel | V1 bestanden: P50 0,39 s bis hörbar (C8). Knoten ist die gx10 (C11): warm 0,34–0,64 s, kalt 3,7 s, aktiv deklariert. Die GPU-Box (`blockiert`, C9) war nur der Weg, über den gemessen wurde |
+| Modell-Kaltstart | ja | — | Vorhalten | niedrig | Auf der GPU-Box 32 s nach Leerlauf, **auf der gx10 3,7 s** (C11) — dort ist der Kaltstart kein Gesprächsabbruch mehr, nur eine Pause. `keep_alive` im Aufruf senkt ihn weiter, ohne Host-Eingriff |
 | Krypto-Store / E2EE | ja | — | MatrixRTC-Schlüssel | **hoch** | H1: SDK-Unterstützung ungeprüft |
 | Host dev-desktop | ja | — | zweiter Dauerprozess | mittel | Ausnahme endet 2026-12-01 (C7) |
 
@@ -190,7 +191,7 @@ wäre zugleich der ehrlichste Umgang mit der Latenz: nicht verstecken, sondern b
 | # | Risiko | Wirkung | Gegenmittel |
 |---|---|---|---|
 | RISK-1 | Gebaut, dann nicht benutzt (Präzedenz: `iil-assist-voice` als Gerüst) | Wochen verloren | Kill-Gate mit Nutzungszähler vor dem Bau |
-| RISK-2 | ~~Latenz lässt sich nicht drücken~~ **entschärft**: V1 bestanden (C8). Neu an seiner Stelle: der schnelle Weg hängt an einem Knoten mit `betriebsstatus: blockiert` | Fähigkeit fällt aus, wenn die GPU-Box abgeschaltet wird | REC-1b: Knoten benennen, bevor gebaut wird |
+| RISK-2 | ~~Latenz~~ ~~blockierter Knoten~~ **beides erledigt**: V1 bestanden (C8), Knoten ist die gx10 (C11). Rest-Risiko: sie steht im Owner-Büro an einem Hausanschluss, nicht im Rechenzentrum | Gespräch fällt aus, wenn die Leitung dorthin fällt | Ausfall macht den Lotsen nicht stumm — Sprachnachrichten laufen ohne sie |
 | RISK-3 | E2EE-Bruch erzwingt unverschlüsselte Calls | Verstoß gegen die eigene Grundregel | V2; bei Fehlschlag Ende |
 | RISK-4 | Dritte werden unbemerkt transkribiert | Einwilligung verletzt | harter Austritt, kein Hinweis-Text |
 | RISK-5 | Hostfrist läuft, Bindung wächst | Ausnahme wird still ewig | Zielhost benennen, Frist als Issue führen |
@@ -200,7 +201,7 @@ wäre zugleich der ehrlichste Umgang mit der Latenz: nicht verstecken, sondern b
 | # | Empfehlung | Owner | Aufwand |
 |---|---|---|---|
 | REC-1 | ✅ **erledigt 2026-09-22** — V1 gemessen: P50 0,39 s, P95 0,94 s über 20 Turns (Schwelle 2,0 / 4,0 s), C8 | — | — |
-| REC-1b | **NEU aus V1:** Knoten für den Gesprächs-Denker benennen. Heute die GPU-Box über einen Tunnel, dort `betriebsstatus: blockiert` (C9) — entweder Betrieb zusagen oder einen anderen Knoten wählen | Owner | Entscheidung |
+| REC-1b | ✅ **entschieden 2026-09-22 (Owner): die gx10.** Sie hält `qwen2.5:7b` bereits vor, antwortet warm in 0,34–0,64 s und lädt kalt in **3,7 s** statt 32 s; sie ist aktiv deklariert, nicht `blockiert`. Zu tun: zweiter SSH-Tunnel nach dem Muster des bestehenden (über prod nach `10.99.0.4:11434`) (C11) | ich | 0,25 Tag |
 | REC-1c | **NEU aus V1:** Kaltstart abstellen (32 s nach Leerlauf). Billigster Weg ohne Host-Eingriff: `keep_alive` im Aufruf; dauerhaft: Modell vorhalten | ich | 0,5 Tag |
 | REC-2 | **V2 Call-Vorprüfung**: mit `lk-jwt-service`-Token einem echten Element Call beitreten, 10 s Audio ziehen, Lautstärke messen (Stille = E2EE-Bruch, B5) und UDP 7882 vom dev-desktop prüfen (B4) | ich, nach V1 | 0,5 Tag |
 | REC-3 | ✅ **erledigt 2026-09-22** — ADR-249 angenommen (Rev 2), §2.0 grenzt Produkt-Voice von der Assistenten-Stimme ab (C10). Offen bleibt die Zeile in beiden READMEs | ich | 0,25 Tag |
@@ -212,10 +213,10 @@ wäre zugleich der ehrlichste Umgang mit der Latenz: nicht verstecken, sondern b
 
 ## 13 Entscheidung + Kill-Gate + 30/60/90
 
-**Entscheidung (Rev 2, 2026-09-22):** V1 ist bestanden, ADR-249 ist angenommen und abgegrenzt.
-Weiterhin **kein Bau und keine neue Abhängigkeit**, bis **V2** gelingt und der Knoten für den
-Gesprächs-Denker benannt ist (REC-1b) — eine Fähigkeit, die an einem `blockiert`-Knoten hängt,
-wird nicht gebaut. Die Empfehlungen REC-6 bis REC-8 sind davon unabhängig und lohnen sich auch,
+**Entscheidung (Rev 3, 2026-09-22):** V1 ist bestanden, ADR-249 angenommen und abgegrenzt, der
+Knoten ist benannt (gx10, C11). Damit steht **nur noch V2** zwischen diesem Konzept und einer
+Bauentscheidung: Gelingt der Beitritt zu einem E2EE-Call mit hörbarem Audio, wird gebaut;
+hört der Lotse Stille, endet S4 in dieser Form und ALT-1 (Halbduplex) rückt nach. Die Empfehlungen REC-6 bis REC-8 sind davon unabhängig und lohnen sich auch,
 wenn S4 nie kommt.
 
 | Kriterium | Status | Beleg |
