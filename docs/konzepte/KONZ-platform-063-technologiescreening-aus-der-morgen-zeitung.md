@@ -661,8 +661,9 @@ die drei besten Ankündigungen zu melden. Das gehört in Stufe 1 als Untergrenze
 wesentlich früher", „Entscheid 28.9").** Alle drei Messungen fielen auf denselben Tag: zwei auf
 demselben Fenster mit verschiedenen Regeln, die dritte auf einem zurückgehaltenen Fenster. Das
 prüft die **Brauchbarkeit der Namen** und die **Stabilität über Fenster hinweg** — es prüft
-nicht, wie das Verfahren auf frisch einlaufendem Stoff arbeitet. Diese Lücke bleibt offen und
-wird nicht weggeredet.
+nicht, wie das Verfahren auf frisch einlaufendem Stoff arbeitet. Diese Lücke ist benannt und
+verankert: [#3393](https://github.com/achimdehnert/platform/issues/3393) hält den Lauf über ein
+Fenster nach dem 2026-09-22 fest, bewusst **nach** dem Entscheid vom 28.09.
 
 **Preis der Vorverlegung:** die Entscheidung über Stufe 1 fällt am **2026-09-28**, elf Tage vor
 dem Kill-Gate der Zeitung (2026-10-09). Es kann also für eine Zeitung gebaut werden, die elf
