@@ -217,7 +217,12 @@ def vorfilter_lauf(tok: str, ordner: str, tage: int, schwelle: float) -> dict:
 
     mails = mails_holen(tok, ordner_id, tage)
     if not mails:
-        return {"kandidaten": [], "geprueft": 0, "median_latenz_ms": None}
+        return {
+            "kandidaten": [],
+            "nur_link": [],
+            "geprueft": 0,
+            "median_latenz_ms": None,
+        }
 
     anfragen: list[tuple[str, dict]] = []
     metadaten: dict[str, dict] = {}
@@ -236,6 +241,7 @@ def vorfilter_lauf(tok: str, ordner: str, tage: int, schwelle: float) -> dict:
             "datum": m.get("receivedDateTime", ""),
             "absenderadresse": em.get("address", ""),
             "betreff": m.get("subject") or "",
+            "anhang": bool(m.get("hasAttachments")),
         }
 
     ergebnisse = frage_kev(anfragen)
@@ -249,15 +255,23 @@ def vorfilter_lauf(tok: str, ordner: str, tage: int, schwelle: float) -> dict:
         sys.exit("FEHLER: kev-Antwort unvollstaendig/unerwartet — kein Ergebnis.")
     werte, latenzen = extrahiert
 
-    kandidaten = [
+    treffer = [
         {"wert": round(w, 3), **metadaten[mid], "id": mid}
         for mid, w in werte.items()
         if w >= schwelle
     ]
-    kandidaten.sort(key=lambda k: k["wert"], reverse=True)
+    treffer.sort(key=lambda k: k["wert"], reverse=True)
+    # Owner-Regel 2026-09-23: „Rechnung ist IMMER eigenes PDF". Eine Mail ohne
+    # Anhang ist keine Rechnung, sondern ein Hinweis darauf — sie landet in
+    # `nur_link` (PDF beim Anbieter holen), nicht in der Kandidatenliste.
+    # Nachgemessen am Testsatz aus #3337: kev >= 0,7 allein 9 Fehlalarme,
+    # zusammen mit der Anhang-Bedingung 0.
+    kandidaten = [k for k in treffer if k["anhang"]]
+    nur_link = [k for k in treffer if not k["anhang"]]
     median_latenz = statistics.median(latenzen) if latenzen else None
     return {
         "kandidaten": kandidaten,
+        "nur_link": nur_link,
         "geprueft": len(mails),
         "median_latenz_ms": median_latenz,
     }
@@ -282,7 +296,15 @@ def main(argv: list[str] | None = None) -> int:
     ergebnis = vorfilter_lauf(tok, a.ordner, a.tage, a.schwelle)
 
     if a.als_json:
-        print(json.dumps(ergebnis["kandidaten"], ensure_ascii=False))
+        print(
+            json.dumps(
+                {
+                    "kandidaten": ergebnis["kandidaten"],
+                    "nur_link": ergebnis["nur_link"],
+                },
+                ensure_ascii=False,
+            )
+        )
         return 0
 
     if not ergebnis["kandidaten"]:
@@ -302,11 +324,21 @@ def main(argv: list[str] | None = None) -> int:
             )
             print(f"    id: {k['id']}")
 
+    if ergebnis["nur_link"]:
+        print("Rechnung nur als Link, ohne PDF-Anhang — PDF beim Anbieter holen:")
+        for k in ergebnis["nur_link"]:
+            print(
+                f"  {k['wert']:.2f}  {k['datum'][:16]:<16}  "
+                f"{k['absenderadresse']:<38}  {k['betreff'][:60]}"
+            )
+            print(f"    id: {k['id']}")
+
     median = ergebnis["median_latenz_ms"]
     median_text = f"{median:.0f} ms" if median is not None else "n/a"
     print(
         f"{ergebnis['geprueft']} Mails geprueft, {len(ergebnis['kandidaten'])} "
-        f"Kandidaten, Median-Latenz {median_text}."
+        f"Kandidaten mit PDF, {len(ergebnis['nur_link'])} nur Link, "
+        f"Median-Latenz {median_text}."
     )
     return 0
 
