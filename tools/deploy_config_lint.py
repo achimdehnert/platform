@@ -2,7 +2,8 @@
 """deploy_config_lint.py — Org-Gate gegen Auto-Prod-Deploy-Drift.
 
 Prueft die Deploy-Workflows eines Repos darauf, dass push->main NICHT auf
-'production' defaultet. Org-Standard (platform/_deploy-unified.yml):
+'production' defaultet. Org-Standard (iilgmbh/shared-ci/_deploy-unified.yml,
+SSoT seit #3398):
 push->main = staging; Prod nur via Tag v* oder bewusster workflow_dispatch-Wahl.
 
 Hintergrund: risk-hub deployte ~20 Tage unbemerkt push->main direkt auf Prod,
@@ -68,7 +69,7 @@ def main(argv: list[str]) -> int:
             print("  -", o)
         print(
             "\nFix: target_environment-Default auf 'staging'. Prod nur via Tag v* "
-            "oder bewusster workflow_dispatch-Wahl (Org-Standard _deploy-unified.yml)."
+            "oder bewusster workflow_dispatch-Wahl (Org-Standard shared-ci/_deploy-unified.yml)."
         )
         return 1
     print("✅ Deploy-Config-Lint: kein Auto-Prod-Default.")

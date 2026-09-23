@@ -42,7 +42,7 @@ jobs:
     if: >
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
-    uses: achimdehnert/platform/.github/workflows/_deploy-hetzner.yml@main
+    uses: iilgmbh/shared-ci/.github/workflows/_deploy-hetzner.yml@v1.1.18
     with:
       app_name: __APP__
       deploy_path: __DEPLOY_PATH__

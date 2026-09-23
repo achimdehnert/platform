@@ -59,7 +59,7 @@ jobs:
   deploy:
     needs: build
     if: github.ref == 'refs/heads/main'
-    uses: achimdehnert/platform/.github/workflows/_deploy-hetzner.yml@main
+    uses: iilgmbh/shared-ci/.github/workflows/_deploy-hetzner.yml@v1.1.18
     with:
       repo_name: REPO_NAME                             # ← anpassen
       port: PORT                                       # ← anpassen (z.B. 8010)
