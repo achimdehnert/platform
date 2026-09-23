@@ -21,8 +21,8 @@ unter `/sys/fs/cgroup/system.slice/docker-<id>.scope/`:
   memory.events   max (Limit beruehrt, Cache zurueckgeholt), oom_kill
 
 Ein ssh-Aufruf, nur `cat`/`grep` — nichts wird auf dem Host installiert oder
-geschrieben. `memory.peak` wird bewusst NICHT zurueckgesetzt (das waere ein
-Schreibzugriff auf Prod).
+geschrieben. `memory.peak` bleibt unberuehrt: ein Zuruecksetzen waere ein
+Schreibzugriff auf Prod (#3400).
 
 Jeder Lauf haengt EINE Zeile an ein Journal ausserhalb des Repos
 (`~/.claude/container-speicher-journal.jsonl`, neben `speicher-journal.jsonl`);
