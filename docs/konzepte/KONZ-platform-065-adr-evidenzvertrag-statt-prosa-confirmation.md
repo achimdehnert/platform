@@ -189,13 +189,13 @@ Owner-Klick warten (W3-Merges laut Regel 2026-09-16 nicht autonom). Datiert, nic
 
 | Kriterium | Status | Beleg |
 |---|---|---|
-| Zeilenkonvention als Amendment in ADR-138 §2.4 eingetragen | offen | — |
-| `adr_evidence_paths.py` kennt `gate`/`test`/`pr` + Zählung `typisiert / prosa` | offen | — |
-| Pilotliste `docs/adr/.adr-evidence-pilot` mit 10 ADRs, `--gate` darauf aktiv | offen | — |
-| ADR-174 und ADR-226: `_ci-python.yml`-Beleg repariert | offen | C11 |
-| ≥ 8 von 10 Pilot-ADRs mit ≥ 2 echten typisierten Belegen bis 2026-11-30 | offen | Pilot-PRs |
-| Falsch-Positiv-Quote auf dem Pilot ≤ 10 % über 30 Tage | offen | Job-Ausgabe |
-| Umstellzeit je ADR gemessen (L12) | offen | Pilot-PR-Texte |
+| Zeilenkonvention als Amendment in ADR-138 §2.4 eingetragen | erfüllt 2026-09-23 | [#3459](https://github.com/achimdehnert/platform/pull/3459), ADR-138 §2.4.1 |
+| `adr_evidence_paths.py` kennt `gate`/`test`/`pr` + Zählung `typisiert / prosa` | erfüllt 2026-09-23 | #3459, 26 neue Tests (Positiv-/Negativkontrolle je Typ), `::notice` je ADR |
+| Pilotliste `docs/adr/.adr-evidence-pilot` mit 10 ADRs, `--gate` darauf aktiv | erfüllt 2026-09-23 | #3459; `adr-validate.yml` Schritt `--gate-pilot`, echter Lauf Job 107299644355: 0 Findings, 56 Pfade geprüft |
+| ADR-174 und ADR-226: `_ci-python.yml`-Beleg repariert | erfüllt 2026-09-23 | #3459: Beleg zeigt jetzt auf `iilgmbh/shared-ci:.github/workflows/_ci-python.yml` + `pr: platform#1437` |
+| ≥ 8 von 10 Pilot-ADRs mit ≥ 2 echten typisierten Belegen bis 2026-11-30 | formal erfüllt 10/10 (Prüfer, 2026-09-23); Owner-Lesung der Zeilen bis 2026-11-30 offen | #3459 vom Owner gemergt; typisiert je ADR: 049 5 · 059 5 · 138 7 · 174 6 · 190 5 · 219 6 · 226 7 · 239 4 · 265 9 · 275 12 |
+| Falsch-Positiv-Quote auf dem Pilot ≤ 10 % über 30 Tage | läuft, Start 2026-09-23, Bewertung ab 2026-10-23 | `adr-validate.yml`-Läufe auf `main`; jedes Finding bekommt beim Nachsehen ein Urteil echt/falsch (#3460) |
+| Umstellzeit je ADR gemessen (L12) | erfüllt 2026-09-23 | #3459: 0,2–0,9 min Edit+Verify je ADR, Recherche gepoolt ≈ 9 min → ≈ 1,4 min/ADR (Agent); die 20–40 min aus L12 galten für Menschen, Owner-Review nicht enthalten |
 
 ## Entscheidungen für den Owner
 
