@@ -244,7 +244,18 @@ hosts:
       stattfinden soll. Unveraendert gilt: MEiKI-Daten sind synthetisch, solange kein
       Live-Lauf ausdruecklich kommuniziert ist. Zugang ueber wg0, KEIN oeffentlicher
       Tunnel (das war der Fehler bei ollama.iil.pet). Phase 1 ohne GitHub-Runner,
-      kein Prod-Deploy, kein Build-Ziel fuer Flotten-Images.
+      kein Prod-Deploy im Sinne von Containern/App-Hubs, kein Build-Ziel fuer
+      Flotten-Images.
+      ACHTUNG, seit 2026-09-23 traegt dieser Knoten eine FLOTTENWEITE
+      PRODUKTIONSABHAENGIGKEIT (platform#3440): der Embedder auf 10.99.0.4:8100
+      bedient das geteilte Gedaechtnis des Orchestrators — jede
+      `agent_memory_search` jeder Sitzung jedes Repos laeuft dagegen (mcp-hub#278:
+      1.370 Eintraege neu eingebettet). `rag_mcp` haengt seit 2026-09-01 am selben
+      Endpunkt (Commit 71f2f61). Ist der Knoten aus, faellt die semantische Suche
+      flottenweit auf Volltext zurueck — genau der Ausfall, der in mcp-hub#278
+      drei Monate lang unbemerkt blieb; gefangen wird er jetzt vom taeglichen
+      Melder (`orchestrator_mcp.memory.melder`, 05:30). "Kein Prod-Deploy" heisst
+      hier also NICHT "an diesem Knoten haengt nichts Produktives".
     hosts_runners: []                  # Phase 1 bewusst leer — KONZ-053 §6
     auflage:
       # AUFGEHOBEN 2026-09-23 (Owner): das pauschale Verbot stand der Pruefung im Weg,
@@ -281,6 +292,14 @@ hosts:
             p50 9,0 statt 78,0 ms, 702 statt 5,9 chunks/s bei batch=50 —
             bei identischem Recall@1 (5/5) und auf vier Nachkommastellen
             identischen Aehnlichkeitswerten.
+            NACHGEZOGEN 2026-09-23 (platform#3440): dieser Dienst ist seit dem
+            Umstieg des Orchestrator-Gedaechtnisses (mcp-hub#278) keine lokale
+            Bequemlichkeit mehr, sondern die Einbettungsquelle der GESAMTEN
+            Flotte. Die Ausnahme laeuft am 2026-12-01 aus — vor diesem Datum ist
+            zu entscheiden, ob die Rolle des Knotens auf "traegt eine
+            Produktionsabhaengigkeit" gezogen oder der Dienst auf einen Host mit
+            Prod-Rolle verlegt wird. Laeuft sie kommentarlos aus, haengt die
+            Flotte an einer abgelaufenen Ausnahme.
           entschieden: 2026-09-01
           bis: 2026-12-01
         kev-decisions:
