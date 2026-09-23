@@ -53,7 +53,9 @@ def test_should_fire_when_the_shared_marker_is_a_number():
 
 def test_should_fire_when_two_long_words_are_shared():
     body = "Die Rangfusion ist damit verifiziert, die Trefferquote steht."
-    text = "Offen geblieben: Rangfusion und Trefferquote hat kein Pruefer nachgerechnet."
+    text = (
+        "Offen geblieben: Rangfusion und Trefferquote hat kein Pruefer nachgerechnet."
+    )
     assert _widerspruch_im_zug([body], text)
 
 
@@ -82,9 +84,7 @@ def test_should_stay_silent_without_any_negation():
 
 
 def test_should_stay_silent_without_any_claim():
-    assert not _widerspruch_im_zug(
-        ["Das Issue bleibt offen."], REALFALL_BERICHT
-    )
+    assert not _widerspruch_im_zug(["Das Issue bleibt offen."], REALFALL_BERICHT)
 
 
 def test_should_stay_silent_on_empty_input():

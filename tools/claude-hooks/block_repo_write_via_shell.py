@@ -38,6 +38,8 @@ FAIL-OPEN (bewusste Grenzen, hier benannt statt im Gate behauptet):
 ADVISORY: der Hook blockt nicht, er schreibt eine Zeile nach stderr und lässt den
 Befehl laufen. Grund: die Fehlalarm-Grenzen oben sind Hypothesen, bis `gate_hits`
 sie gemessen hat. Umstellen auf blocking = `MODUS`-Datei anlegen, s. `_modus()`.
+Die Frist dafür ist gesetzt und getrackt: 2026-10-21, danach blocking oder
+gestrichen — platform#3451 (`expires` im Registry-Eintrag).
 """
 
 from __future__ import annotations
@@ -102,7 +104,9 @@ def _modus() -> str:
         )
     )
     try:
-        wert = (verzeichnis / "repo_write_hook_mode").read_text(encoding="utf-8").strip()
+        wert = (
+            (verzeichnis / "repo_write_hook_mode").read_text(encoding="utf-8").strip()
+        )
     except OSError:
         return "advisory"
     return "blocking" if wert == "blocking" else "advisory"

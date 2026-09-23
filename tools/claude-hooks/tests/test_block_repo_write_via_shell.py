@@ -107,7 +107,9 @@ def test_should_stay_silent_on_read_redirect():
 
 
 @pytest.mark.parametrize("modus", ["advisory", "blocking"])
-def test_should_default_to_advisory_when_state_file_missing(monkeypatch, tmp_path, modus):
+def test_should_default_to_advisory_when_state_file_missing(
+    monkeypatch, tmp_path, modus
+):
     # Umgekehrt zum Evidenz-Scanner: fehlende Datei heisst hier advisory. Das ist
     # Absicht und wird gemessen, damit es nicht still zur Dauerregel wird.
     monkeypatch.setenv("REPO_WRITE_HOOK_STATE_DIR", str(tmp_path))
@@ -147,7 +149,9 @@ def test_should_fire_on_the_real_case_through_main(monkeypatch, capsys, tmp_path
     assert "⚠️" in err and "Edit/Write" in err
 
 
-def test_should_block_the_real_case_when_switched_to_blocking(monkeypatch, capsys, tmp_path):
+def test_should_block_the_real_case_when_switched_to_blocking(
+    monkeypatch, capsys, tmp_path
+):
     code, err = _lauf(
         monkeypatch, capsys, REALFALL, WORKTREE, modus="blocking", tmp_path=tmp_path
     )
@@ -205,7 +209,9 @@ def test_should_stay_silent_on_git_commit_with_stdin_heredoc():
     assert modul.entscheide(kommando, WORKTREE) is None
 
 
-def test_should_stay_silent_through_main_on_commit_heredoc(monkeypatch, capsys, tmp_path):
+def test_should_stay_silent_through_main_on_commit_heredoc(
+    monkeypatch, capsys, tmp_path
+):
     kommando = "git commit -q -F - <<'MSG'\ndocs(x): etwas\nMSG"
     code, err = _lauf(monkeypatch, capsys, kommando, WORKTREE, tmp_path=tmp_path)
     assert code == 0
