@@ -149,6 +149,23 @@ def test_should_filter_by_threshold_and_sort_descending(monkeypatch):
     assert ergebnis["median_latenz_ms"] == 42.0
 
 
+def test_should_list_mail_without_attachment_as_link_only_not_candidate(monkeypatch):
+    # Owner-Regel 2026-09-23: Rechnung ist IMMER ein eigenes PDF.
+    mails = [
+        _mail("m1", wert=0.95, anhang=True),
+        _mail("m2", wert=0.9, betreff="Ihre Rechnung liegt bereit", anhang=False),
+    ]
+    _patch_graph(monkeypatch, mails)
+    _patch_ssh_ok(monkeypatch, mails)
+
+    ergebnis = kv.vorfilter_lauf(
+        tok="fake-token", ordner="Posteingang", tage=60, schwelle=0.7
+    )
+
+    assert [k["id"] for k in ergebnis["kandidaten"]] == ["m1"]
+    assert [k["id"] for k in ergebnis["nur_link"]] == ["m2"]
+
+
 def test_should_return_no_candidates_below_threshold(monkeypatch):
     mails = [_mail("m1", wert=0.3)]
     _patch_graph(monkeypatch, mails)
@@ -241,7 +258,12 @@ def test_should_return_empty_result_without_calling_kev_when_no_mails(monkeypatc
     ergebnis = kv.vorfilter_lauf(
         tok="fake-token", ordner="Posteingang", tage=60, schwelle=0.7
     )
-    assert ergebnis == {"kandidaten": [], "geprueft": 0, "median_latenz_ms": None}
+    assert ergebnis == {
+        "kandidaten": [],
+        "nur_link": [],
+        "geprueft": 0,
+        "median_latenz_ms": None,
+    }
     assert aufrufe == []
 
 
