@@ -99,7 +99,13 @@ streich_begruendung: "Jede Phase veraenderte ein Ergebnis (0.0 -> Ausweitung gat
 
 **Einordnung nach Prüfung: kein Rückfall, sondern Wirkung.** Beide Vorkommen dieser Sitzung wurden vom Gate **gefangen** — der Hook hielt den Zug an, der Beleg wurde nachgezogen, die Aussage korrigiert. Ein Gate, das greift, darf nicht als gescheitert gezählt werden.
 
-**Befund am Werkzeug, nicht am Gate:** `gate_wirkung.py` kann „wiederkehrend **und gefangen**" nicht von „wiederkehrend **und durchgerutscht**" unterscheiden. Es zählt Retro-Nennungen, nicht Interventionen. Solange das so ist, produziert es bei wirksamen Gates Fehlalarme — und ein Melder mit Fehlalarmen wird abgeschaltet. Konsequenz: **ausweiten** (das Werkzeug soll `gates_caught` aus dem Frontmatter abziehen), nicht das Gate umbauen.
+**KORREKTUR 2026-09-23, nach dem Merge dieses Berichts.** Der hier ursprünglich stehende „Befund am Werkzeug" war falsch. Er lautete: `gate_wirkung.py` könne „wiederkehrend und gefangen" nicht von „wiederkehrend und durchgerutscht" unterscheiden, Konsequenz sei, das Werkzeug um einen `gates_caught`-Abzug **auszuweiten**.
+
+Das Werkzeug tut das seit dem 2026-09-02 (platform#2374 Ziel A, PR #2615). Sein eigener Lauf meldet es wörtlich: „4 Gate(s) haben ihren Befund GEFANGEN: `claim-before-cheapest-check` (4×) … diese Vorkommen zählen nicht als Rückfall, sie sind der Wirksamkeits-Beleg." Der Abzug hängt bewusst **nicht** am Frontmatter allein, sondern an der Markierung in der einzelnen Befundzeile — weil ein reiner Frontmatter-Abzug am 2026-09-01 (Retro cc4e11) zwei ausdrücklich als „nicht gefangen" bezeichnete Rückfälle derselben Sitzung verschluckt hat. Die vorgeschlagene „Ausweitung" hätte genau diesen Fehler wieder eingebaut.
+
+**Was damit stehen bleibt:** `claim-before-cheapest-check` ist mit **3 Rückfällen nach Abzug der 4 gefangenen Fälle** weiterhin `RUECKFAELLIG`. Das sind echte Vorkommen, keine Fehlalarme. Die Konsequenz ist daher eine der drei zulässigen — ausweiten, umbauen oder begründet herabstufen — und sie ist offen; „im Report erwähnt" ist keine.
+
+**Die Lehre ist dieselbe wie bei den Befunden 4 und 10:** ein Werkzeug wurde beurteilt, ohne seine Quelle zu lesen. Der billigste Check war `grep gates_caught tools/gate_wirkung.py`.
 
 ## 5b. Autonomie-Kalibrierung
 
@@ -158,7 +164,7 @@ Job-Liste des Workflows halten, nicht gegen das grüne Brett.
 | 4 | Heredoc-Regel entscheiden | platform | [#2234](https://github.com/achimdehnert/platform/issues/2234) | 🟢 | Gate bauen oder `declined` erneuern |
 | 5 | Stufe 1 news-hub | news-hub | [#76](https://github.com/achimdehnert/news-hub/issues/76) | 🟢 | bis 2026-10-22 |
 | 6 | Deploy bringt Host-Dateien | mcp-hub | [#290](https://github.com/achimdehnert/mcp-hub/issues/290) | 🟢 | entscheiden |
-| 7 | `gate_wirkung.py` ausweiten | platform | — | 🔵 | `gates_caught` abziehen |
+| 7 | Gate claim-before-cheapest-check | platform | [#2234](https://github.com/achimdehnert/platform/issues/2234) | 🟢 | ausweiten, umbauen oder herabstufen |
 | 8 | gx10-Rolle in `hosts.yaml` | platform | [#3440](https://github.com/achimdehnert/platform/issues/3440) | 🟢 | Rolle ziehen oder Dienst verlegen |
 | 9 | 555 verkürzte Einträge | mcp-hub | [#292](https://github.com/achimdehnert/mcp-hub/issues/292) | 🟢 | Stückelung oder Verzicht |
 
