@@ -91,30 +91,36 @@ Bewusst **nicht** im MVC: Custom-Fields anlegen, Workflows konfigurieren, Speich
 Altbestand nachpflegen, Korrespondenten auf sevdesk-Kontakte abbilden. Jedes davon ist ein
 eigener Schritt, der erst Sinn ergibt, wenn die Tabelle aus (2) steht.
 
-## Aufbewahrung je Dokumenttyp (Entwurf — Owner entscheidet je Zeile)
+## Aufbewahrung — zwei kurze Listen statt einer langen Tabelle
 
-Grundlage: §147 AO (6 bzw. 10 Jahre fuer steuerlich relevante Unterlagen) und die Owner-Haltung
-„100 % GoBD ist meist unrealistisch" (2026-07-29) — die Tabelle ist eine Ordnungs-, keine
-Rechtsberatung, und gilt fuer Eigenbedarf, **nicht** fuer LRA-Workloads.
+**Owner-Einwand 2026-09-23, und er traegt:** die meisten Dokumente im Bestand sind keine
+Rechnungen, sondern eigene Unterlagen. Fuer die gibt es keine gesetzliche Frist, und bei
+1,7 GB Archivgroesse gibt es auch keinen Druck, irgendetwas loszuwerden. Eine Frist je
+Dokumenttyp ueber alle 17 Typen haette fuer zwei Drittel des Bestands eine Frage beantwortet,
+die niemand stellt.
 
-| Dokumenttyp | Bestand | Vorschlag Frist | Grund |
-|---|---:|---|---|
-| Rechnung | 297 | 10 Jahre ab Jahresende | steuerlich relevant |
-| Bescheid | 70 | dauerhaft | Verwaltungsakt, Bestandskraft |
-| Abrechnung | 51 | 10 Jahre | steuerlich relevant |
-| Vertrag | 48 | Laufzeitende + 10 Jahre | Nachweis nach Beendigung |
-| Mahnung | 21 | 10 Jahre | gehoert zum Beleg |
-| Mitteilung | 17 | 3 Jahre | Regelverjaehrung |
-| Angebot | 16 | 2 Jahre | nicht angenommen = kein Beleg |
-| Kontoauszug | 15 | 10 Jahre | Buchungsgrundlage |
-| Quittung | 8 | 10 Jahre | Beleg |
-| Versicherungsschein | 5 | Vertragsende + 3 Jahre | Anspruchsfristen |
-| Steuerbescheid | 5 | dauerhaft | Festsetzung |
-| Befund / Arztbrief | 4 | dauerhaft | privat, keine Frist |
-| Gutschrift | 2 | 10 Jahre | Beleg, Vorzeichen-relevant |
-| Auftrag | 1 | 10 Jahre | Beleg |
-| Praesentation | 1 | keine Frist | kein Beleg — Kandidat zum Ausbau |
-| Lohnabrechnung | 0 | 10 Jahre | Typ existiert ohne Dokument |
+Gemessen am 2026-09-23: 399 Dokumente tragen einen Finanz-Typ, 161 einen privaten,
+849 gar keinen; Tag `Steuer-relevant` 174; Medienordner 1,7 GB.
+
+Deshalb bleiben nur die zwei Listen, die etwas entscheiden:
+
+**Liste 1 — muss auf Verlangen vorlegbar sein** (§147 AO, 10 Jahre ab Jahresende):
+`Rechnung` (297) · `Abrechnung` (51) · `Mahnung` (21) · `Kontoauszug` (15) · `Quittung` (8) ·
+`Gutschrift` (2) · `Auftrag` (1) · `Lohnabrechnung` (0). Zusammen **395** Dokumente.
+Der Zweck ist **Auffindbarkeit**, nicht Loeschung — bei einer Pruefung muss der Beleg
+kommen, nicht verschwinden.
+
+**Liste 2 — darf nie verloren gehen** (dauerhaft, Prioritaet bei Sicherung und Wiederherstellung):
+`Bescheid` (70) · `Vertrag` (48) · `Steuerbescheid` (5) · `Versicherungsschein` (5) ·
+`Befund`/`Arztbrief` (4). Zusammen **132** Dokumente.
+
+**Alles Uebrige: keine Frist.** Das ist eine Entscheidung, kein Versaeumnis, und sie wird
+hier einmal festgehalten, damit die Frage nicht jaehrlich wiederkommt. Betroffen sind
+`Mitteilung`, `Angebot`, `Praesentation` und der gesamte typlose Bestand.
+
+Grundlage: §147 AO und die Owner-Haltung „100 % GoBD ist meist unrealistisch" (2026-07-29).
+Die Listen ordnen, sie beraten nicht — und sie gelten fuer Eigenbedarf, **nicht** fuer
+LRA-Workloads.
 
 ## Befunde inkl. Advocatus Diabolus
 
