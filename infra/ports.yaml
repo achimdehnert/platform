@@ -813,6 +813,23 @@ services:
       Nachgetragen 2026-09-08 aus demselben Grund wie `ollama`: die Ausnahme
       `gpu-ollama` in hosts.yaml war ohne diesen Eintrag unlesbar fuer den Melder.
 
+  mcp-hub:
+    prod: 8000
+    staging: null                   # Singleton, kein Staging (deploy.yml erzwingt production)
+    dev: 8000
+    prod_host: prod
+    container_name: mcp_hub_orchestrator_http
+    domain_prod: orchestrator.iil.pet
+    domain_staging: null
+    repo: achimdehnert/mcp-hub      # orchestrator_mcp/, Deploy via _deploy-unified
+    betriebsstatus: aktiv
+    betriebsstatus_grund: >
+      Schluessel = app_name aus mcp-hub deploy.yml, damit der Deploy-Preflight
+      ihn prueft statt als Scope-Luecke durchzuwinken (mcp-hub#279). Am Knoten
+      2026-09-23 gegengeprueft: Projekt mcp-hub = orchestrator_http, db, rag,
+      Listener 127.0.0.1:8000 und :15435 (DB). vllm:8000 liegt auf gx10, nicht
+      auf prod. llm_gateway/Grafana (llm-mcp) laufen NICHT auf prod.
+
   rag-mcp:
     prod: 8200
     staging: 8200
