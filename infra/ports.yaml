@@ -143,6 +143,9 @@ infra:
     port: 8001
     server: prod
     note: "LLM Gateway — internal only"
+    betriebsstatus: stillgelegt
+    betriebsstatus_grund: "Entscheid 2026-09-23 (mcp-hub#285, vom Owner delegiert in platform#3256). llm_gateway und mcp_hub_grafana liefen auf prod nicht mehr (0 Container/Images/Volumes auf prod, prod-b, odoo), sie waren vom Haupt-Deploy als Waisen entfernt worden, und niemand hat es bemerkt. Kein lebender Verbraucher: einzig bfagent/docker-compose.prod.yml deklariert den Dienst, bfagent ist eingefroren und laeuft nirgends. grafana.iil.pet liefert das odoo-Host-Grafana (KONZ-platform-055). Overlay, Build-Workflow, Dockerfile und grafana/ entfernt (mcp-hub#286). Das Paket llm_gateway bleibt fuer die Prod-Timer (task_descriptions). Host-Reste in /opt/mcp-hub werden archiviert, siehe #285."
+    repo: achimdehnert/mcp-hub
 
   gpu-ollama:
     port: 11434
