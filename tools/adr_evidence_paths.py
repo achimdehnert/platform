@@ -117,7 +117,7 @@ CROSS_REPO_PREFIX_RE = re.compile(r"^((?:[A-Za-z0-9_.\-]+/)?[A-Za-z0-9_.\-]+):(.
 PR_REF_RE = re.compile(r"^(?:(?:[A-Za-z0-9_.\-]+/)?[A-Za-z0-9_.\-]+)?#\d+$")
 GATE_SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")  # wie tools/gate_registry.py
 GATES_REL = pathlib.Path("docs") / "governance" / "gates"
-# Abschnitte, in denen ein Slug als "existiert" gilt. `kandidaten/` bewusst nicht:
+# Abschnitte, in denen ein Slug als "existiert" gilt. `kandidaten/` gehoert nicht dazu:
 # ein Kandidat ist noch kein Gate, ein ADR darf ihn nicht als Beleg fuehren.
 GATE_SECTIONS = ("gates", "declined", "widerrufen")
 PILOT_FILE = ".adr-evidence-pilot"
