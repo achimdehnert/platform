@@ -200,7 +200,20 @@ Keine. Beide Fälle sind Ausführungsdisziplin, keine Architekturentscheidung �
 | 5 | Deploy-Warnung `apo-hub`/`cad-hub` | cad-hub | — | 🟢 | Issue anlegen oder verwerfen |
 | 6 | Maßstab wird doppelt geschrieben | cad-hub | [#68](https://github.com/achimdehnert/cad-hub/issues/68) | 🟢 | Eigenes Issue, Muster korrigieren |
 | 7 | Zwei Memory-Kandidaten verankern | platform | dieser Report | 🟢 | Freigeben oder verwerfen |
-| 8 | Melder sieht nur Codeblöcke, nicht Inline-Code | platform | `tools/claude-hooks/untested_command_scanner.py` | 🟢 | Bestehendes Gate ausweiten, `revised` + neue Positivkontrolle |
+| 8 | Melder sieht nur Codeblöcke, nicht Inline-Code | platform | [#3418](https://github.com/achimdehnert/platform/pull/3418) | 🔵 | PR mergen |
+| 9 | Phase 6 kollidiert mit der Datensouveränität | platform | dieser Report §7a | 🟢 | Skill-Änderung entscheiden |
+
+## 7a · Phase 6 (Extern-Handoff) — begründetes n/a
+
+**Nicht durchgeführt, und zwar aus einem Grund, der über diese Sitzung hinausweist.**
+
+Der Skill sieht bei Footprint `deep` eine anbieterfremde Zweitmeinung vor: der Report wandert nach `~/shared/`, der Owner holt die Kritik über eine externe Oberfläche. Für diesen Report geht das nicht. Er zitiert Inhalte aus `meiki-lra/meiki-hub` und `ttz-lif/ttz-hub` — beide Organisationen fallen unter `data-sovereignty.md`, das die Weitergabe an externe SaaS-Modelle ausdrücklich untersagt. Die Regel ist fail-closed formuliert; im Zweifel gilt Abbruch.
+
+Ein geschwärzter Auszug wäre denkbar, aber er nähme der Kritik genau das, was sie prüfen soll: die Befund-Belege. Eine Methodenkritik ohne die Fälle ist wenig wert.
+
+**Das ist ein Befund am Skill, nicht an dieser Sitzung.** Phase 6 ist als „optional, nur `deep`" geführt, die Abschluss-Checkliste verlangt aber „geschrieben **oder begründet n/a**". Beides fehlte hier zunächst — ich hatte die Phase stillschweigend übersprungen und den Report trotzdem als abgeschlossen bezeichnet. Nachgetragen 2026-09-23 nach einem Evidenz-Check.
+
+**Vorschlag für den Skill:** Phase 6 bekommt eine ausdrückliche Ausnahme — berührt der Scope eine Organisation aus `data-sovereignty.md`, ist der Extern-Handoff nicht optional, sondern **unzulässig**, und das n/a ist vorgezeichnet statt begründungspflichtig.
 
 ## 8 · Nicht verifiziert (Restlücken)
 
