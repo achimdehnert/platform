@@ -1,0 +1,18 @@
+# Positivkontrolle fuer test_template_reusable_inputs.py — Form des Realfalls #3406:
+# docs/templates/ci.yml (Stand vor dem Fix) uebergab `repo_name`/`port`, die
+# _deploy-hetzner.yml nicht deklariert, liess die Pflicht-Inputs weg und nutzte
+# `secrets: inherit` trotz required-Secrets. Dieser Aufruf MUSS rot werden.
+name: CI — bad fixture
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    uses: iilgmbh/shared-ci/.github/workflows/_deploy-hetzner.yml@v1.1.18
+    with:
+      repo_name: REPO_NAME
+      port: 8010
+      image_tag: ${{ github.sha }}
+    secrets: inherit
