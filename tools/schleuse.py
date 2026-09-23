@@ -99,6 +99,16 @@ REGELN = [
     # Datum. Reihenfolge: sprechende Klassen vor der allgemeinen Datums-Regel,
     # sonst heisst am Ende alles "Datierte Uebergabe".
     (
+        # GRENZE zu "Bericht" (Position 6, steht damit VOR dieser Regel): beide
+        # Muster treffen `review-…`. Die Reihenfolge entscheidet, und sie ist
+        # hier richtig herum — gemessen am Bestand vom 2026-09-23 sind die
+        # einzigen beiden `review-`-Dateien echte Berichte
+        # (`review-skill-einmotten-adaption-2026-07-17.md`,
+        # `review-KONZ-writing-hub-014-zweitmeinung-2026-08-20.md`) und gehoeren
+        # nach `docs/` des betroffenen Repos, nicht in einen PR-Text.
+        # `review 1.md`/`review 2.md` mit LEERZEICHEN sind dagegen Notizen zu
+        # einem PR und landen hier. Die Tests halten beide Richtungen fest;
+        # wer die Reihenfolge aendert, bricht sie sichtbar (Retro 4ed2e5 #2).
         "PR-/Issue-Text",
         re.compile(r"^(pr-|issue-|commit-|review[ -]).*\.(md|txt)$", re.I),
         14,
@@ -139,8 +149,13 @@ REGELN = [
     ),
     (
         "Modell-Ausgabe",
+        # Alle Zweige sind PRAEFIXE. Bis 2026-09-23 stand hier `k4w?$` — das `$`
+        # entstand beim Verteilen des Musters ueber zwei String-Literale und
+        # machte aus dem Praefix einen exakten Vergleich: `k4` und `k4w` trafen,
+        # `k4-run-2026` nicht. Kein Test fiel darauf, weil im Bestand nur die
+        # beiden exakten Ordner lagen (Retro 4ed2e5 #4).
         re.compile(
-            r"^(lora-|bakeoff|panels-|mitlora|nulllinie|kagero-|k4w?$"
+            r"^(lora-|bakeoff|panels-|mitlora|nulllinie|kagero-|k4w?"
             r"|sprache-probe|music-lab-|comfyui-)",
             re.I,
         ),
