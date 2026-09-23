@@ -256,21 +256,31 @@ def test_should_flag_a_handed_over_command_in_inline_code():
     assert untested == ["python3 tools/mail_agent/graph_mail.py --login iil"]
 
 
-def test_should_flag_inline_code_with_a_shell_prompt_prefix():
-    untested, _ = find_untested("Bitte `$ make test` laufen lassen.", bash_commands=[])
+def test_should_still_flag_a_shell_prompt_prefix_inside_a_fenced_block():
+    """Im Block bleiben alle Prompt-Zeichen zulaessig — der Block selbst sagt,
+    dass Befehle folgen. Nur inline ist `$` mehrdeutig."""
+    untested, _ = find_untested("```bash\n$ make test\n```", bash_commands=[])
     assert untested == ["make test"]
 
 
 @pytest.mark.parametrize(
     "text",
     [
+        # ohne jeden Praefix — Erwaehnung, keine Uebergabe
         "Die Tests laufen ueber `make test`.",
         "Siehe `tools/claude-hooks/untested_command_scanner.py`.",
         "Der Schalter `--oeffentlich-bestaetigt` geht daran vorbei.",
         "Das Modul heisst `pymupdf`, nicht `fitz`.",
+        # mit einem Prompt-Zeichen, das INLINE mehrdeutig ist. Alle vier haben
+        # in der ersten Fassung von AUSWEITUNG 3 gefeuert — belegte Fehlalarme
+        # eines BLOCKIERENDEN Melders, nachgetragen in derselben Sitzung.
+        "Die README zeigt als Beispiel `$ npm install`, hier laeuft nichts.",
+        "Jedes Skript hier beginnt mit `#!/bin/bash`, das ist Konvention.",
+        "Er schrieb: `> git status` als Zitat, nicht als Auftrag.",
+        "Kopiere die Datei nach `$HOME/bin/deploy.sh`.",
     ],
 )
-def test_should_stay_silent_on_inline_code_without_a_prompt_prefix(text):
+def test_should_stay_silent_on_ambiguous_inline_code(text):
     """Gegenrichtung: ohne Praefix ist eine Spanne eine Erwaehnung, keine
     Uebergabe. Ohne diese Grenze feuerte der Melder auf jeden Dateinamen."""
     untested, placeholders = find_untested(text, bash_commands=[])
