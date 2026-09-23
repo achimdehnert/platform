@@ -97,7 +97,8 @@ python3 scripts/gen_project_facts.py [--force] [repo-name]
 
 ## Reusable CI/CD Workflows
 
-Alle Repos rufen diese auf via `uses: achimdehnert/platform/.github/workflows/...`:
+Die Reusables leben in [`iilgmbh/shared-ci`](https://github.com/iilgmbh/shared-ci) (SSoT, #3398).
+Aufruf mit festem Tag, nie `@main`/`@v1`: `uses: iilgmbh/shared-ci/.github/workflows/<datei>@vX.Y.Z`
 
 | Workflow | Zweck |
 |----------|-------|
