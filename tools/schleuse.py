@@ -92,6 +92,67 @@ REGELN = [
         14,
         "Inhalte ins Ziel-Repo holen, dann leeren (box-schleuse.sh leere von-box)",
     ),
+    # Ab hier die Klassen aus der Bestandsaufnahme vom 2026-09-23 (#3405): 168
+    # von 291 Eintraegen trugen keine Regel und liefen still auf die
+    # 90-Tage-Grenze zu. Die folgenden Muster benennen die haeufigsten Arten,
+    # damit ein Eintrag mit einer Begruendung verfaellt und nicht nur mit einem
+    # Datum. Reihenfolge: sprechende Klassen vor der allgemeinen Datums-Regel,
+    # sonst heisst am Ende alles "Datierte Uebergabe".
+    (
+        "PR-/Issue-Text",
+        re.compile(r"^(pr-|issue-|commit-|review[ -]).*\.(md|txt)$", re.I),
+        14,
+        "Text steht im PR/Issue selbst — die Kopie hier ist nur Transport",
+    ),
+    (
+        "Wegwerf-Skript",
+        re.compile(r".*\.(sh|ps1|cmd|bat|py)$"),
+        21,
+        "einmal gelaufen; was bleiben soll, gehoert nach tools/ des Ziel-Repos",
+    ),
+    (
+        "Bildschirmfoto",
+        re.compile(r".*\.(png|jpe?g|gif|webp)$", re.I),
+        30,
+        "Bild gehoert an das Issue/den PR oder in die Doku",
+    ),
+    (
+        "Lauf-Ausgabe",
+        re.compile(
+            r".*\.(csv|ndjson|log)$"
+            r"|.*(inventar|beleg|probe|verifikation|rohbefund|-before-|-after-)"
+            r".*\.(txt|json)$",
+            re.I,
+        ),
+        30,
+        "die Zahl gehoert ins Issue/Konzept, die Rohdatei nicht in die Schleuse",
+    ),
+    (
+        "Dokument-Entwurf",
+        re.compile(
+            r".*(entwurf|freigegeben|zweitmeinung|kurzfassung|vorlagen)"
+            r".*\.(md|pdf|docx|odt)$",
+            re.I,
+        ),
+        30,
+        "gehoert nach Outline/Paperless oder ins Ziel-Repo",
+    ),
+    (
+        "Modell-Ausgabe",
+        re.compile(
+            r"^(lora-|bakeoff|panels-|mitlora|nulllinie|kagero-|k4w?$"
+            r"|sprache-probe|music-lab-|comfyui-)",
+            re.I,
+        ),
+        30,
+        "Modell-/GPU-Ergebnis gehoert auf die GPU-Box oder weg",
+    ),
+    (
+        "Datierte Uebergabe",
+        re.compile(r".*(\d{4}-\d{2}-\d{2}|\d{8}).*"),
+        45,
+        "Name traegt ein Datum: einmaliger Transport, nach Ankunft weg",
+    ),
 ]
 
 MELDE_TAGE = 30  # Die Schleuse ist ein Foerderband: was einen Monat liegt,
