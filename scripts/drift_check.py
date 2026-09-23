@@ -604,9 +604,29 @@ def check_python_version(repo: str, token: str) -> list[DriftItem]:
 # Flotte real nicht hat (deploy_runs_on-Regression #461; gate-Job fehlte in
 # v1.0.2 trotz #548-Behauptung). Zwei Regeln:
 #   shared-ci-tag-outdated (warn):  Consumer pinnt nicht-neuesten Tag
-#   shared-ci-tag-stale    (error): neuester Tag ≠ platform-main-Kanon
+#   shared-ci-tag-stale    (error): neuester Tag ≠ Kanon-main der Datei
+#
+# Welcher main der Kanon ist, haengt an der Datei (Owner-Entscheid 2026-09-23,
+# platform#3398): Fuer die Deploy-Reusables ist iilgmbh/shared-ci die einzige
+# Quelle. Die Regel verglich den Tag bis dahin mit platform-main und behauptete
+# damit einen Master, den die Praxis laengst umgedreht hatte (Historie der
+# platform-Kopie: "die Divergenz lief andersherum", "aus shared-ci main
+# nachgezogen"). Jeder Deploy-Fix musste so doppelt landen — genau das Doppel,
+# aus dem die Drift-Klasse "Tag ≠ main" entsteht. Fuer diese Dateien wird der
+# neueste Tag deshalb gegen shared-ci-main geprueft; eine platform-Kopie wird
+# gar nicht mehr gelesen. Alle uebrigen Dateien behalten vorerst den
+# platform-Kanon — ueber sie hat #3398 nicht entschieden.
 
 SHARED_CI_REPO = "iilgmbh/shared-ci"
+_PLATFORM_REPO = f"{GITHUB_ORG}/platform"
+SHARED_CI_SSOT_DATEIEN = frozenset({"_deploy-unified.yml", "_deploy-hetzner.yml"})
+
+
+def _kanon_repo(name: str) -> str:
+    """Repo, dessen main fuer `name` der Kanon ist (#3398)."""
+    return SHARED_CI_REPO if name in SHARED_CI_SSOT_DATEIEN else _PLATFORM_REPO
+
+
 SHARED_CI_PIN_RE = re.compile(
     r"iilgmbh/shared-ci/\.github/workflows/([\w.-]+\.ya?ml)@([\w./-]+)"
 )
@@ -819,8 +839,14 @@ def _normalisiere_pin_kommentare(text: str) -> str:
     return _ACTION_PIN_KOMMENTAR_RE.sub(lambda m: "@" + m.group(1), text)
 
 
-def shared_ci_deckt_kanon(tagged: str, canonical: str) -> bool:
-    """True, wenn Tag-Inhalt und platform-Kanon dasselbe TUN.
+def shared_ci_deckt_kanon(
+    tagged: str, canonical: str, kanon_repo: str = _PLATFORM_REPO
+) -> bool:
+    """True, wenn Tag-Inhalt und Kanon (main von `kanon_repo`) dasselbe TUN.
+
+    `kanon_repo` ist platform oder — fuer `SHARED_CI_SSOT_DATEIEN` — shared-ci
+    selbst (#3398); dann entfaellt die Port-Normalisierung faktisch, weil beide
+    Seiten dasselbe Repo nennen, und es zaehlt nur noch, was der Workflow tut.
 
     Faellt auf exakten Textvergleich zurueck, wenn eine Seite nicht als YAML
     ladbar ist — lieber ein Fehlalarm als ein stillschweigend uebersehener
@@ -834,7 +860,7 @@ def shared_ci_deckt_kanon(tagged: str, canonical: str) -> bool:
     except yaml.YAMLError:
         return tagged == canonical
     return _kanon_normalform(tag_tree, SHARED_CI_REPO) == _kanon_normalform(
-        kanon_tree, f"{GITHUB_ORG}/platform"
+        kanon_tree, kanon_repo
     )
 
 
@@ -845,7 +871,9 @@ def _kanon_normalform(tree: Any, repo: str) -> Any:
     )
 
 
-def kanon_richtung(tagged: str, canonical: str) -> tuple[int, int]:
+def kanon_richtung(
+    tagged: str, canonical: str, kanon_repo: str = _PLATFORM_REPO
+) -> tuple[int, int]:
     """(nur im Tag, nur im Kanon) — Zeilen der normalisierten Baeume.
 
     Der Fix-Hinweis der Regel behauptete jahrelang eine Richtung ("platform nach
@@ -866,7 +894,7 @@ def kanon_richtung(tagged: str, canonical: str) -> tuple[int, int]:
         ).splitlines()
 
     try:
-        a = zeilen(canonical, f"{GITHUB_ORG}/platform")
+        a = zeilen(canonical, kanon_repo)
         b = zeilen(tagged, SHARED_CI_REPO)
     except yaml.YAMLError:
         return (0, 0)
@@ -921,7 +949,11 @@ def _get_content_at(owner_repo: str, path: str, ref: str, token: str) -> str | N
 
 
 def _shared_ci_state(token: str) -> dict:
-    """Einmal pro Lauf: neuester Tag + Abgleich Tag-Inhalt vs platform-Kanon."""
+    """Einmal pro Lauf: neuester Tag + Abgleich Tag-Inhalt vs Kanon-main.
+
+    Kanon ist je Datei `_kanon_repo(name)`: shared-ci-main fuer die
+    Deploy-Reusables (#3398), sonst platform-main.
+    """
     global _SHARED_CI_STATE
     if _SHARED_CI_STATE is not None:
         return _SHARED_CI_STATE
@@ -946,19 +978,22 @@ def _shared_ci_state(token: str) -> dict:
             name = item["name"]
             if not _im_kanon_abgleich(name):
                 continue
+            kanon_repo = _kanon_repo(name)
             canonical = _get_content_at(
-                f"{GITHUB_ORG}/platform", f".github/workflows/{name}", "main", token
+                kanon_repo, f".github/workflows/{name}", "main", token
             )
             if canonical is None:
-                continue  # existiert nur in shared-ci — kein Kanon-Abgleich
+                continue  # existiert nicht im Kanon-Repo — kein Kanon-Abgleich
             tagged = _get_content_at(
                 SHARED_CI_REPO, f".github/workflows/{name}", latest, token
             )
             # Strukturell vergleichen, nicht per Text-Ersetzung — Begruendung
             # und Messung siehe `shared_ci_deckt_kanon`.
-            if tagged is not None and not shared_ci_deckt_kanon(tagged, canonical):
+            if tagged is not None and not shared_ci_deckt_kanon(
+                tagged, canonical, kanon_repo
+            ):
                 stale_files.append(name)
-                richtungen[name] = kanon_richtung(tagged, canonical)
+                richtungen[name] = kanon_richtung(tagged, canonical, kanon_repo)
     _SHARED_CI_STATE = {
         "latest_tag": latest,
         "stale_files": stale_files,
@@ -970,7 +1005,7 @@ def _shared_ci_state(token: str) -> dict:
 def check_shared_ci_tag_drift(
     repo: str, token: str, state: dict | None = None
 ) -> list[DriftItem]:
-    """Prüft shared-ci-Pins des Repos gegen neuesten Tag + platform-Kanon."""
+    """Prüft shared-ci-Pins des Repos gegen neuesten Tag + Kanon-main (#3398)."""
     drifts = []
     pins: list[tuple[str, str, str]] = []  # (wf_file, pinned_file, ref)
     for wf_file in _get_dir_files(repo, ".github/workflows", token):
@@ -1000,7 +1035,29 @@ def check_shared_ci_tag_drift(
             )
         if pinned_file in stale_files:
             nur_tag, nur_kanon = state.get("richtungen", {}).get(pinned_file, (0, 0))
-            if nur_tag > nur_kanon:
+            kanon_name = (
+                "shared-ci-main-Kanon"
+                if pinned_file in SHARED_CI_SSOT_DATEIEN
+                else "platform-main-Kanon"
+            )
+            if pinned_file in SHARED_CI_SSOT_DATEIEN:
+                # Kanon ist shared-ci-main selbst (#3398): es gibt nichts zu
+                # portieren, nur einen Tag, der hinter main liegt.
+                if nur_tag > nur_kanon:
+                    richtung = (
+                        f"Tag hat Zeilen, die shared-ci-main nicht mehr hat "
+                        f"({nur_tag} zu {nur_kanon}) — Ruecknahme auf main pruefen"
+                    )
+                else:
+                    richtung = (
+                        f"shared-ci-main ist voraus ({nur_kanon} zu {nur_tag} "
+                        "Zeilen) — neuen Tag schneiden"
+                    )
+                hinweis = (
+                    "in iilgmbh/shared-ci von main einen neuen Tag schneiden; "
+                    "platform ist fuer diese Datei kein Kanon (#3398)"
+                )
+            elif nur_tag > nur_kanon:
                 richtung = (
                     f"shared-ci ist VORAUS ({nur_tag} zu {nur_kanon} Zeilen) — "
                     "Kanon nachziehen, NICHT portieren"
@@ -1024,7 +1081,7 @@ def check_shared_ci_tag_drift(
                     severity="error",
                     file=f".github/workflows/{wf_file}",
                     message=(
-                        f"shared-ci@{latest}/{pinned_file} ≠ platform-main-Kanon — "
+                        f"shared-ci@{latest}/{pinned_file} ≠ {kanon_name} — "
                         f"{richtung} (🌀 Tag≠main)"
                     ),
                     fix_hint=hinweis,
