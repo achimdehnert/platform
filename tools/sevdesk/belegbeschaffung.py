@@ -99,6 +99,7 @@ import io
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import time
@@ -120,6 +121,24 @@ STANDARD_ABLAGE_INBOX = Path.home() / "shared" / "inbox" / "invoices"
 INDEX_DATEI = Path.home() / ".claude" / "sevdesk-belegbeschaffung-index.json"
 JOURNAL_DATEI = Path.home() / ".claude" / "sevdesk-belegbeschaffung-journal.jsonl"
 STANDARD_ZIEL = Path.home() / ".claude" / "boards" / "sevdesk-belegbeschaffung.md"
+
+# ── Archiv-Zustellung (platform#3102, gemessen 2026-09-23) ─────────────────
+#
+# Die Buchhaltung war vollstaendiger als das Archiv: 65 Rechnungen des Jahres
+# lagen in Paperless, aber keine einzige von Hetzner, Cloudflare, Anthropic
+# oder GitHub — obwohl deren Belege hier laengst beschafft werden. Der Beleg
+# braucht nur Betrag und Datum aus dem PDF; das Dokument selbst wollte danach
+# niemand mehr sehen, bis eine Pruefung es verlangt (§147 AO, zehn Jahre).
+#
+# Deshalb liefert dieses Werkzeug ein zugeordnetes PDF zusaetzlich in den
+# Consume-Ordner. Der Schritt haengt bewusst an der **Zuordnung**, nicht am
+# Download: so greift er fuer beide Quellen (Postfach-Ablage und Owner-Ablage
+# aus den Portalen) und nur fuer Belege, die wirklich zu einem Abgang gehoeren.
+PAPERLESS_HOST = "hetzner-prod"
+PAPERLESS_ZIEL = "/opt/paperless-consume/{mandant}/rechnung"
+#: Nur diese Ergebnisse gelten als "Beleg ist echt und gehoert ins Archiv".
+#: VORSCHAU und FEHLER ausdruecklich nicht — ein Probelauf darf nichts abliefern.
+PAPERLESS_ERGEBNISSE = ("angelegt", "DUPLIKAT")
 
 #: Die Bankabgaenge kommen immer vom Geschaeftskonto der IIL — auch dann,
 #: wenn Belege im Mandanten der zweiten Firma angelegt werden.
@@ -1046,6 +1065,100 @@ def _ablage_schluessel(pfad: Path) -> str:
     return f"ablage:{pfad}:{stempel}"
 
 
+# ── Archiv-Zustellung ──────────────────────────────────────────────────────
+
+
+def paperless_schluessel(pfad: str) -> str:
+    """Index-Schluessel der Zustellung — ein PDF wird genau einmal geliefert."""
+    return f"paperless:{pfad}"
+
+
+def paperless_zustellen(pfad: Path, host: str, ziel: str) -> None:
+    """Ein PDF in den Consume-Ordner legen — Rechte VOR dem Hineinlegen.
+
+    Die Reihenfolge ist nicht Geschmack: legt man den Ordner als ``root`` an
+    und kopiert danach, parst der Consumer die Datei zwar, kann sie aber nicht
+    mehr entfernen (er laeuft als UID 1000) — ``PermissionError``, und **kein**
+    Dokument in der Datenbank. Und ein ``chown`` allein weckt den Beobachter
+    nicht, weil der auf ``mtime`` reagiert, nicht auf ``ctime``. ``install``
+    schreibt eine neue Datei und loest damit das Ereignis aus.
+    (Drift-Episode ``2026-08-05-paperless-consume-mkdir-as-root``.)
+    """
+    name = pfad.name
+    fern = f"/tmp/{name}"
+    subprocess.run(
+        [
+            "ssh",
+            host,
+            f"mkdir -p {shlex.quote(ziel)} "
+            f"&& chown runner-wh:runner-wh {shlex.quote(ziel)} "
+            f"&& chmod 2775 {shlex.quote(ziel)}",
+        ],
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["scp", str(pfad), f"{host}:{fern}"], check=True, capture_output=True
+    )
+    subprocess.run(
+        [
+            "ssh",
+            host,
+            f"install -o runner-wh -g runner-wh -m 664 {shlex.quote(fern)} "
+            f"{shlex.quote(ziel + '/' + name)} && rm -f {shlex.quote(fern)}",
+        ],
+        check=True,
+        capture_output=True,
+    )
+
+
+def nach_paperless(
+    zeilen: list[dict],
+    index: dict,
+    *,
+    wirklich: bool,
+    heute: dt.date,
+    zustell_fn=paperless_zustellen,
+    host: str = PAPERLESS_HOST,
+) -> dict:
+    """Zugeordnete Belege zusaetzlich ins Archiv liefern.
+
+    Geliefert wird nur, was einem Abgang zugeordnet **und** in sevdesk
+    angekommen ist (``angelegt``) oder dort schon lag (``DUPLIKAT``) — der
+    zweite Fall ist der haeufigere und genau der, der das Archiv leer liess.
+    Ohne ``wirklich`` wird nichts uebertragen, die Auswahl aber vollstaendig
+    berechnet; so zeigt ein Probelauf, was ein scharfer Lauf taete.
+    """
+    geliefert: list[str] = []
+    schon_da: list[str] = []
+    fehler: list[str] = []
+    for zeile in zeilen:
+        pfad = zeile.get("pdf")
+        if not pfad or zeile.get("ergebnis") not in PAPERLESS_ERGEBNISSE:
+            continue
+        schluessel = paperless_schluessel(pfad)
+        if schluessel in index:
+            schon_da.append(pfad)
+            continue
+        ziel = PAPERLESS_ZIEL.format(mandant=zeile.get("mandant") or ABGANG_MANDANT)
+        if not wirklich:
+            geliefert.append(pfad)
+            continue
+        try:
+            zustell_fn(Path(pfad), host, ziel)
+        except (subprocess.CalledProcessError, OSError) as exc:
+            fehler.append(f"{Path(pfad).name}: {exc}")
+            continue
+        index[schluessel] = {
+            "quelle": "paperless",
+            "pfad": pfad,
+            "ziel": f"{host}:{ziel}",
+            "zeit": heute.isoformat(),
+        }
+        geliefert.append(pfad)
+    return {"geliefert": geliefert, "schon_da": schon_da, "fehler": fehler}
+
+
 def ablage_lesen(
     ordner: Path, register: list[dict], index: dict, lese_fn=None
 ) -> tuple[dict[int, list[dict]], list[dict], int]:
@@ -1521,6 +1634,17 @@ def lauf(
                 "zeit": heute.isoformat(),
             }
 
+    zustellung = (
+        nach_paperless(
+            entwuerfe + pdf_ohne_abgang,
+            index,
+            wirklich=bool(args.anlegen),
+            heute=heute,
+        )
+        if args.nach_paperless
+        else {"geliefert": [], "schon_da": [], "fehler": []}
+    )
+
     index_schreiben(Path(args.index), index)
 
     angelegt = sum(
@@ -1565,6 +1689,11 @@ def lauf(
         "pdf_ohne_abgang": len(pdf_ohne_abgang),
         "dauer_s": round(time.monotonic() - start, 2),
         "anlegen": wirklich,
+        # Archiv-Zustellung getrennt ausweisen: "geliefert" ohne --anlegen ist
+        # eine Vorschau, kein Vollzug — sonst liest sich ein Probelauf wie Arbeit.
+        "paperless_geliefert": len(zustellung["geliefert"]),
+        "paperless_schon_da": len(zustellung["schon_da"]),
+        "paperless_fehler": zustellung["fehler"],
     }
     return {
         "kennzahlen": kennzahlen,
@@ -1822,6 +1951,14 @@ def main(argv: list[str] | None = None) -> int:
         "--anlegen",
         action="store_true",
         help="Beleg-ENTWUERFE wirklich anlegen (Status 50) — ohne das nur Vorschau",
+    )
+    p.add_argument(
+        "--nach-paperless",
+        action="store_true",
+        help=(
+            "zugeordnete Belege zusaetzlich in den Paperless-Consume-Ordner legen "
+            "(#3102); uebertragen wird nur zusammen mit --anlegen, sonst Vorschau"
+        ),
     )
     p.add_argument(
         "--json", action="store_true", help="Ausgabe als JSON statt Markdown"
