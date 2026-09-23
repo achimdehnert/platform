@@ -11,6 +11,9 @@ on:
       - "tools/adr_draft_guard.py"
       - "tools/adr_umsetzungsstand_check.py"
       - "scripts/gen_adr_index.py"
+      # Gate-Registry: eine `gate:`-Belegzeile (KONZ-065) zeigt auf einen Slug
+      # dort — verschwindet er, muss das ADR rot werden, nicht die Registry.
+      - "docs/governance/gates/**"
       # Diese Datei selbst — sonst ist der Workflow gegen Aenderungen an sich
       # blind: ein PR, der NUR hier editiert, laeuft nie, und die Aenderung
       # erreicht main ohne einen einzigen Lauf. Genau das war bei der Umstellung
@@ -27,6 +30,7 @@ on:
       - "tools/adr_draft_guard.py"
       - "tools/adr_umsetzungsstand_check.py"
       - "scripts/gen_adr_index.py"
+      - "docs/governance/gates/**"
       - ".github/workflows/adr-validate.yml"
   schedule:
     - cron: "0 6 * * 1"  # Weekly Monday 06:00 UTC
@@ -148,14 +152,19 @@ jobs:
       # ADR-088, ADR-109, ADR-130, ADR-131, ADR-145 je eins; jedes gegen git-Historie
       # bzw. Ziel-Repo verifiziert (0 bekannte Falsch-Positive).
       # platform#1318 raeumt genau diese 10 ADRs auf — auf dessen Stand gemessen:
-      # 0 Findings. Promotion zu gating (`--gate` setzen, `exit 0` entfernen) erst
-      # nach Merge von #1318 — vgl. feedback_advisory_scanner_reactivation_needs_baseline
+      # 0 Findings. Promotion zu gating (`--gate` setzen) erst nach sauberer
+      # Baseline — vgl. feedback_advisory_scanner_reactivation_needs_baseline
       # (dauerroter non-blocking Check = Alarm-Muedigkeit).
-      - name: ADR implementation_evidence-Pfade (SUGGEST, non-gating)
-        run: |
-          set +e
-          python3 tools/adr_evidence_paths.py --format github
-          exit 0
+      #
+      # KONZ-platform-065 (Owner „D1–D4 ja", 2026-09-23): Promotion auf die
+      # Pilotliste `docs/adr/.adr-evidence-pilot` verengt (10 ADRs mit typisierten
+      # Belegzeilen path:/gate:/test:/pr:). Dort ist ein Finding rot (`--gate-pilot`
+      # → Exit 1, `::error`); ausserhalb der Liste exitet das Skript weiter 0 und
+      # meldet `::warning`. Kein `set +e`/`exit 0` mehr — der Exit-Code IST das Gate.
+      # Kill-Gate (KONZ-065): >10 % Falsch-Positive ueber 30 Tage → `--gate-pilot`
+      # hier entfernen und die Pilotliste loeschen.
+      - name: ADR implementation_evidence (SUGGEST; Pilotliste gating, KONZ-065)
+        run: python3 tools/adr_evidence_paths.py --format github --gate-pilot
 
   # ADR Index frisch? — regeneriert index.json + INDEX.md und vergleicht gegen den
   # committeten Stand. Datum-sensitive Zeilen werden beim Diff ausgeblendet, damit

@@ -6,13 +6,18 @@ decision_date: 2026-07-14
 implemented: 2026-07-14
 implementation_status: implemented
 implementation_evidence:
-  - "P0 Archiv-Lifecycle-View + gen_archived (additiv): PR #1137"
-  - "P0.5+P1 sovereign hubs + sync-workflows.sh auf Flat-View: PR #1139"
-  - "P2 runner-health.yml via registry_api: PR #1140"
-  - "P3 sync-drift-meter (Kommentar-Fix; war Nicht-Consumer): PR #1142"
-  - "P4 validate_repos.py auf canonical.yaml: PR #1144"
-  - "P5 github_repos.yaml → registry/_ARCHIVED/ (direkter Move, s. Umsetzung): PR #1145"
-  - "Hygiene (bfagent/doc-hub/ifc-mcp/schutztat-reporting): PR #1146, Issue #1143"
+  - "path: registry/canonical.yaml — die einzige Quelle"
+  - "path: registry/_ARCHIVED/github_repos.yaml — stillgelegt (P5)"
+  - "path: tools/registry_api.py — kanonischer Accessor (ADR-234), Consumer lesen nur noch hierueber"
+  - "test: tools/tests/test_registry_api.py"
+  - "test: tools/tests/test_sync_workflows.py — P1: Klassifikation aus der Flat-View"
+  - "pr: platform#1137 — P0 Archiv-Lifecycle-View + gen_archived (additiv)"
+  - "pr: platform#1139 — P0.5+P1 sovereign hubs + sync-workflows.sh auf Flat-View"
+  - "pr: platform#1140 — P2 runner-health.yml via registry_api"
+  - "pr: platform#1142 — P3 sync-drift-meter (Kommentar-Fix; war Nicht-Consumer)"
+  - "pr: platform#1144 — P4 validate_repos.py auf canonical.yaml"
+  - "pr: platform#1145 — P5 github_repos.yaml → registry/_ARCHIVED/ (direkter Move, s. Umsetzung)"
+  - "pr: platform#1146 — Hygiene (bfagent/doc-hub/ifc-mcp/schutztat-reporting), Issue #1143"
 deciders: [Achim Dehnert]
 consulted: [Claude Code]
 informed: [iilgmbh]
