@@ -14,6 +14,8 @@ import datetime
 import importlib.util
 import pathlib
 
+import pytest
+
 _SRC = pathlib.Path(__file__).resolve().parents[1] / "schleuse.py"
 _spec = importlib.util.spec_from_file_location("schleuse", _SRC)
 schleuse = importlib.util.module_from_spec(_spec)
@@ -173,3 +175,82 @@ def test_should_never_touch_paths_outside_the_schleuse(monkeypatch, tmp_path):
     fremd.mkdir(parents=True)
     schleuse.endgueltig(apply=True, heute=HEUTE, tage=90)
     assert fremd.exists()
+
+
+# ── #3405: die Klassen aus der Bestandsaufnahme 2026-09-23 ───────────────────
+#
+# Jeder Name hier ist ein echter Eintrag aus ~/shared vom 2026-09-23 — die
+# Regeln sind an diesem Bestand entstanden, also wird auch an ihm geprueft.
+# Die beiden Kontrollen am Ende sind der eigentliche Punkt: die Regeln duerfen
+# weder den Secrets-Ordner einfangen noch alles andere pauschal abraeumen.
+
+
+@pytest.mark.parametrize(
+    ("name", "erwartete_klasse", "erwartete_frist"),
+    [
+        ("pr-o-series.md", "PR-/Issue-Text", 14),
+        ("issue-189.md", "PR-/Issue-Text", 14),
+        ("commit-o-series.txt", "PR-/Issue-Text", 14),
+        ("review 2.md", "PR-/Issue-Text", 14),
+        ("cf-access-recon.sh", "Wegwerf-Skript", 21),
+        ("w11-inventar.ps1", "Wegwerf-Skript", 21),
+        ("paperless-access-konten.py", "Wegwerf-Skript", 21),
+        ("hetzner.png", "Bildschirmfoto", 30),
+        ("DESKTOP-G1MN89S_C.csv", "Lauf-Ausgabe", 30),
+        # "probe" traegt weiter als der comfyui-Prefix: eine Probe-Ausgabe ist
+        # eine Lauf-Ausgabe, egal welches Werkzeug sie erzeugt hat.
+        ("comfyui-probe.txt", "Lauf-Ausgabe", 30),
+        ("konz041-pilot-verifikation-2026-08-06.txt", "Lauf-Ausgabe", 30),
+        ("meiki-hnu-TOM-2026-07-27-entwurf.pdf", "Dokument-Entwurf", 30),
+        ("MEiKI-P1-Steckbrief-ENTWURF.docx", "Dokument-Entwurf", 30),
+        ("lora-hina-paket.zip", "Modell-Ausgabe", 30),
+        ("bakeoff-int8", "Modell-Ausgabe", 30),
+        ("kd-sync-2026-08-03", "Datierte Uebergabe", 45),
+        ("gov-redaction-originals-2026-07-08", "Datierte Uebergabe", 45),
+    ],
+)
+def test_should_classify_real_schleuse_entries(
+    monkeypatch, tmp_path, name, erwartete_klasse, erwartete_frist
+):
+    _anlegen(tmp_path, name, 5)
+
+    eintrag = _finde(_sammeln(monkeypatch, tmp_path), name)
+
+    assert eintrag["klasse"] == erwartete_klasse
+    assert eintrag["frist"] == erwartete_frist
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "CAD",
+        "Second Brain",
+        "FRITZ!Box 7590.pdf",
+        "konzept-hybrid.md",
+        "cloudflared-risk-hub-staging-config.yml",
+    ],
+)
+def test_should_leave_genuine_single_cases_unentschieden(monkeypatch, tmp_path, name):
+    """Positivkontrolle: die neuen Regeln duerfen nicht alles einfangen.
+
+    Diese fuenf lagen am 2026-09-23 ebenfalls in der Schleuse und sind echte
+    Einzelfaelle — ein Projektordner, eine Notiz, eine Konfiguration. Sie
+    muessen unentschieden bleiben, sonst ist die Klassifikation nur noch ein
+    Etikett fuer "alles verfaellt".
+    """
+    _anlegen(tmp_path, name, 40, ist_datei=name.endswith((".pdf", ".md", ".yml")))
+
+    eintrag = _finde(_sammeln(monkeypatch, tmp_path), name)
+
+    assert eintrag["klasse"] == "unklassifiziert"
+    assert eintrag["unentschieden"] is True
+
+
+def test_should_not_let_new_rules_reach_the_secrets_container(monkeypatch, tmp_path):
+    """Die Datums-Regel ist die breiteste — sie darf den Secrets-Ordner nicht fassen."""
+    _anlegen(tmp_path, schleuse.SECRETS_TOP, 200, ist_datei=False)
+
+    eintrag = _finde(_sammeln(monkeypatch, tmp_path), schleuse.SECRETS_TOP)
+
+    assert eintrag["klasse"] == "unklassifiziert"
+    assert eintrag["faellig"] is False
