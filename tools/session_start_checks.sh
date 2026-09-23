@@ -1413,6 +1413,26 @@ else
   record "0.7.28 gpu-leerlauf" "SKIP" "tools/gpu_leerlauf.py fehlt"
 fi
 
+# ── 0.7.29 Container-Speicher: OOM-Kill, anon-Anteil, Limit-Treffer je cgroup ──
+# platform#3400: `docker stats` zeigte gotenberg bei 92 %, die cgroup bei 42 % anon —
+# gemessen wird deshalb die cgroup (memory.stat/memory.events). Der Timer
+# container-speicher.timer misst alle 15 min per ssh; hier wird NUR das abgelegte
+# Ergebnis gelesen (kein ssh, keine Laufzeit). Ein stehender Timer ist ein Befund
+# (Exit 2 -> WARN), nie ein PASS.
+if [ -f "$PLATFORM_DIR/tools/container_speicher_melder.py" ]; then
+  # Ohne Pipe: `$(… | tail -1)` liefert den Exit von tail (Lehre platform#3373).
+  # `--lesen` gibt genau eine Zeile aus.
+  CS_OUT=$(python3 "$PLATFORM_DIR/tools/container_speicher_melder.py" --lesen \
+             --ergebnis-datei "$MELDER_DIR/container-speicher.json" 2>&1)
+  CS_RC=$?
+  case "$CS_RC" in
+    0) record "0.7.29 container-speicher" "PASS" "$CS_OUT" ;;
+    *) record "0.7.29 container-speicher" "WARN" "$CS_OUT" ;;
+  esac
+else
+  record "0.7.29 container-speicher" "SKIP" "tools/container_speicher_melder.py fehlt"
+fi
+
 # ── 0.7.24 Registry-Erreichbarkeit: die Strecke, an der vier Deploys starben ──
 # Am 2026-09-02 erreichte prod ghcr.io nur in 4 von 10 Versuchen, bei 10 von 10
 # gegen github.com. Vier Deploys scheiterten; zwei Stunden spaeter war der Zustand

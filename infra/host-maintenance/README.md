@@ -142,6 +142,22 @@ Dry-run first to inspect the plan without removing anything:
 ( cd ~/github/<repo> && python3 ~/github/platform/tools/worktree-reaper.py )
 ```
 
+## Container-Speicher-Melder (platform#3400 — dev/session host, `--user`)
+
+`tools/container_speicher_melder.py` liest alle 15 min per ssh (`hetzner-prod`) je
+Container mit Limit die cgroup v2 (`memory.max/current/peak`, `memory.stat`,
+`memory.events`) — **nur lesend, auf prod wird nichts installiert**. Journal unter
+`~/.claude/container-speicher-journal.jsonl`, Ergebnis unter
+`~/.repo-session/melder/container-speicher.json` (Sitzungsstart 0.7.29 liest es).
+
+Install (per session host, wie `kettencheck`/`flottenbild`):
+```bash
+cp infra/host-maintenance/container-speicher.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now container-speicher.timer
+systemctl --user list-timers container-speicher.timer
+```
+
 ## Changelog
 - 2026-09-07: Docker-Praevention dev-desktop hinzugefuegt (`docker-daemon.{json,md}`,
   `docker-prune.{sh,service,timer}`, platform#2895 Item 98). IaC-only, Apply = Owner.

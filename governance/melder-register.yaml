@@ -357,6 +357,19 @@ melder:
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.7.27"
+  - phase: "0.7.28 gpu-leerlauf"
+    # Nachgetragen mit #3400: die Phase stand seit platform#3352 im Runner, aber ohne Register-Eintrag (melder_register_check --kurz: "1 Melder ohne Leser"). Leser aus session-start.md Zeile 96.
+    leser: "Session-Start-Board → Agent (Zweck des Dienstes klaeren oder anhalten, `systemctl --user stop <unit>`)"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.28"
+  - phase: "0.7.29 container-speicher"
+    leser: "Session-Start-Board → Agent (FEHLER oom_kill: Ursache im Container klaeren; WARN anon > 70 %: Limit-Anhebung als IaC-PR vorschlagen); Owner fuer jeden Prod-Schritt (mem_limit, Neustart) — Entscheid gotenberg 2026-09-30 (platform#3400)"
+    wiedervorlage_tage: 7
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.29"
   - phase: "0.7.26 ci-deckung"
     leser: "Session-Start-Board → Agent (Ziel gedeckt/verzichtet nachziehen, dann `make <ziel>` in den Workflow oder Grund in governance/ci-deckung-verzicht.yaml); Owner bei Scope-Fragen ueber Repo-Grenzen"
     wiedervorlage_tage: 14

@@ -94,6 +94,7 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
 | `0.7.26 ci-deckung` | Ziel `NICHT PRUEFBAR` — Deckung ungemessen | alle auflösbar | shared-ci-Workflow auflösen; ungemessen ist keine Entwarnung |
 | `0.7.27 sichtbarkeits-drift` | noch Konsumenten/Kopien/Fristen an `achimdehnert/platform` (Ziel 0/0/1/0, #3234) | `erreicht` | Laufzeit-Pfade zuerst umhängen; Frist erneuern; Flip = Owner nach 7 Tagen PASS |
 | `0.7.28 gpu-leerlauf` | Dienst haelt >=4 GB Grafikspeicher und wurde >=3 Tage nicht gerufen | kein Dienst ueber beiden Schwellen | Zweck klaeren oder anhalten (`systemctl --user stop <unit>`); `SKIP` = Knoten nicht befragt, keine Entwarnung |
+| `0.7.29 container-speicher` | `oom_kill` gestiegen, anon > 70 % vom Limit, Limit-Treffer/24 h > 2× Basis, oder Timer steht (`NICHT GELAUFEN`) | `SAMMELPHASE` (Trend noch ohne Basis) | OOM: Ursache im Container; anon: Limit-PR vorschlagen, Prod-Schritt = Owner (#3400) |
 | `0.7.23 melder-register` | Phase ohne Eintrag / `leser: UNBENANNT` / Karteileiche | — | `melder_register_check.py --kurz`, Leser benennen |
 
 **Jede `◌`/`nicht messbar`/`SAMMELPHASE`-Zeile ist eine Lücke, kein Pass — als solche ins Board.**
