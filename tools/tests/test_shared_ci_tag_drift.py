@@ -4,7 +4,9 @@
 shared-ci-Tags wurden vor Fixes in der kanonischen platform-Quelle geschnitten
 bzw. Consumer pinnen veraltete Tags. Zwei Regeln:
   shared-ci-tag-outdated (warn)  — Consumer pinnt nicht-neuesten Tag
-  shared-ci-tag-stale    (error) — neuester Tag ≠ platform-main-Kanon
+  shared-ci-tag-stale    (error) — neuester Tag ≠ Kanon-main der Datei
+Kanon ist fuer die Deploy-Reusables shared-ci-main (Owner-Entscheid #3398),
+fuer alle uebrigen Dateien weiter platform-main.
 
 Rein (kein Token nötig): GitHub-Zugriffe werden gemockt bzw. der State
 explizit injiziert.
@@ -385,3 +387,100 @@ def test_should_name_the_direction_in_the_error_message(monkeypatch):
     assert (
         "platform .github/workflows nach shared-ci portieren" not in stale[0].fix_hint
     )
+
+
+# ── #3398: shared-ci-main ist Kanon der Deploy-Reusables ─────────────────────
+#
+# Drill der Regel `shared-ci-tag-stale` fuer die Deploy-Reusables: der neueste
+# Tag wird gegen shared-ci-main geprueft. Eine platform-Kopie darf dabei gar
+# nicht gelesen werden — sonst waere platform still weiter Master.
+
+_DEPLOY = "_deploy-unified.yml"
+_DEPLOY_MAIN = (
+    "on:\n  workflow_call: {}\njobs:\n  deploy:\n    runs-on: ubuntu-latest\n"
+    "    steps:\n      - run: echo deploy\n      - run: echo healthcheck\n"
+)
+_DEPLOY_TAG_ALT = (
+    "on:\n  workflow_call: {}\njobs:\n  deploy:\n    runs-on: ubuntu-latest\n"
+    "    steps:\n      - run: echo deploy\n"
+)
+
+
+def _ssot_state(monkeypatch, tag_inhalt: str, main_inhalt: str) -> dict:
+    """State-Aufbau mit gemocktem GitHub; platform-Zugriff ist ein Fehler."""
+    gelesen: list[tuple[str, str]] = []
+
+    def fake_api_get(path, token):
+        if path.endswith("/tags"):
+            return [{"name": "v1.1.18"}, {"name": "v1.1.17"}]
+        if "contents/.github/workflows?ref=" in path:
+            return [{"name": _DEPLOY, "type": "file"}]
+        return None
+
+    def fake_content_at(owner_repo, path, ref, token):
+        gelesen.append((owner_repo, ref))
+        if owner_repo.endswith("/platform"):
+            raise AssertionError("platform ist fuer Deploy-Reusables kein Kanon")
+        return main_inhalt if ref == "main" else tag_inhalt
+
+    monkeypatch.setattr(dc, "_api_get", fake_api_get)
+    monkeypatch.setattr(dc, "_get_content_at", fake_content_at)
+    monkeypatch.setattr(dc, "_SHARED_CI_STATE", None)
+    state = dc._shared_ci_state("")
+    assert (dc.SHARED_CI_REPO, "main") in gelesen
+    assert (dc.SHARED_CI_REPO, "v1.1.18") in gelesen
+    return state
+
+
+def test_should_use_shared_ci_as_canon_for_deploy_reusables():
+    assert dc._kanon_repo("_deploy-unified.yml") == dc.SHARED_CI_REPO
+    assert dc._kanon_repo("_deploy-hetzner.yml") == dc.SHARED_CI_REPO
+    # Nicht entschiedene Dateien behalten vorerst platform als Kanon.
+    assert dc._kanon_repo("_ci-python.yml").endswith("/platform")
+
+
+def test_should_flag_tag_behind_shared_ci_main(monkeypatch):
+    """Positivkontrolle: Tag vor dem Fix auf main geschnitten → Regel feuert."""
+    state = _ssot_state(monkeypatch, _DEPLOY_TAG_ALT, _DEPLOY_MAIN)
+    assert state["stale_files"] == [_DEPLOY]
+    nur_tag, nur_kanon = state["richtungen"][_DEPLOY]
+    assert nur_kanon > nur_tag
+
+    _mock_repo_files(
+        monkeypatch,
+        "jobs:\n  d:\n    uses: iilgmbh/shared-ci/.github/workflows/"
+        "_deploy-unified.yml@v1.1.18\n",
+    )
+    drifts = dc.check_shared_ci_tag_drift("demo-hub", "", state=state)
+    stale = [d for d in drifts if d.rule == "shared-ci-tag-stale"]
+    assert len(stale) == 1
+    assert stale[0].severity == "error"
+    assert "shared-ci-main-Kanon" in stale[0].message
+    assert "platform-main" not in stale[0].message
+    assert "neuen Tag" in stale[0].fix_hint
+    assert "portieren" not in stale[0].fix_hint
+
+
+def test_should_stay_silent_when_tag_matches_shared_ci_main(monkeypatch):
+    """Gegenrichtung: Tag == shared-ci-main → kein Befund."""
+    state = _ssot_state(monkeypatch, _DEPLOY_MAIN, _DEPLOY_MAIN)
+    assert state["stale_files"] == []
+
+
+def test_should_ignore_comment_only_difference_between_tag_and_main(monkeypatch):
+    """Kommentare laufen nicht — auch gegen shared-ci-main kein Drift."""
+    state = _ssot_state(monkeypatch, "# alter Kopf\n" + _DEPLOY_MAIN, _DEPLOY_MAIN)
+    assert state["stale_files"] == []
+
+
+def test_should_keep_outdated_pin_warning_for_deploy_reusables(monkeypatch):
+    """Pin-Lag der Konsumenten (warn) bleibt vom Kanon-Wechsel unberuehrt."""
+    _mock_repo_files(
+        monkeypatch,
+        "jobs:\n  d:\n    uses: iilgmbh/shared-ci/.github/workflows/"
+        "_deploy-hetzner.yml@v1.1.12\n",
+    )
+    state = {"latest_tag": "v1.1.18", "stale_files": [], "richtungen": {}}
+    drifts = dc.check_shared_ci_tag_drift("demo-hub", "", state=state)
+    assert [d.rule for d in drifts] == ["shared-ci-tag-outdated"]
+    assert "v1.1.18" in drifts[0].message
