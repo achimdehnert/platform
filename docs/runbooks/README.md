@@ -25,6 +25,7 @@ lagen ohne einen einzigen Verweis außerhalb des Ordners). Verweis aus `CORE_CON
 | [`mail-wache.md`](mail-wache.md) | Mail-Wache — Weckruf bei neuer Mail (chat-hub#48 F4) | 2026-09-05 |
 | [`neuer-knoten.md`](neuer-knoten.md) | Einen neuen Knoten in die Flotte aufnehmen | 2026-09-01 |
 | [`opt-platform-klon-aktuell-halten.md`](opt-platform-klon-aktuell-halten.md) | `/opt/platform` auf Prod aktuell halten | 2026-09-16 |
+| [`outline-login-cloudflare-access.md`](outline-login-cloudflare-access.md) | Outline-Login von authentik auf Cloudflare Access for SaaS umstellen (#3256) | 2026-09-23 |
 | [`platform-owner-recovery.md`](platform-owner-recovery.md) | platform Owner Recovery & Leaver Process | 2026-07-05 |
 | [`platform-runner-reprovisioning.md`](platform-runner-reprovisioning.md) | platform Runner-Reprovisionierung & Secret-Re-Population (Org-Transfer) | 2026-07-05 |
 | [`secret-history-rewrite.md`](secret-history-rewrite.md) | Git-History-Rewrite nach Secret-Leak (platform) | 2026-07-02 |
