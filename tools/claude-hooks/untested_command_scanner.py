@@ -64,6 +64,14 @@ GATE_HEADER = {
 # Fenced Code-Block: ```[sprache]\n<inhalt>```
 FENCE_RE = re.compile(r"```[a-zA-Z]*\n(.*?)```", re.S)
 
+# Inline-Code in einfachen Backticks. AUSWEITUNG 3 (2026-09-23, Retro 0405d4):
+# Der Melder sah bis hierher NUR eingerahmte Bloecke. Am Realfall gemessen —
+# eine Board-Zeile mit `! befehl` blieb still, derselbe Befehl im Block feuerte.
+# Das ist keine Randform: das hauseigene Antwortformat verlangt schmale Zellen,
+# ein Befehl steht dort deshalb IMMER als Inline-Code. Je konsequenter das
+# Board benutzt wird, desto blinder war dieses Gate.
+INLINE_RE = re.compile(r"`([^`\n]{2,300})`")
+
 # Ein Block gilt als "auszuführender Befehl", wenn seine erste sinnvolle Zeile
 # mit einem dieser Kommandos beginnt. Bewusst eine Positivliste: Ausgabe-
 # Beispiele, Logs, JSON und Diffs sollen NICHT feuern.
@@ -269,6 +277,25 @@ def _last_turn(transcript_path: str):
     return "\n".join(assistant_text), bash_commands, abgelehnte_kerne
 
 
+def _kandidaten_bloecke(text: str):
+    """Jeder Textabschnitt, in dem ein uebergebener Befehl stehen kann.
+
+    Zwei Quellen (AUSWEITUNG 3, 2026-09-23):
+
+    1. **Eingerahmte Codebloecke** — die urspruengliche und weiterhin
+       wichtigste Quelle, unveraendert.
+    2. **Inline-Code MIT Prompt-Praefix** (Backticks um "! befehl"). Ohne
+       Praefix bleibt die Spanne still, sonst feuerte jede Erwaehnung eines
+       Werkzeugs im Fliesstext. Das `!` ist in Claude Code die
+       Uebergabe-Konvention und damit genau der Fall, den dieses Gate sucht;
+       eine Board-Zelle traegt einen Befehl immer so und nie als Block.
+    """
+    yield from FENCE_RE.findall(text)
+    for spanne in INLINE_RE.findall(text):
+        if PROMPT_PREFIX_RE.match(spanne):
+            yield spanne
+
+
 def find_untested(
     assistant_text: str,
     bash_commands: list[str],
@@ -291,7 +318,7 @@ def find_untested(
     ran_cores.discard("")
 
     untested, placeholders = [], []
-    for block in FENCE_RE.findall(assistant_text or ""):
+    for block in _kandidaten_bloecke(assistant_text or ""):
         for line in _iter_command_lines(block):
             has_placeholder = bool(PLACEHOLDER_RE.search(line))
             if has_placeholder:
