@@ -26,8 +26,33 @@ created: 2026-09-22
 # KONZ-platform-060 — Lotse hört und spricht im Raum
 
 > **Selbstbetreffend** (Charta Art. 3, C9): Jede Stufe erweitert die Reichweite des Lotsen um einen
-> Kanal. Die Stufen sind einzeln freigegeben (Owner 2026-09-22: H1, S1–S3 ja; P1, S4 später) und
-> einzeln rückbaubar. Vorschlagsliste: `~/.claude/boards/lotse-hoeren-sprechen-proaktiv.md`.
+> Kanal. Die Stufen sind einzeln freigegeben und einzeln rückbaubar.
+
+## Die vorgeschlagenen Stufen und ihr Stand
+
+Die vollständige Landkarte, aus der der Owner am 2026-09-22 ausgewählt hat. Sie steht hier
+im Dokument, weil die ursprüngliche Vorschlagsliste nur lokal auf einem Rechner lag — ein
+dauerhaftes Dokument darf nicht auf Flüchtiges zeigen (Befund der Clear-Härte-Prüfung
+derselben Sitzung).
+
+| # | Stufe | Was | Stand |
+|---|---|---|---|
+| **H1** | Sprachnachricht → Text | Owner spricht in den Raum, whisper transkribiert, Transkript wird Entwurf; ab da wie bisher | ✅ **freigegeben, im Betrieb** |
+| H2 | Wecken per Stichwort | Wache reagiert nur, wenn das Transkript mit „Lotse" beginnt | offen — erst nötig, wenn ein Dritter im Raum ist |
+| H3 | Aufnahme → Auftrag | Besprechungsnotiz endet mit einem Block „Aufträge an Lotse", der als Vorschlag in den Raum geht | offen, wartet auf KONZ-iil-voice-agent-004 (Kill-Gate 2026-10-31) |
+| **S1** | TTS-Dienst | Lokale Sprachsynthese, deutsch, CPU | ✅ **freigegeben, im Betrieb** (Piper `de_DE-thorsten-medium`) |
+| **S2** | Antwort als Sprachnachricht | Antwort zusätzlich als Audio, wenn der Auftrag gesprochen kam | ✅ **freigegeben, im Betrieb** |
+| **S3** | Morgen-Zeitung vorlesen | Zeitgeber hängt 2–3 min Audio an die Ausgabe | ✅ **freigegeben, im Betrieb** |
+| S4 | Gespräch im Call | Vollduplex, unterbrechbar, über den bestehenden Videostack | **vertagt** → KONZ-platform-062 |
+| P1 | Frage statt Meldung | Melder-Befund wird zur Frage; ein 👍 ist die Freigabe | **später freigegeben** → KONZ-platform-061 |
+| P2 | Wiedervorlage in den Raum | Befund erreicht seine Frist → eine Zeile mit Link | offen |
+| P3 | Wochenzahlen in der Morgen-Meldung | Kennzahlen mitschicken statt eigener Lauf | offen, wartet auf KONZ-059 Stufe 2 (Kill-Gate 2026-10-08) |
+| P4 | Sitzungsstart selbstständig | Timer lässt die Startprüfung laufen, nur **neue** Befunde in den Raum | offen |
+| P5 | Mail-Fortschritt melden | Antwort auf eine eigene Mail → Raum-Zeile + Entwurf, kein Senden | offen |
+
+**Bewusst nicht vorgeschlagen:** autonome Ausführung ohne Entwurf-Schritt (Charta Art. 1/2) ·
+Cloud-STT/-TTS für Rauminhalte (Datensouveränität; lokal reicht) · Telefonie/SIP (gehört zum
+Produkt, nicht zum Assistenten — ADR-249 §2.0).
 
 ## Kernthese
 
