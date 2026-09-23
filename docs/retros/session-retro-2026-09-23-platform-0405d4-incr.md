@@ -119,8 +119,10 @@ Die **Widerlegungsbahn** wäre der Teil mit echtem Zugewinn gewesen; sie entfäl
 | 3 | Übergabe bekommt ein Artefakt | ttz-hub | [#42](https://github.com/ttz-lif/ttz-hub/issues/42) | 🟢 | Weg zur PDF-Quelle-Synchronität entscheiden |
 | 4 | Produktionsprüfung abgelegt | cad-hub | [#73](https://github.com/achimdehnert/cad-hub/issues/73) | ✅ | — |
 | 5 | Maßnahmen-Tabelle des Grundreports berichtigt | platform | dieser PR | ✅ | — |
-| 6 | Maßstab mit Label-Doppelpunkt unerkannt | cad-hub | — | 🟢 | Issue anlegen oder verwerfen |
-| 7 | Falschmelde-Probe als Pflicht bei Melder-Ausweitungen | platform | `gate-ausweitung-ohne-falschmelde-probe` | 🟢 | Gate-Kandidat entscheiden |
+| 6 | Maßstab mit Label-Doppelpunkt unerkannt | cad-hub | [#76](https://github.com/achimdehnert/cad-hub/issues/76) | 🟢 | Muster erweitern, Test über den vollen Weg |
+| 7 | Falschmelde-Probe als Pflicht bei Melder-Ausweitungen | platform | [#3438](https://github.com/achimdehnert/platform/issues/3438) | 🟢 | Gate-Kandidat entscheiden |
+
+> **Nachgetragen 2026-09-23 nach dem Fremdblick der Clear-Härte.** Die Zeilen 6 und 7 trugen zunächst „—" in der Artefakt-Spalte und „Issue anlegen oder verwerfen" als nächsten Schritt — also genau die Form, die dieser Report unter Befund 3 selbst beanstandet. Ein Prüfer, der nur die durablen Artefakte sah, hat es gefunden.
 
 ## 8 · Nicht verifiziert (Restlücken)
 
