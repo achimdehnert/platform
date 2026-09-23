@@ -1,9 +1,0 @@
-{
-  "slug": "inline-heredoc-quoting-rework",
-  "decided": "2026-09-16",
-  "owner": "achim",
-  "ref": "Retro 916eb7 (platform#3238) Massnahme R5, Owner-Wort 'r5 verwerfen' Kapitaens-Kanal 2026-09-16",
-  "reason": "Werkzeugwahl (python-Heredoc-Ersetzung statt Edit-Werkzeug) ist per Hook kaum messbar ohne hohe Fehlalarm-Quote: Heredocs sind in Tests und Fixtures legitim. Die Lehre haengt am Muster `assert a in s` auf verschobenen Ankern und ist als Soll-Schritt im Retro-Report verankert; bei einem 3. Vorkommen erneut vorlegen.",
-  "revised": "2026-09-21",
-  "revision_note": "Re-Vorlage nach dem 4. Vorkommen (Retro f1d54f F14, platform#3348; das 3. war 50d29a am 2026-09-17 und blieb unvorgelegt). Owner-Entscheid 'R6 weich' 2026-09-21: kein Hook, stattdessen Regelzeile in ~/.claude/CLAUDE.md (House Rules: Repo-Dateien nur per Edit/Write-Tool, Heredoc nur fuer Wegwerf-Skripte im Scratchpad). Neue Schwelle: beim naechsten Vorkommen ist die Vorlage ein Gate (PreToolUse-Hook auf `python3 - <<` / `cat <<EOF >` mit Repo-Pfad), nicht mehr eine weiche Regel. Warum Re-Vorlage ueberfaellig war: kein Trigger-Artefakt fuer bedingte Ablehnungen — retro_kpis.py zaehlt, aber niemand vergleicht mit der Bedingung im declined-Eintrag."
-}

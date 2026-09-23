@@ -42,7 +42,7 @@ Sitzung vom 2026-09-22 15:07 UTC bis 2026-09-23 07:45 UTC. Auslöser: eine Anfra
 | # | Befund | Kategorie | Severity | Verdikt | Beleg | Recurrence |
 |---|---|---|---|---|---|---|
 | 1 | Klarname eines Ansprechpartners 13 h 46 min unredigiert im öffentlichen Repo; eigene Fehleinordnung „keine Personendaten Dritter" verhinderte die Sofortmaßnahme | Prozesslücke | kritisch | SURVIVES | [platform#3380](https://github.com/achimdehnert/platform/issues/3380) angelegt 15:07:22Z, redigiert 04:53:54Z; [#3234-Kommentar](https://github.com/achimdehnert/platform/issues/3234#issuecomment-5779111658) | handover-in-public-repo-unredigiert (1×) |
-| 2 | Zwei Endpunkte nach Produktion ausgeliefert, dort nicht nutzbar: `POST` → 403, kein Aufrufer im gesamten Code | fehlende Validierung | kritisch | SURVIVES (neu aus 3b) | `curl` gegen nl2cad.de 2026-09-23; `git grep` über `origin/main` ohne Treffer | claim-before-cheapest-check (87×), built-but-never-called (5×) |
+| 2 | Zwei Endpunkte nach Produktion ausgeliefert, dort nicht nutzbar: `POST` → 403, kein Aufrufer im gesamten Code | fehlende Validierung | kritisch | SURVIVES (neu aus 3b) | `curl` gegen nl2cad.de 2026-09-23; `git grep` über `origin/main` ohne Treffer | built-but-never-called (5×) — Zuordnung korrigiert 2026-09-23 |
 | 3 | Angebots-PDF an den Kunden änderte 228 Zeilen und wuchs um eine Seite; der PR-Text nannte Firmierung und Datum | fehlende Validierung | mittel | SURVIVES (3b: von kritisch gesenkt) | [ttz-hub#40](https://github.com/ttz-lif/ttz-hub/pull/40), `pdftotext`-Diff der Blobs um `b62eb7bd` | deferred-item-no-tracking-issue (43×) |
 | 4 | Warnung im Produktions-Deploy („COMPOSE_PROJECT_NAME mismatch — running='apo-hub'") seit drei Läufen unbeachtet; die Klasse ist anderswo gelöst | fehlende Validierung | mittel | SURVIVES | Run 35760930849, Job „🚀 Production"; gelöste Zwillinge `dms-hub#16`, `illustration-hub#44` | — |
 | 5 | Von zwei neuen Endpunkten hatte nur einer einen Test über HTTP | fehlende Validierung | niedrig | SURVIVES (3b: von hoch gesenkt) | [cad-hub#69](https://github.com/achimdehnert/cad-hub/pull/69), `tests/test_pdf_handlers.py`; beide Views teilen `_PDFHandlerViewBase` | — |
@@ -100,6 +100,8 @@ Abgleich gegen `MEMORY.md`: `claim-before-cheapest-check` ist dort unter „Bewe
 |---|---|
 | `claim-before-cheapest-check` | zweimal, jeweils vor dem Absenden einer ungedeckten Behauptung |
 | `scope-checkpoint-not-durably-recorded` | einmal, Fehlerform B — Checkpoint ausgesprochen, nicht protokolliert; daraufhin nachgetragen |
+
+**Nachtrag 2026-09-23 (Owner-Entscheid „187 go"):** Befund 2 trug in der Recurrence-Spalte zwei Slugs, `claim-before-cheapest-check` **und** `built-but-never-called`. Der erste ist gestrichen. Begründung: zwei ausgelieferte Endpunkte ohne Aufrufer sind kein Fall von „behauptet vor dem billigsten Check" — es wurde nichts behauptet, es wurde etwas gebaut und nie gerufen. Das ist der namensgebende Fall des zweiten Slugs. Die Doppelnennung hatte `claim-before-cheapest-check` einen Rückfall zugeschrieben, den ein anderes Gate zu verantworten hat, und damit die Wirkungsbilanz beider verzerrt. Quelle: Retro 3bdc4e §5a, Maßnahme 7.
 
 ### Ein Gate ist rückfällig: `gate-untested-command-handed-to-user-wirkungslos`
 
