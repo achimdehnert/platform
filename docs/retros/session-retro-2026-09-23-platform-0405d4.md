@@ -196,12 +196,14 @@ Keine. Beide Fälle sind Ausführungsdisziplin, keine Architekturentscheidung �
 | 1 | Aufrufer gebaut, Prod geprüft | cad-hub | [#71](https://github.com/achimdehnert/cad-hub/pull/71) | ✅ | — |
 | 2 | Übergabe bricht bei öffentlichem Ziel ab | chat-hub | [#137](https://github.com/iilgmbh/chat-hub/pull/137) | ✅ | — |
 | 3 | Klarname redigiert, Fehleinordnung berichtigt | platform | [#3234](https://github.com/achimdehnert/platform/issues/3234) | ✅ | — |
-| 4 | Angebotsfassung für den Kunden klären | ttz-hub | [#41](https://github.com/ttz-lif/ttz-hub/issues/41) | 🟢 | Fassung entscheiden |
-| 5 | Deploy-Warnung `apo-hub`/`cad-hub` | cad-hub | — | 🟢 | Issue anlegen oder verwerfen |
-| 6 | Maßstab wird doppelt geschrieben | cad-hub | [#68](https://github.com/achimdehnert/cad-hub/issues/68) | 🟢 | Eigenes Issue, Muster korrigieren |
-| 7 | Zwei Memory-Kandidaten verankern | platform | dieser Report | 🟢 | Freigeben oder verwerfen |
-| 8 | Melder sieht nur Codeblöcke, nicht Inline-Code | platform | [#3418](https://github.com/achimdehnert/platform/pull/3418) | 🔵 | PR mergen |
+| 4 | Angebotsfassung für den Kunden klären | ttz-hub | [#41](https://github.com/ttz-lif/ttz-hub/issues/41) | ✅ | Geklärt: das Repo-Dokument war nie das eingereichte |
+| 5 | Deploy-Warnung `apo-hub`/`cad-hub` | cad-hub | [#75](https://github.com/achimdehnert/cad-hub/issues/75) | ✅ | Bewusst verworfen, Owner-Entscheid |
+| 6 | Maßstab wird doppelt geschrieben | cad-hub | [#73](https://github.com/achimdehnert/cad-hub/issues/73) | ✅ | Behoben, in Produktion gegengeprüft |
+| 7 | Zwei Memory-Kandidaten verankern | platform | Auto-Memory | ✅ | Beide verankert |
+| 8 | Melder sieht nur Codeblöcke, nicht Inline-Code | platform | [#3418](https://github.com/achimdehnert/platform/pull/3418) | ✅ | Gemergt; Nachschärfung in [#3430](https://github.com/achimdehnert/platform/pull/3430) |
 | 9 | Phase 6 kollidiert mit der Datensouveränität | platform | dieser Report §7a | 🟢 | Skill-Änderung entscheiden |
+
+> **Nachgezogen 2026-09-23 auf den Endstand.** Die Zeilen 4 bis 8 zeigten bis dahin den Stand vom Mergezeitpunkt des Reports, obwohl die Maßnahmen danach weiterliefen; Zeile 6 verwies zudem auf das falsche Issue. Der Befund dazu steht in [`…-0405d4-incr.md`](session-retro-2026-09-23-platform-0405d4-incr.md) als Nummer 5 — eine Maßnahmen-Tabelle ist ab ihrem Merge Fiktion, wenn niemand sie schließt.
 
 ## 7a · Phase 6 (Extern-Handoff) — begründetes n/a
 
