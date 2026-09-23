@@ -59,6 +59,66 @@ _META_PREFIX_RE = re.compile(
 )
 
 
+DEFAULT_VERTRAULICHKEIT = "Vertraulich – nur für Konsortium MEiKI"
+DEFAULT_ZIELGRUPPE = "Lenkungskreis, IT-Leitung, Entscheider LRA"
+
+
+def meta_rows(meta: dict, design: dict, stem: str) -> list:
+    """Zeilen der Deckblatt-Meta-Tabelle je ``meta_template`` des Designs."""
+    template = design.get("meta_template", "meiki")
+    if template == "db":
+        felder = ("status", "datum", "adressat", "anlass")
+        beschriftung = {
+            "status": "Status",
+            "datum": "Datum",
+            "adressat": "Adressat",
+            "anlass": "Anlass",
+        }
+        return [(beschriftung[f], meta[f]) for f in felder if meta.get(f)]
+    if template == "iil":
+        rows = []
+        if meta.get("angebot_nr"):
+            rows.append(("Angebot-Nr.", meta["angebot_nr"]))
+        for feld, label in (
+            ("status", "Status"),
+            ("datum", "Datum"),
+            ("gueltig_bis", "Gültig bis"),
+            ("adressat", "Adressat"),
+            ("anlass", "Anlass"),
+            ("zielentscheidung", "Zielentscheidung"),
+            ("auftraggeber", "Auftraggeber"),
+        ):
+            if meta.get(feld):
+                rows.append((label, meta[feld]))
+        # Die Auftragnehmer-Zeile gehoert zum Angebots-Kontext. Ein IIL-Dokument, in dem
+        # IIL selbst der Auftraggeber ist (z.B. ein Pruefbogen an eigene Dienstleister),
+        # bekaeme sonst eine sachlich falsche Rollenzuweisung auf dem Deckblatt.
+        if meta.get("angebot_nr") or meta.get("gueltig_bis") or meta.get("auftraggeber"):
+            rows.append(("Auftragnehmer", "IIL GmbH · Achim Dehnert · info@iil.gmbh"))
+        return rows
+    # meiki default
+    stand = meta.get("stand", "")
+    if not stand:
+        return []
+    rows = [
+        ("Dokument-ID", stem.upper().replace("_", "-")),
+        ("Konsortium", "LRA Traunstein · LRA Günzburg · TH Rosenheim · HNU Neu-Ulm"),
+        ("Stand", stand),
+        ("Projektlaufzeit", "März 2026 – März 2027"),
+    ]
+    # Ein Profil fuer Dokumente an Dritte setzt meta_vertraulichkeit auf "" — sonst
+    # liest der Empfaenger auf Seite 1, dass er das Dokument nicht haben duerfte.
+    vertraulichkeit = design.get("meta_vertraulichkeit", DEFAULT_VERTRAULICHKEIT)
+    if vertraulichkeit:
+        rows.append(("Vertraulichkeit", vertraulichkeit))
+    return rows
+
+
+def cover_zielgruppe(meta: dict, design: dict) -> str:
+    """Zielgruppen-Zeile des Deckblatts: Dokument schlaegt Profil schlaegt Vorgabe."""
+    return meta.get("zielgruppe") or design.get("zielgruppe_default", DEFAULT_ZIELGRUPPE)
+
+
 def strip_meta_prefix_lines(md_text: str) -> str:
     """Remove lines like '**Status:** Konzept' from MD body — they're already on the cover.
 

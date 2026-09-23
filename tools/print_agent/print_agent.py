@@ -39,7 +39,12 @@ from pdf_forms import (
     querformat_gewuenscht,
 )
 
-from deckblatt_meta import extract_meta, strip_meta_prefix_lines
+from deckblatt_meta import (
+    cover_zielgruppe,
+    extract_meta,
+    meta_rows,
+    strip_meta_prefix_lines,
+)
 import llm_gate  # Datenschutz-Gate (#1297) — bewusst importfrei, siehe Modul-Docstring
 import profile_policy  # Profil-Voreinstellungen (#1297, zweiter Befund)
 from asset_gate import (
@@ -1027,61 +1032,12 @@ def preprocess_md(md_text: str, design: dict | None = None) -> str:
 
 
 def _build_meta_rows(meta: dict, design: dict, stem: str) -> list:
-    """Return list of (label, value) tuples for the meta table."""
-    template = design.get("meta_template", "meiki")
-    if template == "db":
-        rows = []
-        if meta.get("status"):
-            rows.append(("Status", meta["status"]))
-        if meta.get("datum"):
-            rows.append(("Datum", meta["datum"]))
-        if meta.get("adressat"):
-            rows.append(("Adressat", meta["adressat"]))
-        if meta.get("anlass"):
-            rows.append(("Anlass", meta["anlass"]))
-        return rows
-    if template == "iil":
-        rows = []
-        # Angebot-specific fields (only shown if filled)
-        if meta.get("angebot_nr"):
-            rows.append(("Angebot-Nr.", meta["angebot_nr"]))
-        # Generic Konzept/Briefing-Felder (always shown if present)
-        if meta.get("status"):
-            rows.append(("Status", meta["status"]))
-        if meta.get("datum"):
-            rows.append(("Datum", meta["datum"]))
-        if meta.get("gueltig_bis"):
-            rows.append(("Gültig bis", meta["gueltig_bis"]))
-        if meta.get("adressat"):
-            rows.append(("Adressat", meta["adressat"]))
-        if meta.get("anlass"):
-            rows.append(("Anlass", meta["anlass"]))
-        if meta.get("zielentscheidung"):
-            rows.append(("Zielentscheidung", meta["zielentscheidung"]))
-        if meta.get("auftraggeber"):
-            rows.append(("Auftraggeber", meta["auftraggeber"]))
-        # Die Auftragnehmer-Zeile gehoert zum Angebots-Kontext. Ein IIL-Dokument, in dem
-        # IIL selbst der Auftraggeber ist (z.B. ein Pruefbogen an eigene Dienstleister),
-        # bekaeme sonst eine sachlich falsche Rollenzuweisung auf dem Deckblatt.
-        if (
-            meta.get("angebot_nr")
-            or meta.get("gueltig_bis")
-            or meta.get("auftraggeber")
-        ):
-            rows.append(("Auftragnehmer", "IIL GmbH · Achim Dehnert · info@iil.gmbh"))
-        return rows
-    # meiki default
-    stand = meta.get("stand", "")
-    if not stand:
-        return []
-    doc_id = stem.upper().replace("_", "-")
-    return [
-        ("Dokument-ID", doc_id),
-        ("Konsortium", "LRA Traunstein · LRA Günzburg · TH Rosenheim · HNU Neu-Ulm"),
-        ("Stand", stand),
-        ("Projektlaufzeit", "März 2026 – März 2027"),
-        ("Vertraulichkeit", "Vertraulich – nur für Konsortium MEiKI"),
-    ]
+    """Return list of (label, value) tuples for the meta table.
+
+    Liegt in deckblatt_meta, damit die Deckblatt-Logik ohne weasyprint/litellm
+    testbar bleibt (#2621).
+    """
+    return meta_rows(meta, design, stem)
 
 
 def build_html(
@@ -1102,8 +1058,7 @@ def build_html(
         datum = meta.get("datum", "")
         date_line = f"{doc_type} · {datum}".strip(" ·")
     else:
-        zg = meta.get("zielgruppe", "Lenkungskreis, IT-Leitung, Entscheider LRA")
-        date_line = f"Zielgruppe: {zg}"
+        date_line = f"Zielgruppe: {cover_zielgruppe(meta, design)}"
 
     footer_text = (f"Stand: {stand} — " if stand else "") + design.get(
         "footer_suffix", ""
