@@ -272,7 +272,9 @@ domains:
     deployed: false
     url: https://drifttales.app
     type: django
-    lifecycle: production
+    lifecycle: frozen
+    notes: 'Ruhend seit 2026-09-23 (Owner-Wort ''p3 ruhend'', #3456): App aus (travel-beat#95/#98), Runner
+      offline, deployed: false. Der ADR-Drift-Detektor (dev-hub#374) überspringt frozen-Repos.'
     tenancy_mode: subdomain
     demo_fixture: false
     dockerfile: docker/Dockerfile
