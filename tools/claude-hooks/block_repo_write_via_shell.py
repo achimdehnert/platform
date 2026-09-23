@@ -14,7 +14,7 @@ Hausregel („Repo-Dateien nur per Edit/Write-Tool, nie per Bash-Heredoc") ist s
 2026-09-21 als `declined` geführt, weil der Owner sie weich halten wollte. Sie hat
 in der Form nicht gehalten.
 
-**Der Auslöser ist bewusst NICHT „Heredoc".** Ein Hook auf Heredocs hätte an einem
+**Der Auslöser ist bewusst nicht `<<HEREDOC`.** Ein Hook auf Heredocs hätte an einem
 einzigen Arbeitstag jeden `git commit -F - <<'MSG'` blockiert — legitim, häufig,
 und nach zwei Stunden wäre der Hook abgeschaltet. Ein Heredoc, der an die Standard-
 eingabe eines Kommandos geht, schreibt keine Datei und ist harmlos.
