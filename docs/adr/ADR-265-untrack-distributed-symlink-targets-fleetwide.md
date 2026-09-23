@@ -10,6 +10,16 @@ scope: platform
 related: [ADR-230, ADR-233, ADR-242]
 tags: [git-hygiene, symlink, distribution, windsurf, cc-first, fleet-pattern, dirty-tree]
 implementation_status: implemented
+implementation_evidence:
+  - "path: scripts/sync-workflows.sh — Symlink-Verteilung mit Guards (getracktes Ziel / fehlende .gitignore-Zeile → SKIP)"
+  - "test: tools/tests/test_sync_workflows.py — Guard-Tests + SKIP-Aggregation (#946)"
+  - "path: scripts/gen_project_facts.py — die drei ADR-265-Guards in gen_facts()"
+  - "test: tools/tests/test_gen_project_facts_guards.py"
+  - "path: tools/sync_drift_meter.py — read-only Fleet-Drift-Melder (REC-3)"
+  - "test: tools/tests/test_sync_drift_meter.py"
+  - "pr: platform#950 — Guard-Tests + SKIP-Aggregation für sync-workflows.sh (closes #946)"
+  - "pr: platform#951 — sync-drift-meter (REC-3, closes #949)"
+  - "pr: platform#954 — gen_project_facts.py: ADR-265-Guards nachgerüstet (closes #931)"
 ---
 
 # ADR-265 — Verteilte Symlink-Ziele fleet-weit aus git untracken statt committen
