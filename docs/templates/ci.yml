@@ -1,6 +1,11 @@
 # IIL Platform — ci.yml (Golden Path)
 # Kopiere nach .github/workflows/ci.yml im Ziel-Repo
-# Ersetze REPO_NAME + PORT + SETTINGS_MODULE
+# Ersetze REPO_NAME + HEALTH_URL + django_settings_module
+#
+# Jeder `with:`-/`secrets:`-Schluessel unten ist gegen den `workflow_call`-Vertrag
+# des gepinnten Reusables geprueft (tools/tests/test_template_reusable_inputs.py,
+# #3406). Wer einen Pin hebt, traegt den Vertrag des neuen Tags in
+# tools/tests/fixtures/reusable_interfaces/shared_ci.yaml nach.
 #
 # secrets-scan (gitleaks) ist ein BLOCKIERENDER Gate. Bei False Positives
 # oder Pre-existing History-Leaks: docs/templates/.gitleaks.toml als
@@ -42,7 +47,6 @@ jobs:
     with:
       python_version: "3.12"
       django_settings_module: "config.settings.test"   # ← anpassen
-      run_integration_tests: true
       run_contract_tests: true
       coverage_threshold: 80
     secrets: inherit
@@ -50,18 +54,29 @@ jobs:
   build:
     needs: ci
     if: github.ref == 'refs/heads/main'
+    # Image-Name = Repo-Name (Default), Tag = Commit-SHA; beides liefert das
+    # Reusable selbst — `repo_name`/`image_tag` kennt es nicht als Input.
     uses: achimdehnert/platform/.github/workflows/_build-docker.yml@main
     with:
-      repo_name: REPO_NAME                             # ← anpassen
-      image_tag: ${{ github.sha }}
+      dockerfile: Dockerfile                           # ← anpassen
     secrets: inherit
 
   deploy:
     needs: build
     if: github.ref == 'refs/heads/main'
+    # Vorbild: apo-hub ci.yml (Job `deploy`, gruen). Der Port steht nicht hier,
+    # sondern in docker-compose.prod.yml auf dem Server.
     uses: iilgmbh/shared-ci/.github/workflows/_deploy-hetzner.yml@v1.1.18
     with:
-      repo_name: REPO_NAME                             # ← anpassen
-      port: PORT                                       # ← anpassen (z.B. 8010)
-      image_tag: ${{ github.sha }}
-    secrets: inherit
+      app_name: REPO_NAME                              # ← anpassen
+      deploy_path: /opt/REPO_NAME                      # ← anpassen
+      health_url: HEALTH_URL                           # ← anpassen (z.B. https://<domain>/livez/)
+      image_tag: ${{ needs.build.outputs.image_tag }}  # commit-gepinnt
+    # Explizit statt `secrets: inherit`: liegt das Consumer-Repo nicht in iilgmbh,
+    # reicht `inherit` die required-Secrets nicht durch die Org-Grenze
+    # ("Secret HETZNER_HOST is required, but not provided", apo-hub).
+    secrets:
+      HETZNER_HOST: ${{ secrets.HETZNER_HOST }}
+      HETZNER_USER: ${{ secrets.HETZNER_USER }}
+      HETZNER_SSH_KEY: ${{ secrets.HETZNER_SSH_KEY }}
+      PROJECT_PAT: ${{ secrets.PROJECT_PAT }}
