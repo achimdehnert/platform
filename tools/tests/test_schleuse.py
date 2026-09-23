@@ -254,3 +254,77 @@ def test_should_not_let_new_rules_reach_the_secrets_container(monkeypatch, tmp_p
 
     assert eintrag["klasse"] == "unklassifiziert"
     assert eintrag["faellig"] is False
+
+
+# ── Reihenfolge der REGELN ist tragend (#3405, Retro 4ed2e5 Befunde 2–4) ────
+#
+# `klasse_von()` nimmt den ERSTEN Treffer. Zwei Muster ueberlappen sich
+# absichtlich, und die Reihenfolge entscheidet, welches gewinnt. Das war bis zu
+# dieser Retro nirgends festgehalten: der einzige Test zur Klasse
+# "PR-/Issue-Text" benutzte `"review 2.md"` — die einzige Variante, die den
+# Konflikt gar nicht beruehrt. Er war gruen, ohne die Grenze zu pruefen.
+
+
+@pytest.mark.parametrize(
+    ("name", "klasse", "warum"),
+    [
+        # Bindestrich-Variante: echte Berichte aus dem Bestand vom 2026-09-23.
+        (
+            "review-KONZ-writing-hub-014-zweitmeinung-2026-08-20.md",
+            "Bericht",
+            "Zweitmeinung zu einem Konzept — gehoert nach docs/ des Repos",
+        ),
+        (
+            "review-skill-einmotten-adaption-2026-07-17.md",
+            "Bericht",
+            "Review eines Skills — ebenfalls ein Bericht",
+        ),
+        # Leerzeichen-Variante: Notizen zu einem PR.
+        ("review 1.md", "PR-/Issue-Text", "Notiz zu einem PR"),
+        ("review 2.md", "PR-/Issue-Text", "Notiz zu einem PR"),
+    ],
+)
+def test_should_keep_the_boundary_between_bericht_and_pr_text(
+    monkeypatch, tmp_path, name, klasse, warum
+):
+    """Wer die Reihenfolge der REGELN aendert, bricht diesen Test sichtbar."""
+    _anlegen(tmp_path, name, 5)
+
+    eintrag = _finde(_sammeln(monkeypatch, tmp_path), name)
+
+    assert eintrag["klasse"] == klasse, warum
+
+
+def test_should_treat_k4_as_a_prefix_not_an_exact_match():
+    """Der `$`-Anker mitten in der Alternation machte aus dem Praefix einen
+    exakten Vergleich — `k4` traf, `k4-run-2026` nicht."""
+    _, muster, _, _ = next(r for r in schleuse.REGELN if r[0] == "Modell-Ausgabe")
+
+    assert muster.match("k4") is not None
+    assert muster.match("k4w") is not None
+    assert muster.match("k4-run-2026") is not None
+    assert muster.match("k4width-test") is not None
+    # Positivkontrolle: das Muster sagt nicht zu allem ja.
+    assert muster.match("kuenersberg") is None
+
+
+def test_should_not_let_a_later_rule_be_shadowed_unnoticed():
+    """Waechter fuer kuenftige Regeln: je Klasse ein Name, der genau dort landen
+    soll. Faellt eine Zeile, hat eine frueher stehende Regel sie eingefangen —
+    dann ist entweder die Reihenfolge oder das Muster zu aendern, nicht dieser
+    Test.
+    """
+    erwartet = {
+        "pr-o-series.md": "PR-/Issue-Text",
+        "cf-access-recon.sh": "Wegwerf-Skript",
+        "hetzner.png": "Bildschirmfoto",
+        "DESKTOP-G1MN89S_C.csv": "Lauf-Ausgabe",
+        "meiki-hnu-TOM-2026-07-27-entwurf.pdf": "Dokument-Entwurf",
+        "lora-hina-paket.zip": "Modell-Ausgabe",
+        "kd-sync-2026-08-03": "Datierte Uebergabe",
+        "adr-handoff-ADR-063-2026-08-26.md": "ADR-Uebergabe",
+        "von-box": "Box-Lane",
+    }
+    tatsaechlich = {name: schleuse.klasse_von(name)[0] for name in erwartet}
+
+    assert tatsaechlich == erwartet
