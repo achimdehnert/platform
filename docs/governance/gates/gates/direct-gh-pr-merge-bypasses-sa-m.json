@@ -7,7 +7,8 @@
   "built": "2026-09-23",
   "ref": "platform#2234 (Retro 2026-09-23 platform 2c4009 #5, 3. Vorkommen, Gate-Pflicht; Owner-Wort 'r7 go' 2026-09-23)",
   "last_drill_pass": "2026-09-23",
-  "zustand": "ohne-traeger",
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-09-23",
   "faengt": [
     {
       "fall": "direkter `gh pr merge --admin` aus der Sitzung statt `tools/pr_merge_sa.py` (Retro 2c4009 #5, Welle-Gruppen 2-5)",
@@ -34,5 +35,5 @@
     "ref": "tools/claude-hooks/tests/test_block_direct_pr_merge.py -- `gh pr merge 12 --admin`, die Merge-Schleife `for r in a:1 b:2; do gh pr merge ...; done` und `OWNER_WORT=69 gh pr merge 3343 ...` mit Attrappen-Zustand MERGED werden deny; `python3 tools/pr_merge_sa.py 12`, `gh pr view 12` und `OWNER_WORT=69 gh pr merge 12 -R o/r --squash` mit Zustand OPEN werden allow (Journalzeile geprueft)",
     "datum": "2026-09-23"
   },
-  "note": "Drei Vorkommen (Retros 50d29a, f1d54f F18, 2c4009 #5): `gh pr merge` direkt statt ueber das SA-M-Werkzeug, das Zustand, Mandat und Journal prueft. Der Hook blockt jeden `gh pr merge` im Befehlstext ohne Marker `OWNER_WORT=<id>`; mit Marker verlangt er je Aufruf eine literale PR-Nummer, liest `gh pr view --json state` und laesst nur OPEN durch, und schreibt eine Zeile (`quelle: hook:owner-wort`) in das Journal von pr_merge_sa.py (~/.claude/pr-merge-sa.jsonl). FAIL-CLOSED im Marker-Pfad wie pr_merge_sa.py (gh weg, Antwort unlesbar -> deny); gesperrt wird dabei nur der direkte Merge, der sanktionierte Weg bleibt offen. Grenzen: liest den Befehlstext (grep/Commit-Text mit der Zeichenfolge wird geblockt); nicht gefangen: REST-API-Merge, GitHub-MCP-merge_pull_request. `ohne-traeger` bis zur Verdrahtung in ~/.claude/settings.json (PreToolUse, matcher Bash) — Owner-Recht (Charta Art. 3), Snippet in #2234; danach `schranke` + `erzwungen_seit`."
+  "note": "Drei Vorkommen (Retros 50d29a, f1d54f F18, 2c4009 #5): `gh pr merge` direkt statt ueber das SA-M-Werkzeug, das Zustand, Mandat und Journal prueft. Der Hook blockt jeden `gh pr merge` im Befehlstext ohne Marker `OWNER_WORT=<id>`; mit Marker verlangt er je Aufruf eine literale PR-Nummer, liest `gh pr view --json state` und laesst nur OPEN durch, und schreibt eine Zeile (`quelle: hook:owner-wort`) in das Journal von pr_merge_sa.py (~/.claude/pr-merge-sa.jsonl). FAIL-CLOSED im Marker-Pfad wie pr_merge_sa.py (gh weg, Antwort unlesbar -> deny); gesperrt wird dabei nur der direkte Merge, der sanktionierte Weg bleibt offen. Grenzen: liest den Befehlstext (grep/Commit-Text mit der Zeichenfolge wird geblockt); nicht gefangen: REST-API-Merge, GitHub-MCP-merge_pull_request. Verdrahtet am 2026-09-23 durch den Owner in ~/.claude/settings.json (PreToolUse, matcher Bash; Owner-Wort 'z5 go', Charta Art. 3). Live-Positivkontrolle in derselben Sitzung: direkter Merge-Befehl ohne Marker auf eine nicht existierende PR-Nummer -> deny (#2234)."
 }
