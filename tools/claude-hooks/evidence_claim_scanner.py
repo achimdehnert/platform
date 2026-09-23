@@ -870,6 +870,72 @@ FREMDPRUEFUNG_CLAIM_RE = re.compile(
     r"|von\s+einem\s+(?:zweiten|anderen|frischen)\s+(?:agenten|kontext)",
     re.I,
 )
+# --- Rev 10: Widerspruch im selben Zug --------------------------------------
+#
+# Die Art fragt NICHT nach einem fehlenden Beleg, sondern nach einem Beleg, der
+# im selben Zug das Gegenteil sagt. Deshalb keine Korroborations-Regex, sondern
+# ein Abgleich zweier Texte ueber gemeinsame, UNTERSCHEIDENDE Merkmale.
+#
+# Warum die bestehende Wortmechanik (`_INHALTSWORT_RE`, ab 5 Zeichen) nicht
+# reicht: der Realfall teilt sich „UDP" (drei Zeichen) und „7882" (Ziffern) —
+# beides faellt dort durch. Gemessen wird deshalb ueber Kennungen: Abkuerzungen
+# in Grossbuchstaben, Zahlen ab drei Stellen, und lange Woerter als Beiwerk.
+_WSPR_BELEGT = re.compile(
+    r"[^.!?\n]*\b(?:ist|sind|damit|somit|hiermit)\b[^.!?\n]{0,80}"
+    r"\b(?:belegt|verifiziert|best(?:ä|ae)tigt|nachgewiesen|gepr(?:ü|ue)ft)\b[^.!?\n]*",
+    re.I,
+)
+_WSPR_VERNEINT = re.compile(
+    r"[^.!?\n]*(?:nicht\s+(?:verifizierbar|verifiziert|belegt|gepr(?:ü|ue)ft|nachweisbar)"
+    r"|offen\s+geblieben|steht\s+aus|ungepr(?:ü|ue)ft|kein\s+Beleg)[^.!?\n]*",
+    re.I,
+)
+#: Kennungen: Abkuerzung (ab 3 Grossbuchstaben) oder Zahl (ab 3 Stellen).
+_WSPR_KENNUNG = re.compile(r"\b[A-Z]{3,}\b|\b\d{3,}\b")
+#: Beiwerk: lange Woerter, zwei davon zaehlen wie eine Kennung.
+_WSPR_WORT = re.compile(r"\b[A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß-]{6,}\b")
+
+
+def _wspr_merkmale(satz: str) -> tuple[set[str], set[str]]:
+    return (
+        set(_WSPR_KENNUNG.findall(satz)),
+        {w.lower() for w in _WSPR_WORT.findall(satz)},
+    )
+
+
+def _widerspruch_im_zug(bodies: list, assistant_text: str) -> str:
+    """Body nennt X belegt, der uebrige Zug nennt X nicht verifizierbar.
+
+    Gibt den Kurzbeleg zurueck oder "". Bewusst streng: es braucht entweder eine
+    geteilte Kennung (Abkuerzung/Zahl) oder zwei geteilte lange Woerter. Ohne
+    diese Schwelle traefe die Art jeden Bericht, der irgendwo etwas belegt und
+    anderswo eine Restluecke nennt — und das ist die ehrliche Normalform, nicht
+    der Fehler.
+    """
+    gegentext = assistant_text or ""
+    if not gegentext.strip():
+        return ""
+    verneinungen = [s.strip() for s in _WSPR_VERNEINT.findall(gegentext) if s.strip()]
+    if not verneinungen:
+        return ""
+    for body in bodies:
+        for behauptung in _WSPR_BELEGT.findall(body or ""):
+            b_kenn, b_wort = _wspr_merkmale(behauptung)
+            if not b_kenn and len(b_wort) < 2:
+                continue
+            for verneinung in verneinungen:
+                v_kenn, v_wort = _wspr_merkmale(verneinung)
+                geteilte_kennung = b_kenn & v_kenn
+                geteilte_woerter = b_wort & v_wort
+                if geteilte_kennung or len(geteilte_woerter) >= 2:
+                    marke = sorted(geteilte_kennung or geteilte_woerter)[:2]
+                    return (
+                        f"„{behauptung.strip()[:70]}" + "“ vs. „"
+                        f"{verneinung[:70]}“ — gemeinsam: {', '.join(marke)}"
+                    )
+    return ""
+
+
 _ZWEITER_KONTEXT_TOOLS = {"Agent", "Task", "Workflow"}
 _ZWEITER_KONTEXT_RE = re.compile(
     r"\bclaude\s+-p\b|headless_run|delegate_subtask|workflow_(?:run|execute)|subagent_type",
@@ -1351,6 +1417,23 @@ def main() -> int:
             "kein zweiter Kontext im Turn — kein Agent/Task/Workflow, kein claude -p; "
             "Realfall writing-hub#1181 K4: 44 von 51 Belegen vom Erzeuger selbst geprueft)"
         )
+
+    # Rev 10 (2026-09-23): WIDERSPRUCH im selben Zug. Anders als jede Art davor
+    # fragt diese nicht, ob ein Beleg FEHLT — sie fragt, ob derselbe Zug den Beleg
+    # an anderer Stelle ausdruecklich VERNEINT. Realfall Retro 8946e8 Befund #14:
+    # chat-hub#127 wurde mit „Damit ist auch UDP 7882 belegt" geschlossen, waehrend
+    # §8 desselben Berichts genau diesen Punkt als nicht verifizierbar fuehrte. Der
+    # Traeger war gedeckt (`gh issue close` steht seit Rev 5 im Carrier) und Belege
+    # lagen im Turn — nur sagte einer davon das Gegenteil. Keine Einzelsatz-Pruefung
+    # kann das sehen; noetig ist der Abgleich zweier Texte desselben Zuges.
+    if bodies:
+        _wspr = _widerspruch_im_zug(bodies, assistant_text or "")
+        if _wspr:
+            fired_advisory.append(
+                "widerspruch-im-zug (der publizierte Body nennt etwas belegt, das derselbe "
+                "Zug an anderer Stelle als nicht verifizierbar fuehrt — Realfall "
+                f"chat-hub#127: {_wspr})"
+            )
 
     if _kommentar_vor_merge(tool_inputs):
         fired.append(
