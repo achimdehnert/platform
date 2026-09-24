@@ -86,8 +86,10 @@ BOARD_ROOT = Path.home() / ".claude" / "boards"
 MEDIEN_ROOT = BOARD_ROOT / "medien"
 
 #: Endung → Medientyp. Allowlist statt ``mimetypes.guess_type``: hier soll
-#: ausschliesslich Ton herausgehen, kein HTML und kein Skript, das der Browser
-#: sonst im Ursprung dieses Dienstes ausführen würde.
+#: ausschliesslich Ton und PDF herausgehen, kein HTML und kein Skript, das der
+#: Browser sonst im Ursprung dieses Dienstes ausführen würde. PDF seit
+#: 2026-09-24 (Owner: Link zu einem erzeugten Screenshot-PDF); es wird mit
+#: ``Content-Disposition: inline`` und einer Sandbox-CSP ausgeliefert.
 TON_TYPEN = {
     ".wav": "audio/wav",
     ".mp3": "audio/mpeg",
@@ -95,6 +97,7 @@ TON_TYPEN = {
     ".opus": "audio/ogg",
     ".flac": "audio/flac",
     ".m4a": "audio/mp4",
+    ".pdf": "application/pdf",
 }
 
 #: Aus einer Graph-`id` wird der OWA-Deeplink so gebaut (belegt: funktioniert im Board).
@@ -540,6 +543,11 @@ class MailLinkHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", TON_TYPEN[pfad.suffix.lower()])
             self.send_header("Content-Length", str(groesse))
             self.send_header("Referrer-Policy", "no-referrer")
+            if pfad.suffix.lower() == ".pdf":
+                self.send_header(
+                    "Content-Disposition", f'inline; filename="{pfad.name}"'
+                )
+                self.send_header("Content-Security-Policy", "sandbox")
             self.end_headers()
             if self.command == "HEAD":
                 return
