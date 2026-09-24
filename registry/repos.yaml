@@ -55,6 +55,15 @@
 domains:
 - name: Developer Platform
   systems:
+  - name: chat-hub
+    repo: chat-hub
+    description: Matrix-basierter Chat-/Assist-Zugang (Produktname iil-assist-hub) — Synapse, Element,
+      LiveKit RTC
+    github: iilgmbh/chat-hub
+    deployed: true
+    type: other
+    lifecycle: production
+    tenancy_mode: none
   - name: dev-hub
     repo: dev-hub
     description: Central Developer Portal & Platform Management Hub

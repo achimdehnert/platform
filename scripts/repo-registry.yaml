@@ -50,6 +50,10 @@ repos:
     staging_url: staging.nl2cad.de
     port: 8094
     health: /livez/
+  chat-hub:
+    type: infra
+    prod_url: chat.iil.pet
+    port: 8008
   coach-hub:
     type: django
     prod_url: kiohnerisiko.de
@@ -183,9 +187,9 @@ repos:
   mcp-hub:
     type: infra
     prod_url: orchestrator.iil.pet
-    port: 3000
-    note: MCP Orchestrator Server (Container publiziert real 8000 — Port-Klärung offen, s. reconcile-baseline
-      C4:8000)
+    port: 8000
+    note: MCP Orchestrator Server — Port 3000 war stale (Registry folgte hier bisher nicht der Realitaet,
+      s. reconcile-baseline C4:8000, dort nun gegenstandslos)
   meiki-hub:
     type: static
   nl2cad:

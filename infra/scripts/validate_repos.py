@@ -131,17 +131,30 @@ def get_github_repos() -> set[str]:
 def check_ports_consistency(
     registry_repos: dict[str, dict],
     ports: dict,
-) -> list[str]:
-    """Check ports.yaml vs registry consistency."""
+) -> tuple[list[str], int]:
+    """Check ports.yaml vs registry consistency.
+
+    Gibt (issues, archivierte_uebersprungen) zurueck.
+
+    platform#3477 Entscheid 1: ein archiviertes Repo mit ports.yaml-Eintrag
+    ist KEIN Befund mehr (ports.yaml-Reste bleiben bewusst stehen, bis ein
+    separater Cleanup sie entfernt) — der Check zaehlt sie nur noch und meldet
+    die Zahl als Info-Zeile.
+
+    platform#3477 Entscheid 2: der Check unterscheidet Repo-Dienste von
+    Infra-Diensten. Ein services:-Eintrag MIT `repo:` (nicht-leer) ist ein
+    Repo-Dienst und MUSS in der Registry stehen; ein Eintrag OHNE `repo:`
+    (Schluessel fehlt ganz oder `repo: null`, z.B. doc-hub — docs.iil.pet ohne
+    eigenes GitHub-Repo, ADR-275 #1143) ist ein Infra-Dienst und wird nicht
+    gegen die Registry geprueft.
+    """
     issues = []
+    archived_skipped = 0
 
     for svc_name, svc_cfg in ports.items():
         if svc_cfg is None:
             continue
-        # Repo-loser Service (repo: null explizit) — z.B. doc-hub (docs.iil.pet
-        # ohne eigenes GitHub-Repo). Steht per Definition nicht in der Repo-SSoT
-        # canonical.yaml -> von der Coverage-Prüfung ausnehmen (ADR-275 #1143).
-        if "repo" in svc_cfg and svc_cfg["repo"] is None:
+        if not svc_cfg.get("repo"):
             continue
         repo_ref = svc_cfg.get("repo")
         if repo_ref and "/" in repo_ref:
@@ -158,7 +171,8 @@ def check_ports_consistency(
 
         reg = registry_repos[svc_name]
         if reg.get("_archived"):
-            issues.append(f"'{svc_name}' in ports.yaml aber als archiviert markiert")
+            archived_skipped += 1
+            continue
 
         prod_port = svc_cfg.get("prod")
         reg_prod = reg.get("port_prod")
@@ -167,7 +181,7 @@ def check_ports_consistency(
                 f"'{svc_name}' port_prod: ports.yaml={prod_port} registry={reg_prod}"
             )
 
-    return issues
+    return issues, archived_skipped
 
 
 def check_github_coverage(
@@ -214,7 +228,7 @@ def main() -> None:
 
     # Check 1: ports.yaml vs registry
     print("\n--- Check 1: ports.yaml vs Registry ---")
-    issues = check_ports_consistency(
+    issues, archived_skipped = check_ports_consistency(
         registry_repos,
         ports,
     )
@@ -224,6 +238,10 @@ def main() -> None:
             print(f"  ⚠ {i}")
     else:
         print("  ✅ Konsistent")
+    if archived_skipped:
+        print(
+            f"  ℹ {archived_skipped} archivierte Repos mit ports.yaml-Eintrag übersprungen"
+        )
 
     # Check 2: GitHub coverage
     if args.github:
