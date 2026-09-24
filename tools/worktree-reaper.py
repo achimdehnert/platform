@@ -49,6 +49,10 @@ LEASE_DIR = (
     Path(os.environ.get("REPO_SESSION_DIR", str(Path.home() / ".repo-session")))
     / "leases"
 )
+# Befund-Sperren (platform#3495 V1) leben unter LEASE_DIR/befund/<key>.lock — als
+# Attribut auf LEASE_DIR statt als eigene Konstante, damit ein Test, der LEASE_DIR
+# monkeypatcht, automatisch den passenden Unterordner trifft (kein zweites Attribut
+# zu monkeypatchen).
 
 
 def _run(cmd: list[str], cwd: str | None = None) -> tuple[int, str]:
@@ -117,6 +121,36 @@ def lease_for(path: str) -> dict | None:
     return None
 
 
+def release_befund_locks(lease_id: str) -> list[str]:
+    """Befund-Sperren einer geschlossenen Lease freigeben (platform#3495 V1 Folgepunkt b).
+
+    `repo-session.sh` raeumt eigene Sperren beim `end` ueber befund_freigeben() ab —
+    aber der Reaper schliesst Leases auch auf zwei Pfaden, die repo-session.sh nicht
+    sieht (Merge-Reap ueber close_lease_for(), Orphan-Reap ueber close_orphan_leases()
+    fuer manuell entfernte Worktrees). Ohne diese Funktion blieb eine Befund-Sperre
+    ($LEASE_DIR/befund/<key>.lock, Inhalt u.a. "lease_id") nach so einem Schliessen
+    "verwaist" liegen, bis irgendwann `repo-session.sh start`/`reap` sie als verwaist
+    erkannte und aufraeumte (befund_zustand() in repo-session.sh) — Freigabe verzoegert
+    statt sofort. lease_id ist der Dateiname der Lease ohne ".json" (== "session_id"
+    im Lease-JSON, wie repo-session.sh ihn beim Belegen als "lease_id" schreibt)."""
+    befund_dir = LEASE_DIR / "befund"
+    if not befund_dir.is_dir():
+        return []
+    released = []
+    for f in befund_dir.glob("*.lock"):
+        try:
+            d = json.loads(f.read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        if d.get("lease_id") == lease_id:
+            try:
+                f.unlink()
+            except OSError:
+                continue
+            released.append(d.get("key", f.stem))
+    return released
+
+
 def close_lease_for(path: str) -> bool:
     """Lease eines entfernten Worktrees auf .closed setzen (Lease- an Worktree-Lifecycle koppeln).
     Verhindert verwaiste offene Leases (Lease-Friedhof, Retro 2026-06-24)."""
@@ -129,6 +163,8 @@ def close_lease_for(path: str) -> bool:
             continue
         if d.get("worktree") == path:
             f.rename(f.with_suffix(".json.closed"))
+            for key in release_befund_locks(f.stem):
+                print(f"  ♻ Befund-Sperre freigegeben (Reaper): {key}")
             return True
     return False
 
@@ -148,6 +184,8 @@ def close_orphan_leases() -> int:
         if wt and not Path(wt).is_dir():
             f.rename(f.with_suffix(".json.closed"))
             closed += 1
+            for key in release_befund_locks(f.stem):
+                print(f"  ♻ Befund-Sperre freigegeben (Reaper, verwaiste Lease): {key}")
     return closed
 
 

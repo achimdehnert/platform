@@ -214,3 +214,52 @@ def test_should_start_unchanged_when_no_befund_is_given(tmp_path):
     assert b.returncode == 0, b.stderr
     assert "Befund :" not in a.stderr
     assert not _lock_dir(tmp_path).exists()
+
+
+def test_should_take_over_expired_lock_directly_in_befund_belegen(tmp_path):
+    """(c, #3495 V1 Folgepunkt) Uebernahme-Zweig in befund_belegen() DIREKT treffen,
+    ohne dass der Auto-Reap aus cmd_start() (reap_repo() -> befund_aufraeumen()) die
+    abgelaufene Sperre vorher entfernt — bisher lief `test_should_take_over_lock_
+    when_it_is_expired` ueber `start`, wo meist genau dieser Auto-Reap zuerst greift
+    und den eigentlichen Uebernahme-Zweig in befund_belegen() (Zustand "abgelaufen"/
+    "verwaist" -> `rm -f "$f"` VOR dem Neuanlegen) nur indirekt uebt.
+
+    Der Dispatch am Skriptende laeuft nur bei direktem Aufruf (`BASH_SOURCE[0] = $0`);
+    `source repo-session.sh` laedt daher nur Funktionen/Variablen, OHNE cmd_start()
+    (und damit OHNE reap_repo()) auszufuehren — befund_belegen() wird isoliert
+    aufgerufen, der Auto-Reap existiert in diesem Prozess gar nicht."""
+    lock_dir = _lock_dir(tmp_path)
+    lock_dir.mkdir(parents=True)
+    alte_sperre = {
+        "key": KEY,
+        "lease_id": "alt-lease",
+        "worktree": "/nirgends",
+        "created_at": "2026-01-01T00:00:00Z",
+        "expires_at": "2026-01-08T00:00:00Z",  # laengst abgelaufen
+    }
+    lock_datei = lock_dir / "0.7_deploy-scan__fixture.lock"
+    lock_datei.write_text(json.dumps(alte_sperre))
+
+    skript = f"""
+set -euo pipefail
+export REPO_SESSION_DIR={json.dumps(str(tmp_path / ".repo-session"))}
+source {json.dumps(str(REPO_SESSION_SH))}
+befund_belegen neue-lease /wt/neu 2099-01-01T00:00:00Z {json.dumps(KEY)}
+"""
+    res = subprocess.run(
+        [shutil.which("bash"), "-c", skript],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert res.returncode == 0, res.stderr
+    # Der Uebernahme-Hinweis kommt ausschliesslich aus befund_belegen() selbst
+    # (befund_aufraeumen()/reap_repo() wurden in diesem Prozess nie aufgerufen).
+    assert "übernommen" in res.stderr, res.stderr
+    assert "abgelaufen" in res.stderr, res.stderr
+    assert KEY in res.stderr
+    neue_sperre = json.loads(lock_datei.read_text())
+    assert neue_sperre["lease_id"] == "neue-lease"
+    assert neue_sperre["key"] == KEY
+    assert neue_sperre != alte_sperre

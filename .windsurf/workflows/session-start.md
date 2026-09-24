@@ -150,6 +150,16 @@ cd "$wt"   # Branch session/<date>/<owner>/<slug> von origin/main + Lease
 
 - **`--ziel`** ist optional, beantwortet aber „warum dieser Branch?" und „welche PRs gehören
   zur Sitzung?"; es bleibt über alle Aufgaben derselben Sitzung gleich.
+- **`--befund <phase::repo>`** (#3495 V1) — bearbeitet die Sitzung einen Journal-Befund aus dem
+  Runner (Phase + Ziel-Repo, z.B. `0.7 deploy-scan::risk-hub`), wird der Schlüssel beim `start`
+  atomar gesperrt; je Befund ein eigener `--befund`, mehrfach angebbar. Ein zweiter `start` auf
+  denselben Schlüssel bricht mit `exit 3` ab, **bevor** ein Worktree entsteht — eine andere
+  Sitzung ist schon dran. Frei wird die Sperre durch `end`, durch Ablauf (Lease-TTL) oder wenn
+  ihre Lease geschlossen ist; `reap` räumt abgelaufene/verwaiste Sperren ab.
+- **Runner-Zeile deuten:** der Block `Befund-Sperren (repo-session.sh befunde):` unter 0.R zeigt
+  je belegtem Schlüssel `⛔ in Arbeit von <lease> (seit <Zeit>, <Alter>): <key>` — nicht selbst am
+  selben Befund starten; abwarten, oder bei der anderen Sitzung `repo-session.sh end <worktree>`
+  (Owner-Entscheidung, kein Automatismus).
 - **Aufräumen:** `python3 platform/tools/worktree-reaper.py` (dry-run; `--apply` bewusst).
 - **Verstoß-Messung:** `bash platform/tools/main-tree-guard.sh report` →
   `unauthorized_head_flips/30d` (Kill-Gate ADR-233 §8); harter Guard noch nicht scharf.
@@ -278,6 +288,7 @@ SA-4 aus `policies/autonomy-gates.md`):
 | 7 | Editier-Modus auf Worktree gesetzt, kein Edit im Haupt-Tree (0.4.3) | ☐ |
 | 7a | Basis-Abstand aus 0.4.4 gelesen, betroffener Worktree **vor** dem Edit gemergt | ☐ |
 | 7b | Zielzustand geklärt: referenziert ODER akzeptiert ODER Überspringen begründet | ☐ |
+| 7c | Journal-Befund, den die Sitzung bearbeitet, per `start --befund <phase::repo>` gesperrt; Runner-Zeile `⛔ in Arbeit von` vor Start geprüft | ☐ |
 | 8 | Arbeitsplan aufgestellt (Phase 3, gegen den Zielzustand) | ☐ |
 | 8a | Auftragsraum abgearbeitet: `offen` gelesen, Kurzbefehle angewendet, Aufträge/Korrekturen verankert (1.8) | ☐ |
 | 8b | `LAUFZEIT:`-Zeile gelesen; auffälliger Anstieg als Befund gespiegelt, nicht hingenommen (0.R) | ☐ |
@@ -307,6 +318,13 @@ SA-4 aus `policies/autonomy-gates.md`):
 
 > Nur die letzten drei Einträge (Policy seit #2696). Volle Historie: `LEHREN#changelog-historie`.
 
+- 2026-09-24: **`--befund` im Editier-Modus dokumentiert** (0.4.3, #3495 V1-Folgepunkt zu
+  #3499): Skill-Text erklärt `start --befund <phase::repo>` (je Befund ein Aufruf, atomare
+  Sperre, `exit 3` bei Kollision) und die Runner-Zeile `⛔ in Arbeit von <lease>` unter
+  „Befund-Sperren (repo-session.sh befunde):"; neue Checklisten-Zeile 7c. Anlass: die Sperre
+  selbst lief seit #3499, aber der Skill sagte nirgends, wann sie zu setzen ist oder wie die
+  Runner-Zeile zu lesen ist.
+
 - 2026-09-24: **Delta gegen das Befund-Journal** (platform#3506, Zielzustand #3495 V3): der
   Runner klassifiziert jede WARN-Zeile gegen den Journalstand vor dem Lauf (`NEU`, `GEAENDERT`,
   `OHNE-ANKER`, `ANKER-ABGELAUFEN`, `WIEDERVORLAGE`, `FIX-MESSUNG-UEBERFAELLIG`, `VERANKERT`)
@@ -324,10 +342,3 @@ SA-4 aus `policies/autonomy-gates.md`):
   `SESSION_CHECKS_PARALLEL=1` stellt den alten Ablauf wieder her. Nebenbei korrigiert: 0.7.28
   las den Exit-Code von `tail` statt vom Melder, wodurch dort jede Lage als PASS endete.
   Messung und Herleitung: `docs/governance/session-skills-lehren/laufzeit.md`.
-
-- 2026-09-17: **Phase 0.7.7 `gate-wirkung` gestrichen** (Streichbahn Retro 8185e1, Owner-Wort
-  M9, Belegart kein Leser): drei Journal-Läufe, kein Session-Start-Board führte den Befund als
-  Item; der einzige registrierte Leser war `/session-retro` Phase 4/5a, die `gate_wirkung.py`
-  ohnehin selbst als Phase 0.0 ausführt — der Sitzungsstart duplizierte die Retro mit
-  schwächerem Zug. Rückfall-Prüfung bleibt in `/session-retro` Phase 0.0/5a;
-  `tools/gate_wirkung.py` unverändert.
