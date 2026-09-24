@@ -636,6 +636,65 @@ def _zeilen_lesen(text: str) -> list[dict]:
     return saetze
 
 
+#: So viele Heilungen je Fingerabdruck bleiben im Verlauf. Mehr braucht die
+#: Frage "haelt die Reparatur kuerzer als die davor?" nicht, und das Journal
+#: waechst nicht unbegrenzt.
+HEILUNGEN_MAX = 10
+
+
+def _tage(von: str, bis: str) -> int | None:
+    try:
+        return (date.fromisoformat(str(bis)) - date.fromisoformat(str(von))).days
+    except ValueError:
+        return None
+
+
+def wiederkehr(verlauf: list[dict], heute: str) -> dict | None:
+    """Wie lange hielt die letzte Heilung — und hielt sie kuerzer als die davor?
+
+    Vorbild ist die Anthropic-Messung zur Test-Impact-Analyse (Blog, 2026): drei
+    Flicken am selben Dienst hielten 70, dann 29, dann unter einen Tag. Der
+    schrumpfende Abstand war das Fruehzeichen fuer den Architekturbruch, lange
+    bevor ein einzelner Ausfall es war. Bis hierher loeschte die Heilung den
+    Eintrag samt Vorgeschichte (``aufnehmen``), und derselbe Befund kam jedes Mal
+    als "neu" zurueck — der Abstand war nicht messbar.
+
+    ``verlauf`` ist ``daten["heilungen"][fid]``, aelteste zuerst. Haltedauer einer
+    Heilung = vom Tag der Heilung bis zum naechsten ``erstmals``; fuer die letzte
+    Heilung also bis ``heute``.
+    """
+    if not verlauf:
+        return None
+    letzte = verlauf[-1]
+    hielt = _tage(letzte.get("geheilt", ""), heute)
+    vorher = None
+    if len(verlauf) >= 2:
+        vorher = _tage(verlauf[-2].get("geheilt", ""), letzte.get("erstmals", ""))
+    return {
+        "anzahl": len(verlauf),
+        "zuletzt_geheilt": letzte.get("geheilt"),
+        "fix_pr": letzte.get("fix_pr"),
+        "hielt_tage": hielt,
+        "vorher_tage": vorher,
+        "kuerzer": hielt is not None and vorher is not None and hielt < vorher,
+    }
+
+
+def _wiederkehr_zeile(e: dict) -> str:
+    w = e.get("wiederkehr") or {}
+    fix = f" nach Fix {w['fix_pr']}" if w.get("fix_pr") else ""
+    vorher = (
+        f" (vorher {w['vorher_tage']} Tage)" if w.get("vorher_tage") is not None else ""
+    )
+    trend = (
+        " ↘ haelt kuerzer — Ursache statt Flicken pruefen" if w.get("kuerzer") else ""
+    )
+    return (
+        f"{w.get('anzahl')}. Rueckkehr, Heilung{fix} hielt "
+        f"{w.get('hielt_tage')} Tage{vorher}{trend}"
+    )
+
+
 def _zielgebunden(phase: str, by_phase: dict[str, dict]) -> bool | None:
     """``zielgebunden``-Flag der Phase aus dem Register, oder ``None`` wenn kein
     Eintrag existiert (Aufrufer entscheidet dann per Default + Warnung, #3470)."""
@@ -671,6 +730,7 @@ def aufnehmen(
     Verhalten fuer Aufrufer, die den Parameter nicht kennen).
     """
     befunde = daten.setdefault("befunde", {})
+    heilungen = daten.setdefault("heilungen", {})
     heute = _heute()
     gelaufene_phasen = {s["phase"] for s in saetze}
     by_phase = _mrc.register_zuordnung(register or [])
@@ -703,6 +763,15 @@ def aufnehmen(
                     "entscheiden_bis": _frist(FRIST_ENTSCHEIDUNG_TAGE),
                     **belege,
                 }
+                w = wiederkehr(heilungen.get(fid, []), heute)
+                if w:
+                    befunde[fid]["wiederkehr"] = w
+                    # Sofort laut, nicht erst ab ALT_AB_LAEUFEN: die Rueckkehr
+                    # selbst ist das Signal, nicht ihr Alter.
+                    meldungen.append(
+                        f"  🔁 WIEDERKEHR {satz['phase']} · Repo {repo} — "
+                        + _wiederkehr_zeile(befunde[fid])
+                    )
                 continue
             eintrag["laeufe"] = int(eintrag.get("laeufe", 0)) + 1
             eintrag["zuletzt"] = heute
@@ -737,6 +806,18 @@ def aufnehmen(
             zg = False
         if zg and eintrag.get("repo") != lauf_repo:
             continue  # zielgebunden, aber fremdes Zielrepo -> keine Heilung
+        # Die Heilung loescht den Eintrag, der Verlauf bleibt NEBEN den Befunden
+        # (dieselbe Begruendung wie bei ``urteile``) — sonst kaeme jede Rueckkehr
+        # als "neu" an und der Abstand zwischen Reparaturen waere nicht messbar.
+        verlauf = heilungen.setdefault(fid, [])
+        verlauf.append(
+            {
+                "erstmals": eintrag.get("erstmals"),
+                "geheilt": heute,
+                "fix_pr": (eintrag.get("fix") or {}).get("pr"),
+            }
+        )
+        del verlauf[:-HEILUNGEN_MAX]
         del befunde[fid]
 
     ruhend = []
@@ -1003,6 +1084,7 @@ def bericht_json(daten: dict, eigenes_repo: str) -> list[dict]:
                 "urteil": e.get("urteil"),
                 "fix": e.get("fix"),
                 "fix_ueberfaellig": fix_ueberfaellig(e, heute),
+                "wiederkehr": e.get("wiederkehr"),
                 **{f: e.get(f) for f in BELEG_FELDER},
             }
         )
@@ -1063,10 +1145,11 @@ def bericht(
             )
             if fix_ueberfaellig(e, _heute()):
                 fix_zeile += "\n      ⏰ Fix-Messung überfällig"
+        rueck = f"\n      🔁 {_wiederkehr_zeile(e)}" if e.get("wiederkehr") else ""
         zeilen.append(
             f"  {fid}{fremd}{infra}\n"
             f"      {e.get('laeufe', 0)} Laeufe · erstmals {e.get('erstmals', '?')} · "
-            f"zuletzt {e.get('zuletzt', '?')} · {stand}{ruhe}{frist}{beleg}{fix_zeile}"
+            f"zuletzt {e.get('zuletzt', '?')} · {stand}{ruhe}{frist}{beleg}{fix_zeile}{rueck}"
         )
     offen = _cross_repo_offen(daten, eigenes_repo)
     zeilen.append("")

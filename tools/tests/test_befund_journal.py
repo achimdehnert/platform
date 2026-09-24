@@ -1128,6 +1128,112 @@ def test_should_keep_every_real_declaration_valid():
     assert [f for f in fehler if f[1]] == []
 
 
+# ── Wiederkehr: haelt die Heilung kuerzer als die davor? ──
+#
+# Zeit laesst sich im Journal nicht vorspulen, wohl aber zurueckdatieren: die
+# Tests schreiben ``geheilt``/``erstmals`` im gespeicherten Verlauf auf fruehere
+# Tage um und lassen dann den naechsten Lauf gegen das echte ``heute`` rechnen.
+
+_ZEILE_WARN = ["0.7 deploy-scan\tWARN\tcad-hub\tfailure"]
+_ZEILE_PASS = ["0.7 deploy-scan\tPASS\tplatform\talles gruen"]
+_FID = "0.7 deploy-scan::cad-hub"
+
+
+def _vor(tage: int) -> str:
+    from datetime import date, timedelta  # noqa: PLC0415
+
+    return (date.fromisoformat(bj._heute()) - timedelta(days=tage)).isoformat()
+
+
+def _verlauf_setzen(pfad: Path, verlauf: list[dict]) -> None:
+    daten = bj.lade(pfad)
+    daten["heilungen"][_FID] = verlauf
+    bj.sichere(daten, pfad)
+
+
+def test_should_keep_heal_history_when_entry_is_removed(journal: Path) -> None:
+    _lauf(_ZEILE_WARN, journal)
+    _, daten = _lauf(_ZEILE_PASS, journal)
+    assert daten["befunde"] == {}
+    assert daten["heilungen"][_FID] == [
+        {"erstmals": bj._heute(), "geheilt": bj._heute(), "fix_pr": None}
+    ]
+
+
+def test_should_report_recurrence_immediately_on_first_run(journal: Path) -> None:
+    _lauf(_ZEILE_WARN, journal)
+    _lauf(_ZEILE_PASS, journal)
+    _verlauf_setzen(journal, [{"erstmals": _vor(20), "geheilt": _vor(12)}])
+    meldungen, daten = _lauf(_ZEILE_WARN, journal)
+    w = daten["befunde"][_FID]["wiederkehr"]
+    assert (w["anzahl"], w["hielt_tage"], w["kuerzer"]) == (1, 12, False)
+    assert any("WIEDERKEHR" in m and "hielt 12 Tage" in m for m in meldungen)
+
+
+def test_should_flag_when_heal_holds_shorter_than_the_one_before(journal: Path) -> None:
+    """Der Anthropic-Verlauf 70 → 29 → <1 Tag, auf zwei Stufen verkuerzt."""
+    _lauf(_ZEILE_WARN, journal)
+    _lauf(_ZEILE_PASS, journal)
+    _verlauf_setzen(
+        journal,
+        [
+            {"erstmals": _vor(100), "geheilt": _vor(95)},
+            {"erstmals": _vor(25), "geheilt": _vor(20), "fix_pr": "#1"},
+        ],
+    )
+    meldungen, daten = _lauf(_ZEILE_WARN, journal)
+    w = daten["befunde"][_FID]["wiederkehr"]
+    assert (w["hielt_tage"], w["vorher_tage"], w["kuerzer"]) == (20, 70, True)
+    assert any("haelt kuerzer" in m and "nach Fix #1" in m for m in meldungen)
+
+
+def test_should_not_flag_when_heal_holds_longer(journal: Path) -> None:
+    _lauf(_ZEILE_WARN, journal)
+    _lauf(_ZEILE_PASS, journal)
+    _verlauf_setzen(
+        journal,
+        [
+            {"erstmals": _vor(40), "geheilt": _vor(35)},
+            {"erstmals": _vor(30), "geheilt": _vor(20)},
+        ],
+    )
+    _, daten = _lauf(_ZEILE_WARN, journal)
+    assert daten["befunde"][_FID]["wiederkehr"]["kuerzer"] is False
+
+
+def test_should_carry_fix_pr_into_heal_history(journal: Path) -> None:
+    _lauf(_ZEILE_WARN, journal)
+    daten = bj.lade(journal)
+    daten["befunde"][_FID]["fix"] = {"pr": "https://example.invalid/pull/7"}
+    bj.sichere(daten, journal)
+    _, daten = _lauf(_ZEILE_PASS, journal)
+    assert daten["heilungen"][_FID][-1]["fix_pr"] == "https://example.invalid/pull/7"
+
+
+def test_should_cap_heal_history(journal: Path) -> None:
+    for _ in range(bj.HEILUNGEN_MAX + 3):
+        _lauf(_ZEILE_WARN, journal)
+        _, daten = _lauf(_ZEILE_PASS, journal)
+    assert len(daten["heilungen"][_FID]) == bj.HEILUNGEN_MAX
+
+
+def test_should_not_record_heal_for_coverage_gap(journal: Path) -> None:
+    """Abdeckungsluecke ist keine Heilung — also auch kein Verlaufseintrag."""
+    _lauf(_ZEILE_WARN, journal)
+    _, daten = _lauf(["0.4 repo-sync\tPASS\tplatform\tok"], journal)
+    assert _FID in daten["befunde"]
+    assert daten["heilungen"].get(_FID) is None
+
+
+def test_should_show_recurrence_in_report_and_json(journal: Path) -> None:
+    _lauf(_ZEILE_WARN, journal)
+    _lauf(_ZEILE_PASS, journal)
+    _, daten = _lauf(_ZEILE_WARN, journal)
+    assert "Rueckkehr" in bj.bericht(daten, "platform")
+    satz = next(s for s in bj.bericht_json(daten, "platform") if s["id"] == _FID)
+    assert satz["wiederkehr"]["anzahl"] == 1
+
+
 # ── V2-Rest (#3507): Verzicht ueber deklarationen_fuer, verankert_am, --gilt ──
 
 _WURZEL = Path(__file__).resolve().parents[2]
