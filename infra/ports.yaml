@@ -809,12 +809,18 @@ services:
     domain_prod: gpu.iil.pet        # Tunnel laeuft auf prod, nicht auf der Box
     domain_staging: null
     repo: achimdehnert/platform
-    betriebsstatus: aktiv
+    betriebsstatus: blockiert        # wie der infra:-Eintrag oben — die Box laeuft nur auf Zuruf
     betriebsstatus_grund: >
       ollama auf der RTX-4090-Box, veroeffentlicht ueber gpu.iil.pet hinter
       Cloudflare Access (Owner-Entscheid 2026-09-02, platform#2486 Punkt 2).
       Nachgetragen 2026-09-08 aus demselben Grund wie `ollama`: die Ausnahme
       `gpu-ollama` in hosts.yaml war ohne diesen Eintrag unlesbar fuer den Melder.
+      Seit 2026-09-24 `blockiert` statt `aktiv` (platform#3471, #3115): die GPU-Box
+      laeuft nach Owner-Entscheid 2026-08-31 nur auf Zuruf (hosts.yaml
+      `betrieb: auf_zuruf`), der Origin hinter dem Tunnel hat keinen messbaren
+      TLS-Port — `origin_tls_melder.py` las hier `aktiv`, mass ins Leere und
+      meldete 41 Sitzungsstarts lang "nicht-messbar", obwohl der infra:-Eintrag
+      derselben Datei laengst `blockiert` sagte. Zwei Eintraege, ein Dienst: #3422.
 
   mcp-hub:
     prod: 8000
