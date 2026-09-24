@@ -442,9 +442,87 @@ def test_should_flag_when_two_more_repos_written_after_checkpoint(
     assert "2 weitere Repos seit dem Checkpoint" in kontext
 
 
-def test_should_not_flag_a_single_additional_repo(tmp_path, monkeypatch, capsys):
-    # Ein einzelnes Nachbar-Repo ist Alltag (Zielrepo + platform) — die Schwelle
-    # ist bewusst 2, sonst gewoehnt das Gate das Weghoeren an.
+# --- Rev 8 (Retro 2026-09-24 e911bf Befund #5): Mengen statt Zahlen ----------
+#
+# Realfall: der Checkpoint nannte sechs Repos und stellte „weitere Repos" unter
+# ein neues Owner-Wort; beschrieben hatte die Sitzung davon erst vier. Das siebte
+# Repo (cad-hub, per repo-session-Worktree) ergab 5 - 4 = 1 < Schwelle 2 — stumm.
+
+_WT = "/home/devuser/.repo-session/worktrees"
+
+_REALFALL_VOR_CHECKPOINT = [
+    _zeile_bash(
+        f"cd {_WT}/platform/2026-09-24-x && git commit -m a", cwd="/home/devuser"
+    ),
+    _zeile_edit("/home/devuser/github/risk-hub/NEXT.md"),
+    _zeile_bash("git -C /home/devuser/github/ttz-hub commit -m b"),
+]
+
+_REALFALL_CHECKPOINT = _zeile_text(
+    "Scope-Checkpoint, wie die Hausregel verlangt: die Sitzung hat platform, "
+    "risk-hub, ttz-hub, iil-adrfw, mcp-hub und news-hub beruehrt. Nicht "
+    "freigegeben ohne neues Wort: weitere Repos."
+)
+
+
+def test_should_flag_first_edit_in_a_repo_the_checkpoint_did_not_name(
+    tmp_path, monkeypatch, capsys
+):
+    # POSITIVKONTROLLE Rev 8 am Realfall e911bf: ein genanntes Repo (news-hub)
+    # kommt nach dem Checkpoint dazu, dann ein ungenanntes (cad-hub) ueber den
+    # Worktree-Pfad. Unter Rev 5 war das 5 - 3 = 2 bzw. im Realfall 5 - 4 = 1.
+    p = _transcript(
+        tmp_path,
+        [
+            *_REALFALL_VOR_CHECKPOINT,
+            _REALFALL_CHECKPOINT,
+            _ARTEFAKT,
+            _zeile_edit("/home/devuser/github/news-hub/app/a.py"),
+            _zeile_edit(f"{_WT}/cad-hub/2026-09-24-kd/klickdummy/shell.html"),
+        ],
+    )
+    rc, antwort = _run(monkeypatch, capsys, p)
+    assert rc == 0
+    kontext = _kontext(antwort)
+    assert "Fehlerform C" in kontext
+    assert (
+        "1 weitere Repos seit dem Checkpoint, die er nicht nennt (cad-hub;" in kontext
+    )
+    assert "news-hub;" not in kontext
+
+
+def test_should_not_flag_a_new_repo_the_checkpoint_named(tmp_path, monkeypatch, capsys):
+    # GEGENPROBE: dasselbe Wachstum, aber das neue Repo steht im Checkpoint —
+    # dann hat der Owner es bereits gesehen, der Checkpoint ist nicht ueberholt.
+    p = _transcript(
+        tmp_path,
+        [
+            *_REALFALL_VOR_CHECKPOINT,
+            _REALFALL_CHECKPOINT,
+            _ARTEFAKT,
+            _zeile_edit("/home/devuser/github/news-hub/app/a.py"),
+            _zeile_edit(f"{_WT}/mcp-hub/2026-09-24-y/app/b.py"),
+        ],
+    )
+    _, antwort = _run(monkeypatch, capsys, p)
+    assert _kontext(antwort) == ""
+
+
+def test_should_not_count_a_longer_repo_name_as_named():
+    # Wortgrenze inkl. Bindestrich: „cad-hub-legacy" nennt cad-hub NICHT.
+    texte = ["Scope-Checkpoint: cad-hub-legacy und risk-hub"]
+    assert not scanner.im_checkpoint_genannt("cad-hub", texte)
+    assert not scanner.im_checkpoint_genannt("hub", texte)
+    assert scanner.im_checkpoint_genannt("risk-hub", texte)
+
+
+def test_should_flag_a_single_unnamed_repo_after_checkpoint(
+    tmp_path, monkeypatch, capsys
+):
+    # Bis Rev 7 hiess dieser Drill „not_flag_a_single_additional_repo" (Schwelle
+    # 2). Genau diese Ausnahme war der Rueckfall e911bf: ein einzelnes Repo, das
+    # der Checkpoint nicht nennt, IST ein Sprung. Zielrepo + platform sind beim
+    # Checkpoint bereits beschrieben und damit gedeckt (s. naechster Drill).
     p = _transcript(
         tmp_path,
         [
@@ -452,6 +530,25 @@ def test_should_not_flag_a_single_additional_repo(tmp_path, monkeypatch, capsys)
             _CHECKPOINT,
             _ARTEFAKT,
             _zeile_edit("/home/devuser/github/meiki-hub/app/a.py"),
+        ],
+    )
+    _, antwort = _run(monkeypatch, capsys, p)
+    assert "Fehlerform C" in _kontext(antwort)
+
+
+def test_should_not_flag_further_writes_in_repos_written_before_checkpoint(
+    tmp_path, monkeypatch, capsys
+):
+    # Der Alltag, fuer den Rev 5 die Schwelle 2 hatte: weiterarbeiten in Repos,
+    # die der Checkpoint schon als beschrieben vorfand — auch ohne sie zu nennen.
+    p = _transcript(
+        tmp_path,
+        [
+            *DREI_REPOS,
+            _CHECKPOINT,
+            _ARTEFAKT,
+            _zeile_edit("/home/devuser/github/platform/tools/x.py"),
+            _zeile_edit("/home/devuser/github/dev-hub/app/z2.py"),
         ],
     )
     _, antwort = _run(monkeypatch, capsys, p)
