@@ -1622,6 +1622,18 @@ if [ -f "$PLATFORM_DIR/tools/befund_journal.py" ]; then
   fi
 fi
 
+# ── Befund-Sperren: welcher Befund ist schon in Arbeit (#3495 V1) ─────────────
+# Zwei Sitzungen desselben Owners bearbeiteten am 2026-09-24 denselben Befund
+# (#3465/#3466, #3467/#3468). `repo-session.sh start --befund <phase::repo>`
+# sperrt den Schluessel; hier steht, welche Schluessel belegt sind. Nur Anzeige,
+# keine Phase, kein WARN — nie werfend.
+BEFUND_SPERREN=$(bash "$PLATFORM_DIR/tools/repo-session.sh" befunde 2>/dev/null | grep '^⛔' || true)
+if [ -n "$BEFUND_SPERREN" ]; then
+  echo "Befund-Sperren (repo-session.sh befunde):"
+  echo "$BEFUND_SPERREN"
+  echo ""
+fi
+
 # ── Ohne Entscheidung > 14 d: eigener Block (#2690 K3) ───────────────────────
 # Ein Befund ohne Artefakt/Verzicht altert im Journal oben leise mit — hier
 # steht er noch einmal separat, weil eine Liegezeit über der Frist ein anderer
