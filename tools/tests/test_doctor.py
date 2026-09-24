@@ -322,13 +322,25 @@ def test_should_report_dangling_directory_symlink_as_drift(tmp_path):
 
 
 # ------------------------------------------------ ADR-281 §8.2 / #1368: die zwei Kanten
-def test_should_report_noncanonical_dangling_symlink_as_dangling_not_extra(tmp_path):
-    """#1368 Kante 1: ein gebrochener Link unter einem der Quelle UNBEKANNTEN Namen.
+def test_should_ignore_foreign_named_dangling_symlink_since_skills_is_a_merge_lane(
+    tmp_path,
+):
+    """Ersetzt die alte #1368-Kante-1-Erwartung seit platform#3467 (Lane `skills` = merge).
 
-    Bis 2026-07-22 stand `name not in canon` vor der dangling-Pruefung und beendete die
-    Klassifikation per `continue` — der Link kam als `extra` heraus, nie als `dangling`.
-    Erkannt wurde er (Drift +1), aber unter dem falschen Etikett, und ADR-281 §8.2 gatet
-    ausdruecklich auf `dangling`. Real gemessen am 2026-07-22 mit `adr281-dangling`.
+    Bis #3467 enumerierte `enumerate_skills` das GESAMTE Zielverzeichnis (Swap-Annahme:
+    es gehoert dem Generator allein) — ein Symlink unter einem der Quelle unbekannten
+    Namen kam als `[dangling]` heraus (Regressionstest von 2026-07-22, `adr281-dangling`).
+    Seit `skills` `mode: merge` ist (Ziel geteilt mit dem claude.ai-Skill-Sync,
+    `synced/<bucket-id>/`), liest `main()` die Lane ueber `enumerate_skills_merge_lane`:
+    NUR was `.cc-skill-dist-manifest.json` listet. Ein Name ausserhalb des Manifests ist
+    damit fuer den Doctor unsichtbar — egal ob Verzeichnis, Datei oder (wie hier) ein
+    gebrochener Symlink. Das ist dieselbe Parität, die `test_should_not_call_foreign_entries_extra`
+    fuer `claude-hooks` schon zeigt (#1508): ein geteiltes Verzeichnis kann nicht gleichzeitig
+    "voll enumerierbar" und "tolerant gegenueber Fremdinhalt" sein.
+
+    Die Kante-1-Garantie (ein kaputter Link wird als `dangling`, nicht `extra`, erkannt)
+    bleibt fuer KANONISCHE Namen unveraendert in Kraft — s.
+    `test_should_report_dangling_directory_symlink_as_drift` (Name `bar`, im Manifest).
     """
     repo = _make_repo(tmp_path / "repo")
     dist = tmp_path / "dist"
@@ -351,21 +363,16 @@ def test_should_report_noncanonical_dangling_symlink_as_dangling_not_extra(tmp_p
     )
     assert _score(_doctor_skills(repo, dist).stdout) == 0
 
-    # Name existiert in der Quelle NICHT — genau der Fall, der frueher durchrutschte
+    # Name existiert weder in der Quelle noch im Merge-Manifest — z.B. ein toter Rest
+    # eines fremden Werkzeugs im geteilten Ziel.
     (dist / "fremder-skill").symlink_to(tmp_path / "ziel-existiert-nicht")
 
     r = _doctor_skills(repo, dist)
-    assert r.returncode == 1, r.stdout + r.stderr
-    # Etikett-Assertions ZUERST: sie sind der eigentliche Regressionsschutz. Stuenden die
-    # DANGLING-Zeilen-Assertions davor, schluege der Test ohne den Fix schon an der fehlenden
-    # Zeile fehl und bewiese ueber die Fehlklassifikation nichts.
-    assert "[dangling] fremder-skill" in r.stdout, r.stdout
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "[dangling] fremder-skill" not in r.stdout, r.stdout
     assert "[extra] fremder-skill" not in r.stdout, r.stdout
-    assert "nicht in der Quelle" in r.stdout, r.stdout  # Zusatz bleibt sichtbar
-    assert "dangling=1" in r.stdout, r.stdout
-    assert _dangling(r.stdout) == 1, r.stdout
-    # Die Umstellung verschiebt nur das Etikett, sie darf den Score nicht veraendern
-    assert _score(r.stdout) == 1, r.stdout
+    assert _dangling(r.stdout) == 0, r.stdout
+    assert _score(r.stdout) == 0, r.stdout
 
 
 def test_should_move_dangling_counter_even_when_drift_score_stays_equal(tmp_path):
