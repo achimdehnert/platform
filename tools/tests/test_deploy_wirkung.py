@@ -296,3 +296,29 @@ def test_should_decode_deploy_workflow_content(monkeypatch):
     monkeypatch.setattr(dw, "sh", lambda cmd, timeout=30: (0, b64))
     text = dw.deploy_workflow_text("illustration-hub", "achimdehnert")
     assert text == _ILLUSTRATION_HUB_ON
+
+
+def test_should_say_nicht_pruefbar_when_main_is_unreadable():
+    # Realfall 2026-09-24 12:27: unter einem GitHub-Ratenlimit stand main="-"
+    # und die Zeile sagte "ok" (platform#3471 Item 82).
+    e = {
+        "repo": "tax-hub",
+        "deployed": "451ec1c5",
+        "main": None,
+        "main_unlesbar": True,
+        "rueckstand": None,
+        "doppellauf": False,
+    }
+    marker = dw.befund_marker(e)
+    assert marker and marker[0].startswith("NICHT PRUEFBAR")
+
+
+def test_should_keep_ok_when_main_is_readable_and_equal():
+    e = {
+        "repo": "tax-hub",
+        "deployed": "68983feb",
+        "main": "68983feb",
+        "rueckstand": False,
+        "doppellauf": False,
+    }
+    assert dw.befund_marker(e) == []

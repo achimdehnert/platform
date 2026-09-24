@@ -1175,14 +1175,18 @@ doku = [e["repo"] for e in b if na(e, "rueckstand") and e.get("nur_doku")]
 rueck= [e["repo"] for e in b if na(e, "rueckstand") and not wartet(e) and not e.get("nur_doku")]
 verw = [e["repo"] for e in b if e.get("verwaiste_manifeste")]
 unk  = [e["repo"] for e in b if e.get("zuordnung_unklar") or e.get("container_unklar")]
-teile, betroffen = [], sorted(set(dop + rueck))
+# main nicht lesbar (gh api, z. B. Ratenlimit): kein Urteil, keine Entwarnung —
+# Realfall 2026-09-24 12:27, platform#3471 Item 82.
+unl  = [e["repo"] for e in b if e.get("main_unlesbar")]
+teile, betroffen = [], sorted(set(dop + rueck + unl))
+if unl:   teile.append("NICHT PRUEFBAR (main nicht lesbar):" + ",".join(unl))
 if dop:   teile.append("DOPPELLAUF:" + ",".join(dop))
 if rueck: teile.append("RUECKSTAND:" + ",".join(rueck))
 if warte: teile.append("wartet auf Prod-Freigabe (kein Befund):" + ",".join(warte))
 if doku:  teile.append("nur Doku hinter main (kein Befund):" + ",".join(doku))
 if verw:  teile.append("verwaistes Manifest:" + ",".join(verw))
 if unk:   teile.append("Zuordnung/Container unklar:" + ",".join(unk))
-status = "WARN" if (dop or rueck) else "PASS"
+status = "WARN" if (dop or rueck or unl) else "PASS"
 note = " · ".join(teile) if teile else f"{d.get("geprueft", 0)} Repo(s): deployter Stand == origin/main"
 print(f"STATUS={status}|{note}|{" ".join(betroffen)}")
 ' 2>/dev/null || echo "STATUS=WARN|Melder-Ausgabe nicht parsebar|")

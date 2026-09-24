@@ -495,6 +495,47 @@ def main_sha(repo: str, owner: str) -> tuple[str | None, str | None]:
     return (sha.strip() if code2 == 0 and sha.strip() else None), echt
 
 
+def befund_marker(e: dict) -> list[str]:
+    """Die Befund-Spalte einer Berichtszeile — leer heisst "ok".
+
+    Als eigene Funktion, damit ein Test die eine Regel pruefen kann, die hier
+    2026-09-24 fehlte: ein Eintrag mit unlesbarem main ist NICHT "ok", sondern
+    NICHT PRUEFBAR (platform#3471 Item 82).
+    """
+    marker: list[str] = []
+    if e.get("main_unlesbar"):
+        marker.append("NICHT PRUEFBAR — main nicht lesbar (gh api: Ratenlimit/Netz)")
+    if e.get("rueckstand"):
+        marker.append("RUECKSTAND")
+    if e.get("nur_doku"):
+        marker.append("NUR-DOKU")
+    if e.get("doppellauf"):
+        wo = e.get("hosts_mit_container") or e.get("hosts_mit_manifest") or []
+        marker.append("DOPPELLAUF:" + ",".join(wo))
+    if e.get("verwaiste_manifeste"):
+        marker.append("MANIFEST-VERWAIST:" + ",".join(e["verwaiste_manifeste"]))
+    if e.get("container_unklar"):
+        marker.append("CONTAINER UNKLAR — docker ps nicht auswertbar")
+    if e.get("zuordnung_unklar"):
+        marker.append("ZUORDNUNG UNKLAR")
+    if e.get("owner_drift"):
+        marker.append(
+            f"OWNER-DRIFT: Registry sagt {e['owner']}, GitHub {e['owner_drift']}"
+        )
+    if e.get("prod_gate"):
+        marker.append("Prod-Gate (staging-Default) — pruefen ob gewollt")
+    if e.get("deploy_politik") == "tag-oder-dispatch":
+        if e.get("deploy_politik_warn"):
+            marker.append(
+                f"WARN Prod-Stand aelter als {TAG_DISPATCH_WARN_TAGE} d (tag-oder-dispatch)"
+            )
+        else:
+            marker.append("Prod per Tag/Dispatch (kein Befund)")
+    if e.get("rueckstand_gewollt"):
+        marker.append(f"{e['rueckstand_gewollt']} — Rueckstand gewollt")
+    return marker
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -608,7 +649,16 @@ def main() -> int:
             eintrag["alter_tage"] = (
                 (jetzt - mf["mtime"]) // 86400 if mf["mtime"] else None
             )
-            eintrag["rueckstand"] = bool(sha and mf["commit"] and mf["commit"] != sha)
+            if sha is None:
+                # main nicht lesbar (gh api: Ratenlimit, Netz, Redirect) — dann ist
+                # "kein Rueckstand" NICHT belegt. Realfall 2026-09-24 12:27: unter
+                # einem sekundaeren GitHub-Ratenlimit stand hier main="-" und die
+                # Zeile sagte trotzdem "ok" (platform#3471 Item 82). Ein Melder,
+                # der seine Vergleichsquelle nicht lesen kann, gibt kein Urteil.
+                eintrag["rueckstand"] = None
+                eintrag["main_unlesbar"] = True
+            else:
+                eintrag["rueckstand"] = bool(mf["commit"] and mf["commit"] != sha)
         else:
             eintrag["deployed"] = None
             eintrag["rueckstand"] = None
@@ -675,6 +725,7 @@ def main() -> int:
             or eintrag.get("owner_drift")
             or eintrag.get("verwaiste_manifeste")
             or eintrag.get("container_unklar")
+            or eintrag.get("main_unlesbar")
         ):
             befunde.append(eintrag)
         zeilen.append(eintrag)
@@ -696,35 +747,7 @@ def main() -> int:
     print(kopf)
     print("-" * len(kopf))
     for e in zeilen:
-        marker = []
-        if e.get("rueckstand"):
-            marker.append("RUECKSTAND")
-        if e.get("nur_doku"):
-            marker.append("NUR-DOKU")
-        if e["doppellauf"]:
-            wo = e.get("hosts_mit_container") or e["hosts_mit_manifest"]
-            marker.append("DOPPELLAUF:" + ",".join(wo))
-        if e.get("verwaiste_manifeste"):
-            marker.append("MANIFEST-VERWAIST:" + ",".join(e["verwaiste_manifeste"]))
-        if e.get("container_unklar"):
-            marker.append("CONTAINER UNKLAR — docker ps nicht auswertbar")
-        if e.get("zuordnung_unklar"):
-            marker.append("ZUORDNUNG UNKLAR")
-        if e.get("owner_drift"):
-            marker.append(
-                f"OWNER-DRIFT: Registry sagt {e['owner']}, GitHub {e['owner_drift']}"
-            )
-        if e.get("prod_gate"):
-            marker.append("Prod-Gate (staging-Default) — pruefen ob gewollt")
-        if e.get("deploy_politik") == "tag-oder-dispatch":
-            if e.get("deploy_politik_warn"):
-                marker.append(
-                    f"WARN Prod-Stand aelter als {TAG_DISPATCH_WARN_TAGE} d (tag-oder-dispatch)"
-                )
-            else:
-                marker.append("Prod per Tag/Dispatch (kein Befund)")
-        if e.get("rueckstand_gewollt"):
-            marker.append(f"{e['rueckstand_gewollt']} — Rueckstand gewollt")
+        marker = befund_marker(e)
         alter = f"{e['alter_tage']}d" if e.get("alter_tage") is not None else "-"
         print(
             f"{e['repo']:<20} {(e['bedient_von'] or '?'):<8} {(e['deployed'] or '-'):<10} "
