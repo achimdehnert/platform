@@ -171,6 +171,62 @@ def test_should_be_blind_when_no_host_answers():
     assert e["blind"] and "NICHT messbar" in sm.kurzzeile(e)
 
 
+# --- betrieb: auf_zuruf (platform#3471, #3364) --------------------------------
+
+
+def test_should_call_an_unreachable_on_call_host_asleep_not_unreachable():
+    """gpu-box: `betrieb: auf_zuruf` + unerreichbar → `schlaeft`, kein WARN."""
+    e = sm.bewerte(
+        {"prod": _messung("prod", "/", 300, 270)["prod"], "gpu-box": None},
+        [],
+        HEUTE,
+        betrieb={"gpu-box": "auf_zuruf"},
+    )
+    assert e["schlaeft"] == ["gpu-box"]
+    assert e["unerreichbar"] == []
+    assert not e["blind"]
+    zeile = sm.kurzzeile(e)
+    assert "schlaeft: gpu-box" in zeile
+    assert "WARN" not in zeile
+
+
+def test_should_still_warn_for_unreachable_hosts_without_betrieb():
+    """Gegenprobe: ein Host ohne `betrieb: auf_zuruf` bleibt WARN wie bisher."""
+    e = sm.bewerte(
+        {"prod": _messung("prod", "/", 300, 270)["prod"], "prod-b": None},
+        [],
+        HEUTE,
+        betrieb={"gpu-box": "auf_zuruf"},
+    )
+    assert e["unerreichbar"] == ["prod-b"]
+    assert e["schlaeft"] == []
+    assert "nicht erreichbar: prod-b" in sm.kurzzeile(e)
+    assert "schlaeft" not in sm.kurzzeile(e)
+
+
+def test_should_measure_an_on_call_host_normally_when_reachable():
+    """Ist die gpu-box erreichbar, wird sie wie jeder andere Host gemessen."""
+    e = sm.bewerte(
+        _messung("gpu-box", "/", 150, 36), [], HEUTE, betrieb={"gpu-box": "auf_zuruf"}
+    )
+    assert e["schlaeft"] == [] and e["unerreichbar"] == []
+    assert e["platten"][0]["host"] == "gpu-box"
+
+
+def test_should_read_betrieb_from_hosts_yaml(tmp_path):
+    p = tmp_path / "hosts.yaml"
+    p.write_text(
+        "hosts:\n"
+        "  gpu-box:\n"
+        "    ssh: achim@10.99.0.2\n"
+        "    betrieb: auf_zuruf              # Owner-Entscheid\n"
+        "  prod:\n"
+        "    ssh: root@1.1.1.1\n",
+        encoding="utf-8",
+    )
+    assert sm.lade_betrieb(p) == {"gpu-box": "auf_zuruf"}
+
+
 def test_should_exit_2_when_blind(tmp_path, capsys):
     hosts = tmp_path / "hosts.yaml"
     hosts.write_text("hosts:\n  prod:\n    ssh: root@1.1.1.1\n", encoding="utf-8")
