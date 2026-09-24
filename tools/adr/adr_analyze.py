@@ -124,8 +124,8 @@ for repo, rs in sorted(by_repo.items()):
 # Alle drei Regeln unten bleiben lokal (Refs #3457, Kandidat fuer Schritt 4) —
 # nicht in iil_adrfw.rules.drift (Stand 0.9.0): pruefe_adr() gibt fuer ADRs mit
 # terminalem Status (u.a. "superseded", siehe ADRStatus/TERMINAL_STATUSES)
-# sofort leere Klassen zurueck — die Bibliothek bewertet ein bereits
-# abgeloestes ADR bewusst nicht weiter (Refs #3457). Referenz-Integritaet
+# sofort leere Klassen zurueck — die Bibliothek beendet die Bewertung eines
+# bereits abgeloesten ADR an dieser Stelle (Refs #3457). Referenz-Integritaet
 # (kaputtes/falsch verweisendes supersedes/superseded_by, oder superseded ohne
 # superseded_by) ist dort keine eigene Regel; SUPERSEDED_REF prueft etwas
 # anderes (ob ein NICHT-terminales ADR auf ein bereits abgeloestes
