@@ -150,6 +150,10 @@ def test_should_skip_distribute_false_in_commands(tmp_path):
 
 
 def test_should_generate_skills_nested(tmp_path):
+    """Lane `skills` ist seit platform#3467 `mode: merge` (Vorbild `claude-hooks`) — das
+    Manifest liegt darum als Dot-File `.cc-skill-dist-manifest.json` im Ziel, nicht als
+    `manifest.json` (das waere ein Fehlsignal für `pruefe_swap_ziel` in einem gemischten
+    Verzeichnis, s. `test_should_write_a_dotfile_manifest_not_the_swap_lane_name`)."""
     repo = _make_repo(tmp_path / "repo")
     out = tmp_path / "out"
     r = _run(
@@ -167,7 +171,10 @@ def test_should_generate_skills_nested(tmp_path):
     assert r.returncode == 0, r.stderr
     assert (out / "bar" / "SKILL.md").is_file()  # verschachtelt <name>/SKILL.md
     assert "MANAGED-BY" in (out / "bar" / "SKILL.md").read_text()
-    assert json.loads((out / "manifest.json").read_text())["kind"] == "skills"
+    assert not (out / "manifest.json").exists()
+    assert not (out / "MANAGED_BY").exists()
+    manifest = json.loads((out / ".cc-skill-dist-manifest.json").read_text())
+    assert manifest["kind"] == "skills"
 
 
 def test_should_generate_hooks_flat_executable(tmp_path):
@@ -243,15 +250,19 @@ def test_should_block_live_target_without_allow_live(tmp_path):
 
 def test_should_carry_allow_live_in_regenerate_for_live_target(tmp_path):
     """F-D-Regression: Live-Ziel → regenerate-Zeile MUSS --allow-live tragen, sonst
-    bricht ihr Copy-Paste am Guard ab."""
+    bricht ihr Copy-Paste am Guard ab.
+
+    Nur an einer SWAP-Lane pruefbar: eine Merge-Lane (`skills` seit #3467, `claude-hooks`)
+    schreibt `MANAGED_BY` nie ins Ziel — `merge_in_place` kennt die Datei nicht (und raeumt
+    ein Alt-Exemplar sogar auf, s. test_cc_skill_dist_skills_merge.py). Default-Kind
+    `commands` bleibt swap und traegt die Regression weiterhin.
+    """
     repo = _make_repo(tmp_path / "repo")
     home = tmp_path / "home"
     env = dict(os.environ, HOME=str(home))
-    live = home / ".claude" / "skills"
+    live = home / ".claude" / "commands"
     r = _run(
         [
-            "--kind",
-            "skills",
             "--platform",
             str(repo),
             "--ref",
@@ -268,8 +279,6 @@ def test_should_carry_allow_live_in_regenerate_for_live_target(tmp_path):
     out = tmp_path / "staging"
     _run(
         [
-            "--kind",
-            "skills",
             "--platform",
             str(repo),
             "--ref",

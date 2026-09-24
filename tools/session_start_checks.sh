@@ -1296,7 +1296,16 @@ for LANE in skills commands hooks; do
   fi
 done
 if [ "$SKILLDRIFT_STATUS" = "WARN" ]; then
-  record "0.7.13 skill-dist" "WARN" "${SKILLDRIFT_NOTE% } — Selbstheilung versucht und NICHT gelungen; der Ziel-Pfad der Lane stimmt vermutlich nicht (manuell: tools/cc-skill-dist/doctor.py --kind <lane>)"
+  # Zwei sehr unterschiedliche Ursachen fuehren zu NICHT-HEILBAR — beide gehoeren in
+  # den Hinweis, nicht nur die erste geratene (platform#3467, Realfall 2026-09-23):
+  # (a) der Ziel-Pfad der Lane stimmt nicht (klassischer Tippfehler), ODER
+  # (b) eine SWAP-Lane (`commands`/`hooks`) trifft auf ein Mischverzeichnis mit
+  #     Fremdinhalt (z.B. ein anderes Werkzeug schreibt eigenmaechtig ins selbe Ziel,
+  #     wie der claude.ai-Skill-Sync das bis #3467 fuer `skills` tat) — der Swap-Guard
+  #     `pruefe_swap_ziel` bricht dann zu Recht ab, weil ein Swap den Fremdinhalt
+  #     wegwischen wuerde. Fix in dem Fall ist NICHT der Ziel-Pfad, sondern die Lane auf
+  #     `mode: merge` umzustellen (Vorbild `claude-hooks`, s. generate.py LANES).
+  record "0.7.13 skill-dist" "WARN" "${SKILLDRIFT_NOTE% } — Selbstheilung versucht und NICHT gelungen; entweder stimmt der Ziel-Pfad der Lane nicht, oder das Ziel ist ein Mischverzeichnis mit Fremdinhalt, das der Swap-Guard zu Recht blockiert (dann hilft kein Pfad-Fix, sondern mode:merge fuer die Lane) — manuell: tools/cc-skill-dist/doctor.py --kind <lane> / tools/cc-skill-dist/generate.py --kind <lane> --target ... (Fehlertext lesen)"
 else
   record "0.7.13 skill-dist" "PASS" "alle Lanes synchron (${SKILLDRIFT_NOTE% })"
 fi
