@@ -815,3 +815,178 @@ def test_should_record_eingabe_as_none_when_befund_is_unknown() -> None:
     bj.urteile_dazu(daten, "0.9 staging::mcp-hub", "echt", "nachgetragen")
 
     assert daten["urteile"][-1]["eingabe"] is None
+
+
+# ── #3495 V4: Fix in Arbeit — laufende Reparatur je Befund ──────────────────
+
+
+def test_should_set_fix_in_arbeit_via_cli(journal: Path) -> None:
+    _lauf([ZEILE], journal)
+    fid = next(iter(bj.lade(journal)["befunde"]))
+    rc = bj.main(
+        [
+            "--fix",
+            fid,
+            "--pr",
+            "https://github.com/achimdehnert/platform/pull/3479",
+            "--wirkung",
+            "Reconcile meldet nicht mehr faelschlich C0",
+            "--messung",
+            "2026-09-26",
+            "--datei",
+            str(journal),
+        ]
+    )
+    assert rc == 0
+    e = bj.lade(journal)["befunde"][fid]
+    assert e["fix"]["pr"] == "https://github.com/achimdehnert/platform/pull/3479"
+    assert e["fix"]["wirkung"] == "Reconcile meldet nicht mehr faelschlich C0"
+    assert e["fix"]["messung"] == "2026-09-26"
+    assert e["fix"]["gesetzt_am"] == bj._heute()
+
+
+def test_should_default_the_measurement_date_when_missing(journal: Path) -> None:
+    _lauf([ZEILE], journal)
+    fid = next(iter(bj.lade(journal)["befunde"]))
+    bj.main(
+        [
+            "--fix",
+            fid,
+            "--pr",
+            "https://github.com/achimdehnert/platform/pull/1",
+            "--wirkung",
+            "Behebt X",
+            "--datei",
+            str(journal),
+        ]
+    )
+    e = bj.lade(journal)["befunde"][fid]
+    assert e["fix"]["messung"] == bj._frist(bj.FRIST_FIX_MESSUNG_TAGE)
+
+
+def _fix_args(fid: str, pr: str, journal: Path) -> list[str]:
+    return [
+        "--fix",
+        fid,
+        "--pr",
+        pr,
+        "--wirkung",
+        "erste Wirkung",
+        "--messung",
+        "2026-09-26",
+        "--datei",
+        str(journal),
+    ]
+
+
+def test_should_overwrite_fix_in_arbeit_idempotently(journal: Path) -> None:
+    _lauf([ZEILE], journal)
+    fid = next(iter(bj.lade(journal)["befunde"]))
+    bj.main(_fix_args(fid, "https://example/pull/1", journal))
+    bj.main(_fix_args(fid, "https://example/pull/2", journal))
+    e = bj.lade(journal)["befunde"][fid]
+    assert e["fix"]["pr"] == "https://example/pull/2"
+
+
+def test_should_reject_fix_for_unknown_key(journal: Path, capsys) -> None:
+    _lauf([ZEILE], journal)
+    rc = bj.main(
+        [
+            "--fix",
+            "phantom::nirgendwo",
+            "--pr",
+            "https://example/pull/1",
+            "--wirkung",
+            "irrelevant",
+            "--datei",
+            str(journal),
+        ]
+    )
+    assert rc != 0
+    assert "phantom::nirgendwo" not in bj.lade(journal)["befunde"]
+    assert "Kein Befund" in capsys.readouterr().err
+
+
+def test_should_reject_fix_without_wirkung(journal: Path) -> None:
+    _lauf([ZEILE], journal)
+    fid = next(iter(bj.lade(journal)["befunde"]))
+    rc = bj.main(
+        ["--fix", fid, "--pr", "https://example/pull/1", "--datei", str(journal)]
+    )
+    assert rc != 0
+    assert "fix" not in bj.lade(journal)["befunde"][fid]
+
+
+def test_should_show_fix_in_arbeit_line_in_report(journal: Path) -> None:
+    _lauf([ZEILE], journal)
+    fid = next(iter(bj.lade(journal)["befunde"]))
+    bj.main(
+        [
+            "--fix",
+            fid,
+            "--pr",
+            "https://example/pull/1",
+            "--wirkung",
+            "behebt den Melder",
+            "--messung",
+            "2099-01-01",
+            "--datei",
+            str(journal),
+        ]
+    )
+    text = bj.bericht(bj.lade(journal), "platform")
+    assert "🔧 Fix in Arbeit: https://example/pull/1 — behebt den Melder" in text
+    assert "Messung 2099-01-01" in text
+    assert "überfällig" not in text
+
+
+def test_should_flag_fix_measurement_as_overdue(journal: Path) -> None:
+    _lauf([ZEILE], journal)
+    fid = next(iter(bj.lade(journal)["befunde"]))
+    bj.main(
+        [
+            "--fix",
+            fid,
+            "--pr",
+            "https://example/pull/1",
+            "--wirkung",
+            "behebt den Melder",
+            "--messung",
+            "2000-01-01",
+            "--datei",
+            str(journal),
+        ]
+    )
+    e = bj.lade(journal)["befunde"][fid]
+    assert bj.fix_ueberfaellig(e, bj._heute()) is True
+    text = bj.bericht(bj.lade(journal), "platform")
+    assert "⏰ Fix-Messung überfällig" in text
+
+
+def test_should_not_flag_fix_measurement_without_a_fix(journal: Path) -> None:
+    assert bj.fix_ueberfaellig({"letzte_note": "x"}, bj._heute()) is False
+
+
+def test_should_include_fix_in_json_report(journal: Path, capsys) -> None:
+    _lauf([ZEILE], journal)
+    fid = next(iter(bj.lade(journal)["befunde"]))
+    bj.main(
+        [
+            "--fix",
+            fid,
+            "--pr",
+            "https://example/pull/1",
+            "--wirkung",
+            "behebt den Melder",
+            "--messung",
+            "2000-01-01",
+            "--datei",
+            str(journal),
+        ]
+    )
+    capsys.readouterr()  # Ausgabe des --fix-Aufrufs verwerfen, nur der Bericht zaehlt.
+    bj.main(["--bericht", "--json", "--repo", "platform", "--datei", str(journal)])
+    saetze = json.loads(capsys.readouterr().out)
+    satz = next(s for s in saetze if s["id"] == fid)
+    assert satz["fix"]["pr"] == "https://example/pull/1"
+    assert satz["fix_ueberfaellig"] is True
