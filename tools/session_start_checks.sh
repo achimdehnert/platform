@@ -490,7 +490,28 @@ if [ -f "$GITHUB_DIR/$TARGET_REPO/reflex.yaml" ]; then
   fi
   rm -f /tmp/ssc_reflex.$$
 else
-  record "0.4.1 reflex" "SKIP" "v${REFLEX_VER}, $TARGET_REPO ohne reflex.yaml — Review übersprungen (by design)" "$TARGET_REPO"
+  # Ohne reflex.yaml ist die Frage: fehlt es, oder gibt es nichts zu reviewen?
+  # REFLEX prueft Use-Case-Dokumente einer App. Ein Repo, das laut Registry nicht
+  # deployt wird (platform: type=library, deployed=false — Meta-Repo ohne
+  # App-Code), hat keine Use Cases und braucht kein reflex.yaml: das ist PASS
+  # by design. Bei einem deployten Repo ohne reflex.yaml bleibt es SKIP, denn
+  # dort waere die Datei der fehlende Teil (Session-Start 2026-09-24, #3471:
+  # ein SKIP, der "by design" sagt und trotzdem als Luecke gezaehlt wird, ist
+  # keins von beidem).
+  REFLEX_DEPLOYED=$(cd "$PLATFORM_DIR/tools" && python3 -c "
+import sys
+from registry_api import repo
+try:
+    r = repo(sys.argv[1])
+except Exception:
+    print('?'); raise SystemExit
+print('ja' if r.get('deployed') else 'nein')
+" "$TARGET_REPO" 2>/dev/null || echo "?")
+  if [ "$REFLEX_DEPLOYED" = "nein" ]; then
+    record "0.4.1 reflex" "PASS" "v${REFLEX_VER}, $TARGET_REPO ohne reflex.yaml — nicht deployt (Registry), kein Use-Case-Review noetig (by design)" "$TARGET_REPO"
+  else
+    record "0.4.1 reflex" "SKIP" "v${REFLEX_VER}, $TARGET_REPO ohne reflex.yaml — Review übersprungen (deployed=${REFLEX_DEPLOYED}: Datei fehlt oder Registry unlesbar)" "$TARGET_REPO"
+  fi
 fi
 
 # ══ VORLAUF-SCHNITT (platform#3373) ═════════════════════════════════════════
@@ -1265,9 +1286,12 @@ for LANE in skills commands hooks; do
       commands) LANE_TARGET="$HOME/.claude/commands" ;;
       hooks)    LANE_TARGET="$HOME/.claude/hooks/managed" ;;
     esac
-    timeout 180 python3 "$PLATFORM_DIR/tools/cc-skill-dist/generate.py" \
-      --ref origin/main --kind "$LANE" --target "$LANE_TARGET" --allow-live \
-      >/dev/null 2>&1 || true
+    # Die letzte Zeile des Heilers wird aufgehoben: scheitert er, sagt sie den
+    # Grund (2026-09-24: "traegt ein MANAGED_BY, aber kein manifest.json"), waehrend
+    # die WARN-Zeile bis dahin nur einen falschen Ziel-Pfad VERMUTETE — drei Laeufe
+    # lang, weil stdout/stderr hier verworfen wurden (platform#3468).
+    LANE_HEIL="$(timeout 180 python3 "$PLATFORM_DIR/tools/cc-skill-dist/generate.py" \
+      --ref origin/main --kind "$LANE" --target "$LANE_TARGET" --allow-live 2>&1 | tail -1 || true)"
     # Nachmessen, nicht annehmen: die Heilung gilt erst, wenn doctor sie bestaetigt.
     NACH_OUT=$(timeout 120 python3 "$PLATFORM_DIR/tools/cc-skill-dist/doctor.py" --kind "$LANE" 2>/dev/null || true)
     NACH_SCORE=$(printf '%s' "$NACH_OUT" | grep -o 'DRIFT-SCORE: [0-9]*' | head -1 | grep -o '[0-9]*')
@@ -1284,7 +1308,7 @@ for LANE in skills commands hooks; do
       continue
     fi
     SKILLDRIFT_STATUS="WARN"
-    SKILLDRIFT_NOTE="${SKILLDRIFT_NOTE}${LANE}:NICHT-HEILBAR(Score ${LANE_SCORE}) "
+    SKILLDRIFT_NOTE="${SKILLDRIFT_NOTE}${LANE}:NICHT-HEILBAR(Score ${LANE_SCORE}; Heiler: ${LANE_HEIL:-ohne Ausgabe}) "
     continue
   fi
 

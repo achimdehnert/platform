@@ -72,9 +72,21 @@ printf '%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s\n' "$L" "$K" "$MT" "$MU" "${ST:-0}" 
 def _lauf(
     cmd: list[str], timeout: int = 60, stdin: str | None = None
 ) -> tuple[int, str]:
+    # errors="replace": die gpu-box antwortet ueber Windows-OpenSSH aus cmd.exe in
+    # Latin-1 („ü" = 0xfc). Mit dem Standard-Decoder starb der ganze Tageslauf an
+    # diesem einen Byte (UnicodeDecodeError, 2026-09-23 06:13, flottenbild.service
+    # rc=1) — und liess ein totes latest.json-Symlink zurueck, das der Sitzungsstart
+    # als „kein Flottenbild" (SKIP) las. Ein unlesbares Zeichen ist ein Messfehler
+    # dieses Knotens, kein Grund, alle anderen Knoten ungemessen zu lassen.
     try:
         r = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout, input=stdin
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+            input=stdin,
         )
         return r.returncode, (r.stdout or "") + (
             ("\n" + r.stderr) if r.returncode and r.stderr else ""
