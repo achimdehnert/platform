@@ -90,8 +90,9 @@ zweites Mal. Real passiert: #3465 und #3466 fixten unabhaengig voneinander
 denselben Befund, weil keine Sitzung sehen konnte, dass die andere schon dabei
 war. `--fix ID --pr URL --wirkung "<Satz>" [--messung DATUM]` haengt PR,
 erwartete Wirkung und ein Messdatum an einen Befund; `--bericht` zeigt die Zeile,
-und ist das Messdatum verstrichen, waehrend der Befund noch offen steht, markiert
-der Bericht sie als ueberfaellig — dieselbe Ruhe-vs-laut-Mechanik wie bei
+und liegt das Messdatum in der Vergangenheit, waehrend der Eintrag weiterhin im
+Journal steht (Phase hat ihn nicht geheilt), markiert der Bericht ihn als
+ueberfaellig — dieselbe Ruhe-vs-laut-Mechanik wie bei
 `entscheiden_bis`, nur fuer den laufenden Fix statt fuer den Erstbefund.
 """
 
@@ -649,12 +650,12 @@ def ueberfaellig(eintrag: dict, heute: str) -> bool:
 
 
 def fix_ueberfaellig(eintrag: dict, heute: str) -> bool:
-    """Messdatum eines laufenden Fixes verstrichen, waehrend der Befund noch offen steht.
+    """Messdatum eines laufenden Fixes verstrichen, waehrend der Eintrag noch im Journal steht.
 
     Der Befund heilt (verschwindet) ohnehin, sobald seine Phase ihn nicht mehr
     meldet — dann gibt es keinen Eintrag mehr, an dem diese Funktion etwas
-    pruefen koennte. "noch offen" heisst also einfach: der Aufrufer haelt noch
-    einen Eintrag in der Hand, dessen ``fix.messung`` in der Vergangenheit liegt.
+    pruefen koennte. Diese Pruefung setzt also voraus, dass der Aufrufer bereits
+    einen Eintrag in der Hand haelt, dessen ``fix.messung`` in der Vergangenheit liegt.
     """
     fix = eintrag.get("fix")
     if not fix or not fix.get("messung"):
