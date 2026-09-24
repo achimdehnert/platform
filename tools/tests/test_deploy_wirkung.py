@@ -206,3 +206,68 @@ def test_should_find_travel_beat_as_stillgelegt_in_real_ports_yaml():
 
 def test_should_find_illustration_hub_container_name_in_real_ports_yaml():
     assert dw.container_namen_aus_ports().get("illustration-hub") == "illustration_web"
+
+
+# ── Deploy-Politik (#3495 Folgepunkt, illustration-hub#344) ──────────────────
+# Fixtures sind die echten `on:`-Bloecke aus origin/main (per `gh`/`git show`
+# gelesen, nicht abgetippt) — s. PR-Beschreibung.
+
+_ILLUSTRATION_HUB_ON = """\
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      image_tag_override:
+        required: false
+"""
+
+_TAX_HUB_ON = """\
+on:
+  push:
+    branches: ["main"]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      image_tag_override:
+        required: false
+        default: "staging"
+"""
+
+_RISK_HUB_TARGET_ENV = (
+    "target_environment: ${{ inputs.target_environment || 'staging' }}"
+)
+
+
+def test_should_recognize_tag_only_trigger_as_tag_oder_dispatch():
+    """illustration-hub: `push` NUR fuer Tags, kein `branches:` — Prod bewegt sich
+    nie durch einen Merge nach main."""
+    assert dw.ist_tag_oder_dispatch_politik(_ILLUSTRATION_HUB_ON) is True
+
+
+def test_should_reject_branch_and_tag_trigger_as_tag_oder_dispatch():
+    """tax-hub: `push` deckt `branches: main` UND `tags` ab — kein Tag-Only-Gate,
+    auch wenn `workflow_dispatch` daneben steht."""
+    assert dw.ist_tag_oder_dispatch_politik(_TAX_HUB_ON) is False
+
+
+def test_should_recognize_staging_default_target_environment():
+    assert dw.ist_staging_default_politik(_RISK_HUB_TARGET_ENV) is True
+
+
+def test_should_reject_staging_default_when_absent():
+    assert dw.ist_staging_default_politik(_ILLUSTRATION_HUB_ON) is False
+
+
+def test_should_treat_missing_deploy_workflow_as_unknown(monkeypatch):
+    monkeypatch.setattr(dw, "sh", lambda cmd, timeout=30: (1, ""))
+    assert dw.deploy_workflow_text("writing-hub", "achimdehnert") is None
+
+
+def test_should_decode_deploy_workflow_content(monkeypatch):
+    import base64
+
+    b64 = base64.b64encode(_ILLUSTRATION_HUB_ON.encode("utf-8")).decode("ascii")
+    monkeypatch.setattr(dw, "sh", lambda cmd, timeout=30: (0, b64))
+    text = dw.deploy_workflow_text("illustration-hub", "achimdehnert")
+    assert text == _ILLUSTRATION_HUB_ON
