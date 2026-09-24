@@ -446,6 +446,18 @@ nur noch die letzten drei Einträge (Policy-Änderung aus
 wörtlich. Die beiden 2026-09-02-Einträge stehen hier in ihrer **vollen** Fassung, im
 Skill gekürzt auf drei Zeilen.
 
+- 2026-09-16: **Phase 1.1 liest Sitzungs-Fragmente** (#1944 K6) — in Repos mit
+  `docs/handover.d/` kommt der Stand aus `fragments.py render --ref origin/main`; der
+  Start-Hook spiegelt die offenen Fäden. Die Startprüfung meldet parallele Sitzungen nicht
+  mehr als Befund (#3228).
+
+- 2026-09-16: **Fünf ungedeutete WARN-Phasen ergänzt** (`0.7.4`, `0.7.13`, `0.7.19`,
+  `0.7.25`, `0.7.26`) + Checklisten-Zeile 2i für `0.7.4`. Anlass: `0.7.4` verlangte an
+  diesem Morgen "Prio nachziehen VOR Arbeitsbeginn", stand aber weder in der
+  Deutungstabelle noch in der Checkliste — gehandelt wurde nur, weil der Runner-Text
+  es mitlieferte. Neuer Prüfer `tools/skill_phasen_deckung.py` hält die Tabelle ab
+  jetzt am Runner fest (gemessen: 6 von 46 WARN-Phasen ungedeutet).
+
 - 2026-09-11: **Phase 1.8 Auftragsraum abarbeiten + Checkliste 8a** (KONZ-platform-059, #3079) —
   Zurufe aus dem Chat-Raum „Aufträge Achim / Lotse" landen als Vorschlag im Journal, nie als
   Befehl; Kurzbefehle wendet `anwenden` an, Korrekturen bekommen per `regel` ein Artefakt.

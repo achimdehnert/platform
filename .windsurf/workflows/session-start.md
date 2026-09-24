@@ -45,6 +45,18 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
   `SESSION_CHECKS_PARALLEL=1` schaltet auf den alten sequenziellen Ablauf zurück.
   Fällt ein Melder nur im Vorlauf aus: `SESSION_CHECKS_VORLAUF_BEHALTEN=1` behält
   `.out`/`.err`/`.rc` je Auftrag. → `LEHREN` bzw. `session-skills-lehren/laufzeit.md`
+→ **Delta gegen das Journal** (seit [#3506](https://github.com/achimdehnert/platform/pull/3506),
+  Zielzustand [#3495](https://github.com/achimdehnert/platform/issues/3495) V3): unter der
+  Summary steht eine zweite Tabelle `| Phase | Repo | Delta | Grund |` und eine Summenzeile
+  `k verankert (naechste Faelligkeit X)`. **Die Delta-Tabelle ist die Befundliste**, nicht die
+  Summe der WARN-Zeilen: `NEU` (Schlüssel nicht im Journal), `GEAENDERT` (Note geändert),
+  `OHNE-ANKER` werden zu Items; `ANKER-ABGELAUFEN`, `WIEDERVORLAGE` (Infra-Anker ruht höchstens
+  7 Tage) und `FIX-MESSUNG-UEBERFAELLIG` heißen: neu verankern, schließen oder Messung nachholen
+  (`befund_journal.py --verankert ID URL --frist TAGE`, `--fix`, `--verzichtet`). `VERANKERT`
+  ist kein neues Item — der Anker trägt. `SESSION_CHECKS_DELTA=nur` kürzt die Summary auf die
+  lauten Klassen; Status, `RESULT:` und die Journal-Aufnahme bleiben unverändert. Anlass:
+  am 2026-09-24 hätten 14 WARN-Zeilen ohne dieses Delta als 14 Items gezählt, obwohl das
+  Journal für 12 davon einen Anker führte (Advocatus-Diaboli-Lauf zu #3471).
 → **`RESULT: FAIL`** (einziger Hard-FAIL: pgvector-Tunnel 0.5) → Session NICHT fortsetzen,
   **kein** Fallback auf lokales Memory (ADR-154).
 → **Spalte `Repo` nennt das Repo, um das es GEHT**, nicht das der Sitzung. Journal mit
@@ -53,7 +65,8 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
 → Fremd-Repo-Befunde ohne Artefakt = **kein** Sofort-Auftrag; `/session-ende` 0f verlangt je
   Befund ein Issue im **Zielrepo** oder einen Verzicht mit Grund. → `LEHREN#journal-und-repo-spalte`
 
-**Jede ⚠️ WARN-Zeile ist ein Befund** und gehört ins Session-Start-Board:
+**Jede ⚠️ WARN-Zeile ist ein Befund**; ob sie ein **neues** Item wird, sagt ihre Delta-Klasse
+(oben). Die Deutungstabelle bleibt für die Ursache und den Zug je Phase maßgeblich:
 
 | Phase | Bedeutung | kein Befund | Zug |
 |---|---|---|---|
@@ -268,6 +281,7 @@ SA-4 aus `policies/autonomy-gates.md`):
 | 8 | Arbeitsplan aufgestellt (Phase 3, gegen den Zielzustand) | ☐ |
 | 8a | Auftragsraum abgearbeitet: `offen` gelesen, Kurzbefehle angewendet, Aufträge/Korrekturen verankert (1.8) | ☐ |
 | 8b | `LAUFZEIT:`-Zeile gelesen; auffälliger Anstieg als Befund gespiegelt, nicht hingenommen (0.R) | ☐ |
+| 8c | Delta-Tabelle gelesen: `NEU`/`GEAENDERT`/`OHNE-ANKER` als Items; `ANKER-ABGELAUFEN`/`WIEDERVORLAGE`/`FIX-MESSUNG-UEBERFAELLIG` neu verankert, geschlossen oder gemessen — **vor** dem Arbeitsplan (0.R) | ☐ |
 
 **Neue Pflicht-Phase ⇒ Checklisten-Zeile im selben PR**; Auswahl über
 `grep -n "^## \|^### "` und Einzelbeurteilung, **nicht** über das Wort „PFLICHT".
@@ -293,6 +307,15 @@ SA-4 aus `policies/autonomy-gates.md`):
 
 > Nur die letzten drei Einträge (Policy seit #2696). Volle Historie: `LEHREN#changelog-historie`.
 
+- 2026-09-24: **Delta gegen das Befund-Journal** (platform#3506, Zielzustand #3495 V3): der
+  Runner klassifiziert jede WARN-Zeile gegen den Journalstand vor dem Lauf (`NEU`, `GEAENDERT`,
+  `OHNE-ANKER`, `ANKER-ABGELAUFEN`, `WIEDERVORLAGE`, `FIX-MESSUNG-UEBERFAELLIG`, `VERANKERT`)
+  und druckt die Delta-Tabelle plus Summenzeile unter der Summary; `SESSION_CHECKS_DELTA=nur`
+  kürzt die Summary auf die lauten Klassen. Neue Checklisten-Zeile 8c. Anlass: Advocatus-
+  Diaboli-Lauf zu #3471 — „0 WARN" als Steuergröße belohnte Deklarationen, und zwei parallele
+  Sitzungen bearbeiteten dieselbe Runner-Ausgabe doppelt, weil das Journal ihre Fixes nicht
+  kannte (dazu Befund-Sperre #3499 und Feld „Fix in Arbeit" #3498).
+
 - 2026-09-22: **Runner misst sich selbst und wartet nebenläufig** (platform#3373). Neue
   `LAUFZEIT:`-Zeile + Checklisten-Zeile 8b; die Melder ab 0.4.2 starten zusammen und werden an
   ihrer Phasenstelle geerntet — Summary-Reihenfolge, Notiz-Wortlaut und Phasenzahl unverändert.
@@ -308,13 +331,3 @@ SA-4 aus `policies/autonomy-gates.md`):
   ohnehin selbst als Phase 0.0 ausführt — der Sitzungsstart duplizierte die Retro mit
   schwächerem Zug. Rückfall-Prüfung bleibt in `/session-retro` Phase 0.0/5a;
   `tools/gate_wirkung.py` unverändert.
-- 2026-09-16: **Phase 1.1 liest Sitzungs-Fragmente** (#1944 K6) — in Repos mit
-  `docs/handover.d/` kommt der Stand aus `fragments.py render --ref origin/main`; der
-  Start-Hook spiegelt die offenen Fäden. Die Startprüfung meldet parallele Sitzungen nicht
-  mehr als Befund (#3228).
-- 2026-09-16: **Fünf ungedeutete WARN-Phasen ergänzt** (`0.7.4`, `0.7.13`, `0.7.19`,
-  `0.7.25`, `0.7.26`) + Checklisten-Zeile 2i für `0.7.4`. Anlass: `0.7.4` verlangte an
-  diesem Morgen "Prio nachziehen VOR Arbeitsbeginn", stand aber weder in der
-  Deutungstabelle noch in der Checkliste — gehandelt wurde nur, weil der Runner-Text
-  es mitlieferte. Neuer Prüfer `tools/skill_phasen_deckung.py` hält die Tabelle ab
-  jetzt am Runner fest (gemessen: 6 von 46 WARN-Phasen ungedeutet).
