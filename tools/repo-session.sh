@@ -326,14 +326,27 @@ cmd_end() {
 ABSTAND_SCHWELLE="${REPO_SESSION_ABSTAND_MAX:-25}"
 
 cmd_abstand() {
-  local nur_repo="${1:-}" ueber=0 gesamt=0
+  local nur_repo="${1:-}" ueber=0 gesamt=0 abgelaufen=0 jetzt
   [ -d "$LEASE_DIR" ] || { echo "keine Leases."; return 0; }
+  jetzt="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   for l in "$LEASE_DIR"/*.json; do
     [ -e "$l" ] || continue
-    local repo branch base_sha pfad n
+    local repo branch base_sha pfad n expires_at
     repo="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('repo',''))" "$l" 2>/dev/null)" || continue
     [ -n "$repo" ] || continue
     [ -z "$nur_repo" ] || [ "$repo" = "$nur_repo" ] || continue
+    # Abgelaufene Leases zaehlen nicht: niemand arbeitet in dem Worktree, also
+    # steht auch kein Merge bevor, vor dem der Abstand warnen koennte. Der
+    # Sitzungsstart meldete 18 solcher Leichen (aelteste 156 Commits hinter main,
+    # Lease seit August abgelaufen) 129 Laeufe lang als "vor weiterer Arbeit
+    # mergen" — ein Rat ohne Adressaten. Wer den Worktree wieder aufnimmt, holt
+    # sich mit `start` eine frische Lease, und ab dann zaehlt er wieder. Liegen-
+    # gebliebene Worktrees sind Sache des Hygiene-Melders und des Reapers.
+    expires_at="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('expires_at',''))" "$l" 2>/dev/null)"
+    if [ -n "$expires_at" ] && [[ "$expires_at" < "$jetzt" ]]; then
+      abgelaufen=$((abgelaufen + 1))
+      continue
+    fi
     branch="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('branch',''))" "$l" 2>/dev/null)"
     base_sha="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('base_sha',''))" "$l" 2>/dev/null)"
     pfad="${GITHUB_DIR:-$HOME/github}/$repo"
@@ -346,12 +359,14 @@ cmd_abstand() {
       printf '  ⚠ %-14s %-40s %5s Commits hinter main\n' "$repo" "${branch##*/}" "$n"
     fi
   done
+  local zusatz=""
+  [ "$abgelaufen" -gt 0 ] && zusatz=" — $abgelaufen abgelaufene Lease(s) nicht gezaehlt (Hygiene-Melder/Reaper)"
   if [ "$ueber" -gt 0 ]; then
-    echo "$ueber von $gesamt Lease(s) ueber der Schwelle ($ABSTAND_SCHWELLE)."
+    echo "$ueber von $gesamt Lease(s) ueber der Schwelle ($ABSTAND_SCHWELLE)$zusatz."
     echo "Vor weiterer Arbeit im betroffenen Worktree: git merge origin/main"
     return 1
   fi
-  echo "$gesamt Lease(s), keine ueber der Schwelle ($ABSTAND_SCHWELLE)."
+  echo "$gesamt Lease(s), keine ueber der Schwelle ($ABSTAND_SCHWELLE)$zusatz."
   return 0
 }
 

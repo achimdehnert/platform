@@ -1265,9 +1265,12 @@ for LANE in skills commands hooks; do
       commands) LANE_TARGET="$HOME/.claude/commands" ;;
       hooks)    LANE_TARGET="$HOME/.claude/hooks/managed" ;;
     esac
-    timeout 180 python3 "$PLATFORM_DIR/tools/cc-skill-dist/generate.py" \
-      --ref origin/main --kind "$LANE" --target "$LANE_TARGET" --allow-live \
-      >/dev/null 2>&1 || true
+    # Die letzte Zeile des Heilers wird aufgehoben: scheitert er, sagt sie den
+    # Grund (2026-09-24: "traegt ein MANAGED_BY, aber kein manifest.json"), waehrend
+    # die WARN-Zeile bis dahin nur einen falschen Ziel-Pfad VERMUTETE — drei Laeufe
+    # lang, weil stdout/stderr hier verworfen wurden (platform#3468).
+    LANE_HEIL="$(timeout 180 python3 "$PLATFORM_DIR/tools/cc-skill-dist/generate.py" \
+      --ref origin/main --kind "$LANE" --target "$LANE_TARGET" --allow-live 2>&1 | tail -1 || true)"
     # Nachmessen, nicht annehmen: die Heilung gilt erst, wenn doctor sie bestaetigt.
     NACH_OUT=$(timeout 120 python3 "$PLATFORM_DIR/tools/cc-skill-dist/doctor.py" --kind "$LANE" 2>/dev/null || true)
     NACH_SCORE=$(printf '%s' "$NACH_OUT" | grep -o 'DRIFT-SCORE: [0-9]*' | head -1 | grep -o '[0-9]*')
@@ -1284,7 +1287,7 @@ for LANE in skills commands hooks; do
       continue
     fi
     SKILLDRIFT_STATUS="WARN"
-    SKILLDRIFT_NOTE="${SKILLDRIFT_NOTE}${LANE}:NICHT-HEILBAR(Score ${LANE_SCORE}) "
+    SKILLDRIFT_NOTE="${SKILLDRIFT_NOTE}${LANE}:NICHT-HEILBAR(Score ${LANE_SCORE}; Heiler: ${LANE_HEIL:-ohne Ausgabe}) "
     continue
   fi
 
