@@ -81,8 +81,9 @@ stillen Treffers oder einer stillen Luecke:
 Ein Workflow referenziert einen wiederverwendbaren Workflow
 (`uses: <owner>/<repo>/.github/workflows/<datei>.yml@<ref>`) NICHT mehr pauschal
 NICHT PRUEFBAR: `loese_reusable_workflow()` sucht einen lokalen Klon unter
-`<github_base>/<repo>` (Konvention, `github_base` per `--github-base`, sonst aus
-`scripts/repo-registry.yaml` → `server.github_base`, Fallback `~/github`) und
+`<github_base>/<repo>` (Konvention, `github_base` per `--github-base`, sonst per
+`tools/registry_api.py` aus der kanonischen Registry → `server.github_base`,
+ADR-234 §11.1 — kein Direktlesen der generierten View; Fallback `~/github`) und
 liest die Datei dort per `git show`. Ist `<ref>` im Klon auflösbar (`git -C <klon>
 rev-parse --verify`), wird GENAU dieser Stand gelesen; sonst `origin/main`/`HEAD`
 mit einer Warnzeile im Report (`warnungen`, gilt nicht als Deckungsluecke).
@@ -121,6 +122,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 from dataclasses import asdict, dataclass
 
 # Maschinenlesbarer Kopf (KONZ-038 D8)
@@ -242,15 +244,23 @@ def _lies(pfad: str) -> str:
 
 
 def _default_github_base() -> str:
-    """`server.github_base` aus `scripts/repo-registry.yaml` lesen, ohne PyYAML —
-    nur die eine Zeile wird gebraucht (stdlib-only, Hausform dieses Moduls).
-    Fallback `~/github`, wenn die Datei fehlt oder das Feld nicht gefunden wird.
-    """
-    reg_pfad = os.path.join(REPO_ROOT, "scripts", "repo-registry.yaml")
-    text = _lies(reg_pfad)
-    m = re.search(r"(?m)^\s*github_base:\s*(\S+)\s*$", text)
-    if m:
-        return os.path.expanduser(m.group(1))
+    """`server.github_base` ueber `tools/registry_api.py` lesen (ADR-234 §11.1
+    REC-4 — neuer Code liest die Registry NIE direkt aus einer generierten
+    View-Datei, sondern ueber die Read-API `flat()`). Fallback `~/github`, wenn
+    die kanonische Registry fehlt oder das Feld nicht gesetzt ist — dieses eine
+    Modul bleibt darum NICHT hart auf PyYAML angewiesen (`lade_verzicht()` ist
+    weiterhin stdlib-only)."""
+    try:
+        tools_dir = os.path.join(REPO_ROOT, "tools")
+        if tools_dir not in sys.path:
+            sys.path.insert(0, tools_dir)
+        import registry_api as reg
+
+        base = (reg.flat().get("server") or {}).get("github_base")
+        if base:
+            return os.path.expanduser(base)
+    except Exception:
+        pass
     return os.path.expanduser("~/github")
 
 
@@ -764,9 +774,9 @@ def main() -> int:
         default=None,
         help=(
             "Basisverzeichnis lokaler Klone fuer die Aufloesung wiederverwendbarer "
-            "Workflows (platform#2990). Default: server.github_base aus "
-            "scripts/repo-registry.yaml, sonst ~/github. Leerer String schaltet "
-            "die Aufloesung ab (Vor-#2990-Verhalten)."
+            "Workflows (platform#2990). Default: server.github_base aus der "
+            "kanonischen Registry (tools/registry_api.py), sonst ~/github. Leerer "
+            "String schaltet die Aufloesung ab (Vor-#2990-Verhalten)."
         ),
     )
     parser.add_argument("--kurz", action="store_true")
