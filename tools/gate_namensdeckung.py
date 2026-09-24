@@ -80,6 +80,22 @@ def _drill_wurzel(gate: dict, repo: str) -> str:
     return os.path.join(github_dir, fremd.rsplit("/", 1)[-1])
 
 
+#: Praefix, mit dem ein einzelner Drill-Eintrag die Wurzel des Gates (`repo`)
+#: ausdruecklich verlaesst und immer gegen DIESEN Klon (platform) liest.
+#:
+#: Realfall `built-but-never-called` (platform#3471): das Gate hat `repo:
+#: iilgmbh/ausschreibungs-hub` fuer Fall 1, Rev 2 (2026-09-08) zog Fall 2 aber
+#: bewusst OHNE zweiten Registry-Eintrag in platform selbst nach ("ein Gate,
+#: zwei Proben, kein zweiter Eintrag"). Ohne dieses Praefix gilt die Wurzel
+#: gate-weit: `tools/tests/test_aufruferlose_funktionen.py` wurde dann gegen
+#: den ausschreibungs-hub-Klon aufgeloest, existiert dort nie und lieferte
+#: immer "" — der zweite Fall war strukturell unschliessbar, unabhaengig vom
+#: Drill-Inhalt. `gate_drill_check.py`/`gate_verankerung_check.py` fuehren fuer
+#: fremd verankerte Gates (`repo` gesetzt) gar keinen Datei-Zugriff aus — sie
+#: bleiben von diesem Praefix unberuehrt.
+PLATFORM_PRAEFIX = "platform:"
+
+
 def _quellen(gate: dict) -> list[str]:
     """Drill-Pfade als flache Liste — `drill` darf ein String ODER eine Liste sein.
 
@@ -118,8 +134,14 @@ def pruefe_gate(gate: dict, repo: str = REPO_ROOT) -> dict:
 
     quellen = _quellen(gate)
     wurzel = _drill_wurzel(gate, repo)
-    text = "\n".join(_lies(wurzel, q) for q in quellen).lower()
-    gelesen = sum(1 for q in quellen if _lies(wurzel, q))
+    gelesene_dateien = []
+    for q in quellen:
+        if q.startswith(PLATFORM_PRAEFIX):
+            gelesene_dateien.append(_lies(repo, q[len(PLATFORM_PRAEFIX) :]))
+        else:
+            gelesene_dateien.append(_lies(wurzel, q))
+    text = "\n".join(gelesene_dateien).lower()
+    gelesen = sum(1 for inhalt in gelesene_dateien if inhalt)
 
     gedeckt, fehlend = [], []
     for fall in faelle:
