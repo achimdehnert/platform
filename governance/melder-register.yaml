@@ -29,6 +29,22 @@
 #                       Urteile erholen koennen, nicht ewig an alten Fehlalarmen
 #                       haengen bleiben. Weniger als MIN_URTEILE=3 Urteile SEIT
 #                       der Nullstellung heisst "NICHT bewertbar", nicht WARN.
+#   zielgebunden        OPTIONAL, bool. Default false (= flottenweit, bisheriges
+#                       Verhalten). true nur fuer Phasen, deren `repo`-Spalte der
+#                       Runner mit `$TARGET_REPO` fuellt und die deshalb je Lauf
+#                       NUR das eine Zielrepo dieses Laufs melden koennen (Quelle:
+#                       `grep -n 'record "0' tools/session_start_checks.sh | grep
+#                       TARGET_REPO`). Fuer eine solche Phase heilt
+#                       tools/befund_journal.py einen Eintrag nur, wenn der Lauf
+#                       dasselbe Zielrepo hatte wie der Eintrag — sonst loescht
+#                       ein Lauf mit TARGET_REPO=robo-lab einen Befund, den nur
+#                       TARGET_REPO=platform je erreichen konnte, und `laeufe`/
+#                       `erstmals`/`entscheiden_bis`/Anker gehen verloren (#3470,
+#                       Realfall: 0.7.4 prio-referenzen + 0.7.26 ci-deckung fuer
+#                       platform verschwanden durch einen parallelen robo-lab-
+#                       Lauf). Flottenweite Melder (z.B. 0.7 deploy-scan, 0.7.12
+#                       prod-wirkung, 0.7.16 origin-tls) sehen in jedem Lauf
+#                       mehrere fremde Repos zugleich und bleiben false.
 #
 # Karteileichen (Eintrag ohne passende Runner-Phase) und fehlende Eintraege
 # (Runner-Phase ohne Register-Zeile) meldet tools/melder_register_check.py --kurz.
@@ -72,6 +88,7 @@ melder:
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.4.1"
+    zielgebunden: true  # record() traegt hier ueberall "$TARGET_REPO" (#3470)
 
   - phase: "0.4.2 adr-schema"
     # Zeile 290 session_start_checks.sh: WARN nur wenn `iil-adrfw` fehlt — Fix ist ein pip-install, mechanische Agent-Handlung.
@@ -103,6 +120,7 @@ melder:
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.4"
+    zielgebunden: true  # record() traegt hier ueberall "$TARGET_REPO" (#3470)
 
   - phase: "0.4 repo-sync"
     leser: "Agent selbst — read-only weiterarbeiten, NICHT stashen/switchen (GUARD, ADR-233)"
@@ -282,6 +300,7 @@ melder:
     runbook: "0.R#0.7.4"
     # PR #2890: Folge-PR / "ist zu" / Fenster-Kappung
     geschaerft_am: "2026-09-07"
+    zielgebunden: true  # record() traegt hier ueberall "$TARGET_REPO" (#3470)
 
   - phase: "0.7.5 hook-dist"
     # Zeile 611 session_start_checks.sh: WARN nur wenn die eingebaute Selbstheilung (cc-skill-dist/generate.py) fehlschlaegt — Ursache pruefen/manuell verteilen ist Agent-Handlung, kein Owner-Entscheid.
@@ -376,3 +395,4 @@ melder:
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.7.26"
+    zielgebunden: true  # record() traegt hier ueberall "$TARGET_REPO" (#3470)

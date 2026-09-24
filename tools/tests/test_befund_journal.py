@@ -32,9 +32,19 @@ def journal(tmp_path: Path) -> Path:
     return tmp_path / "befund-journal.json"
 
 
-def _lauf(zeilen: list[str], pfad: Path) -> tuple[list[str], dict]:
+def _lauf(
+    zeilen: list[str],
+    pfad: Path,
+    lauf_repo: str = "platform",
+    register: list[dict] | None = None,
+) -> tuple[list[str], dict]:
     daten = bj.lade(pfad)
-    meldungen = bj.aufnehmen(bj._zeilen_lesen("\n".join(zeilen)), daten)
+    meldungen = bj.aufnehmen(
+        bj._zeilen_lesen("\n".join(zeilen)),
+        daten,
+        lauf_repo=lauf_repo,
+        register=register,
+    )
     bj.sichere(daten, pfad)
     return meldungen, daten
 
@@ -111,6 +121,99 @@ def test_should_not_heal_when_phase_did_not_run_at_all(journal: Path) -> None:
     _lauf(["0.7 deploy-scan\tWARN\tcad-hub\tfailure"], journal)
     _, daten = _lauf(["0.1 server-probe\tPASS\tplatform\tok"], journal)
     assert "0.7 deploy-scan::cad-hub" in daten["befunde"]
+
+
+# ── #3470: Heilung zielgebundener Phasen nur bei gleichem Zielrepo ──────────
+# Realfall 2026-09-24: TARGET_REPO=platform legte `0.7.26 ci-deckung::platform`
+# an, ein PARALLELER Lauf mit TARGET_REPO=robo-lab loeschte ihn wieder, weil die
+# Phase im eigenen (robo-lab-)Lauf "geurteilt" hatte — ohne das platform-Zielrepo
+# je erreichen zu koennen. `laeufe`/`erstmals`/`entscheiden_bis`/Anker gingen
+# verloren.
+
+_ZIELGEBUNDEN = [{"phase": "0.7.4 prio-referenzen", "zielgebunden": True}]
+
+
+def test_should_keep_zielgebundener_befund_when_a_run_with_another_target_repo_judges(
+    journal: Path,
+) -> None:
+    _lauf(
+        ["0.7.4 prio-referenzen\tWARN\tplatform\tstale"],
+        journal,
+        lauf_repo="platform",
+        register=_ZIELGEBUNDEN,
+    )
+    bj.main(
+        [
+            "--verankert",
+            "0.7.4 prio-referenzen::platform",
+            "https://github.com/achimdehnert/platform/issues/1",
+            "--datei",
+            str(journal),
+        ]
+    )
+    vor = bj.lade(journal)["befunde"]["0.7.4 prio-referenzen::platform"]
+
+    # Paralleler Lauf: dieselbe Phase lief, meldete aber nur robo-lab.
+    _, daten = _lauf(
+        ["0.7.4 prio-referenzen\tWARN\trobo-lab\tstale"],
+        journal,
+        lauf_repo="robo-lab",
+        register=_ZIELGEBUNDEN,
+    )
+    nach = daten["befunde"]["0.7.4 prio-referenzen::platform"]
+    assert nach["laeufe"] == vor["laeufe"]
+    assert nach["erstmals"] == vor["erstmals"]
+    assert nach["entscheiden_bis"] == vor["entscheiden_bis"]
+    assert nach["artefakt"] == vor["artefakt"]
+
+
+def test_should_still_heal_fleet_wide_phase_regardless_of_target_repo(
+    journal: Path,
+) -> None:
+    _lauf(["0.7 deploy-scan\tWARN\tcad-hub\tfailure"], journal, lauf_repo="platform")
+    _, daten = _lauf(
+        ["0.7 deploy-scan\tWARN\ttravel-beat\tanderes"], journal, lauf_repo="robo-lab"
+    )
+    assert "0.7 deploy-scan::cad-hub" not in daten["befunde"]
+
+
+def test_should_heal_zielgebundener_befund_when_same_target_repo_stops_reporting(
+    journal: Path,
+) -> None:
+    _lauf(
+        ["0.7.4 prio-referenzen\tWARN\tplatform\tstale"],
+        journal,
+        lauf_repo="platform",
+        register=_ZIELGEBUNDEN,
+    )
+    _, daten = _lauf(
+        ["0.7.4 prio-referenzen\tPASS\tplatform\tnicht mehr stale"],
+        journal,
+        lauf_repo="platform",
+        register=_ZIELGEBUNDEN,
+    )
+    assert "0.7.4 prio-referenzen::platform" not in daten["befunde"]
+
+
+def test_should_default_to_fleet_wide_and_warn_when_phase_missing_from_register(
+    journal: Path,
+) -> None:
+    _lauf(
+        ["0.7.4 prio-referenzen\tWARN\tplatform\tstale"],
+        journal,
+        lauf_repo="platform",
+        register=[],
+    )
+    meldungen, daten = _lauf(
+        ["0.7.4 prio-referenzen\tWARN\trobo-lab\tstale"],
+        journal,
+        lauf_repo="robo-lab",
+        register=[],
+    )
+    # Ohne Register-Eintrag gilt der alte Default (flottenweit) — der Eintrag
+    # heilt trotz fremdem Zielrepo, genau wie vor #3470.
+    assert "0.7.4 prio-referenzen::platform" not in daten["befunde"]
+    assert any("ohne Eintrag" in m and "0.7.4 prio-referenzen" in m for m in meldungen)
 
 
 def test_should_flag_foreign_repo_finding_as_open(journal: Path) -> None:
