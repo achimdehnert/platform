@@ -370,3 +370,74 @@ def test_should_read_through_shell_if_then_else_and_cover_the_primary_branch(tmp
         "shellcheck deploy/*.sh",
         "ruff check deploy/ tests/",
     }
+
+
+# ───────────────────── NICHT-PRUEFBAR-Dedup (#3469) ─────────────────────────
+
+
+def test_should_collapse_three_identical_causes_into_one_line_with_counter():
+    """AK 3d: 3 gleiche (Ziel, Grund)-Paare → 1 Zeile mit Zaehler `anzahl=3`."""
+    eintraege = [
+        {"ziel": "boards-check", "kommando": "python3 tools/a.py", "grund": "X"},
+        {"ziel": "boards-check", "kommando": "python3 tools/b.py", "grund": "X"},
+        {"ziel": "boards-check", "kommando": "cmp -s a b", "grund": "X"},
+    ]
+    dedup = cd._dedupliziere_nicht_pruefbar(eintraege)
+    assert len(dedup) == 1
+    assert dedup[0]["ziel"] == "boards-check"
+    assert dedup[0]["grund"] == "X"
+    assert dedup[0]["anzahl"] == 3
+
+
+def test_should_keep_distinct_ziel_or_grund_pairs_separate_with_own_counters():
+    eintraege = [
+        {"ziel": "boards-check", "kommando": "a", "grund": "X"},
+        {"ziel": "boards-check", "kommando": "b", "grund": "X"},
+        {"ziel": "workflow-lint", "kommando": "c", "grund": "X"},
+        {"ziel": "workflow-lint", "kommando": "d", "grund": "X"},
+        {"ziel": "workflow-lint", "kommando": "e", "grund": "X"},
+        {"ziel": "betrieb-check", "kommando": "f", "grund": "Y"},
+    ]
+    dedup = cd._dedupliziere_nicht_pruefbar(eintraege)
+    # Reihenfolge des ersten Auftretens bleibt erhalten (nicht alphabetisch).
+    assert [(d["ziel"], d["anzahl"]) for d in dedup] == [
+        ("boards-check", 2),
+        ("workflow-lint", 3),
+        ("betrieb-check", 1),
+    ]
+
+
+def test_should_collapse_realfall_3469_boards_check_shape(tmp_path):
+    """Realfall #3469 nachgebaut: ein Ziel mit Pruef-Schluesselwort ("check") und
+    einem Rezept aus mehreren `&&`-verketteten Pruef-Kommandos, dessen einziger
+    Workflow einen wiederverwendbaren Workflow referenziert. Vor der Auflösung
+    erzeugt JEDES Sub-Kommando eine eigene NICHT-PRUEFBAR-Zeile mit identischem
+    Grund (12x im echten Fall) — Dedup fasst sie zu einer Zeile zusammen, ohne
+    das echte Ziel `betrieb-check` (nur 1 Sub-Kommando) mitzuzaehlen."""
+    makefile = (
+        "boards-check:\n"
+        "\t@python3 tools/a.py && python3 tools/b.py && cmp -s x y && echo ok\n"
+        "betrieb-check:\n"
+        "\tpython3 tools/c.py\n"
+    )
+    workflow = (
+        "on: [push]\n"
+        "jobs:\n"
+        "  adr-validate:\n"
+        "    uses: achimdehnert/iil-adrfw/.github/workflows/_adr-validate.yml@main\n"
+    )
+    repo = _repo(tmp_path, makefile, workflow)
+    ergebnis = cd.scan_repo(str(repo))
+    assert ergebnis["befunde"] == []
+    roh_boards_check = [
+        n for n in ergebnis["nicht_pruefbar"] if n["ziel"] == "boards-check"
+    ]
+    assert len(roh_boards_check) > 1  # roh: mehrere identische Zeilen
+
+    dedup = cd._dedupliziere_nicht_pruefbar(ergebnis["nicht_pruefbar"])
+    boards_check_dedup = [d for d in dedup if d["ziel"] == "boards-check"]
+    assert len(boards_check_dedup) == 1
+    assert boards_check_dedup[0]["anzahl"] == len(roh_boards_check)
+    betrieb_check_dedup = [d for d in dedup if d["ziel"] == "betrieb-check"]
+    assert len(betrieb_check_dedup) == 1
+    assert betrieb_check_dedup[0]["anzahl"] == 1
