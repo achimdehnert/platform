@@ -557,13 +557,21 @@ cmd_abstand() {
   return 0
 }
 
-case "${1:-}" in
-  start) shift; cmd_start "$@";;
-  abstand) shift; cmd_abstand "${1:-}";;
-  list)  cmd_list;;
-  befunde) cmd_befunde;;
-  end)   shift; cmd_end "$@";;
-  reap)  shift; cmd_reap "$@";;
-  -h|--help|help) echo "usage: repo-session.sh {start <repo> --task <slug> [--ziel <text>] [--base <ref>] [--ephemeral] [--befund <phase::repo>]... | list | befunde | abstand [<repo>] | end <wt> | reap [<repo>|--alle]}"; exit 0;;
-  *) echo "usage: repo-session.sh {start <repo> --task <slug> [--ziel <text>] [--base <ref>] [--ephemeral] [--befund <phase::repo>]... | list | befunde | abstand [<repo>] | end <wt> | reap [<repo>|--alle]}" >&2; exit 2;;
-esac
+# Nur bei DIREKTEM Aufruf dispatchen, nicht bei `source repo-session.sh` (#3495 V1
+# Folgepunkt c): ein Test kann so Funktionen wie befund_belegen() isoliert aufrufen,
+# ohne cmd_start()/reap_repo() zu durchlaufen — insbesondere ohne den Auto-Reap, der
+# beim echten `start` abgelaufene Befund-Sperren meist schon VOR befund_belegen()
+# raeumt und den Uebernahme-Zweig darin (Zeile "abgelaufen|verwaist) ... rm -f") so
+# nur indirekt trifft.
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+  case "${1:-}" in
+    start) shift; cmd_start "$@";;
+    abstand) shift; cmd_abstand "${1:-}";;
+    list)  cmd_list;;
+    befunde) cmd_befunde;;
+    end)   shift; cmd_end "$@";;
+    reap)  shift; cmd_reap "$@";;
+    -h|--help|help) echo "usage: repo-session.sh {start <repo> --task <slug> [--ziel <text>] [--base <ref>] [--ephemeral] [--befund <phase::repo>]... | list | befunde | abstand [<repo>] | end <wt> | reap [<repo>|--alle]}"; exit 0;;
+    *) echo "usage: repo-session.sh {start <repo> --task <slug> [--ziel <text>] [--base <ref>] [--ephemeral] [--befund <phase::repo>]... | list | befunde | abstand [<repo>] | end <wt> | reap [<repo>|--alle]}" >&2; exit 2;;
+  esac
+fi

@@ -446,6 +446,13 @@ nur noch die letzten drei Einträge (Policy-Änderung aus
 wörtlich. Die beiden 2026-09-02-Einträge stehen hier in ihrer **vollen** Fassung, im
 Skill gekürzt auf drei Zeilen.
 
+- 2026-09-17: **Phase 0.7.7 `gate-wirkung` gestrichen** (Streichbahn Retro 8185e1, Owner-Wort
+  M9, Belegart kein Leser): drei Journal-Läufe, kein Session-Start-Board führte den Befund als
+  Item; der einzige registrierte Leser war `/session-retro` Phase 4/5a, die `gate_wirkung.py`
+  ohnehin selbst als Phase 0.0 ausführt — der Sitzungsstart duplizierte die Retro mit
+  schwächerem Zug. Rückfall-Prüfung bleibt in `/session-retro` Phase 0.0/5a;
+  `tools/gate_wirkung.py` unverändert.
+
 - 2026-09-16: **Phase 1.1 liest Sitzungs-Fragmente** (#1944 K6) — in Repos mit
   `docs/handover.d/` kommt der Stand aus `fragments.py render --ref origin/main`; der
   Start-Hook spiegelt die offenen Fäden. Die Startprüfung meldet parallele Sitzungen nicht
