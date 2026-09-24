@@ -44,6 +44,9 @@ meta:
     # achimdehnert-Default → deploy-failure-monitor 404, Lauf auf main rot.
     post-hub: meiki-lra
     schreib-hub: meiki-lra
+    # 2026-09-24 (meiki-hub#494, core:ADR-003): buerger-hub liegt unter meiki-lra —
+    # verifiziert ueber `gh repo view meiki-lra/buerger-hub` bei der Anlage.
+    buerger-hub: meiki-lra
     # 2026-09-09 (meiki-hub#374): chat-hub liegt real unter iilgmbh — verifiziert
     # ueber `gh api repos/iilgmbh/chat-hub -q .owner.login` (nicht ueber den
     # angefragten Pfad, s. ADR-297 unten). Es steht nicht in `repos` und matcht
@@ -505,6 +508,13 @@ repos:
     flat:
       type: django
       port: 11436
+      health: /livez/
+  buerger-hub:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: django
+      port: 11437
       health: /livez/
   gaeb-toolkit:
     in_flat: true
