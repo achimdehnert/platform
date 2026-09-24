@@ -343,6 +343,15 @@ class TestTonRoute:
         assert kopf["Content-Type"] == "audio/wav"
         assert kopf["Content-Length"] == str(len(self.WAV))
 
+    def test_should_serve_pdf_inline_in_a_sandbox(self, server, medien):
+        pdf = b"%PDF-1.4\n%%EOF\n"
+        (medien / "dokument.pdf").write_bytes(pdf)
+        status, kopf, koerper = _get(server, "/t/dokument.pdf")
+        assert (status, koerper) == (200, pdf)
+        assert kopf["Content-Type"] == "application/pdf"
+        assert kopf["Content-Disposition"] == 'inline; filename="dokument.pdf"'
+        assert kopf["Content-Security-Policy"] == "sandbox"
+
     def test_should_404_unknown_audio_file(self, server, medien):
         assert _get(server, "/t/gibtsnicht.wav")[0] == 404
 
