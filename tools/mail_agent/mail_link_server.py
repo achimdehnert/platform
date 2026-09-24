@@ -48,6 +48,7 @@ from anker import lade as anker_lade  # noqa: E402
 from referenzen import SUCHORDNER  # noqa: E402
 import graph_anker  # noqa: E402
 import graph_mail  # noqa: E402
+import lese_eingang  # noqa: E402
 from anker import speichere as anker_speichere  # noqa: E402
 from anker import uebernehme as anker_uebernehme  # noqa: E402
 from read_mail import (  # noqa: E402
@@ -332,6 +333,7 @@ class MailLinkHandler(BaseHTTPRequestHandler):
 
     board_root: Path = BOARD_ROOT
     medien_root: Path = MEDIEN_ROOT
+    lese_ablage: Path = lese_eingang.ABLAGE
 
     # --- Antwort-Helfer ----------------------------------------------------
 
@@ -401,7 +403,30 @@ class MailLinkHandler(BaseHTTPRequestHandler):
             return self._board(teile[1])
         if teile[0] == "t" and len(teile) == 2:
             return self._ton(teile[1])
+        if teile == ["lesen"]:
+            basis = lese_eingang.basis_aus_host(self.headers.get("Host"))
+            body = lese_eingang.seite(basis).encode("utf-8")
+            return self._sende(HTTPStatus.OK, body, "text/html; charset=utf-8")
         return self._fehler(HTTPStatus.NOT_FOUND, "Unbekannter Pfad.")
+
+    def do_POST(self) -> None:  # noqa: N802
+        """Einziger schreibender Pfad: `/lesen` legt Artikeltext ab (chat-hub#140).
+
+        Schreibt nur in `lese_ablage`, stoesst nichts an — siehe lese_eingang.py.
+        """
+        if self.path.split("?", 1)[0].rstrip("/") != "/lesen":
+            return self._fehler(HTTPStatus.NOT_FOUND, "Unbekannter Pfad.")
+        try:
+            laenge = int(self.headers.get("Content-Length") or 0)
+            lese_eingang.pruefe_anfrage(
+                self.headers.get("Origin"), self.headers.get("Content-Type"), laenge
+            )
+            ziel = lese_eingang.ablegen(self.rfile.read(laenge), self.lese_ablage)
+            status, antwort = HTTPStatus.OK, {"abgelegt": ziel.name}
+        except (ValueError, lese_eingang.AblageFehler) as fehler:
+            status, antwort = HTTPStatus.BAD_REQUEST, {"fehler": str(fehler)}
+        body = json.dumps(antwort).encode("utf-8")
+        self._sende(status, body, "application/json; charset=utf-8")
 
     def _anker(self, teile: list[str]) -> None:
         """`/a/<item>` — Board-Eintrag über seine Message-ID auflösen.
