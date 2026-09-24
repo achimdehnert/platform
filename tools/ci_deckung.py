@@ -76,6 +76,15 @@ stillen Treffers oder einer stillen Luecke:
 - Ein `run:`-Kommando enthaelt eine Matrix-Expression (`${{ matrix.* }}`) an einer
   Stelle, die das Werkzeug/Ziel bestimmt → dieses eine Kommando ist NICHT PRUEFBAR.
 
+In der Textausgabe (voller Report + `--kurz`) werden NICHT-PRUEFBAR-Eintraege mit
+gleichem (Ziel, Grund) zu EINER Zeile mit Zaehler `(Nx)` zusammengefasst — ein
+Rezept mit mehreren `&&`-verketteten Pruef-Kommandos erzeugt sonst pro Sub-Kommando
+eine identische Zeile (Realfall #3469: `boards-check` 12×, `workflow-lint` 3×,
+alle mit derselben Ursache). Die Summenzeile `NICHT PRUEFBAR : N` zaehlt die
+eindeutigen (Ziel, Grund)-Paare, nicht die Rohzeilen. Die JSON-Ausgabe (`--json`)
+bleibt unveraendert roh (ein Eintrag je Sub-Kommando) — Dedup ist reine
+Darstellung fuer Menschen.
+
 ## Wiederverwendbare Workflows aufloesen (platform#2990)
 
 Ein Workflow referenziert einen wiederverwendbaren Workflow
@@ -765,6 +774,21 @@ def scan_repo(
     }
 
 
+def _dedupliziere_nicht_pruefbar(eintraege: list[dict]) -> list[dict]:
+    """Fasst NICHT-PRUEFBAR-Eintraege mit gleichem (Ziel, Grund) zu einer Zeile
+    mit Zaehler `anzahl` zusammen. Reihenfolge des ersten Auftretens bleibt
+    erhalten (Realfall #3469: `boards-check` erschien 12x identisch, weil ihr
+    Rezept 12 `&&`-verkettete Pruef-Kommandos hat und jedes einzeln denselben
+    unresolved-Grund traegt — nicht 12 verschiedene Makefile-Ziele)."""
+    gruppen: dict[tuple[str | None, str], dict] = {}
+    for eintrag in eintraege:
+        schluessel = (eintrag["ziel"], eintrag["grund"])
+        if schluessel not in gruppen:
+            gruppen[schluessel] = {**eintrag, "anzahl": 0}
+        gruppen[schluessel]["anzahl"] += 1
+    return list(gruppen.values())
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--repo", default=REPO_ROOT, help="Pfad zum zu messenden Repo")
@@ -800,6 +824,7 @@ def main() -> int:
 
     befunde = ergebnis["befunde"]
     nicht_pruefbar = ergebnis["nicht_pruefbar"]
+    nicht_pruefbar_dedup = _dedupliziere_nicht_pruefbar(nicht_pruefbar)
 
     if args.kurz:
         teile = []
@@ -810,8 +835,8 @@ def main() -> int:
                 f"{len(befunde)} Kommando(s) lokal vorhanden, im CI nie ausgefuehrt — "
                 f"{spitze['ziel']}: {spitze['kommando']}{weitere}"
             )
-        if nicht_pruefbar:
-            teile.append(f"{len(nicht_pruefbar)} NICHT PRUEFBAR")
+        if nicht_pruefbar_dedup:
+            teile.append(f"{len(nicht_pruefbar_dedup)} NICHT PRUEFBAR")
         if verzicht_fehler:
             teile.append(f"{len(verzicht_fehler)} Verzicht-Eintrag(e) ungueltig")
         if not teile:
@@ -829,7 +854,7 @@ def main() -> int:
     print(f"Pruef-Kommandos      : {ergebnis['geprueft']}")
     print(f"  gedeckt            : {len(ergebnis['gedeckt'])}")
     print(f"  Befund (ungedeckt) : {len(befunde)}")
-    print(f"  NICHT PRUEFBAR     : {len(nicht_pruefbar)}")
+    print(f"  NICHT PRUEFBAR     : {len(nicht_pruefbar_dedup)}")
     print(f"  Verzicht           : {len(ergebnis['verzicht'])}")
     print()
 
@@ -841,11 +866,12 @@ def main() -> int:
     else:
         print("→ Kein ungedecktes Pruef-Kommando.\n")
 
-    if nicht_pruefbar:
+    if nicht_pruefbar_dedup:
         print("⚠️  NICHT PRUEFBAR (Falsifikation nicht moeglich):\n")
-        for n in nicht_pruefbar:
+        for n in nicht_pruefbar_dedup:
             ziel = n["ziel"] or "(Repo-weit)"
-            print(f"  · {ziel}: {n['grund']}")
+            zaehler = f" ({n['anzahl']}×)" if n["anzahl"] > 1 else ""
+            print(f"  · {ziel}: {n['grund']}{zaehler}")
         print()
 
     if ergebnis["verzicht"]:
