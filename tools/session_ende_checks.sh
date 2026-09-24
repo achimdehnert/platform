@@ -328,8 +328,13 @@ if command -v gh >/dev/null 2>&1 && [ -n "$OWNER" ]; then
   vorlauf zusagen-prs timeout 60 gh pr list --repo "$OWNER/$TARGET_REPO" --author @me --state all \
     --search "created:>=$HEUTE" --json number --jq '.[].number'
   if [ -f "$PLATFORM_DIR/tools/session_abgleich.py" ]; then
+    # Mit --session-id nur die PRs DIESER Sitzung (#2234, Retro #3543 Befund #2):
+    # Konto-weit waren es am 2026-09-24 35 Befunde, das eigene Issue ging unter.
+    SAB_SITZUNG=()
+    [ -n "$SESSION_ID" ] && SAB_SITZUNG=(--sitzung "$SESSION_ID" --lease-dir "$LEASE_DIR")
     vorlauf2 session-abgleich timeout "${SESSION_ENDE_ABGLEICH_BUDGET:-180}" \
-      python3 "$PLATFORM_DIR/tools/session_abgleich.py" --repo "$OWNER/$TARGET_REPO" --seit "$HEUTE"
+      python3 "$PLATFORM_DIR/tools/session_abgleich.py" --repo "$OWNER/$TARGET_REPO" --seit "$HEUTE" \
+      "${SAB_SITZUNG[@]}"
   fi
 fi
 
@@ -342,9 +347,11 @@ FRAG_RE=""
 if [ -d "$TARGET_DIR/$FRAG_DIR_REL" ] && [ -n "$SESSION_ID" ]; then
   FRAG_RE="Z-${SESSION_ID}(-[0-9]+)?[.]md\$"
   if command -v gh >/dev/null 2>&1 && [ -n "$OWNER" ]; then
+    # Je Treffer "#<nr> <pfad>": der Pfad traegt den Zeitstempel, den der
+    # Nachlauf-Check (#2234) als juengstes Fragment braucht.
     vorlauf frag-pr timeout 90 gh pr list --repo "$OWNER/$TARGET_REPO" --state open \
       --json number,files \
-      --jq ".[] | select(any(.files[]?; .path | test(\"^docs/handover[.]d/.*$FRAG_RE\"))) | \"#\\(.number)\""
+      --jq ".[] | .number as \$n | .files[]? | select(.path | test(\"^docs/handover[.]d/.*$FRAG_RE\")) | \"#\\(\$n) \\(.path)\""
   fi
 fi
 if [ ! -d "$TARGET_DIR/$FRAG_DIR_REL" ] && [ -f "$HO_CHECK" ] && [ -f "$HO_FILE" ]; then
@@ -469,16 +476,62 @@ if [ -d "$TARGET_DIR/$FRAG_DIR_REL" ]; then
     # [.] statt \. — jq (gh --jq) kennt die Escape-Sequenz \. nicht.
     # Am Zeitstempel verankert: sonst gaelte "auf-main" als Fragment der Sitzung "main".
     # FRAG_RE ist am Vorlauf-Schnitt gesetzt (die PR-Suche braucht es dort).
+    # Namen beginnen mit dem Zeitstempel — `tail -1` ist das JUENGSTE Fragment.
     FRAG_MAIN=$(git -C "$TARGET_DIR" ls-tree --name-only "origin/main:$FRAG_DIR_REL" 2>/dev/null \
-      | grep -E -- "$FRAG_RE" | head -1)
-    FRAG_PR=""
-    if [ -z "$FRAG_MAIN" ] && command -v gh >/dev/null 2>&1 && [ -n "$OWNER" ]; then
-      FRAG_PR=$(ernte frag-pr | head -3 | tr '\n' ' ')
+      | grep -E -- "$FRAG_RE" | sort | tail -1)
+    FRAG_PR=""; FRAG_PR_ROH=""
+    if command -v gh >/dev/null 2>&1 && [ -n "$OWNER" ]; then
+      FRAG_PR_ROH=$(ernte frag-pr)
+      FRAG_PR=$(printf '%s\n' "$FRAG_PR_ROH" | awk 'NF{print $1}' | sort -u | head -3 | tr '\n' ' ')
     fi
-    if [ -n "$FRAG_MAIN" ]; then
-      record "E.3 handover-frische" "PASS" "Fragment der Sitzung liegt auf main: $FRAG_MAIN" "$TARGET_REPO"
-    elif [ -n "$FRAG_PR" ]; then
-      record "E.3 handover-frische" "PASS" "Fragment der Sitzung offen als PR ${FRAG_PR% }" "$TARGET_REPO"
+    if [ -n "$FRAG_MAIN" ] || [ -n "$FRAG_PR" ]; then
+      if [ -n "$FRAG_MAIN" ]; then
+        FRAG_TEXT="Fragment der Sitzung liegt auf main: $FRAG_MAIN"
+      else
+        FRAG_TEXT="Fragment der Sitzung offen als PR ${FRAG_PR% }"
+      fi
+      # Nachlauf (#2234, Retro #3543 Befund #4): ein Fragment belegt nur den Stand
+      # zu SEINER Zeit. Sitzung e911bf49 schrieb es 13:01Z und arbeitete danach
+      # drei Stunden weiter — E.3 war trotzdem gruen. Massgeblich ist das juengste
+      # eigene Fragment (main: `erstellt:` aus dem Kopf; PR: Zeitstempel im Namen).
+      FRAG_ZEIT=""
+      if [ -n "$FRAG_MAIN" ]; then
+        FRAG_ZEIT=$(git -C "$TARGET_DIR" show "origin/main:$FRAG_DIR_REL/$FRAG_MAIN" 2>/dev/null \
+          | sed -n 's/^erstellt:[[:space:]]*//p' | head -1 | tr -d "\"' \r")
+        # Nur die Form, die fragments.py schreibt; sonst zaehlt der Dateiname.
+        [[ "$FRAG_ZEIT" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]] || FRAG_ZEIT=""
+      fi
+      for f in $FRAG_MAIN $(printf '%s\n' "$FRAG_PR_ROH" | awk 'NF>1{print $2}'); do
+        z=$(basename "$f" | sed -nE 's/^([0-9]{4}-[0-9]{2}-[0-9]{2})T([0-9]{2})-([0-9]{2})-([0-9]{2})Z.*/\1T\2:\3:\4Z/p')
+        # ISO-Zeitstempel gleicher Form sind lexikografisch vergleichbar.
+        if [ -n "$z" ] && { [ -z "$FRAG_ZEIT" ] || [[ "$z" > "$FRAG_ZEIT" ]]; }; then FRAG_ZEIT="$z"; fi
+      done
+      SB="$PLATFORM_DIR/tools/sitzungs_branches.py"
+      if [ ! -f "$SB" ]; then
+        record "E.3 handover-frische" "SKIP" \
+          "$FRAG_TEXT — Nachlauf nicht pruefbar: Werkzeug fehlt (tools/sitzungs_branches.py), keine Entwarnung" "$TARGET_REPO"
+      elif [ -z "$FRAG_ZEIT" ]; then
+        record "E.3 handover-frische" "SKIP" \
+          "$FRAG_TEXT — Nachlauf nicht pruefbar: Fragment-Zeitpunkt nicht lesbar, keine Entwarnung" "$TARGET_REPO"
+      else
+        NL_OUT=$(timeout "${SESSION_ENDE_NACHLAUF_BUDGET:-90}" python3 "$SB" nachlauf \
+          --sitzung "$SESSION_ID" --owner "$OWNER" --lease-dir "$LEASE_DIR" \
+          --fragment-zeit "$FRAG_ZEIT" --fragment-muster "$FRAG_RE" 2>&1)
+        NL_RC=$?
+        NL_RES=$(printf '%s' "$NL_OUT" | grep -m1 '^RESULT:' || true)
+        case "$NL_RES" in
+          "RESULT: NACHLAUF"*)
+            record "E.3 handover-frische" "FAIL" \
+              "Fragment von $FRAG_ZEIT veraltet — danach angelegt: $(printf '%s' "$NL_RES" | sed -E 's/^RESULT: NACHLAUF ([0-9]+) /\1 PR(s) /' | cut -c1-160) — fragments.py neu --session-id $SESSION_ID" "$TARGET_REPO" ;;
+          "RESULT: OK"*)
+            record "E.3 handover-frische" "PASS" \
+              "$FRAG_TEXT; kein Sitzungs-PR nach $FRAG_ZEIT (${NL_RES#RESULT: OK })" "$TARGET_REPO" ;;
+          *)
+            [ "$NL_RC" -eq 124 ] && NL_RES="Zeitbudget erschoepft"
+            record "E.3 handover-frische" "SKIP" \
+              "$FRAG_TEXT — Nachlauf nicht pruefbar: $(printf '%s' "${NL_RES#RESULT: }" | cut -c1-140), keine Entwarnung" "$TARGET_REPO" ;;
+        esac
+      fi
     else
       record "E.3 handover-frische" "FAIL" \
         "kein Fragment fuer Sitzung $SESSION_ID auf main oder in offenem PR — fragments.py neu --session-id $SESSION_ID" "$TARGET_REPO"
@@ -767,17 +820,25 @@ else
     record "E.10 session-abgleich" "SKIP" \
       "Zeitbudget ${SAB_BUDGET}s erschöpft — keine Entwarnung" "$TARGET_REPO"
   else
+    # Anzahl + kompakte Refs statt einer abgeschnittenen Zeile (#2234, Retro #3543
+    # Befund #2: von 35 Befunden war genau einer sichtbar, das eigene #3469 nicht).
+    SAB_N=$(printf '%s' "$SAB_RES" | sed -nE 's/.*RESULT: BEFUND ([0-9]+).*/\1/p')
+    SAB_REFS=$(printf '%s' "$SAB_OUT" | sed -n 's/^KURZ: //p' | head -1)
+    if [ -n "$SESSION_ID" ]; then SAB_WEITE="dieser Sitzung"; else SAB_WEITE="kontoweit, ohne --session-id nicht sitzungsgenau"; fi
     case "$SAB_RES" in
       *"RESULT: BEFUND"*)
         record "E.10 session-abgleich" "WARN" \
-          "$(printf '%s' "$SAB_OUT" | grep -m2 '^   ⚠' | tr '\n' ' ' | cut -c1-160) — Issue nachziehen ODER Fehlalarm notieren (advisory)" \
+          "${SAB_N:-?} Befund(e) ${SAB_WEITE}: $(printf '%s' "$SAB_REFS" | cut -c1-200) — je Ref Issue nachziehen ODER Fehlalarm notieren (advisory)" \
           "$TARGET_REPO" ;;
+      *"sitzung-nicht-zuordenbar"*)
+        record "E.10 session-abgleich" "SKIP" \
+          "◌ Sitzung $SESSION_ID nicht zuordenbar: $(printf '%s' "$SAB_RES" | sed -E 's/.*sitzung-nicht-zuordenbar: //; s/\)$//' | cut -c1-140) — keine Entwarnung" "$TARGET_REPO" ;;
       *"RESULT: HINWEIS"*)
         record "E.10 session-abgleich" "SKIP" \
           "◌ $(printf '%s' "$SAB_RES" | cut -c1-60) — nicht falsifizierbar, keine Entwarnung" "$TARGET_REPO" ;;
       *"RESULT: OK"*)
         record "E.10 session-abgleich" "PASS" \
-          "keine offenen Issues/Belege/Serien aus dieser Sitzung" "$TARGET_REPO" ;;
+          "keine offenen Issues/Belege/Serien (${SAB_WEITE})" "$TARGET_REPO" ;;
       *)
         record "E.10 session-abgleich" "SKIP" \
           "session_abgleich.py ohne verwertbare RESULT-Zeile (rc=$SAB_RC): $(printf '%s' "$SAB_OUT" | head -1 | cut -c1-120)" "$TARGET_REPO" ;;
