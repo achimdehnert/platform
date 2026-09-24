@@ -20,6 +20,8 @@
 #
 # Usage:
 #   repo-session.sh start <repo-path> --task <slug> [--ziel <text>] [--base <ref>] [--ephemeral]
+#                         [--befund <phase::repo>]...  # Befund-Sperre belegen; belegt -> exit 3
+#   repo-session.sh befunde                    # aktive Befund-Sperren (key, Lease, Alter)
 #   repo-session.sh list
 #   repo-session.sh abstand [<repo>]           # Commits hinter origin/main je Lease; exit 1 ueber Schwelle
 #   repo-session.sh end <worktree-path>        # Worktree entfernen (nur wenn clean), Lease schliessen
@@ -28,6 +30,21 @@
 #
 # Lease-Felder (ADR-233 §2.4): session_id, owner, created_at, last_touch, branch,
 #   base_sha, repo, worktree, ziel, intended_pr, expires_at, ephemeral.
+#
+# Befund-Sperre (platform#3495 V1): Am 2026-09-24 legten zwei Sitzungen desselben
+# Owners 6 s auseinander dieselben PRs an (#3465/#3466) und 17 s auseinander
+# dieselben Issues (#3467/#3468) — beide bearbeiteten denselben Session-Start-
+# Befund. Keiner der drei Mechanismen griff: 0.4 parallel-sessions meldet nur
+# PASS (#1944 K8), check_pr_collision() blockt nur bei gleichem Task-Slug, die
+# PR-Liste laeuft einmal beim Start und fail-open. Deshalb belegt
+# `start --befund <phase::repo>` den Journal-Schluessel atomar als Datei
+# $LEASE_DIR/befund/<key>.lock (noclobber = O_EXCL, Inhalt: key, lease_id,
+# worktree, created_at, expires_at = Lease-TTL). Ein zweiter `start` auf denselben
+# Schluessel bricht mit exit 3 ab, BEVOR ein Worktree entsteht. Frei wird die
+# Sperre durch `end`, durch Ablauf (expires_at) oder wenn ihre Lease geschlossen
+# ist (.json.closed — so schliesst auch worktree-reaper.py); `reap` raeumt solche
+# Dateien ab. Der Runner (session_start_checks.sh) zeigt aktive Sperren ueber
+# `befunde` als "in Arbeit von <lease>".
 #
 # Env:
 #   REPO_SESSION_DIR   (default ~/.repo-session)  — Leases + Worktree-Wurzel
@@ -57,7 +74,156 @@ reap_repo() {
   local repo="$1"
   local reaper="$SCRIPT_DIR/worktree-reaper.py"
   [ -f "$reaper" ] || { echo "  ⚠ worktree-reaper.py nicht gefunden ($reaper) — reap übersprungen." >&2; return 1; }
-  ( cd "$repo" && python3 "$reaper" --apply )
+  local rc=0
+  ( cd "$repo" && python3 "$reaper" --apply ) || rc=$?
+  # Der Reaper schliesst Leases (.json.closed), kennt aber keine Befund-Sperren —
+  # deren Dateien hier nachziehen (#3495 V1). Best-effort, nie werfend.
+  befund_aufraeumen >&2 || true
+  return $rc
+}
+
+# ---------------------------------------------------------------------------
+# Befund-Sperre je Journal-Schluessel (platform#3495 V1, Begruendung im Kopf)
+# ---------------------------------------------------------------------------
+BEFUND_DIR="$LEASE_DIR/befund"
+BEFUND_EXIT=3
+
+befund_datei() {
+  # Dateiname aus dem Schluessel: alles ausser [A-Za-z0-9._-] wird '_'
+  # ("0.7 deploy-scan::platform" -> "0.7_deploy-scan__platform.lock").
+  # Der echte Schluessel steht im Inhalt und wird beim Belegen verglichen.
+  printf '%s/%s.lock' "$BEFUND_DIR" "$(printf '%s' "$1" | tr -c 'A-Za-z0-9._-' '_')"
+}
+
+# Zustand einer Sperr-Datei, tab-getrennt:
+#   <zustand> <key> <lease_id> <created_at> <alter> <worktree>
+# zustand: belegt | abgelaufen | verwaist (Lease geschlossen) | frei (Datei fehlt).
+# Eine unlesbare Datei (Absturz zwischen Anlegen und Schreiben) gilt 60 s als
+# belegt, danach als verwaist — sonst sperrte ein Crash den Schluessel eine Woche.
+befund_zustand() {
+  python3 - "$1" "$LEASE_DIR" <<'PY'
+import datetime as dt, json, os, sys, time
+f, lease_dir = sys.argv[1], sys.argv[2]
+fmt = "%Y-%m-%dT%H:%M:%SZ"
+now = dt.datetime.now(dt.timezone.utc)
+def alter(ts):
+    try:
+        s = int((now - dt.datetime.strptime(ts, fmt).replace(tzinfo=dt.timezone.utc)).total_seconds())
+    except (TypeError, ValueError):
+        return "?"
+    return f"{s // 3600} h {s % 3600 // 60} min" if s >= 3600 else f"{s // 60} min {s % 60} s"
+try:
+    d = json.load(open(f))
+except FileNotFoundError:
+    print("frei\t\t\t\t\t"); sys.exit(0)
+except (OSError, ValueError):
+    try:
+        jung = time.time() - os.path.getmtime(f) < 60
+    except OSError:
+        jung = False
+    print(("belegt" if jung else "verwaist") + "\t?\t?\t?\t?\t?"); sys.exit(0)
+key, lid = d.get("key", "?"), d.get("lease_id", "")
+created, wt = d.get("created_at", "?"), d.get("worktree", "?")
+zustand = "belegt"
+try:
+    if dt.datetime.strptime(d.get("expires_at", ""), fmt).replace(tzinfo=dt.timezone.utc) <= now:
+        zustand = "abgelaufen"
+except ValueError:
+    pass
+lp = os.path.join(lease_dir, f"{lid}.json")
+if zustand == "belegt" and lid and not os.path.exists(lp) and os.path.exists(lp + ".closed"):
+    zustand = "verwaist"
+print("\t".join([zustand, key, lid or "?", created, alter(created), wt]))
+PY
+}
+
+befund_freigeben() {
+  # Alle Sperren einer Lease entfernen (end, abgebrochener start).
+  local lid="$1" f z k l rest
+  [ -n "$lid" ] && [ -d "$BEFUND_DIR" ] || return 0
+  for f in "$BEFUND_DIR"/*.lock; do
+    [ -e "$f" ] || continue
+    IFS=$'\t' read -r z k l rest <<<"$(befund_zustand "$f")"
+    if [ "$l" = "$lid" ]; then
+      rm -f "$f" && echo "Befund-Sperre freigegeben: $k"
+    fi
+  done
+}
+
+befund_aufraeumen() {
+  # Abgelaufene + verwaiste Sperren entfernen (reap-Pfad).
+  local f z k l rest
+  [ -d "$BEFUND_DIR" ] || return 0
+  for f in "$BEFUND_DIR"/*.lock; do
+    [ -e "$f" ] || continue
+    IFS=$'\t' read -r z k l rest <<<"$(befund_zustand "$f")"
+    case "$z" in
+      abgelaufen|verwaist) rm -f "$f" && echo "  ♻ Befund-Sperre $z entfernt: $k (Lease $l)";;
+    esac
+  done
+}
+
+# befund_belegen <lease_id> <worktree> <expires_at> <key>...
+# Belegt alle Schluessel oder keinen: scheitert einer, werden die in diesem
+# Aufruf schon belegten wieder freigegeben. Rueckgabe BEFUND_EXIT bei Belegung.
+# Atomar ist das Anlegen per noclobber (O_EXCL); flock serialisiert nur die
+# Uebernahme abgelaufener Sperren (rm + neu anlegen), damit zwei Uebernehmer
+# sich nicht gegenseitig die frische Sperre loeschen.
+befund_belegen() {
+  local lid="$1" wt="$2" exp="$3"; shift 3
+  [ $# -gt 0 ] || return 0
+  mkdir -p "$BEFUND_DIR"
+  local mutex_offen=0
+  if command -v flock >/dev/null 2>&1; then
+    exec 9>"$BEFUND_DIR/.mutex"
+    flock -w 10 9 && mutex_offen=1
+  fi
+  local belegt=() key f z k l created alt owt now json rc=0
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  for key in "$@"; do
+    f="$(befund_datei "$key")"
+    IFS=$'\t' read -r z k l created alt owt <<<"$(befund_zustand "$f")"
+    case "$z" in
+      belegt)
+        echo "⛔ Befund $key in Arbeit von $l seit $created (Worktree $owt)." >&2
+        [ "$k" != "$key" ] && echo "   (Sperr-Datei traegt Schluessel '$k' — gleicher Dateiname)" >&2
+        echo "   → andere Sitzung fertig werden lassen ODER dort 'repo-session.sh end <worktree>'." >&2
+        rc=$BEFUND_EXIT; break;;
+      abgelaufen|verwaist)
+        echo "  ↻ Befund-Sperre $key übernommen — vorige Sperre $z (Lease $l seit $created)." >&2
+        rm -f "$f";;
+    esac
+    json="$(python3 -c 'import json,sys; print(json.dumps(dict(zip(["key","lease_id","worktree","created_at","expires_at"], sys.argv[1:])), ensure_ascii=False))' \
+      "$key" "$lid" "$wt" "$now" "$exp")"
+    if ( set -o noclobber; printf '%s\n' "$json" > "$f" ) 2>/dev/null; then
+      belegt+=("$f")
+    else
+      echo "⛔ Befund $key soeben von einer anderen Sitzung belegt (Wettlauf verloren)." >&2
+      rc=$BEFUND_EXIT; break
+    fi
+  done
+  if [ "$mutex_offen" -eq 1 ]; then flock -u 9; fi
+  exec 9>&- 2>/dev/null || true
+  if [ "$rc" -ne 0 ] && [ "${#belegt[@]}" -gt 0 ]; then rm -f "${belegt[@]}"; fi
+  return $rc
+}
+
+cmd_befunde() {
+  local n=0 alt_n=0 f z k l created alt owt
+  if [ -d "$BEFUND_DIR" ]; then
+    for f in "$BEFUND_DIR"/*.lock; do
+      [ -e "$f" ] || continue
+      IFS=$'\t' read -r z k l created alt owt <<<"$(befund_zustand "$f")"
+      if [ "$z" = "belegt" ]; then
+        echo "⛔ in Arbeit von $l (seit $created, $alt): $k"
+        n=$((n+1))
+      elif [ "$z" != "frei" ]; then
+        alt_n=$((alt_n+1))
+      fi
+    done
+  fi
+  if [ "$n" -eq 0 ]; then echo "keine aktiven Befund-Sperren."; else echo "$n aktive Befund-Sperre(n)."; fi
+  [ "$alt_n" -eq 0 ] || echo "($alt_n abgelaufene/verwaiste Sperre(n) — 'repo-session.sh reap' raeumt ab)"
 }
 
 cmd_reap() {
@@ -134,11 +300,16 @@ check_pr_collision() {
 cmd_start() {
   local repo="" task="" base="origin/main" ephemeral="false"
   local ziel=""
+  local befunde=()
   repo="${1:-}"; shift || true
   while [ $# -gt 0 ]; do
     case "$1" in
       --task) task="$2"; shift 2;;
       --ziel) ziel="$2"; shift 2;;
+      --befund)
+        [ -n "${2:-}" ] || die "--befund <phase::repo> ohne Schluessel"
+        case " ${befunde[*]:-} " in *" $2 "*) ;; *) befunde+=("$2");; esac
+        shift 2;;
       --base) base="$2"; shift 2;;
       --ephemeral) ephemeral="true"; shift;;
       *) die "unbekannte Option: $1";;
@@ -179,6 +350,9 @@ cmd_start() {
         printf '%s\n' "$reap_out" | grep '^entfernt:' | sed 's/^/    /'
       } >&2
     fi
+    # Abgelaufene/verwaiste Befund-Sperren (#3495 V1) raeumt der Reap-Pfad ab —
+    # die Uebernahme soll trotzdem sichtbar bleiben.
+    printf '%s\n' "$reap_out" | grep '♻ Befund-Sperre' >&2 || true
   else
     echo "  ⚠ Auto-Reap fehlgeschlagen — best-effort, 'start' läuft weiter (letzte Zeile: $(printf '%s\n' "$reap_out" | tail -1))" >&2
   fi
@@ -204,17 +378,28 @@ cmd_start() {
   fi
   mkdir -p "$(dirname "$wt")" "$LEASE_DIR"
 
-  git -C "$repo" worktree add -b "$branch" "$wt" "$base" >&2 \
-    || die "worktree add fehlgeschlagen (Branch '$branch' evtl. vergeben?)"
-
   local now exp lease ziel_json
+  exp="$(date -u -d "+${TTL_DAYS} days" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+  # Befund-Sperre (#3495 V1) VOR dem Worktree: eine zweite Sitzung auf denselben
+  # Schluessel soll abbrechen, ohne Branch und Worktree zu hinterlassen.
+  if [ "${#befunde[@]}" -gt 0 ]; then
+    local brc=0
+    befund_belegen "$sid" "$wt" "$exp" "${befunde[@]}" || brc=$?
+    [ "$brc" -eq 0 ] || exit "$brc"
+  fi
+
+  if ! git -C "$repo" worktree add -b "$branch" "$wt" "$base" >&2; then
+    befund_freigeben "$sid" >&2
+    die "worktree add fehlgeschlagen (Branch '$branch' evtl. vergeben?)"
+  fi
+
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   if [ -n "$ziel" ]; then
     ziel_json="$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$ziel")"
   else
     ziel_json="null"
   fi
-  exp="$(date -u -d "+${TTL_DAYS} days" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)"
   lease="$LEASE_DIR/$sid.json"
   cat > "$lease" <<JSON
 {
@@ -239,6 +424,7 @@ JSON
     echo "  Pfad   : $wt"
     [ -n "$ziel" ] && echo "  Ziel   : $ziel"
     echo "  Lease  : $lease  (expires $exp, ephemeral=$ephemeral)"
+    [ "${#befunde[@]}" -eq 0 ] || echo "  Befund : ${befunde[*]}  (gesperrt bis end/expires)"
     echo "  cd \"$wt\""
   } >&2
 
@@ -298,6 +484,7 @@ cmd_end() {
     lease_wt_canon="$(realpath -m "$lease_wt" 2>/dev/null || readlink -f "$lease_wt" 2>/dev/null || printf '%s' "$lease_wt")"
     if [ "$lease_wt_canon" = "$wt_canon" ]; then
       mv "$l" "$l.closed" && echo "Lease geschlossen: $l.closed"
+      befund_freigeben "$(basename "$l" .json)"
       closed=$((closed+1))
     fi
   done
@@ -374,8 +561,9 @@ case "${1:-}" in
   start) shift; cmd_start "$@";;
   abstand) shift; cmd_abstand "${1:-}";;
   list)  cmd_list;;
+  befunde) cmd_befunde;;
   end)   shift; cmd_end "$@";;
   reap)  shift; cmd_reap "$@";;
-  -h|--help|help) echo "usage: repo-session.sh {start <repo> --task <slug> [--ziel <text>] [--base <ref>] [--ephemeral] | list | abstand [<repo>] | end <wt> | reap [<repo>|--alle]}"; exit 0;;
-  *) echo "usage: repo-session.sh {start <repo> --task <slug> [--ziel <text>] [--base <ref>] [--ephemeral] | list | abstand [<repo>] | end <wt> | reap [<repo>|--alle]}" >&2; exit 2;;
+  -h|--help|help) echo "usage: repo-session.sh {start <repo> --task <slug> [--ziel <text>] [--base <ref>] [--ephemeral] [--befund <phase::repo>]... | list | befunde | abstand [<repo>] | end <wt> | reap [<repo>|--alle]}"; exit 0;;
+  *) echo "usage: repo-session.sh {start <repo> --task <slug> [--ziel <text>] [--base <ref>] [--ephemeral] [--befund <phase::repo>]... | list | befunde | abstand [<repo>] | end <wt> | reap [<repo>|--alle]}" >&2; exit 2;;
 esac
