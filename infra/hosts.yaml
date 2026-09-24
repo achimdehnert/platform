@@ -17,10 +17,14 @@
 #                   Felder: datenklassen_verboten, prod_container, app_hubs, runner,
 #                   oeffentlicher_ingress, nur_dienste, grund (Pflicht). Fehlt ein Feld,
 #                   gilt "erlaubt". Prueft: infra/scripts/hosts_audit.py --check auflage
-#   betrieb:        erwartet_an (Vorgabe, weglassen) | auf_zuruf — ein Knoten, der
-#                   planmaessig nur auf Zuruf laeuft. flottenbild.py meldet ihn dann
-#                   als 'schlaeft' statt 'unerreichbar'; ein erwartet_an-Knoten, der
-#                   nicht antwortet, bleibt ein Befund (platform#2545).
+#   betrieb:        nur beschreibend (z. B. `7/24`). Ein Knoten, der planmaessig nur
+#                   auf Zuruf laeuft, steht NICHT hier, sondern als Deklaration mit
+#                   Ablaufdatum in governance/deklarationen.json (#3495 V2):
+#                     python3 tools/befund_journal.py --deklaration <knoten> \
+#                       --art auf_zuruf --grund "<Satz>" --gueltig-bis YYYY-MM-DD
+#                   Die Melder zeigen ihn dann als 'schlaeft' statt 'unerreichbar';
+#                   ohne gueltige Deklaration bleibt ein stummer Knoten ein Befund
+#                   (platform#2545). Ein Test haelt `betrieb: auf_zuruf` hier fern.
 #   Neuer Knoten:   docs/runbooks/neuer-knoten.md — Reihenfolge ist Absicht.
 #   verified: false ist nur mit `verified_bis: <Datum>` gueltig (sonst Dauerausnahme).
 #
@@ -190,9 +194,10 @@ hosts:
     # bash-Probe von flottenbild.py liefert dort keine Messzeile, die Box erscheint als
     # 'schlaeft', auch wenn sie an ist. Windows-seitige Probe: platform#3364.
     hostname: DESKTOP-G1MN89S          # Owner-Desktop, Windows 11 (26200); WSL2 Ubuntu 22.04 vorhanden, aus
-    betrieb: auf_zuruf                 # Owner-Entscheid 2026-08-31: Box laeuft nur bei Bedarf
-                                       # (Wake-on-LAN). Ein schlafender Knoten ist KEIN Ausfall —
-                                       # flottenbild.py zeigt ihn als 'schlaeft' (platform#2545).
+    # Auf Zuruf (Owner-Entscheid 2026-08-31: Box laeuft nur bei Bedarf, Wake-on-LAN).
+    # Ein schlafender Knoten ist KEIN Ausfall (platform#2545). Quelle ist die
+    # Deklaration `auf_zuruf` in governance/deklarationen.json (mit Ablaufdatum,
+    # #3495 V2) — bis 2026-09-24 stand hier das Feld `betrieb: auf_zuruf`.
     provider: owner-desktop            # keine Cloud, kein IaC — laeuft nur, wenn die Box an ist
     server_type: rtx4090               # RTX 4090 24 GB
     role: >

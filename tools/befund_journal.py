@@ -70,6 +70,9 @@ Kommandos:
                            ausserhalb dieser Maschine (KONZ-054 E2).
   --praezision --json      Trefferquote je Melder maschinenlesbar (#2690 K3) —
                            Basis fuer tools/melder_register_check.py --herabstufung.
+  --deklaration ZIEL --art ART --grund "<Satz>" --gueltig-bis YYYY-MM-DD [--quelle TEXT]
+                           Ausnahme mit Ablauf setzen (#3495 V2) — ZIEL ist Host,
+                           Dienst oder Journal-Schluessel.
 
 Seit 2026-08-30 (KONZ-platform-054 E2) drei Dinge mehr, alle aus derselben Messung:
     17 Befunde offen, 0 verankert, 12 ohne Frist — und 7 davon waren platform-eigene
@@ -94,6 +97,31 @@ und liegt das Messdatum in der Vergangenheit, waehrend der Eintrag weiterhin im
 Journal steht (Phase hat ihn nicht geheilt), markiert der Bericht ihn als
 ueberfaellig — dieselbe Ruhe-vs-laut-Mechanik wie bei
 `entscheiden_bis`, nur fuer den laufenden Fix statt fuer den Erstbefund.
+
+Seit 2026-09-24 (#3495 V2) Deklarationen — Ausnahmen mit Pflicht-Ablaufdatum:
+    Der Sonderfall "Knoten mit `betrieb: auf_zuruf` ist unerreichbar -> schlaeft,
+    kein Befund" war fuenfmal gebaut (`flottenbild.py`, `speicher_melder.py`,
+    `reconcile_registry_live.py`, `host_datei_drift.py`, `deploy-script-drift.sh`),
+    jede Kopie las `infra/hosts.yaml` selbst, und keine kannte ein Ende — eine
+    Ausnahme ohne Ablauf ist eine Dauerausnahme (Advocatus-Diaboli-Befund E1a,
+    #3471). Jetzt gibt es EINE Lesefunktion, ``deklarationen_fuer(ziel, heute,
+    art)``, und alle Melder fragen nur sie. Arten: ``DEKLARATIONS_ARTEN``. Ein
+    Eintrag ohne ``gueltig_bis`` ist ungueltig und wirkt nicht; ein abgelaufener
+    wirkt nicht und steht im Bericht als ``⏰ Deklaration abgelaufen`` — der
+    Melder meldet den Knoten ab dem Tag danach wieder.
+
+    Quelle ist ``governance/deklarationen.json`` im Repo, nicht die lokale
+    Journal-Datei. Grund: `reconcile_registry_live.py` laeuft taeglich auf dem
+    Prod-Runner (`.github/workflows/registry-live-reconcile.yml`), wo es kein
+    `~/.claude/befund-journal.json` gibt — laege die Deklaration nur lokal, kaeme
+    dort `C0:gpu-box` zurueck, genau der Fund, den #3479 abgestellt hat. Eine
+    Deklaration ist ausserdem eine Owner-Entscheidung und kein Laufausschnitt; sie
+    traegt nichts, was nach Charta Art. 2 lokal bleiben muss, und wird wie jede
+    Entscheidung per PR sichtbar. `infra/hosts.yaml` fuehrt das Feld `betrieb:
+    auf_zuruf` nicht mehr, der Knoten-Eintrag nennt nur die Herkunft; ein Test
+    (`test_should_not_declare_auf_zuruf_in_hosts_yaml`) haelt das Feld dort fern,
+    damit keine zweite Quelle nachwaechst. Gesetzt wird mit
+    `--deklaration ZIEL --art ART --grund "<Satz>" --gueltig-bis YYYY-MM-DD`.
 """
 
 from __future__ import annotations
@@ -103,7 +131,7 @@ import importlib.util
 import json
 import os
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 
@@ -236,6 +264,190 @@ def _heute() -> str:
 
 def _frist(tage: int) -> str:
     return (datetime.now(timezone.utc) + timedelta(days=tage)).date().isoformat()
+
+
+# ── Deklarationen (#3495 V2) ─────────────────────────────────────────────────
+
+#: Arten einer Deklaration. `auf_zuruf`: Knoten laeuft planmaessig nur auf Zuruf,
+#: Unerreichbarkeit ist kein Befund. `verzicht`: Befund bewusst nicht verfolgt.
+#: `stundung`: Befund bekannt, Behebung terminiert. `betriebsstatus`: Dienst
+#: planmaessig nicht aktiv (Vokabular `tools/betriebsstatus.py`).
+DEKLARATIONS_ARTEN = ("auf_zuruf", "verzicht", "stundung", "betriebsstatus")
+
+#: Relativ zur Repo-Wurzel. Warum im Repo und nicht lokal: Modul-Docstring,
+#: Abschnitt "Deklarationen".
+DEKLARATIONEN_REL = Path("governance") / "deklarationen.json"
+
+_DEKLARATIONEN_HINWEIS = (
+    "Verwaltet von tools/befund_journal.py --deklaration (#3495 V2). "
+    "Jeder Eintrag braucht gueltig_bis; gelesen wird nur ueber deklarationen_fuer()."
+)
+
+
+def _deklarationen_pfad(pfad: Path | None = None) -> Path:
+    """Explizit > ``$BEFUND_DEKLARATIONEN_DATEI`` > Repo-Datei.
+
+    Die Umgebungsvariable wird bei JEDEM Aufruf gelesen, nicht beim Import —
+    Tests und Werkzeuge ohne eigenen Pfad-Parameter (``reconcile_registry_live``)
+    lenken sie so auf eine Fixture um.
+    """
+    if pfad is not None:
+        return Path(pfad)
+    env = os.environ.get("BEFUND_DEKLARATIONEN_DATEI")
+    if env:
+        return Path(env)
+    return Path(__file__).resolve().parent.parent / DEKLARATIONEN_REL
+
+
+def lade_deklarationen(pfad: Path | None = None) -> list[dict]:
+    """Alle Eintraege, auch ungueltige und abgelaufene — fuer den Bericht.
+
+    Eine fehlende oder kaputte Datei ergibt ``[]``: dann gilt keine Ausnahme, und
+    die Melder melden laut. Das ist die sichere Richtung — eine verlorene
+    Deklaration erzeugt einen Befund, nie ein Schweigen.
+    """
+    try:
+        daten = json.loads(_deklarationen_pfad(pfad).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    liste = daten.get("deklarationen") if isinstance(daten, dict) else None
+    if not isinstance(liste, list):
+        return []
+    return [d for d in liste if isinstance(d, dict)]
+
+
+def deklarations_fehler(d: dict) -> str | None:
+    """Warum dieser Eintrag nicht wirken darf — oder ``None``, wenn er gueltig ist."""
+    if d.get("art") not in DEKLARATIONS_ARTEN:
+        return (
+            f"art '{d.get('art')}' unbekannt (erlaubt: {', '.join(DEKLARATIONS_ARTEN)})"
+        )
+    if not str(d.get("ziel") or "").strip():
+        return "ziel fehlt"
+    if not str(d.get("grund") or "").strip():
+        return "grund fehlt"
+    bis = str(d.get("gueltig_bis") or "").strip()
+    if not bis:
+        return "gueltig_bis fehlt — ohne Ablauf waere es eine Dauerausnahme"
+    try:
+        date.fromisoformat(bis)
+    except ValueError:
+        return f"gueltig_bis '{bis}' ist kein Datum YYYY-MM-DD"
+    return None
+
+
+def _tag(heute: str | date | None) -> str:
+    if isinstance(heute, date):
+        return heute.isoformat()
+    return heute or _heute()
+
+
+def deklarationen_fuer(
+    ziel: str,
+    heute: str | date | None = None,
+    art: str | None = None,
+    pfad: Path | None = None,
+) -> list[dict]:
+    """DIE Lesefunktion: gueltige, nicht abgelaufene Deklarationen fuer ``ziel``.
+
+    ``ziel`` ist ein Host (Schluessel in `infra/hosts.yaml`), ein Dienst oder ein
+    Journal-Schluessel. ``art`` filtert (z. B. ``"auf_zuruf"``). Am Tag
+    ``gueltig_bis`` wirkt die Deklaration noch, am Tag danach nicht mehr.
+    Ungueltige Eintraege (ohne Ablauf, unbekannte Art) wirken nie.
+    """
+    tag = _tag(heute)
+    return [
+        d
+        for d in lade_deklarationen(pfad)
+        if str(d.get("ziel", "")).strip() == ziel
+        and (art is None or d.get("art") == art)
+        and deklarations_fehler(d) is None
+        and tag <= date.fromisoformat(str(d["gueltig_bis"]).strip()).isoformat()
+    ]
+
+
+def setze_deklaration(
+    ziel: str,
+    art: str,
+    grund: str,
+    gueltig_bis: str,
+    quelle: str = "",
+    pfad: Path | None = None,
+    heute: str | None = None,
+) -> dict:
+    """Deklaration anlegen oder ersetzen (Schluessel: ziel + art).
+
+    Wirft ``ValueError`` bei einem ungueltigen Eintrag und ``OSError``, wenn die
+    Datei nicht geschrieben werden kann.
+    """
+    neu = {
+        "ziel": ziel.strip(),
+        "art": art,
+        "grund": grund.strip(),
+        "quelle": quelle.strip(),
+        "gesetzt_am": heute or _heute(),
+        "gueltig_bis": gueltig_bis.strip(),
+    }
+    fehler = deklarations_fehler(neu)
+    if fehler:
+        raise ValueError(fehler)
+    liste = [
+        d
+        for d in lade_deklarationen(pfad)
+        if not (str(d.get("ziel", "")).strip() == neu["ziel"] and d.get("art") == art)
+    ]
+    liste.append(neu)
+    liste.sort(key=lambda d: (str(d.get("ziel", "")), str(d.get("art", ""))))
+    p = _deklarationen_pfad(pfad)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(
+        json.dumps(
+            {"hinweis": _DEKLARATIONEN_HINWEIS, "deklarationen": liste},
+            ensure_ascii=False,
+            indent=1,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return neu
+
+
+def deklarations_zeilen(
+    deklarationen: list[dict], heute: str | None = None
+) -> list[str]:
+    """Bericht-Zeilen: eine Summe fuer die aktiven, je eine Zeile fuer abgelaufene
+    und ungueltige — die leisen Ausnahmen sind genau die, die man sehen muss."""
+    tag = _tag(heute)
+    aktiv, abgelaufen, kaputt = [], [], []
+    for d in deklarationen:
+        fehler = deklarations_fehler(d)
+        if fehler:
+            kaputt.append((d, fehler))
+        elif tag > date.fromisoformat(str(d["gueltig_bis"]).strip()).isoformat():
+            abgelaufen.append(d)
+        else:
+            aktiv.append(d)
+    zeilen = []
+    if aktiv:
+        naechste = min(aktiv, key=lambda d: str(d["gueltig_bis"]))
+        zeilen.append(
+            f"  {len(aktiv)} Deklaration(en) aktiv, nächste Fälligkeit "
+            f"{naechste['gueltig_bis']} ({naechste['ziel']} [{naechste['art']}])"
+        )
+    for d in abgelaufen:
+        zeilen.append(
+            f"  ⏰ Deklaration abgelaufen: {d['ziel']} [{d['art']}] gueltig bis "
+            f"{d['gueltig_bis']} — wirkt nicht mehr, die Melder melden wieder. "
+            f"Verlaengern: --deklaration '{d['ziel']}' --art {d['art']} "
+            "--grund '<Satz>' --gueltig-bis YYYY-MM-DD"
+        )
+    for d, fehler in kaputt:
+        zeilen.append(
+            f"  ⚠ Deklaration ungueltig ({fehler}): {d.get('ziel') or '?'} "
+            f"[{d.get('art') or '?'}] — wirkt nicht"
+        )
+    return zeilen
 
 
 def ruhezustand(eintrag: dict, heute: str) -> str:
@@ -699,10 +911,16 @@ def bericht_json(daten: dict, eigenes_repo: str) -> list[dict]:
     return aus
 
 
-def bericht(daten: dict, eigenes_repo: str) -> str:
+def bericht(
+    daten: dict, eigenes_repo: str, deklarationen: list[dict] | None = None
+) -> str:
+    """``deklarationen`` (aus ``lade_deklarationen()``) haengt die Deklarations-
+    Zeilen an; ``None`` laesst den Bericht wie vor #3495 V2."""
+    dekl = deklarations_zeilen(deklarationen or [])
+    anhang = ("\n\nDeklarationen:\n" + "\n".join(dekl)) if dekl else ""
     befunde = daten.get("befunde", {})
     if not befunde:
-        return "Journal leer — keine offenen Befunde."
+        return "Journal leer — keine offenen Befunde." + anhang
     zeilen = [f"{len(befunde)} offene(r) Befund(e):", ""]
     for fid, e in sorted(
         befunde.items(), key=lambda kv: (kv[1].get("repo", ""), kv[0])
@@ -760,7 +978,7 @@ def bericht(daten: dict, eigenes_repo: str) -> str:
         zeilen.append(
             "RESULT: OK — kein Fremd-Repo- oder Infra-Befund ohne Artefakt oder Verzicht."
         )
-    return "\n".join(zeilen)
+    return "\n".join(zeilen) + anhang
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -783,6 +1001,29 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         metavar="DATUM",
         help=f"mit --fix: Messdatum YYYY-MM-DD (Default: +{FRIST_FIX_MESSUNG_TAGE} Tage)",
+    )
+    p.add_argument(
+        "--deklaration",
+        metavar="ZIEL",
+        help="Deklaration setzen: Host, Dienst oder Journal-Schluessel "
+        "(mit --art, --grund, --gueltig-bis)",
+    )
+    p.add_argument("--art", choices=DEKLARATIONS_ARTEN, help="mit --deklaration")
+    p.add_argument("--grund", default=None, help="mit --deklaration: Grund als Satz")
+    p.add_argument(
+        "--gueltig-bis",
+        default=None,
+        metavar="DATUM",
+        help="mit --deklaration: Pflicht",
+    )
+    p.add_argument(
+        "--quelle", default="", help="mit --deklaration: Herkunft (Issue, Datei)"
+    )
+    p.add_argument(
+        "--deklarationen",
+        type=Path,
+        default=None,
+        help=f"Deklarations-Datei (Default: {DEKLARATIONEN_REL})",
     )
     p.add_argument("--offen-cross-repo", action="store_true")
     p.add_argument("--verankert", nargs=2, metavar=("ID", "URL"))
@@ -874,6 +1115,41 @@ def main(argv: list[str] | None = None) -> int:
         }
         sichere(daten, pfad)
         print(f"Fix in Arbeit: {a.fix} -> {a.pr} · Messung {messung}")
+        return 0
+
+    if a.deklaration:
+        if not (a.art and a.grund and a.gueltig_bis):
+            print(
+                "--deklaration braucht --art, --grund und --gueltig-bis — "
+                "ohne Ablauf keine Deklaration.",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            if date.fromisoformat(a.gueltig_bis.strip()).isoformat() < _heute():
+                print(
+                    f"--gueltig-bis {a.gueltig_bis} liegt in der Vergangenheit.",
+                    file=sys.stderr,
+                )
+                return 2
+            d = setze_deklaration(
+                a.deklaration,
+                a.art,
+                a.grund,
+                a.gueltig_bis,
+                quelle=a.quelle,
+                pfad=a.deklarationen,
+            )
+        except ValueError as exc:
+            print(f"Deklaration ungueltig: {exc}", file=sys.stderr)
+            return 2
+        except OSError as exc:
+            print(f"Deklaration nicht geschrieben: {exc}", file=sys.stderr)
+            return 2
+        print(
+            f"Deklaration gesetzt: {d['ziel']} [{d['art']}] gueltig bis "
+            f"{d['gueltig_bis']} — {d['grund']}"
+        )
         return 0
 
     if a.bericht and a.json:
@@ -1023,7 +1299,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    print(bericht(daten, a.repo))
+    print(bericht(daten, a.repo, deklarationen=lade_deklarationen(a.deklarationen)))
     return 0
 
 

@@ -1,0 +1,13 @@
+{
+ "deklarationen": [
+  {
+   "art": "auf_zuruf",
+   "gesetzt_am": "2026-09-24",
+   "grund": "Owner-Entscheid 2026-08-31: Box laeuft nur bei Bedarf (Wake-on-LAN), WSL seit 2026-09-22 aus",
+   "gueltig_bis": "2026-12-31",
+   "quelle": "platform#3364; bis 2026-09-24 Feld betrieb in infra/hosts.yaml",
+   "ziel": "gpu-box"
+  }
+ ],
+ "hinweis": "Verwaltet von tools/befund_journal.py --deklaration (#3495 V2). Jeder Eintrag braucht gueltig_bis; gelesen wird nur ueber deklarationen_fuer()."
+}

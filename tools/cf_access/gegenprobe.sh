@@ -13,8 +13,9 @@
 # antworten unangemeldet ausnahmslos mit 302 und zeigen dabei auf
 # `cloudflareaccess.com`. Die Abweisung hat also eine erkennbare Signatur.
 #
-# URSPRUNG_DARF_SCHLAFEN=1 fuer Dienste auf Geraeten mit `betrieb: auf_zuruf`
-# (hosts.yaml): dort ist ein 502 der erwartete Normalfall, kein Fehler.
+# URSPRUNG_DARF_SCHLAFEN=1 fuer Dienste auf Geraeten mit Deklaration `auf_zuruf`
+# (governance/deklarationen.json, tools/befund_journal.py): dort ist ein 502 der
+# erwartete Normalfall, kein Fehler.
 
 #: 0 = erwartet (Access weist ab)  ·  1 = Access greift nicht  ·
 #: 2 = Ursprung antwortet nicht    ·  3 = unerwartete Antwort

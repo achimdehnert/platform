@@ -7,11 +7,63 @@ eigener Zustand auf der Seite stehen (K1 aus platform#2483).
 from __future__ import annotations
 
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+import befund_journal as bj  # noqa: E402
 import flottenbild as fb  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _deklarationen(tmp_path, monkeypatch):
+    """Nie die echte `governance/deklarationen.json` (#3495 V2)."""
+    pfad = tmp_path / "deklarationen.json"
+    monkeypatch.setenv("BEFUND_DEKLARATIONEN_DATEI", str(pfad))
+    return pfad
+
+
+def _stumme_gpu_box(monkeypatch):
+    """Die Probe scheitert wie bei einer ausgeschalteten Box — ohne Netz."""
+    monkeypatch.setattr(
+        fb, "_lauf", lambda cmd, timeout=60, stdin=None: (255, "Connection timed out")
+    )
+    return {"ssh": "achim@10.99.0.2"}
+
+
+def _auf_zuruf(pfad, tage_ab_heute: int) -> None:
+    bis = (datetime.now(timezone.utc) + timedelta(days=tage_ab_heute)).date()
+    bj.setze_deklaration(
+        "gpu-box", "auf_zuruf", "Owner-Entscheid (Test)", bis.isoformat(), pfad=pfad
+    )
+
+
+def test_should_measure_sleeping_node_as_schlaeft_while_declared(
+    monkeypatch, _deklarationen
+):
+    """messe_knoten fragt deklarationen_fuer(): gueltige Deklaration → `schlaeft`."""
+    _auf_zuruf(_deklarationen, 30)
+    m = fb.messe_knoten("gpu-box", _stumme_gpu_box(monkeypatch))
+    assert m["zustand"] == "schlaeft"
+
+
+def test_should_measure_node_as_unerreichbar_when_declaration_expired_yesterday(
+    monkeypatch, _deklarationen
+):
+    """Positivkontrolle #3495 V2: Ablauf einen Tag zurueck → wieder `unerreichbar`."""
+    _auf_zuruf(_deklarationen, -1)
+    m = fb.messe_knoten("gpu-box", _stumme_gpu_box(monkeypatch))
+    assert m["zustand"] == "unerreichbar"
+
+
+def test_should_ignore_betrieb_field_in_hosts_yaml_entry(monkeypatch):
+    """Ein Rest `betrieb: auf_zuruf` im hosts.yaml-Eintrag wirkt nicht mehr —
+    die einzige Quelle ist die Deklaration (#3495 V2)."""
+    h = {**_stumme_gpu_box(monkeypatch), "betrieb": "auf_zuruf"}
+    assert fb.messe_knoten("gpu-box", h)["zustand"] == "unerreichbar"
 
 
 def _daten():
@@ -175,7 +227,7 @@ def test_should_parse_probe_line_with_twelve_fields():
 
 
 def test_should_tell_a_sleeping_node_apart_from_a_broken_one():
-    """`betrieb: auf_zuruf` heisst: aus wie vorgesehen, nicht ausgefallen.
+    """Deklaration `auf_zuruf` heisst: aus wie vorgesehen, nicht ausgefallen.
 
     Ohne diese Unterscheidung stuende die gpu-box nach dem Wechsel auf Wake-on-LAN
     dauerhaft als "unerreichbar" im Bild — und ein Melder, der dauerhaft dasselbe

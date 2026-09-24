@@ -43,18 +43,20 @@ einer Liste — die Drift-Kennzahl (Kill-Gate-KPI) war damit verfaelscht. Die
 Ausgabe trennt seither `drift: N` (C1–C5) von `unreachable: M` (C0); beide
 bleiben sichtbar und baselinebar, nur die Kennzahl zaehlt C0 nicht mehr mit.
 
-`betrieb: auf_zuruf` (2026-09-24, #3471): Ein Nebenhost mit dieser Deklaration
-in `infra/hosts.yaml` laeuft planmaessig NUR auf Zuruf (GPU-Box, Owner-
-Entscheid 2026-08-31) — seit 2026-09-22 ist dort zusaetzlich die WSL aus
-(#3364), jede SSH-Probe landet in cmd.exe und `docker ps` scheitert IMMER,
-auch wenn die Box an ist. Ohne diese Unterscheidung meldete der taegliche Cron
-(KONZ-015) seit 2026-09-14 an jedem der 10 Laeufe denselben `C0:gpu-box`-Fund
-fuer einen Host, der nicht ausgefallen, sondern aus ist. Dieses Werkzeug
-uebernimmt dafuer das Muster aus `tools/flottenbild.py` (dort "schlaeft" statt
-"unerreichbar", Zeilen ~115–125): scheitert die Docker-Probe eines Hosts mit
-`betrieb: auf_zuruf`, faellt KEIN `C0:<host>` — stattdessen eine eigene Zeile
-`[SCHLAEFT] <host>`, die weder in `drift` noch in `unreachable` zaehlt. Hosts
-ohne diese Deklaration bleiben unveraendert C0.
+Deklaration `auf_zuruf` (2026-09-24, #3471, #3495 V2): Ein Nebenhost mit dieser
+Deklaration laeuft planmaessig NUR auf Zuruf (GPU-Box, Owner-Entscheid
+2026-08-31) — seit 2026-09-22 ist dort zusaetzlich die WSL aus (#3364), jede
+SSH-Probe landet in cmd.exe und `docker ps` scheitert IMMER, auch wenn die Box
+an ist. Ohne diese Unterscheidung meldete der taegliche Cron (KONZ-015) seit
+2026-09-14 an jedem der 10 Laeufe denselben `C0:gpu-box`-Fund fuer einen Host,
+der nicht ausgefallen, sondern aus ist. Scheitert die Docker-Probe eines Hosts
+mit gueltiger Deklaration, faellt KEIN `C0:<host>` — stattdessen eine eigene
+Zeile `[SCHLAEFT] <host>`, die weder in `drift` noch in `unreachable` zaehlt.
+Gelesen wird die Deklaration ueber `befund_journal.deklarationen_fuer()`, dieselbe
+Funktion wie in `flottenbild.py` und `speicher_melder.py`; sie liegt im Repo
+(`governance/deklarationen.json`), weil dieses Werkzeug auf dem Prod-Runner
+laeuft, wo es kein lokales Journal gibt. Nach `gueltig_bis` ist der Host wieder
+C0. Hosts ohne Deklaration bleiben unveraendert C0.
 
 Exit-Codes (⚠️ run-conclusion ≠ Tool-Health, siehe CC-Memory):
   0 = keine neue Drift und kein neuer unerreichbarer Host (Baseline-Treffer erlaubt)
@@ -77,6 +79,9 @@ import sys
 from pathlib import Path
 
 import yaml
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import befund_journal  # noqa: E402 — Deklarationen, #3495 V2
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 BASELINE_PATH = REPO_ROOT / "infra" / "reconcile-baseline.yaml"
@@ -298,12 +303,16 @@ def main() -> int:
                     file=sys.stderr,
                 )
                 return 2
-            # `betrieb: auf_zuruf` (#3471, Muster tools/flottenbild.py): dieser
-            # Host laeuft planmaessig nur auf Zuruf — eine scheiternde Probe ist
-            # dann kein Ausfall, sondern der erwartete Zustand "schlaeft". Kein
-            # C0, keine Drift/unreachable-Zaehlung, siehe Docstring oben.
-            if hosts_cfg.get(h, {}).get("betrieb") == "auf_zuruf":
-                schlaeft[h] = _knapper_grund(e)
+            # Deklaration `auf_zuruf` (#3471, #3495 V2): dieser Host laeuft
+            # planmaessig nur auf Zuruf — eine scheiternde Probe ist dann kein
+            # Ausfall, sondern der erwartete Zustand "schlaeft". Kein C0, keine
+            # Drift/unreachable-Zaehlung, siehe Docstring oben.
+            dekl = befund_journal.deklarationen_fuer(h, art="auf_zuruf")
+            if dekl:
+                schlaeft[h] = (
+                    f"Deklaration auf_zuruf bis {dekl[0]['gueltig_bis']}; "
+                    f"{_knapper_grund(e)}"
+                )
             else:
                 unerreichbar[h] = _knapper_grund(e)
 
@@ -443,10 +452,7 @@ def main() -> int:
             for cfg in ports_decl.values()
             if (cfg.get("prod_host") or DEFAULT_PROD_HOST) == h
         )
-        print(
-            f"  [SCHLAEFT] {h} — betrieb: auf_zuruf, C1/C2 für "
-            f"{betroffen} Dienst(e) ungeprüft ({grund})"
-        )
+        print(f"  [SCHLAEFT] {h} — C1/C2 für {betroffen} Dienst(e) ungeprüft ({grund})")
     if k["drift_neu"] or k["unreachable_neu"]:
         print(
             "\n→ Exit 1 = FUND-Signal (neue Drift bzw. Host nicht lesbar), kein Tool-Fehler. "

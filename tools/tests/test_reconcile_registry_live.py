@@ -20,9 +20,12 @@ regulaerer `import`.
 
 from __future__ import annotations
 
+import datetime as dt
 import importlib.util
 import pathlib
 import sys
+
+import pytest
 
 _SPEC = importlib.util.spec_from_file_location(
     "reconcile_registry_live",
@@ -31,6 +34,21 @@ _SPEC = importlib.util.spec_from_file_location(
 rrl = importlib.util.module_from_spec(_SPEC)
 sys.modules["reconcile_registry_live"] = rrl
 _SPEC.loader.exec_module(rrl)
+
+bj = rrl.befund_journal
+
+
+@pytest.fixture(autouse=True)
+def _deklarationen(tmp_path, monkeypatch):
+    """Nie die echte `governance/deklarationen.json` (#3495 V2) — sonst haenge
+    jeder Test davon ab, welche Knoten gerade real deklariert sind."""
+    pfad = tmp_path / "deklarationen.json"
+    monkeypatch.setenv("BEFUND_DEKLARATIONEN_DATEI", str(pfad))
+    return pfad
+
+
+def _heute_utc() -> dt.date:
+    return dt.datetime.now(dt.timezone.utc).date()
 
 
 def _patch_io(
@@ -429,21 +447,20 @@ def test_should_report_unreachable_separately_from_drift_count(monkeypatch, caps
 
 
 # ---------------------------------------------------------------------------
-# `betrieb: auf_zuruf` (#3471): ein planmaessig schlafender Host (GPU-Box,
-# WSL seit #3364 aus) darf keinen C0-Fund erzeugen — Muster flottenbild.py.
+# Deklaration `auf_zuruf` (#3471, #3495 V2): ein planmaessig schlafender Host
+# (GPU-Box, WSL seit #3364 aus) darf keinen C0-Fund erzeugen — solange die
+# Deklaration gilt. Seit V2 kommt sie aus befund_journal.deklarationen_fuer(),
+# nicht mehr aus `betrieb` in hosts.yaml.
 # ---------------------------------------------------------------------------
 
-_HOSTS_AUF_ZURUF = {
-    "prod": {"ssh": "root@P", "hostname": "host-p"},
-    "prod-b": {"ssh": "root@B", "cloud_name": "host-b", "betrieb": "auf_zuruf"},
-}
+
+def _auf_zuruf(pfad, host, gueltig_bis):
+    bj.setze_deklaration(
+        host, "auf_zuruf", "Owner-Entscheid (Test)", gueltig_bis.isoformat(), pfad=pfad
+    )
 
 
-def test_should_report_schlaeft_not_c0_when_auf_zuruf_host_probe_fails(
-    monkeypatch, capsys
-):
-    """(a) auf_zuruf + Probe scheitert -> kein C0, eigene SCHLAEFT-Zeile,
-    Drift-/Unreachable-Kennzahlen bleiben bei 0."""
+def _schlafender_prod_b(monkeypatch):
     canonical = {"svc-b": {"rich": {"deployed": True}}}
     ports_decl = {
         "svc-b": {"prod": 8088, "container_name": "svc_b_web", "prod_host": "prod-b"},
@@ -457,24 +474,47 @@ def test_should_report_schlaeft_not_c0_when_auf_zuruf_host_probe_fails(
             "root@B": RuntimeError("docker: 'docker ps' accepts no arguments"),
         },
     )
-    monkeypatch.setattr(rrl, "load_hosts", lambda: _HOSTS_AUF_ZURUF)
+
+
+def test_should_report_schlaeft_not_c0_when_auf_zuruf_host_probe_fails(
+    monkeypatch, capsys, _deklarationen
+):
+    """(a) auf_zuruf + Probe scheitert -> kein C0, eigene SCHLAEFT-Zeile,
+    Drift-/Unreachable-Kennzahlen bleiben bei 0."""
+    _auf_zuruf(_deklarationen, "prod-b", _heute_utc() + dt.timedelta(days=30))
+    _schlafender_prod_b(monkeypatch)
 
     rc = _run(monkeypatch, argv=["--skip-dns"])
 
     out = capsys.readouterr().out
     assert "C0:prod-b" not in out
     assert "C2:svc-b" not in out
-    assert (
-        "[SCHLAEFT] prod-b — betrieb: auf_zuruf, C1/C2 für 1 Dienst(e) ungeprüft" in out
-    )
+    assert "[SCHLAEFT] prod-b — C1/C2 für 1 Dienst(e) ungeprüft" in out
+    assert "Deklaration auf_zuruf bis" in out
     assert "Drift-Kennzahl: drift: 0 (0 NEU + 0 baselined) · unreachable: 0" in out
     assert rc == 0
 
 
-def test_should_still_report_c0_when_host_without_betrieb_probe_fails(
+def test_should_report_c0_again_when_auf_zuruf_declaration_expired_yesterday(
+    monkeypatch, capsys, _deklarationen
+):
+    """Positivkontrolle #3495 V2: Ablauf einen Tag zurueckdatiert -> derselbe
+    schlafende Host ist wieder `C0:prod-b`, Exit 1 (Fund)."""
+    _auf_zuruf(_deklarationen, "prod-b", _heute_utc() - dt.timedelta(days=1))
+    _schlafender_prod_b(monkeypatch)
+
+    rc = _run(monkeypatch, argv=["--skip-dns"])
+
+    out = capsys.readouterr().out
+    assert "C0:prod-b" in out
+    assert "[SCHLAEFT]" not in out
+    assert rc == 1
+
+
+def test_should_still_report_c0_when_host_without_declaration_probe_fails(
     monkeypatch, capsys
 ):
-    """(b) Gegenprobe: ein Host OHNE `betrieb: auf_zuruf` bleibt unveraendert
+    """(b) Gegenprobe: ein Host OHNE Deklaration `auf_zuruf` bleibt unveraendert
     C0 — die Deklaration ist die Ausnahme, nicht der neue Normalfall."""
     canonical = {"svc-b": {"rich": {"deployed": True}}}
     ports_decl = {
@@ -486,7 +526,7 @@ def test_should_still_report_c0_when_host_without_betrieb_probe_fails(
         ports_decl,
         je_ssh={"root@P": {}, "root@B": RuntimeError("ssh: connect: no route")},
     )
-    # _HOSTS (Default-Fixture) deklariert kein `betrieb` fuer prod-b.
+    # Die Deklarations-Fixture (autouse) ist leer: prod-b ist nicht deklariert.
 
     rc = _run(monkeypatch, argv=["--skip-dns"])
 
@@ -496,9 +536,12 @@ def test_should_still_report_c0_when_host_without_betrieb_probe_fails(
     assert rc == 1
 
 
-def test_should_check_normally_when_auf_zuruf_host_probe_succeeds(monkeypatch, capsys):
+def test_should_check_normally_when_auf_zuruf_host_probe_succeeds(
+    monkeypatch, capsys, _deklarationen
+):
     """(c) auf_zuruf, aber die Probe gelingt (Box ist gerade an) -> ganz
     normal C1/C2-geprueft, keine SCHLAEFT-Zeile."""
+    _auf_zuruf(_deklarationen, "prod-b", _heute_utc() + dt.timedelta(days=30))
     canonical = {"svc-b": {"rich": {"deployed": True}}}
     ports_decl = {
         "svc-b": {"prod": 8088, "container_name": "svc_b_web", "prod_host": "prod-b"},
@@ -509,7 +552,6 @@ def test_should_check_normally_when_auf_zuruf_host_probe_succeeds(monkeypatch, c
         ports_decl,
         je_ssh={"root@P": {}, "root@B": {"svc_b_web": [8088]}},
     )
-    monkeypatch.setattr(rrl, "load_hosts", lambda: _HOSTS_AUF_ZURUF)
 
     rc = _run(monkeypatch, argv=["--skip-dns"])
 
