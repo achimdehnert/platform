@@ -161,9 +161,9 @@ lokale Dateien (`~/.claude/bin/kontingent-woche`, systemd-Timer, Memory-Index).
 - **[1]** 🔵 PR-Text #383 korrigieren · dev-hub · ich — https://github.com/achimdehnert/dev-hub/pull/383
 - **[2]** 🔵 Worktree/Branch #384 aufräumen · dev-hub · ich — https://github.com/achimdehnert/dev-hub/pull/384
 - **[3]** 🔵 Punkte #5/#11/#14 in #382 tracken · dev-hub · ich — https://github.com/achimdehnert/dev-hub/issues/382
-- **[4]** 🟢 Fünf Gate-Edits aus 5a + neues Gate `deferred-item-no-tracking-issue` entscheiden · platform · du — BERICHT_PR
-- **[5]** 🟢 Kennzahlen-Skript + Skill-Kostenrichtwert · platform · du — BERICHT_PR
-- **[6]** ✅ Streichbahn: kein Kandidat · platform — BERICHT_PR
+- **[4]** 🟢 Fünf Gate-Edits aus 5a + neues Gate `deferred-item-no-tracking-issue` entscheiden · platform · du — https://github.com/achimdehnert/platform/pull/3545
+- **[5]** 🟢 Kennzahlen-Skript + Skill-Kostenrichtwert · platform · du — https://github.com/achimdehnert/platform/pull/3545
+- **[6]** ✅ Streichbahn: kein Kandidat · platform — https://github.com/achimdehnert/platform/pull/3545
 
 ## 8. Nicht verifiziert (Restlücken)
 
