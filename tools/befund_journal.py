@@ -34,6 +34,24 @@ Heilung und Abdeckungsluecken sind bewusst verschieden behandelt:
     Abdeckungsluecke wie eine Heilung aussehen — der teuerste Fehler, den ein
     Melder-Gedaechtnis machen kann.
 
+Heilung ist ausserdem an dasselbe Zielrepo gebunden, wo eine Phase je Lauf nur
+EIN Repo kennen kann (#3470, gemessen 2026-09-24): Ein Lauf mit
+`TARGET_REPO=platform` legte `0.7.26 ci-deckung::platform` an; ein PARALLELER
+Lauf mit `TARGET_REPO=robo-lab` sah dieselbe Phase in seinem eigenen Lauf
+"geurteilt" und loeschte den platform-Eintrag, obwohl er dessen Zielrepo nie
+erreichen konnte — `laeufe`, `erstmals`, `entscheiden_bis` und ein gesetzter
+Anker gingen verloren. Ob eine Phase pro Lauf nur ein Repo melden kann
+(`$TARGET_REPO` in `tools/session_start_checks.sh`, z.B. 0.4 parallel-sessions,
+0.4.1 reflex, 0.7.4 prio-referenzen, 0.7.26 ci-deckung) oder flottenweit mehrere
+Repos in jedem Lauf sieht (0.7 deploy-scan, 0.7.12 prod-wirkung, 0.7.16
+origin-tls, …), steht je Phase in `governance/melder-register.yaml` als
+`zielgebunden: true|false` (Default `false` = flottenweit, bisheriges
+Verhalten). Fuer eine zielgebundene Phase heilt ein Eintrag nur, wenn der Lauf
+dasselbe Zielrepo hatte wie der Eintrag; alles andere heilt weiterhin, sobald
+seine Phase lief und es nicht mehr meldet. Fehlt einer gelaufenen Phase der
+Register-Eintrag, gilt derselbe Default (flottenweit) — mit einer Warnzeile im
+Bericht, statt die Luecke stillschweigend zu schliessen.
+
 Zustand liegt lokal (`~/.claude/befund-journal.json`), nicht im Repo: die Notizen
 tragen Ausschnitte des eigenen Laufs und sind maschinengebunden — dieselbe Grenze
 wie bei `gate_hits.py` (Charta Art. 2).
@@ -293,7 +311,21 @@ def _zeilen_lesen(text: str) -> list[dict]:
     return saetze
 
 
-def aufnehmen(saetze: list[dict], daten: dict) -> list[str]:
+def _zielgebunden(phase: str, by_phase: dict[str, dict]) -> bool | None:
+    """``zielgebunden``-Flag der Phase aus dem Register, oder ``None`` wenn kein
+    Eintrag existiert (Aufrufer entscheidet dann per Default + Warnung, #3470)."""
+    eintrag = by_phase.get(phase)
+    if eintrag is None:
+        return None
+    return bool(eintrag.get("zielgebunden", False))
+
+
+def aufnehmen(
+    saetze: list[dict],
+    daten: dict,
+    lauf_repo: str = "",
+    register: list[dict] | None = None,
+) -> list[str]:
     """Journal fortschreiben und die Alters-Zeilen zurueckgeben.
 
     Regeln, in dieser Reihenfolge:
@@ -302,10 +334,21 @@ def aufnehmen(saetze: list[dict], daten: dict) -> list[str]:
       - WARN ohne dieses Repo -> Eintrag der Phase fuer nicht mehr genannte Repos heilen.
       - Phase gar nicht dabei -> Eintrag bleibt unveraendert stehen (Abdeckungsluecke,
                                  keine Heilung — er altert aber auch nicht weiter).
+
+    ``lauf_repo`` ist das Zielrepo DIESES Laufs (`--repo`/`$TARGET_REPO`). Eine
+    Phase, die im Register (`governance/melder-register.yaml`) als
+    ``zielgebunden: true`` gefuehrt wird, heilt nur, wenn ihr Eintrag dasselbe
+    Repo traegt wie ``lauf_repo`` — sonst konnte DIESER Lauf das Zielrepo des
+    Eintrags gar nicht erreichen und "geurteilt" haette nur wegen eines fremden
+    Repos (#3470). ``register`` ist wie bei ``praezision()`` ein reiner
+    Parameter, keine versteckte Disk-Lesung: ohne Angabe gilt ``[]`` — jede
+    Phase dann ohne Register-Eintrag, also Default flottenweit (unveraendertes
+    Verhalten fuer Aufrufer, die den Parameter nicht kennen).
     """
     befunde = daten.setdefault("befunde", {})
     heute = _heute()
     gelaufene_phasen = {s["phase"] for s in saetze}
+    by_phase = _mrc.register_zuordnung(register or [])
     # Fingerabdruecke, ueber die diese Phase KEIN Urteil faellen konnte.
     ungeprueft: set[str] = {
         fingerabdruck(s["phase"], r) for s in saetze for r in s.get("ungeprueft", [])
@@ -348,15 +391,28 @@ def aufnehmen(saetze: list[dict], daten: dict) -> list[str]:
             eintrag.update(belege)
 
     # Heilung: nur fuer Phasen, die in DIESEM Lauf tatsaechlich geurteilt haben —
-    # und nur fuer Repos, die diese Phase auch erreichen konnte.
+    # und nur fuer Repos, die diese Phase auch erreichen konnte. Fuer eine
+    # zielgebundene Phase heisst "erreichen konnte" zusaetzlich: der Lauf hatte
+    # dasselbe Zielrepo wie der Eintrag (#3470) — sonst heilt ein Lauf mit
+    # TARGET_REPO=robo-lab einen Befund, den nur TARGET_REPO=platform je sehen
+    # konnte, und `laeufe`/`erstmals`/`entscheiden_bis`/Anker gehen verloren.
+    ungeregistrierte_phasen: set[str] = set()
     for fid in list(befunde):
         eintrag = befunde[fid]
-        if (
-            eintrag.get("phase") in gelaufene_phasen
+        phase = eintrag.get("phase")
+        if not (
+            phase in gelaufene_phasen
             and fid not in noch_gemeldet
             and fid not in ungeprueft
         ):
-            del befunde[fid]
+            continue
+        zg = _zielgebunden(phase, by_phase)
+        if zg is None:
+            ungeregistrierte_phasen.add(phase)
+            zg = False
+        if zg and eintrag.get("repo") != lauf_repo:
+            continue  # zielgebunden, aber fremdes Zielrepo -> keine Heilung
+        del befunde[fid]
 
     ruhend = []
     for fid, e in sorted(befunde.items(), key=lambda kv: -int(kv[1].get("laeufe", 0))):
@@ -390,6 +446,12 @@ def aufnehmen(saetze: list[dict], daten: dict) -> list[str]:
         meldungen.append(
             f"  ⏸ {len(ruhend)} Befund(e) ruhen bis zur Wiedervorlage "
             f"(naechste {naechste}) — Vollbild: tools/befund_journal.py --bericht"
+        )
+    if ungeregistrierte_phasen:
+        meldungen.append(
+            f"  ⚠ {len(ungeregistrierte_phasen)} Phase(n) ohne Eintrag in "
+            "governance/melder-register.yaml — Heilung default flottenweit "
+            "(zielgebunden unbekannt): " + ", ".join(sorted(ungeregistrierte_phasen))
         )
     return meldungen
 
@@ -697,7 +759,13 @@ def main(argv: list[str] | None = None) -> int:
     daten = lade(pfad)
 
     if a.aufnehmen:
-        meldungen = aufnehmen(_zeilen_lesen(sys.stdin.read()), daten)
+        # Registry nur hier geladen (main-Zeitpunkt) — dieselbe Trennung wie bei
+        # --praezision: aufnehmen() bleibt ohne Angabe deterministisch (Tests,
+        # andere Aufrufer), nur der CLI-Pfad sieht das echte zielgebunden-Feld.
+        register = _mrc.lade_register(a.register)
+        meldungen = aufnehmen(
+            _zeilen_lesen(sys.stdin.read()), daten, lauf_repo=a.repo, register=register
+        )
         sichere(daten, pfad)
         for m in meldungen:
             print(m)
