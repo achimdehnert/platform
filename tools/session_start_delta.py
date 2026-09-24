@@ -24,7 +24,7 @@ Was diese Datei tut — und nur das:
     WIEDERVORLAGE              [INFRA]-Befund ruht laenger als ``INFRA_RUHE_MAX_TAGE``.
     VERANKERT                  alles andere — geht in die Summenzeile.
 
-Bewusst NICHT hier drin:
+Abgrenzung:
     Kein Unterdruecken. Die Phasen, ihr Status und ``RESULT:`` bleiben unveraendert;
     die Klassifikation kommt DAZU. Nur ``SESSION_CHECKS_DELTA=nur`` blendet
     VERANKERT-Zeilen in der Summary-Tabelle aus — und auch dann stehen sie in der
