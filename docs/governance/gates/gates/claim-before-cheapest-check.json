@@ -10,7 +10,8 @@
     "tools/claude-hooks/tests/test_evidence_claim_scanner_entwurf.py",
     "tools/claude-hooks/tests/test_evidence_claim_scanner_gate_wirkung.py",
     "tools/claude-hooks/tests/test_evidence_claim_scanner_kriterium.py",
-    "tools/claude-hooks/tests/test_evidence_claim_scanner_unpruefbar_fremdpruefung.py"
+    "tools/claude-hooks/tests/test_evidence_claim_scanner_unpruefbar_fremdpruefung.py",
+    "tools/claude-hooks/tests/test_evidence_claim_scanner_widerspruch.py"
   ],
   "built": "2026-08-02",
   "ref": "platform#1643",

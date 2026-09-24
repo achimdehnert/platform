@@ -3,7 +3,10 @@
   "mode": "process",
   "owner": "achim",
   "module": "tools/repo-session.sh",
-  "drill": "tools/tests/test_repo_session_offene_prs.py",
+  "drill": [
+    "tools/tests/test_repo_session_offene_prs.py",
+    "tools/tests/test_repo_session_pr_collision.py"
+  ],
   "built": "2026-07-03",
   "ref": "platform#1650 Nachmessung 2026-08-10 / ADR-233 R-6",
   "note": "Bestand seit 5cefbb0a (harter Block bei offenem PR mit gleichem Task-Slug), war aber nie registriert — ein unregistriertes Gate drillt niemand, es kann still kaputtgehen. Registriert 2026-08-12.",

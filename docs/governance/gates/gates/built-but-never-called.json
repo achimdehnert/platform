@@ -9,7 +9,7 @@
   ],
   "drill": [
     "tests/test_adapterfelder_werden_gelesen.py",
-    "tools/tests/test_aufruferlose_funktionen.py"
+    "platform:tools/tests/test_aufruferlose_funktionen.py"
   ],
   "built": "2026-08-29",
   "ref": "iilgmbh/ausschreibungs-hub#278",
@@ -17,7 +17,7 @@
   "faengt": [
     {
       "fall": "String-Schluessel in RawAusschreibung.raw_data ohne Leser ausserhalb der Adapter",
-      "probe": "dokument_urls -- vom DOE-Adapter erzeugt, `git log -S` findet sechs Commits, alle Erzeuger"
+      "probe": "``dokument_urls`` wird vom DÖE-Adapter aus jedem OCDS-Datensatz geerntet"
     },
     {
       "fall": "oeffentliche Funktion in tools/, die im Produktivpfad nirgends verwendet wird und nur aus Tests gerufen ist (platform#2944)",
