@@ -64,6 +64,8 @@ Kommandos:
   --verankert ID URL       Artefakt im Zielrepo hinterlegen.
   --verzichtet ID GRUND    Bewusst nicht verfolgen — mit Grund, sonst zaehlt es nicht.
   --beleg ID ...           Kommando, Ausgabe, Knoten, Positivkontrolle an einen Befund haengen.
+  --fix ID --pr URL --wirkung "<Satz>" [--messung YYYY-MM-DD]
+                           Fix in Arbeit vermerken: PR, erwartete Wirkung, Messdatum.
   --bericht --json         Dieselben Daten maschinenlesbar — fuer eine Leseflaeche
                            ausserhalb dieser Maschine (KONZ-054 E2).
   --praezision --json      Trefferquote je Melder maschinenlesbar (#2690 K3) —
@@ -80,6 +82,18 @@ Seit 2026-08-30 (KONZ-platform-054 E2) drei Dinge mehr, alle aus derselben Messu
     (3) Ein Befund traegt Kommando, Ausgabe, Knoten und Positivkontrolle, wenn der
         Melder sie liefert. Ohne sie muss der Leser jede Zeile selbst nachmessen —
         und dann spart der Melder nichts (Maintainer-2028-Einwand zu KONZ-054).
+
+Seit 2026-09-24 (#3495 V4) ein viertes Feld: Fix in Arbeit. Der Advocatus-Diabolus-
+Befund L2 (Kommentar in #3471) stellte fest, dass das Journal keine laufende
+Reparatur kennt — eine neue Sitzung sieht dieselbe WARN-Zeile und fixt sie ein
+zweites Mal. Real passiert: #3465 und #3466 fixten unabhaengig voneinander
+denselben Befund, weil keine Sitzung sehen konnte, dass die andere schon dabei
+war. `--fix ID --pr URL --wirkung "<Satz>" [--messung DATUM]` haengt PR,
+erwartete Wirkung und ein Messdatum an einen Befund; `--bericht` zeigt die Zeile,
+und liegt das Messdatum in der Vergangenheit, waehrend der Eintrag weiterhin im
+Journal steht (Phase hat ihn nicht geheilt), markiert der Bericht ihn als
+ueberfaellig — dieselbe Ruhe-vs-laut-Mechanik wie bei
+`entscheiden_bis`, nur fuer den laufenden Fix statt fuer den Erstbefund.
 """
 
 from __future__ import annotations
@@ -203,6 +217,13 @@ INFRA_PHASEN = (
 #: Getrennt von `wiedervorlage` (Ruhefrist NACH einer Entscheidung) — ein Feld fuer
 #: beides haette jeden neuen Befund zum Schweigen gebracht.
 FRIST_ENTSCHEIDUNG_TAGE = 7
+
+#: Default-Messfrist in Tagen fuer ``--fix``, wenn ``--messung`` fehlt (#3495 V4).
+#: Sieben, aus demselben Grund wie bei ``FRIST_ENTSCHEIDUNG_TAGE``: eine
+#: Arbeitswoche ist genug Zeit fuer den naechsten Runner-Lauf, der die Wirkung
+#: pruefen kann, und kurz genug, dass ein liegengebliebener Fix nicht monatelang
+#: als "in Arbeit" gilt.
+FRIST_FIX_MESSUNG_TAGE = 7
 
 #: Beleg-Felder je Befund (KONZ-054 E2). Optional — aber ein Befund ohne sie ist
 #: fuer den Leser um 03:00 eine Behauptung, kein Befund.
@@ -628,6 +649,20 @@ def ueberfaellig(eintrag: dict, heute: str) -> bool:
     return heute > str(frist)
 
 
+def fix_ueberfaellig(eintrag: dict, heute: str) -> bool:
+    """Messdatum eines laufenden Fixes verstrichen, waehrend der Eintrag noch im Journal steht.
+
+    Der Befund heilt (verschwindet) ohnehin, sobald seine Phase ihn nicht mehr
+    meldet — dann gibt es keinen Eintrag mehr, an dem diese Funktion etwas
+    pruefen koennte. Diese Pruefung setzt also voraus, dass der Aufrufer bereits
+    einen Eintrag in der Hand haelt, dessen ``fix.messung`` in der Vergangenheit liegt.
+    """
+    fix = eintrag.get("fix")
+    if not fix or not fix.get("messung"):
+        return False
+    return heute > str(fix["messung"])
+
+
 def bericht_json(daten: dict, eigenes_repo: str) -> list[dict]:
     """Ein Datensatz je Befund, vollstaendig — die Leseflaeche baut sich daraus.
 
@@ -656,6 +691,8 @@ def bericht_json(daten: dict, eigenes_repo: str) -> list[dict]:
                 "entscheiden_bis": e.get("entscheiden_bis"),
                 "ueberfaellig": ueberfaellig(e, heute),
                 "urteil": e.get("urteil"),
+                "fix": e.get("fix"),
+                "fix_ueberfaellig": fix_ueberfaellig(e, heute),
                 **{f: e.get(f) for f in BELEG_FELDER},
             }
         )
@@ -698,10 +735,19 @@ def bericht(daten: dict, eigenes_repo: str) -> str:
                 beleg += f" → {e['ausgabe']}"
         elif not e.get("kommando"):
             beleg = "\n      (ohne Beleg — Kommando/Knoten fehlen, --beleg nachtragen)"
+        fix_zeile = ""
+        if e.get("fix"):
+            fx = e["fix"]
+            fix_zeile = (
+                f"\n      🔧 Fix in Arbeit: {fx.get('pr')} — {fx.get('wirkung')} "
+                f"(Messung {fx.get('messung')})"
+            )
+            if fix_ueberfaellig(e, _heute()):
+                fix_zeile += "\n      ⏰ Fix-Messung überfällig"
         zeilen.append(
             f"  {fid}{fremd}{infra}\n"
             f"      {e.get('laeufe', 0)} Laeufe · erstmals {e.get('erstmals', '?')} · "
-            f"zuletzt {e.get('zuletzt', '?')} · {stand}{ruhe}{frist}{beleg}"
+            f"zuletzt {e.get('zuletzt', '?')} · {stand}{ruhe}{frist}{beleg}{fix_zeile}"
         )
     offen = _cross_repo_offen(daten, eigenes_repo)
     zeilen.append("")
@@ -725,6 +771,19 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--beleg", metavar="ID", help="Beleg-Felder an einen Befund haengen")
     for feld in BELEG_FELDER:
         p.add_argument(f"--{feld}", default=None, help=f"mit --beleg: {feld}")
+    p.add_argument(
+        "--fix", metavar="ID", help="Fix in Arbeit setzen (mit --pr und --wirkung)"
+    )
+    p.add_argument("--pr", default=None, help="mit --fix: PR-URL")
+    p.add_argument(
+        "--wirkung", default=None, help="mit --fix: erwartete Wirkung als Satz"
+    )
+    p.add_argument(
+        "--messung",
+        default=None,
+        metavar="DATUM",
+        help=f"mit --fix: Messdatum YYYY-MM-DD (Default: +{FRIST_FIX_MESSUNG_TAGE} Tage)",
+    )
     p.add_argument("--offen-cross-repo", action="store_true")
     p.add_argument("--verankert", nargs=2, metavar=("ID", "URL"))
     p.add_argument(
@@ -796,6 +855,25 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"Beleg an {a.beleg}: " + ", ".join(f"{k}={v}" for k, v in gesetzt.items())
         )
+        return 0
+
+    if a.fix:
+        e = daten.get("befunde", {}).get(a.fix)
+        if e is None:
+            print(f"Kein Befund mit ID {a.fix}", file=sys.stderr)
+            return 2
+        if not a.pr or not a.wirkung:
+            print("--fix braucht --pr und --wirkung.", file=sys.stderr)
+            return 2
+        messung = a.messung or _frist(FRIST_FIX_MESSUNG_TAGE)
+        e["fix"] = {
+            "pr": a.pr,
+            "wirkung": a.wirkung,
+            "messung": messung,
+            "gesetzt_am": _heute(),
+        }
+        sichere(daten, pfad)
+        print(f"Fix in Arbeit: {a.fix} -> {a.pr} · Messung {messung}")
         return 0
 
     if a.bericht and a.json:
