@@ -17,6 +17,8 @@ jsonschema==4.26.0
 pynacl==1.6.2
 pre-commit==4.6.2
 # ADR-Schema-Hook (.pre-commit-config.yaml) braucht die adrfw-CLI. Bewusst
-# ungepinnt gelassen (kein >=-Range-Constraint vorher, anderer Fall als CI-4):
-iil-adrfw
+# ungepinnt gelassen (kein >=-Range-Constraint vorher, anderer Fall als CI-4) —
+# seit platform#3457 Schritt 3 mit Versions-Untergrenze: tools/adr/adr_analyze.py
+# importiert iil_adrfw.rules.drift, das Modul existiert erst ab 0.9.0.
+iil-adrfw>=0.9.0,<1
 httpx==0.28.1
