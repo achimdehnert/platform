@@ -490,7 +490,28 @@ if [ -f "$GITHUB_DIR/$TARGET_REPO/reflex.yaml" ]; then
   fi
   rm -f /tmp/ssc_reflex.$$
 else
-  record "0.4.1 reflex" "SKIP" "v${REFLEX_VER}, $TARGET_REPO ohne reflex.yaml — Review übersprungen (by design)" "$TARGET_REPO"
+  # Ohne reflex.yaml ist die Frage: fehlt es, oder gibt es nichts zu reviewen?
+  # REFLEX prueft Use-Case-Dokumente einer App. Ein Repo, das laut Registry nicht
+  # deployt wird (platform: type=library, deployed=false — Meta-Repo ohne
+  # App-Code), hat keine Use Cases und braucht kein reflex.yaml: das ist PASS
+  # by design. Bei einem deployten Repo ohne reflex.yaml bleibt es SKIP, denn
+  # dort waere die Datei der fehlende Teil (Session-Start 2026-09-24, #3471:
+  # ein SKIP, der "by design" sagt und trotzdem als Luecke gezaehlt wird, ist
+  # keins von beidem).
+  REFLEX_DEPLOYED=$(cd "$PLATFORM_DIR/tools" && python3 -c "
+import sys
+from registry_api import repo
+try:
+    r = repo(sys.argv[1])
+except Exception:
+    print('?'); raise SystemExit
+print('ja' if r.get('deployed') else 'nein')
+" "$TARGET_REPO" 2>/dev/null || echo "?")
+  if [ "$REFLEX_DEPLOYED" = "nein" ]; then
+    record "0.4.1 reflex" "PASS" "v${REFLEX_VER}, $TARGET_REPO ohne reflex.yaml — nicht deployt (Registry), kein Use-Case-Review noetig (by design)" "$TARGET_REPO"
+  else
+    record "0.4.1 reflex" "SKIP" "v${REFLEX_VER}, $TARGET_REPO ohne reflex.yaml — Review übersprungen (deployed=${REFLEX_DEPLOYED}: Datei fehlt oder Registry unlesbar)" "$TARGET_REPO"
+  fi
 fi
 
 # ══ VORLAUF-SCHNITT (platform#3373) ═════════════════════════════════════════
