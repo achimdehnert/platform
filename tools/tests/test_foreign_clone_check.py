@@ -82,6 +82,21 @@ def test_should_melden_wenn_fremder_klon_zurueckliegt(
         assert ausgabe.strip() == ""
 
 
+def test_should_melden_den_namensgebenden_realfall(tmp_path: Path) -> None:
+    # Der Realfall selbst (platform#2732), nicht nur eine generische Fixture:
+    # frist-hub 3 Commits hinter origin, gelesen aus einer meiki-hub-Sitzung (2026-09-03)
+    # — portiert aus einem frist-hub-Klon, Spec/Bildschirme/12 Bilder/Handbuch
+    # fehlten, gefunden nur durch Zufall.
+    meiki_hub = _repo_bauen(tmp_path, "meiki-hub", 0)
+    frist_hub = _repo_bauen(tmp_path, "frist-hub", 3)
+
+    ausgabe = _hook_laufen(tmp_path, f"cat {frist_hub}/datei.txt", meiki_hub)
+
+    assert "FREMDER KLON VERALTET" in ausgabe
+    assert "frist-hub" in ausgabe
+    assert "3" in ausgabe
+
+
 def test_should_das_eigene_repo_nicht_melden(tmp_path: Path) -> None:
     """Das Sitzungs-Repo hat seinen eigenen Melder — doppelt waere Laerm."""
     eigenes = _repo_bauen(tmp_path, "eigenes-hub", 5)

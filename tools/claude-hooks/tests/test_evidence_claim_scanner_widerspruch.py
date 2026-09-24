@@ -13,6 +13,8 @@ das auffallen.
 
 from __future__ import annotations
 
+import io
+import json
 import sys
 from pathlib import Path
 
@@ -20,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from evidence_claim_scanner import (  # noqa: E402
     _widerspruch_im_zug,
+    main,
 )
 
 REALFALL_BODY = (
@@ -96,3 +99,55 @@ def test_should_not_raise_on_odd_input():
     # Der Scanner darf nie werfen — ein Hook, der den Zug mit einem Traceback
     # beendet, wird abgeschaltet.
     assert not _widerspruch_im_zug([None], REALFALL_BERICHT)  # type: ignore[list-item]
+
+
+# --- Ende zu Ende durch main() ----------------------------------------------
+#
+# `widerspruch-im-zug` steht nur als Volltext im zusammengesetzten Treffer von
+# main() — `gate_namensdeckung.py` misst genau diesen Volltext, nicht die reine
+# Funktion oben. Ohne einen echten Lauf durch main() bleibt der Fall in der
+# Registry unberuehrt, unabhaengig davon, wie gut die reinen Funktionstests sind.
+
+
+def _transcript(tmp_path: Path) -> Path:
+    p = tmp_path / "transcript_widerspruch.jsonl"
+    zeilen = [
+        {"type": "user", "message": {"content": "schliesse chat-hub#127"}},
+        {
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "name": "Bash",
+                        "id": "b1",
+                        "input": {
+                            "command": (
+                                "gh issue close 127 -R iilgmbh/chat-hub --comment "
+                                f'"{REALFALL_BODY}"'
+                            )
+                        },
+                    },
+                    {"type": "text", "text": REALFALL_BERICHT},
+                ]
+            },
+        },
+    ]
+    p.write_text("\n".join(json.dumps(z) for z in zeilen), encoding="utf-8")
+    return p
+
+
+def test_should_widerspruch_im_zug_ueber_main_melden(
+    monkeypatch, capsys, tmp_path
+) -> None:
+    """POSITIVKONTROLLE Ende zu Ende: derselbe Realfall (chat-hub#127, UDP 7882),
+    diesmal durch den vollen main()-Pfad statt die reine Funktion oben."""
+    monkeypatch.setenv("EVIDENCE_SCANNER_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setattr(
+        "sys.stdin",
+        io.StringIO(json.dumps({"transcript_path": str(_transcript(tmp_path))})),
+    )
+    main()
+    ausgabe = capsys.readouterr()
+    text = ausgabe.out + ausgabe.err
+    assert "widerspruch-im-zug" in text, text
