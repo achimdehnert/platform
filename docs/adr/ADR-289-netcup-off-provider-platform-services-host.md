@@ -290,7 +290,7 @@ Block gehört auf den Ist-Stand gezogen, sobald entschieden ist, ob der Vertrag 
 Getrackt in achimdehnert/platform#2956. **Erledigt 2026-09-10:** netcup ist gekündigt (Owner),
 Block nach `ehemalige_hosts:` (#3093), Runner-Registrierungen gelöscht.
 
-### 3.1b Revision 2 (2026-09-24) — netcup gekündigt, 17 Nächte ohne Offsite, Zielbild geschärft
+### 3.1b Revision 2 + 3 (2026-09-24) — netcup gekündigt, 17 Nächte ohne Offsite, Ziel = vorhandene Storage Box
 
 **Auslöser, gemessen (achimdehnert/platform#3475, K1):** Der Offsite-Lauf endet auf **beiden**
 Prod-Hosts seit dem 08.09. jede Nacht mit `connection refused` gegen das gekündigte Ziel —
@@ -301,32 +301,46 @@ und **keine** lokale Dump-Schicht; mit dem toten Offsite ist der Host seit 17 Ta
 wurde am 07.09. abgeschaltet (R2, #2506) — einen Tag vor dem Ausfall; der benannte Ersatz
 (Flottenbild-Timer) schreibt nicht (#3486).
 
-**Was die Analyse an §3.1a bestätigt:** Ziel Hetzner Object Storage **Helsinki** mit Object
-Lock. Hetzner-Doku (gelesen 2026-09-24): Object Lock „has to be enabled during Bucket creation",
-Modi `GOVERNANCE`/`COMPLIANCE`, „not possible to end compliance mode in advance"; Standorte
-fsn1/nbg1/hel1; Preis mit Monatsdeckel, inklusive Kontingent ≈ 1 TB Speicher + ≈ 1 TB Egress.
-Datenmenge heute: 39 GB Volumes prod + 13 GB prod-b, dazu Dumps — ein Bucket, weit unter dem
-Kontingent.
+**Revision 2 (Vormittag) hatte §3.1a bestätigt** — Hetzner Object Storage Helsinki mit Object
+Lock (Doku gelesen 2026-09-24: Lock nur beim Anlegen, Modi `GOVERNANCE`/`COMPLIANCE`, Preis mit
+Monatsdeckel ≈ 1 TB inklusive). **Revision 3 (Mittag) ersetzt das Ziel** nach Owner-Frage und
+Owner-Wort „Storage Box go": Es existiert bereits eine bezahlte **Hetzner Storage Box** (Projekt
+11326866, Box 601177) — genau das Ziel, das ADR-241 Option B am 2026-06-21 akzeptiert hatte,
+bevor §3.1a (netcup) und Option E es überholten. Object Storage wäre ein zweiter Vertrag
+(≈ 5 €/Monat) für eine Eigenschaft, die die Storage Box mit anderen Mitteln liefert:
+
+| Eigenschaft | Storage Box (vorhanden) | Object Storage (verworfen) |
+|---|---|---|
+| Schutz vor Löschung durch den sichernden Host | **automatische Snapshots**, unter `/.zfs/snapshot` nur lesbar, löschbar nur in der Console (Owner-Login) | Object Lock je Objekt |
+| Trennung prod / prod-b | Unterkonto je Host mit eigenem Verzeichnis (bis 100 je Box) | Bucket-Policy je Schlüssel |
+| Retention / Prune | `restic forget --prune` läuft normal | Konflikt mit Lock, Messlauf nötig |
+| Prüfung von außen | Unterkonto **read-only** für den Meter | S3-Schlüssel immer projektweit voll |
+| Kosten zusätzlich | 0 € | ≈ 5 €/Monat |
+| Schwäche | Snapshots zählen zur Quote; BX11 hält 10 Stände | Zusatzvertrag, Lock irreversibel |
+
+Datenmenge heute: 39 GB Volumes prod + 13 GB prod-b, dazu Dumps — gegen 1 TB Box-Kapazität
+unkritisch, auch mit Snapshots.
 
 **Was diese Revision ändert oder schärft — nummeriert, damit §5 darauf zeigen kann:**
 
-1. **Ein Bucket, zwei Hosts.** `prod` und `prod-b` sichern in denselben Bucket, getrennt über
-   `--host` (schon so im Skript). prod-b bekommt **keine** eigene lokale Dump-Schicht — der
-   Offsite-`pg_dumpall` ist die Dump-Schicht; eine dritte Kopie auf demselben Host wäre Aufwand
-   ohne zusätzlichen Schutz.
-2. **Retention passt zum Lock, nicht umgekehrt.** Default-Retention des Buckets `COMPLIANCE`
-   **30 Tage**; restic-Policy `--keep-within 30d --keep-daily 7 --keep-weekly 4
-   --keep-monthly 6`. `prune` läuft **monatlich von prod** und darf gesperrte Packs nicht
-   löschen können — das ist gewollt: ein fehlgeschlagener Löschversuch ist der Append-only-
-   Beweis aus §8 Nr. 4. **Nicht verifiziert:** wie restic 0.17 auf `AccessDenied` beim Prune
-   reagiert (Abbruch vs. Weiterlauf); der erste Prune ist deshalb ein Messlauf mit
-   Positivkontrolle, kein Cron. Das Löschkonzept (#2504) bleibt der Grund, warum keine
-   personenbezogenen Daten mit längerer Frist als 30 Tage in diesem Repo liegen dürfen.
-3. **Schlüssel-Hygiene.** Hetzner-S3-Schlüssel sind projektweit, es gibt keinen Nur-Lese-
-   Schlüssel. Deshalb: eigenes Cloud-**Projekt** nur für das Backup, ein Schlüsselpaar auf
-   `prod` und `prod-b` (`/etc/offsite-backup.env`, 0600), Escrow nach `~/.secrets/` mit
-   Inventarzeile, Übergabe ausschließlich über `~/shared/` (Schleuse). Der restic-Schlüssel
-   (`restic-repo.pass`) bleibt — sonst werden alte Snapshots unlesbar.
+1. **Eine Box, zwei Unterkonten.** `prod` und `prod-b` sichern in je ein eigenes
+   Unterkonto/Verzeichnis derselben Box (`sftp:<unterkonto>@<box>.your-storagebox.de:/`,
+   SSH-Schlüssel je Host, Port 23), zusätzlich getrennt über `--host`. Ein kompromittierter
+   Host erreicht das Verzeichnis des anderen nicht. prod-b bekommt **keine** eigene lokale
+   Dump-Schicht — der Offsite-`pg_dumpall` ist die Dump-Schicht.
+2. **Unveränderlichkeit = Snapshot-Plan, Retention = restic.** Automatische Snapshots
+   **täglich**, alle Slots der Box (BX11: 10 Stände ≈ 10 Tage Rückweg gegen Löschung durch
+   den Host). restic-Policy `--keep-daily 7 --keep-weekly 4 --keep-monthly 6`, `forget --prune`
+   **wöchentlich von prod** — mit SFTP ohne Lock-Konflikt. Der Append-only-Beweis aus §8 Nr. 4
+   wird zum **Snapshot-Beweis**: eine Datei im Repo löschen, im jüngsten Snapshot unter
+   `/.zfs/snapshot` muss sie noch liegen. Das Löschkonzept (#2504) bleibt: personenbezogene
+   Daten dürfen nicht länger im Repo liegen, als Snapshot-Fenster plus Retention es zulassen.
+3. **Schlüssel-Hygiene.** Kein Passwort auf den Hosts: je Host ein SSH-Schlüsselpaar
+   (`/root/.ssh/id_ed25519`, prod vorhanden, prod-b am 2026-09-24 angelegt), öffentlicher Teil
+   im Unterkonto. Ein drittes, **read-only** Unterkonto für dev-desktop (Meter, Drill). Der
+   restic-Schlüssel (`restic-repo.pass`) bleibt — sonst werden alte Snapshots unlesbar. Box-
+   Verwaltung über die Hetzner-API mit projektgebundenem Token (`~/.secrets/`, Inventarzeile;
+   das alte Token ist tot, #3496).
 4. **Dead-Man's-Switch statt Journal.** Snapshot-Frische wird täglich **außerhalb** der
    gesicherten Hosts geprüft (dev-desktop, Schlüssel aus `~/.secrets`), Ergebnis geht bei
    Snapshot > 26 h über den belegten Alarmweg (0.7.21), nicht nur ins Befund-Journal. Der
@@ -340,10 +354,11 @@ Kontingent.
    (#3484) und ≈ 25 verwaiste Volumes (#3485) werden konsolidiert, sobald der Offsite-Lauf
    grün ist — nicht vorher, damit keine Schicht wegfällt, bevor die nächste steht.
 
-**Gates (Owner, ausdrücklich):** Bucket anlegen = Spend + irreversible Lock-Konfiguration (Gate
-1 + 5). Umstellung je Host über `deployment/scripts/offsite-auf-objectstorage-umstellen.sh` =
-Prod-Eingriff (Gate 2), je Host ein Wort. Alles davor und danach (IaC, Melder, Drill-Skript,
-Issues) läuft autonom.
+**Gates (Owner, ausdrücklich):** API-Token für das Projekt der Box (Gate 3, Owner erzeugt).
+Umstellung je Host über `deployment/scripts/offsite-auf-storagebox-umstellen.sh` = Prod-Eingriff
+(Gate 2), je Host ein Wort. Unterkonten, Snapshot-Plan, Skript, Melder, Drill laufen autonom.
+`offsite-auf-objectstorage-umstellen.sh` (#2968) bleibt als Rückfalloption liegen, wird nicht
+angewendet.
 
 ---
 
@@ -454,13 +469,13 @@ Feuerübung** — sonst gilt für das neue Backup dieselbe Blindheit wie für da
 | 9 — Feuerübung G3 (Cross-Host) | ⬜ Ausstehend | – | → **E6**; bisher nur Same-Host-Drills (25.08., 30.08.) |
 | 10 — ADR-241 Statuszeile | ⬜ Ausstehend | – | `amended_by: ADR-289` + `implementation_status: partial`, sobald dieses ADR `accepted` ist |
 | 11 — ADR-157 amendieren | ⬜ Ausstehend | – | 3-Server-Architektur vs. sechs reale Hosts — eigener Vorgang, [#1564](https://github.com/achimdehnert/platform/issues/1564) |
-| **E1 — Bucket + Projekt anlegen** | 🟢 **Owner** | – | Cloud Console: Projekt `iil-backup`, Bucket `hel1`, **Object Lock beim Anlegen**, Default-Retention `COMPLIANCE` 30 d, S3-Schlüssel → `~/shared/` (Schleuse). Gate 1 + 5 |
-| E2 — Schlüssel übernehmen | ⬜ Ausstehend | – | Agent: `~/.secrets/` + `secrets-inventory.yaml`, Schleuse leeren; Wert nirgends im Klartext |
-| E3 — prod umstellen | 🟢 Owner-Wort | – | `offsite-auf-objectstorage-umstellen.sh` (hartes Lock-Tor), Beweis: erster Lauf über `prod-offsite-daily.sh`, `restic snapshots` zeigt `pgdump`/`volumes`/`config` |
-| E4 — prod-b umstellen | 🟢 Owner-Wort | – | dasselbe Skript mit `PROD_HOST=hetzner-prod-b`; Beweis wie E3 |
+| **E1 — API-Token + Unterkonten + Snapshot-Plan** | 🟢 **Owner: Token** · Agent: Rest | – | Rev 3: Owner erzeugt projektgebundenes API-Token (Projekt 11326866) → `~/shared/` (Schleuse); Agent legt per API Unterkonten `prod`, `prod-b` (schreibend, eigenes Verzeichnis, SSH-Schlüssel der Hosts) und `meter` (read-only) an, aktiviert automatische Snapshots täglich. Object-Storage-Variante (Bucket/Lock) verworfen |
+| E2 — Token übernehmen | ⬜ Ausstehend | – | Agent: `~/.secrets/hetzner_cloud_token` ersetzen, `secrets-inventory.yaml` mit Konsumenten (#3496), Schleuse leeren; Wert nirgends im Klartext |
+| E3 — prod umstellen | 🟢 Owner-Wort | – | `offsite-auf-storagebox-umstellen.sh`: SFTP-Erreichbarkeit prüfen, `restic init` falls leer, `RESTIC_REPOSITORY` in `/etc/offsite-backup.env` an Ort und Stelle, CA-Zeile raus; Beweis: erster Lauf über `prod-offsite-daily.sh`, `restic snapshots` zeigt `pgdump`/`volumes`/`config` |
+| E4 — prod-b umstellen | 🟢 Owner-Wort | – | dasselbe Skript mit `PROD_HOST=hetzner-prod-b` und Unterkonto `prod-b`; Beweis wie E3 |
 | E5 — Dead-Man's-Switch + Meter-Schedule | ⬜ Ausstehend | – | §3.1b Nr. 4, [#3486](https://github.com/achimdehnert/platform/issues/3486); danach `backup_deckung.py` Exit 0 als K3/K4-Beweis |
 | E6 — Cross-Host-Drill G3 | ⬜ Ausstehend | – | `restore-drill.sh` gegen den Bucket von einem dritten Host (dev-desktop), Zeit messen, Ergebnis in `docs/runbooks/restore-drills/` |
-| E7 — Retention/Prune-Messlauf | ⬜ Ausstehend | – | §3.1b Nr. 2: erster `forget`+`prune` von Hand mit Positivkontrolle (gesperrte Packs bleiben, Fehlerbild dokumentiert) |
+| E7 — Snapshot-Beweis + Prune | ⬜ Ausstehend | – | §3.1b Nr. 2: Testdatei im Repo löschen → im jüngsten `/.zfs/snapshot` noch vorhanden (Positivkontrolle); danach `forget --prune` wöchentlich als Cron |
 | E8 — lokale Schichten konsolidieren | ⬜ Ausstehend | – | erst nach E3/E4 grün: [#3484](https://github.com/achimdehnert/platform/issues/3484), [#3485](https://github.com/achimdehnert/platform/issues/3485) |
 
 ---
@@ -573,6 +588,7 @@ Feuerübung** — sonst gilt für das neue Backup dieselbe Blindheit wie für da
 | 2026-07-30 | Achim Dehnert | Phase 1 + Random-IOPS-Messung abgeschlossen; Grundinstallation als `netcup-bootstrap.sh` ins IaC gespiegelt. |
 | 2026-07-30 | Achim Dehnert | **Interner adversarialer Review:** R2-Treiber falsifiziert (§1.3) — der Prod-Uptime-Canary existierte und meldete nach 16 Minuten. |
 | 2026-07-30 | Achim Dehnert | **Zwei externe Reviews (§11) → Zusammenschnitt.** Entscheidungsinhalt auf **R1 + Negativ-Regel** reduziert; Monitoring, CI-Runner und DR-Standby als „erwogen, zurückgestellt" mit auslösendem Treiber (§3.2). Acht Sachfehler korrigiert (u.a. die nicht propagierte Falsifikation in §3/§6.1, das gegenläufig verwendete Kapazitätsargument, die unbelegte AVV-Ausnahme für Metriken/Logs, fehlende Mengenwerte, Nürnberg als gemeinsame Region). Zehn fachlich stärkere Lösungen übernommen (Allowlist statt Denylist, Disk-Trennung vor **jedem** Mitbewohner, Dead-Man's-Switch in dritter Domäne, `rest-server --append-only` als eigentliches Argument, Cross-Host-Restore). Optionen E und F ergänzt, Option D rehabilitiert. |
+| 2026-09-24 | Achim Dehnert | **§3.1b Revision 3 — Ziel ist die vorhandene Storage Box, nicht Object Storage.** Owner-Frage („wir haben Storage Box bereits … benötigen wir dann S3?") und Owner-Wort „Storage Box go". Vergleichstabelle in §3.1b; Unveränderlichkeit über täglichen Snapshot-Plan statt Object Lock, Trennung über Unterkonten je Host, Retention über `restic forget --prune`; Verwaltung per Hetzner-API mit neuem projektgebundenem Token (altes tot, #3496). E1–E4/E7 in §5 umgeschrieben; `offsite-auf-objectstorage-umstellen.sh` bleibt Rückfalloption. |
 | 2026-09-24 | Achim Dehnert | **§3.1b Revision 2 + §5 neu geschnitten.** Anlass: netcup gekündigt (10.09.), 17 Nächte ohne Offsite auf prod **und** prod-b, prod-b ohne lokale Dump-Schicht, Frische-Melder am 07.09. abgeschaltet. Zielbild bestätigt (Hetzner Object Storage hel1, Object Lock `COMPLIANCE`), sechs Schärfungen: ein Bucket für beide Hosts, Retention 30 d zum Lock passend mit Prune-Messlauf, projektgebundene Schlüssel mit Escrow, Dead-Man's-Switch außerhalb der Hosts, gleiche-Anbieter-Schwäche benannt, lokale Schichten erst nach grünem Offsite konsolidieren. Phasen 2/3/5 entfallen, 8 als Rückschritt markiert, E1–E8 ergänzt. Messung: achimdehnert/platform#3475 (K1). |
 | 2026-07-30 | Achim Dehnert | **§1.2 neu — die entscheidende Ursachenklärung.** Recherche auf die Review-Frage „warum lag ADR-241 sechs Wochen?" ergab: es lag **nicht** brach. Der restic-Wrapper, der Meter und die Soll-Liste wurden am Accept-Tag gebaut (#620/#622); es fehlt allein die Repository-Provisionierung — und die war **durch das Ziel blockiert**. Das widerlegt den stärksten externen Einwand (AD-8: „kein Bestandteil war durch das Ziel blockiert") und macht R1 zur Provisionierung statt zum Neubau. Zugleich Anlass für #1567: der Meter meldete sechs Wochen grün über leerer Sicherung. |
 
