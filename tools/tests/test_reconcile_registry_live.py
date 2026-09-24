@@ -13,8 +13,9 @@ Faellen:
     Kill-Gate-KPI eine reale Drift stillschweigend verschlucken).
 
 subprocess-Aufrufe (docker ps, getent hosts, ssh) werden NIE ausgefuehrt — alle
-IO-Grenzen (`load_declared`, `load_baseline`, `live_containers`, `live_dns`)
-sind hier gemonkeypatcht. Modul heisst wie eine Datei mit Unterstrich, daher
+IO-Grenzen (`load_declared`, `live_containers`, `live_dns`) sind hier
+gemonkeypatcht; Stundungen (#3507, vorher `load_baseline`) stehen in einer
+Fixture-Deklarationsdatei. Modul heisst wie eine Datei mit Unterstrich, daher
 regulaerer `import`.
 """
 
@@ -22,6 +23,7 @@ from __future__ import annotations
 
 import datetime as dt
 import importlib.util
+import os
 import pathlib
 import sys
 
@@ -51,11 +53,28 @@ def _heute_utc() -> dt.date:
     return dt.datetime.now(dt.timezone.utc).date()
 
 
+def _stunde(baseline):
+    """Stundungen als Deklarationen in die Fixture-Datei schreiben (#3507).
+
+    ``baseline`` ist eine Liste ``{"id", "reason", "expires_at"}`` — die Form
+    der frueheren infra/reconcile-baseline.yaml, damit die Tests lesbar bleiben.
+    """
+    pfad = pathlib.Path(os.environ["BEFUND_DEKLARATIONEN_DATEI"])
+    for e in baseline or []:
+        bj.setze_deklaration(
+            e["id"],
+            "stundung",
+            e.get("reason") or "Test",
+            str(e["expires_at"]),
+            pfad=pfad,
+        )
+
+
 def _patch_io(
     monkeypatch, canonical, ports_decl, containers, baseline=None, dns_ok=True
 ):
     monkeypatch.setattr(rrl, "load_declared", lambda: (canonical, ports_decl))
-    monkeypatch.setattr(rrl, "load_baseline", lambda: baseline or [])
+    _stunde(baseline)
     monkeypatch.setattr(rrl, "live_containers", lambda ssh: containers)
     monkeypatch.setattr(rrl, "live_dns", lambda domain, ssh: dns_ok)
 
@@ -175,6 +194,29 @@ def test_should_suppress_baseline_drift_but_count_it_separately(monkeypatch, cap
     assert "[baseline]    C1:svc-a" in out
 
 
+def test_should_count_drift_as_new_when_stundung_expired_yesterday(monkeypatch, capsys):
+    """Positivkontrolle #3507: Stundung einen Tag zurueckdatiert -> wirkungslos.
+
+    Der Fund zaehlt wieder als NEU (Exit 1, FUND) und eine `[ABGELAUFEN]`-Zeile
+    nennt die Stundung. Vorher brach ein abgelaufener Eintrag den ganzen Lauf mit
+    Exit 2 ab und verdeckte alle anderen Funde (#1857).
+    """
+    canonical = {"svc-a": {"rich": {"deployed": True}, "flat": {}}}
+    ports_decl = {"svc-a": {"prod": 8080, "container_name": "svc_a_web"}}
+    containers = {"svc_a_web": [9090]}
+    gestern = (_heute_utc() - dt.timedelta(days=1)).isoformat()
+    baseline = [{"id": "C1:svc-a", "reason": "bekannt", "expires_at": gestern}]
+    _patch_io(monkeypatch, canonical, ports_decl, containers, baseline=baseline)
+
+    rc = _run(monkeypatch, argv=["--skip-dns"])
+
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "Drift-Kennzahl: drift: 1 (1 NEU + 0 baselined)" in out
+    assert "[NEU]         C1:svc-a" in out
+    assert f"[ABGELAUFEN] Stundung C1:svc-a gueltig bis {gestern}" in out
+
+
 def test_should_exit_2_on_unreadable_live_state(monkeypatch, capsys):
     """live_containers() wirft RuntimeError (docker ps nicht erreichbar) ->
     das ist ein TOOL-Fehler (rc=2), keine Drift-Meldung (rc=1)."""
@@ -185,7 +227,6 @@ def test_should_exit_2_on_unreadable_live_state(monkeypatch, capsys):
         raise RuntimeError("docker: connection refused")
 
     monkeypatch.setattr(rrl, "load_declared", lambda: (canonical, ports_decl))
-    monkeypatch.setattr(rrl, "load_baseline", lambda: [])
     monkeypatch.setattr(rrl, "live_containers", boom)
 
     rc = _run(monkeypatch, argv=["--skip-dns"])
@@ -221,7 +262,7 @@ def _patch_io_multi(monkeypatch, canonical, ports_decl, je_ssh, baseline=None):
         return wert
 
     monkeypatch.setattr(rrl, "load_declared", lambda: (canonical, ports_decl))
-    monkeypatch.setattr(rrl, "load_baseline", lambda: baseline or [])
+    _stunde(baseline)
     monkeypatch.setattr(rrl, "load_hosts", lambda: _HOSTS)
     monkeypatch.setattr(rrl, "lokaler_host", lambda hosts: None)
     monkeypatch.setattr(rrl, "live_containers", containers)

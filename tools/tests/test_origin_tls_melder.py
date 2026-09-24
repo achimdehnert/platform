@@ -261,6 +261,28 @@ def test_should_load_real_ports_yaml_with_domains():
     assert all(d["domain"] for d in dienste)
 
 
+@pytest.mark.parametrize("tage,erwartet", [(30, "ruhend"), (-1, "aktiv")])
+def test_should_check_tls_again_when_betriebsstatus_declaration_expired(
+    tmp_path, monkeypatch, tage, erwartet
+):
+    """Positivkontrolle #3507: gueltige Deklaration -> Ausnahme wirkt;
+    Ablauf einen Tag zurueck -> `aktiv`, der Dienst wird wieder geprueft."""
+    import befund_journal as bj  # noqa: PLC0415 — tools/ via exec_module im Pfad
+
+    dekl = tmp_path / "deklarationen.json"
+    monkeypatch.setenv("BEFUND_DEKLARATIONEN_DATEI", str(dekl))
+    bis = datetime.now(timezone.utc).date() + timedelta(days=tage)
+    bj.setze_deklaration("y-hub", "betriebsstatus", "Test", bis.isoformat(), pfad=dekl)
+    ports = tmp_path / "ports.yaml"
+    ports.write_text(
+        "services:\n  y-hub:\n    domain_prod: y-hub.example.org\n"
+        "    betriebsstatus: ruhend\n    betriebsstatus_grund: Test\n",
+        encoding="utf-8",
+    )
+    (d,) = om.lade_dienste(str(ports))
+    assert d["betriebsstatus"] == erwartet
+
+
 def test_should_resolve_real_prod_hosts_with_ssh_targets():
     hosts = om.lade_hosts(str(WURZEL / "infra" / "hosts.yaml"))
     assert "prod" in hosts and hosts["prod"].startswith("root@")

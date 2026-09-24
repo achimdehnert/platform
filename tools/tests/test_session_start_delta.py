@@ -121,6 +121,61 @@ def test_should_resubmit_infra_backup_finding_anchored_for_17_days():
     assert "2026-09-07" in k["grund"]
 
 
+def _backup_befund(**felder) -> tuple[dict, dict]:
+    e = _eintrag(
+        id="0.7.17 backup-deckung::platform",
+        phase="0.7.17 backup-deckung",
+        infra=True,
+        erstmals="2026-08-01",
+        wiedervorlage="2026-10-10",
+        note="Deckung NICHT messbar",
+        **felder,
+    )
+    z = {**_zeile(note="Deckung NICHT messbar"), "phase": "0.7.17 backup-deckung"}
+    return e, z
+
+
+def test_should_resubmit_backup_finding_anchored_17_days_ago_per_journal(tmp_path):
+    """#3507: `verankert_am` vor 17 Tagen laut Journal -> WIEDERVORLAGE, OHNE
+    Zustandsdatei (gelesen wird ein Pfad, der nicht existiert)."""
+    e, z = _backup_befund(verankert_am="2026-09-07")
+    zustand_pfad = tmp_path / "gibt-es-nicht.json"
+    ergebnis, neu = sd.delta([z], [e], HEUTE, sd.zustand_lesen(zustand_pfad))
+    assert ergebnis[0]["klasse"] == sd.WIEDERVORLAGE
+    assert "ruht seit 2026-09-07" in ergebnis[0]["grund"]
+    assert neu == {"anker": {}}, "Eintrag mit Datum braucht keinen Zustand"
+
+
+def test_should_trust_journal_date_over_stale_state_file():
+    """Journal-Datum schlaegt Zustandsdatei: frisch verankert (vor 3 Tagen) ist
+    ruhig, auch wenn der alte Zustand eine laengst verstrichene Ruhe traegt und
+    `erstmals` weit zurueckliegt — genau das haette der Fallback falsch gemacht."""
+    e, z = _backup_befund(verankert_am="2026-09-21")
+    zustand = {"anker": {e["id"]: {"signatur": sd._signatur(e), "seit": "2026-08-01"}}}
+    k = _klasse(e, z, zustand)
+    assert k["klasse"] == sd.VERANKERT
+    assert k["faellig"] == "2026-09-28"
+
+
+def test_should_restart_rest_when_fix_is_newer_than_anchor_date():
+    e, z = _backup_befund(
+        verankert_am="2026-09-07",
+        fix={"pr": "x", "messung": "2026-10-01", "gesetzt_am": "2026-09-22"},
+    )
+    assert _klasse(e, z)["klasse"] == sd.VERANKERT
+
+
+def test_should_treat_expired_waiver_as_missing_anchor():
+    """`verzicht_gilt: false` aus dem Journal-Bericht (#3507) -> kein Anker mehr."""
+    e = _eintrag(
+        artefakt=None,
+        verzicht={"grund": "x", "am": "2026-08-01"},
+        verzicht_gilt=False,
+        wiedervorlage="2026-10-01",
+    )
+    assert _klasse(e)["klasse"] == sd.OHNE_ANKER
+
+
 def test_should_resubmit_infra_finding_when_stored_rest_exceeds_limit():
     e = _eintrag(infra=True, erstmals="2026-09-01")
     zustand = {"anker": {e["id"]: {"signatur": sd._signatur(e), "seit": "2026-09-07"}}}

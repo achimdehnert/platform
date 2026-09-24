@@ -90,7 +90,7 @@ PROD_HOSTS = ("prod", "prod-b")
 # Vokabular kommt aus tools/betriebsstatus.py — dieselbe Quelle wie fuer
 # erreichbarkeit_melder.py und waisen_melder.py (#2586 K5, hier #2853).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from betriebsstatus import ERKLAERT  # noqa: E402
+from betriebsstatus import ERKLAERT, wirksamer_status  # noqa: E402
 
 # GitHub-Repo-Lifecycle (registry/canonical.yaml), NICHT dasselbe Feld wie
 # `betriebsstatus` in infra/ports.yaml — beide fuehren zu "Rueckstand gewollt",
@@ -296,13 +296,14 @@ def repo_betriebsstatus() -> dict[str, str]:
     (travel-beat, Owner-Entscheid #120), lange bevor (wenn ueberhaupt) ihr
     GitHub-Repo als `archived` gilt. Dasselbe Vokabular wie
     `erreichbarkeit_melder.py`/`waisen_melder.py` — keine vierte Kopie der Liste.
+    Nur solange die ``betriebsstatus``-Deklaration gilt (#3507).
     """
     data = load_yaml(PORTS_YAML)
     out: dict[str, str] = {}
     for name, cfg in (data.get("services") or {}).items():
         if not isinstance(cfg, dict):
             continue
-        status = cfg.get("betriebsstatus", "aktiv")
+        status = wirksamer_status(name, cfg)
         if status in ERKLAERT:
             out[name] = str(status)
     return out

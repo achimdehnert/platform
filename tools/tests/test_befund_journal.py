@@ -1126,3 +1126,140 @@ def test_should_keep_every_real_declaration_valid():
     )
     fehler = [(d.get("ziel"), bj.deklarations_fehler(d)) for d in alle]
     assert [f for f in fehler if f[1]] == []
+
+
+# ── V2-Rest (#3507): Verzicht ueber deklarationen_fuer, verankert_am, --gilt ──
+
+_WURZEL = Path(__file__).resolve().parents[2]
+_FID = "0.7 deploy-scan::cad-hub"
+
+
+def _gestern() -> str:
+    from datetime import date, timedelta  # noqa: PLC0415
+
+    return (date.fromisoformat(bj._heute()) - timedelta(days=1)).isoformat()
+
+
+def _verzichtet(journal: Path, dekl: Path) -> dict:
+    _lauf(["0.7 deploy-scan\tWARN\tcad-hub\tfailure"], journal)
+    assert (
+        bj.main(
+            [
+                "--verzichtet",
+                _FID,
+                "Repo ist eingefroren",
+                "--datei",
+                str(journal),
+                "--deklarationen",
+                str(dekl),
+            ]
+        )
+        == 0
+    )
+    return bj.lade(journal)
+
+
+def test_should_read_journal_waiver_through_deklarationen_fuer(journal, dekl):
+    daten = _verzichtet(journal, dekl)
+    treffer = bj.deklarationen_fuer(_FID, art="verzicht", pfad=dekl, journal=daten)
+    assert [d["grund"] for d in treffer] == ["Repo ist eingefroren"]
+    assert treffer[0]["gueltig_bis"] == daten["befunde"][_FID]["wiedervorlage"]
+    # Ohne Journal nur die Repo-Datei — dort steht kein Verzicht.
+    assert bj.deklarationen_fuer(_FID, art="verzicht", pfad=dekl) == []
+
+
+def test_should_bring_finding_back_into_gate_when_waiver_expired_yesterday(
+    journal, dekl, monkeypatch, capsys
+):
+    """Positivkontrolle #3507: Verzicht-Ablauf einen Tag zurueck -> wirkungslos.
+
+    Bis #3507 zaehlte ein Verzicht im Gate unbefristet, auch nach seiner
+    Wiedervorlage."""
+    monkeypatch.setenv("BEFUND_DEKLARATIONEN_DATEI", str(dekl))
+    daten = _verzichtet(journal, dekl)
+    assert (
+        bj.main(["--offen-cross-repo", "--repo", "platform", "--datei", str(journal)])
+        == 0
+    )
+    daten["befunde"][_FID]["wiedervorlage"] = _gestern()
+    bj.sichere(daten, journal)
+    capsys.readouterr()
+
+    assert (
+        bj.main(["--offen-cross-repo", "--repo", "platform", "--datei", str(journal)])
+        == 1
+    )
+    assert not bj.verzicht_gilt(daten["befunde"][_FID])
+    bj.main(["--bericht", "--datei", str(journal), "--deklarationen", str(dekl)])
+    out = capsys.readouterr().out
+    assert f"⏰ Deklaration abgelaufen: {_FID} [verzicht]" in out
+    assert "Verlaengern: --verzichtet" in out
+
+
+def test_should_set_verankert_am_on_every_decision(journal, dekl, capsys):
+    _lauf(
+        [
+            "0.7 deploy-scan\tWARN\tcad-hub\tfailure",
+            "0.7 deploy-scan\tWARN\ttax-hub\tfailure",
+            "0.7 deploy-scan\tWARN\tapo-hub\tfailure",
+        ],
+        journal,
+    )
+    d = ["--datei", str(journal)]
+    assert bj.main(["--verankert", _FID, "https://example/issues/1", *d]) == 0
+    assert bj.main(["--verzichtet", "0.7 deploy-scan::tax-hub", "Grund", *d]) == 0
+    assert bj.main(["--falsch", "0.7 deploy-scan::apo-hub", "Fehlalarm", *d]) == 0
+    capsys.readouterr()
+    bj.main(["--bericht", "--json", *d, "--deklarationen", str(dekl)])
+    saetze = {s["id"]: s for s in json.loads(capsys.readouterr().out)}
+    heute = bj._heute()
+    assert {fid: s["verankert_am"] for fid, s in saetze.items()} == {
+        _FID: heute,
+        "0.7 deploy-scan::tax-hub": heute,
+        "0.7 deploy-scan::apo-hub": heute,
+    }
+    assert saetze["0.7 deploy-scan::tax-hub"]["verzicht_gilt"] is True
+    assert saetze[_FID]["verzicht_gilt"] is False
+
+
+def test_should_answer_gilt_with_exit_code(dekl, capsys):
+    bj.setze_deklaration("gpu-box", "auf_zuruf", "x", "2099-12-31", pfad=dekl)
+    bj.setze_deklaration("gx10", "auf_zuruf", "x", _gestern(), pfad=dekl)
+    gilt = ["--art", "auf_zuruf", "--deklarationen", str(dekl)]
+    assert bj.main(["--gilt", "gpu-box", *gilt]) == 0
+    assert bj.main(["--gilt", "gx10", *gilt]) == 1, "abgelaufen wirkt nicht"
+    assert bj.main(["--gilt", "odoo", *gilt]) == 1
+    assert "keine gueltige Deklaration fuer odoo" in capsys.readouterr().out
+
+
+def test_should_declare_every_real_betriebsstatus_exception_with_expiry():
+    """Eine Ausnahme ohne Deklaration ist seit #3507 wirkungslos — der Melder
+    meldet den Dienst. Diese Invariante faengt das VOR dem Merge ab (Schema, nicht
+    Datum: ein faelliger Ablauf soll im Melder hochkommen, nicht im CI)."""
+    import yaml  # noqa: PLC0415
+
+    ports = yaml.safe_load((_WURZEL / "infra/ports.yaml").read_text(encoding="utf-8"))
+    ausnahmen = sorted(
+        name
+        for name, v in (ports.get("services") or {}).items()
+        if isinstance(v, dict) and v.get("betriebsstatus", "aktiv") != "aktiv"
+    )
+    deklariert = {
+        d["ziel"]
+        for d in bj.lade_deklarationen(_WURZEL / bj.DEKLARATIONEN_REL)
+        if d.get("art") == "betriebsstatus" and bj.deklarations_fehler(d) is None
+    }
+    assert ausnahmen, "Fixture-Sanity: ports.yaml fuehrt Ausnahmen"
+    assert [n for n in ausnahmen if n not in deklariert] == []
+
+
+def test_should_keep_stundungen_in_one_place():
+    """Die Stundungen der Registry-Live-Drift stehen seit #3507 nur noch in
+    governance/deklarationen.json — die alte YAML darf nicht nachwachsen."""
+    assert not (_WURZEL / "infra/reconcile-baseline.yaml").exists()
+    stundungen = [
+        d
+        for d in bj.lade_deklarationen(_WURZEL / bj.DEKLARATIONEN_REL)
+        if d.get("art") == "stundung"
+    ]
+    assert stundungen, "Migration aus reconcile-baseline.yaml fehlt"

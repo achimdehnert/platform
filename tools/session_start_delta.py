@@ -31,15 +31,21 @@ Abgrenzung:
     Summenzeile, nicht im Nichts. Kein Schreiben ins Journal: gelesen wird es
     ausschliesslich ueber ``befund_journal.py --bericht --json``.
 
+Anker-Datum (seit #3507 aus dem Journal):
+    ``--verankert``, ``--verzichtet`` und ``--falsch`` setzen im Journal
+    ``verankert_am``; ``--bericht --json`` liefert es. Die [INFRA]-Ruhe zaehlt ab
+    dem juengsten Tag aus ``verankert_am`` und Fix ``gesetzt_am`` — ohne eigene
+    Zustandsdatei.
+
 Zustand (``~/.claude/state/session-start-delta.json``, per
-``SESSION_START_DELTA_ZUSTAND`` ueberschreibbar):
-    Das Journal traegt kein Datum, seit wann ein Anker gilt — ``--verankert`` setzt
-    nur die Wiedervorlage. Fuer die [INFRA]-Ruheregel haelt diese Datei je
-    Schluessel die Anker-Signatur (Artefakt, Verzicht, Wiedervorlage, Fix-Datum)
-    und den Tag, an dem sie zuerst gesehen wurde. Aendert sich die Signatur (neu
-    verankert, Fix gesetzt), beginnt die Ruhe neu. Ohne Zustand zaehlt der juengste
-    bekannte Anker-Tag (Verzicht ``am``, Fix ``gesetzt_am``), sonst ``erstmals`` —
-    im Zweifel frueher laut als zu lange still.
+``SESSION_START_DELTA_ZUSTAND`` ueberschreibbar) — NUR noch Fallback fuer
+Alt-Eintraege ohne ``verankert_am`` (verankert vor #3507, Refs #3507):
+    Fuer sie haelt diese Datei je Schluessel die Anker-Signatur (Artefakt,
+    Verzicht, Wiedervorlage, Fix-Datum) und den Tag, an dem sie zuerst gesehen
+    wurde. Aendert sich die Signatur, beginnt die Ruhe neu. Ohne Zustand zaehlt
+    der juengste bekannte Anker-Tag (Verzicht ``am``, Fix ``gesetzt_am``), sonst
+    ``erstmals`` — im Zweifel frueher laut als zu lange still. Sobald ein
+    Alt-Eintrag neu verankert wird, traegt er das Datum und faellt aus der Datei.
 
 Nie werfend: ein nicht lesbares Journal ergibt eine UNGEPRUEFT-Zeile und keine
 Klassen — der Runner zeigt dann die Summary wie bisher.
@@ -157,7 +163,16 @@ def _signatur(eintrag: dict) -> str:
 
 
 def anker_seit(eintrag: dict, gespeichert: dict | None, heute: str) -> str:
-    """Seit wann ruht dieser Befund hinter seinem jetzigen Anker?"""
+    """Seit wann ruht dieser Befund hinter seinem jetzigen Anker?
+
+    Quelle ist das Journal-Feld ``verankert_am`` (#3507). Die Zustandsdatei
+    (``gespeichert``) zaehlt nur fuer Alt-Eintraege ohne dieses Datum — Fallback,
+    Refs #3507.
+    """
+    verankert = _datum(eintrag.get("verankert_am"))
+    if verankert:
+        fix = _datum((eintrag.get("fix") or {}).get("gesetzt_am"))
+        return max(d for d in (verankert, fix) if d).isoformat()
     sig = _signatur(eintrag)
     if gespeichert is not None:
         if gespeichert.get("signatur") == sig and gespeichert.get("seit"):
@@ -185,7 +200,11 @@ def klassifiziere(
     if zustand(eintrag.get("note")) != zustand(note):
         return {"klasse": GEAENDERT, "grund": "Note anders als im letzten Lauf"}
     urteil_falsch = eintrag.get("urteil") == "falsch"
-    if not (eintrag.get("artefakt") or eintrag.get("verzicht") or urteil_falsch):
+    # `verzicht_gilt` (#3507) kommt aus befund_journal.verzicht_gilt(): ein
+    # abgelaufener Verzicht ist kein Anker mehr. Alte Berichte ohne das Feld
+    # fallen auf das blosse Vorhandensein zurueck.
+    verzicht = eintrag.get("verzicht_gilt", bool(eintrag.get("verzicht")))
+    if not (eintrag.get("artefakt") or verzicht or urteil_falsch):
         frist = eintrag.get("entscheiden_bis") or "?"
         return {"klasse": OHNE_ANKER, "grund": f"kein Anker, Frist {frist}"}
     wv = eintrag.get("wiedervorlage")
@@ -238,7 +257,13 @@ def delta(
                 sid = schluessel(z["phase"], repo)
                 eintrag = je_id.get(sid)
                 u = klassifiziere(z.get("note", ""), eintrag, heute, anker_alt.get(sid))
-                if eintrag is not None and eintrag.get("infra") and u.get("seit"):
+                # Zustand nur fuer Alt-Eintraege ohne verankert_am (Fallback, Refs #3507).
+                if (
+                    eintrag is not None
+                    and eintrag.get("infra")
+                    and u.get("seit")
+                    and not eintrag.get("verankert_am")
+                ):
                     anker_neu[sid] = {"signatur": _signatur(eintrag), "seit": u["seit"]}
                 urteile.append(u)
             lautestes = min(urteile, key=lambda u: RANG.index(u["klasse"]))

@@ -9,8 +9,9 @@
 # deshalb NICHT als blinder Melder gezaehlt (platform#1508).
 #
 # ⚠️ run-conclusion ≠ Tool-Health (CC-Memory): Ein ROTER Lauf ist ein FUND
-# (neue, untriagierte Drift), KEIN Workflow-Defekt. Triage: beheben oder mit
-# owner+expires_at in infra/reconcile-baseline.yaml stunden.
+# (neue, untriagierte Drift), KEIN Workflow-Defekt. Triage: beheben oder als
+# Deklaration `stundung` mit gueltig_bis in governance/deklarationen.json
+# stunden (tools/befund_journal.py --deklaration, seit #3507).
 #
 # LESEFLAECHE (#2636): das Ergebnis landet als Sektion `registry-live` im EINEN
 # rollenden Fleet-Drift-Issue (Label `fleet-drift`, #1472) — kein Issue je Lauf
@@ -34,12 +35,14 @@ on:
     paths:
       - '.github/workflows/registry-live-reconcile.yml'
       - 'tools/reconcile_registry_live.py'
+      - 'tools/befund_journal.py'
+      - 'governance/deklarationen.json'
       - 'tools/pypi_fleet_sections.py'
   push:
     branches: [main]
     paths:
       - 'tools/reconcile_registry_live.py'
-      - 'infra/reconcile-baseline.yaml'
+      - 'governance/deklarationen.json'
       - 'infra/ports.yaml'
       - 'registry/canonical.yaml'
 

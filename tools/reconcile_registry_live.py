@@ -30,12 +30,19 @@ Ist ein Nebenhost nicht erreichbar, werden seine Dienste NICHT als fehlend
 gemeldet — das wäre derselbe Fehler in neuer Verkleidung. Stattdessen fällt ein
 eigener Befund `C0:<host>`, und C1/C2 werden für diesen Host übersprungen. Die
 blinde Stelle bleibt so sichtbar und ist wie jede andere Drift triagierbar
-(beheben oder mit owner+expires_at stunden), statt sich als Grün zu tarnen.
+(beheben oder mit Ablaufdatum stunden), statt sich als Grün zu tarnen.
 
-Baseline: infra/reconcile-baseline.yaml — bekannte, triagierte Abweichungen mit
-PFLICHT-Feldern owner + expires_at (E2-Waiver-Muster aus KONZ-015 / ADR-264 D1:
-ohne Ablaufdatum → Fehler; abgelaufen → Fehler). Baseline-Treffer werden
-unterdrückt, aber separat gezählt.
+Stundung (seit 2026-09-24, #3507 — vorher `infra/reconcile-baseline.yaml`):
+bekannte, triagierte Abweichungen sind Deklarationen der Art `stundung` in
+`governance/deklarationen.json` (Ziel = Drift-ID, z. B. `C4:8000`), gelesen nur
+ueber `befund_journal.deklarationen_fuer()`. PFLICHT: `grund` + `gueltig_bis`
+(E2-Waiver-Muster aus KONZ-015 / ADR-264 D1). Gestundete Funde werden
+unterdrückt, aber separat gezählt ("baselined").
+Abgelaufen heisst: wirkungslos — der Fund zaehlt wieder als NEU (Exit 1), und
+eine `[ABGELAUFEN]`-Zeile nennt die Stundung. Bis #3507 brach ein abgelaufener
+Eintrag den GANZEN Lauf mit Exit 2 ab; am 2026-08-08 liefen fuenf Eintraege am
+selben Tag ab, der Lauf war zwei Tage rot, und vier Funde wurden nie gemeldet
+(#1857). Ablaufdaten deshalb weiter gestaffelt halten, kein gemeinsamer Stichtag.
 
 ZWEI KLASSEN (2026-09-17, #2636): C0 ist ein TRANSPORTFEHLER, keine Drift.
 Der Lauf vom 2026-09-02 zaehlte 4 SSH-Fehler und 2 echte Registry-Drifts in
@@ -59,9 +66,10 @@ laeuft, wo es kein lokales Journal gibt. Nach `gueltig_bis` ist der Host wieder
 C0. Hosts ohne Deklaration bleiben unveraendert C0.
 
 Exit-Codes (⚠️ run-conclusion ≠ Tool-Health, siehe CC-Memory):
-  0 = keine neue Drift und kein neuer unerreichbarer Host (Baseline-Treffer erlaubt)
+  0 = keine neue Drift und kein neuer unerreichbarer Host (Stundungs-Treffer erlaubt)
   1 = NEUE Drift oder NEU unerreichbarer Nebenhost — FUND-Signal, kein Tool-Fehler
-  2 = Tool-/Konfigurationsfehler (Baseline ungültig, Haupthost unerreichbar, ...)
+      (auch: Drift, deren Stundung abgelaufen ist)
+  2 = Tool-/Konfigurationsfehler (Haupthost unerreichbar, ...)
 
 Aufruf:
   python3 tools/reconcile_registry_live.py                  # host-aware (lokal + SSH je prod_host)
@@ -84,7 +92,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import befund_journal  # noqa: E402 — Deklarationen, #3495 V2
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-BASELINE_PATH = REPO_ROOT / "infra" / "reconcile-baseline.yaml"
 HOSTS_PATH = REPO_ROOT / "infra" / "hosts.yaml"
 
 #: Dienste ohne `prod_host` in ports.yaml liegen auf dem historischen Einzelhost.
@@ -166,26 +173,35 @@ def lokaler_host(hosts: dict[str, dict]) -> str | None:
     return None
 
 
-def load_baseline() -> list[dict]:
-    if not BASELINE_PATH.exists():
-        return []
-    data = yaml.safe_load(BASELINE_PATH.read_text()) or {}
-    entries = data.get("known_drift", [])
-    today = dt.date.today()
-    for e in entries:
-        for field in ("id", "reason", "owner", "expires_at"):
-            if not e.get(field):
-                sys.exit(
-                    f"BASELINE-FEHLER: Eintrag ohne Pflichtfeld '{field}': {e} "
-                    "(E2-Waiver-Muster: owner + expires_at sind Pflicht)"
-                )
-        expires = dt.date.fromisoformat(str(e["expires_at"]))
-        if expires < today:
-            sys.exit(
-                f"BASELINE-FEHLER: Eintrag '{e['id']}' ist am {expires} abgelaufen "
-                "— fail-closed: verlängern (bewusst, mit Grund) oder Drift beheben."
-            )
-    return entries
+def gestundet(ids: list[str], heute: str | None = None) -> set[str]:
+    """Die Drift-IDs, fuer die HEUTE eine gueltige ``stundung`` gilt (#3507).
+
+    Gelesen nur ueber ``befund_journal.deklarationen_fuer`` — dieselbe Funktion
+    wie fuer ``auf_zuruf``. Ohne ``gueltig_bis`` oder abgelaufen: keine Stundung,
+    der Fund zaehlt als NEU.
+    """
+    return {
+        i for i in ids if befund_journal.deklarationen_fuer(i, heute, art="stundung")
+    }
+
+
+def abgelaufene_stundungen(heute: str | None = None) -> list[dict]:
+    """Stundungen, deren ``gueltig_bis`` verstrichen ist — fuer die Bericht-Zeile.
+
+    Alle, nicht nur die mit aktuellem Fund: eine abgelaufene Stundung ohne Fund
+    ist Aufraeumarbeit (Drift behoben, Eintrag vergessen) und soll sichtbar sein.
+    """
+    tag = heute or dt.datetime.now(dt.timezone.utc).date().isoformat()
+    return sorted(
+        (
+            d
+            for d in befund_journal.lade_deklarationen()
+            if d.get("art") == "stundung"
+            and befund_journal.deklarations_fehler(d) is None
+            and tag > str(d["gueltig_bis"]).strip()
+        ),
+        key=lambda d: str(d.get("ziel")),
+    )
 
 
 def live_containers(ssh: str | None) -> dict[str, list[int]]:
@@ -247,8 +263,6 @@ def main() -> int:
     args = ap.parse_args()
 
     canonical, ports_decl = load_declared()
-    baseline = load_baseline()
-    baseline_ids = {e["id"] for e in baseline}
 
     drift: list[tuple[str, str]] = []  # (drift_id, beschreibung)
 
@@ -431,6 +445,7 @@ def main() -> int:
             )
         )
 
+    baseline_ids = gestundet([i for i, _ in drift])
     k = klassifizieren(drift, baseline_ids)
     n_drift = len(k["drift_neu"]) + len(k["drift_baselined"])
     n_unreach = len(k["unreachable_neu"]) + len(k["unreachable_baselined"])
@@ -453,10 +468,16 @@ def main() -> int:
             if (cfg.get("prod_host") or DEFAULT_PROD_HOST) == h
         )
         print(f"  [SCHLAEFT] {h} — C1/C2 für {betroffen} Dienst(e) ungeprüft ({grund})")
+    for d in abgelaufene_stundungen():
+        print(
+            f"  [ABGELAUFEN] Stundung {d['ziel']} gueltig bis {d['gueltig_bis']} — "
+            "wirkt nicht mehr (governance/deklarationen.json)"
+        )
     if k["drift_neu"] or k["unreachable_neu"]:
         print(
             "\n→ Exit 1 = FUND-Signal (neue Drift bzw. Host nicht lesbar), kein Tool-Fehler. "
-            "Triage: beheben ODER mit owner+expires_at in infra/reconcile-baseline.yaml."
+            "Triage: beheben ODER stunden: tools/befund_journal.py --deklaration "
+            "'<ID>' --art stundung --grund '<Satz>' --gueltig-bis YYYY-MM-DD."
         )
         return 1
     print("→ Keine neue Drift, kein neu unerreichbarer Host gegenüber Baseline.")
