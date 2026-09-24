@@ -141,43 +141,95 @@ def seite(basis: str) -> str:
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>An Lotse</title>
 <style>
-:root{{--bg:#fff;--fg:#1a1a1a;--mute:#666;--rand:#ccc;--akzent:#1f5fbf}}
-@media (prefers-color-scheme:dark){{:root{{--bg:#16181c;--fg:#e8e8e8;--mute:#9a9a9a;--rand:#3a3d44;--akzent:#7fb0ff}}}}
+:root{{--bg:#fff;--fg:#1a1a1a;--mute:#666;--rand:#ccc;--akzent:#1f5fbf;--ok:#2e7d32;--ok-bg:#eaf5ea;--fehler:#c62828;--fehler-bg:#fdecea}}
+@media (prefers-color-scheme:dark){{:root{{--bg:#16181c;--fg:#e8e8e8;--mute:#9a9a9a;--rand:#3a3d44;--akzent:#7fb0ff;--ok:#66bb6a;--ok-bg:#1c2b1d;--fehler:#ef5350;--fehler-bg:#2e1b1b}}}}
 body{{background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:44rem;margin:2rem auto;padding:0 16px}}
 input,textarea{{width:100%;box-sizing:border-box;background:var(--bg);color:var(--fg);border:1px solid var(--rand);border-radius:6px;padding:.5rem;font:inherit}}
-textarea{{min-height:16rem}}
-label{{display:block;margin:.8rem 0 .2rem;color:var(--mute)}}
-button{{margin-top:1rem;padding:.5rem 1.2rem;border:0;border-radius:6px;background:var(--akzent);color:var(--bg);font:inherit;cursor:pointer}}
-.knopf{{display:inline-block;padding:.3rem .8rem;border:1px dashed var(--akzent);border-radius:6px;color:var(--akzent);text-decoration:none}}
-#status{{margin-top:1rem;min-height:1.5rem}}
+textarea{{min-height:12rem}}
+h1{{font-size:1.5rem;margin-bottom:.3rem}}
+h2{{font-size:1.1rem;margin:0 0 .6rem}}
+.lead{{color:var(--mute);margin-top:0}}
+.karte{{border:1px solid var(--rand);border-radius:10px;padding:1rem 1.2rem;margin:1.2rem 0}}
+.karte ol{{margin:.3rem 0 .8rem;padding-left:1.3rem}}
+.karte li{{margin:.25rem 0}}
+.klein{{color:var(--mute);font-size:.9rem}}
+kbd{{border:1px solid var(--rand);border-radius:4px;padding:0 .3rem;font:inherit;font-size:.85rem}}
+button{{margin-top:.8rem;padding:.6rem 1.4rem;border:0;border-radius:6px;background:var(--akzent);color:var(--bg);font:inherit;font-weight:600;cursor:pointer}}
+.knopf{{display:inline-block;margin:.4rem 0;padding:.6rem 1.4rem;border-radius:6px;background:var(--akzent);color:var(--bg);font-weight:600;text-decoration:none;cursor:grab}}
+label{{display:block;margin:.8rem 0 .3rem;font-weight:600}}
+#ergebnis{{display:none;border-radius:10px;padding:1rem 1.2rem;margin:1.2rem 0}}
+#ergebnis.ok{{display:block;background:var(--ok-bg);border:1px solid var(--ok)}}
+#ergebnis.fehler{{display:block;background:var(--fehler-bg);border:1px solid var(--fehler)}}
+#ergebnis.warte{{display:block;border:1px dashed var(--rand)}}
+#befehl{{display:block;margin:.5rem 0;padding:.5rem;border-radius:6px;background:var(--bg);border:1px solid var(--rand);word-break:break-all}}
+body.uebergabe .karte{{display:none}}
 </style></head><body>
-<h1>An Lotse</h1>
-<p>Artikel aus deinem angemeldeten Browser für den Lotsen ablegen. Danach im Raum:
-<code>analysiere &lt;URL&gt;</code>.</p>
-<p>Lesezeichen (in die Lesezeichenleiste ziehen): <a class="knopf" href="{knopf}">An Lotse</a></p>
+<h1>Artikel an den Lotsen geben</h1>
+<p class="lead">Für Artikel hinter einer Bezahlschranke (Medium und ähnliche Dienste): Du holst den Text in deinem angemeldeten Browser, der Lotse wertet ihn aus.</p>
+
+<div id="ergebnis" role="status"></div>
+
+<section class="karte">
+<h2>Weg A: mit dem Knopf „An Lotse“ (am Computer)</h2>
+<p><b>Einmal einrichten:</b></p>
+<ol>
+<li>Lesezeichenleiste einblenden: <kbd>Strg</kbd>+<kbd>Umschalt</kbd>+<kbd>B</kbd> (Mac: <kbd>⌘</kbd>+<kbd>Umschalt</kbd>+<kbd>B</kbd>).</li>
+<li>Den blauen Knopf mit der Maus <b>in die Lesezeichenleiste ziehen</b>:<br>
+<a class="knopf" id="knopf" href="{knopf}">📎 An Lotse</a></li>
+</ol>
+<p><b>Danach, bei jedem Artikel:</b></p>
+<ol>
+<li>Artikel wie gewohnt öffnen.</li>
+<li>In der Lesezeichenleiste auf <b>An Lotse</b> klicken.</li>
+<li>Ein Fenster meldet <b>„Abgelegt“</b> und zeigt den Satz für den Raum.</li>
+</ol>
+</section>
+
+<section class="karte">
+<h2>Weg B: ohne Knopf (auch am Handy)</h2>
 <form id="f">
-<label for="url">URL des Artikels</label><input id="url" type="url" required>
-<label for="titel">Titel</label><input id="titel">
-<label for="text">Text (markieren, kopieren, hier einfügen)</label><textarea id="text" required></textarea>
-<button type="submit">Ablegen</button>
+<label for="url">1. Link des Artikels einfügen</label>
+<input id="url" type="url" required placeholder="https://…">
+<label for="text">2. Im Artikel alles markieren, kopieren und hier einfügen</label>
+<p class="klein">Am Computer: <kbd>Strg</kbd>+<kbd>A</kbd>, <kbd>Strg</kbd>+<kbd>C</kbd>, hier <kbd>Strg</kbd>+<kbd>V</kbd>. Am Handy: lange tippen, „Alles auswählen“, „Kopieren“.</p>
+<textarea id="text" required></textarea>
+<button type="submit">An Lotse geben</button>
 </form>
-<div id="status" role="status"></div>
+</section>
+
 <script>
 const $=id=>document.getElementById(id);
-async function ablegen(){{
-  $('status').textContent='lege ab …';
-  const r=await fetch('/lesen',{{method:'POST',headers:{{'Content-Type':'application/json'}},
-    body:JSON.stringify({{url:$('url').value,titel:$('titel').value,text:$('text').value}})}});
-  const j=await r.json().catch(()=>({{fehler:r.statusText}}));
-  $('status').textContent=r.ok?'Abgelegt. Im Raum: analysiere '+$('url').value:'Fehler: '+(j.fehler||r.status);
+function zeige(klasse,html){{const e=$('ergebnis');e.className=klasse;e.innerHTML=html;e.scrollIntoView({{block:'nearest'}});}}
+function esc(s){{return s.replace(/[&<>"]/g,c=>({{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}})[c]);}}
+async function ablegen(url,titel,text){{
+  zeige('warte','Wird abgelegt …');
+  titel=titel||(text.split('\\n').find(z=>z.trim())||'').trim().slice(0,200);
+  let r,j;
+  try{{
+    r=await fetch('/lesen',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{url,titel,text}})}});
+    j=await r.json();
+  }}catch(e){{r={{ok:false}};j={{fehler:'keine Verbindung zum Server'}};}}
+  if(!r.ok){{
+    zeige('fehler','<b>Nicht abgelegt.</b> Grund: '+esc(j.fehler||'unbekannt')+'<br><span class="klein">Bitte Link und Text prüfen und noch einmal versuchen.</span>');
+    document.body.classList.remove('uebergabe');return;
+  }}
+  const befehl='analysiere '+url;
+  zeige('ok','<b>✓ Abgelegt:</b> '+esc(titel||url)+'<br>Jetzt im Raum schreiben:<code id="befehl">'+esc(befehl)+'</code><button type="button" id="kopieren">Satz kopieren</button>');
+  $('kopieren').onclick=async()=>{{try{{await navigator.clipboard.writeText(befehl);$('kopieren').textContent='✓ kopiert';}}catch(e){{$('kopieren').textContent='bitte von Hand kopieren';}}}};
 }}
-$('f').addEventListener('submit',e=>{{e.preventDefault();ablegen()}});
+$('f').addEventListener('submit',e=>{{e.preventDefault();ablegen($('url').value.trim(),'',$('text').value);}});
+$('knopf').addEventListener('click',e=>{{e.preventDefault();zeige('warte','Nicht hier klicken: den Knopf mit der Maus <b>in die Lesezeichenleiste ziehen</b>.');}});
 addEventListener('message',e=>{{
   if(e.source!==window.opener||!e.data||e.data.typ!=='lotse-lesen')return;
-  $('url').value=e.data.url||'';$('titel').value=e.data.titel||'';$('text').value=e.data.text||'';
-  ablegen();
+  ablegen(e.data.url||'',e.data.titel||'',e.data.text||'');
 }});
-if(window.opener)window.opener.postMessage({{typ:'lotse-lesen-bereit'}},'*');
+if(window.opener){{
+  document.body.classList.add('uebergabe');
+  zeige('warte','Artikel wird übernommen …');
+  window.opener.postMessage({{typ:'lotse-lesen-bereit'}},'*');
+  setTimeout(()=>{{if($('ergebnis').className==='warte'){{document.body.classList.remove('uebergabe');
+    zeige('fehler','<b>Der Knopf konnte den Artikel nicht übergeben.</b> Die Seite blockiert das. Nutze bitte Weg B unten.');}}}},6000);
+}}
 </script>
 </body></html>
 """
