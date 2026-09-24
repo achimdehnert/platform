@@ -39,10 +39,20 @@ Contract (wie die uebrigen Hooks hier): Event-JSON auf stdin, IMMER exit 0,
 niemals eine Exception nach aussen. Bei einem Treffer freier Text auf stdout —
 den sieht Claude als Kontext-Vorspann dieser Runde. Ohne Treffer: still.
 
+5. **Einmal je Sitzung** (dev-hub#382, 2026-09-24). Jeder injizierte Kopf bleibt
+   im Kontext und wird bei jedem Folgeschritt mitgelesen — gemessen: 76 % des
+   Wochen-Kontingents sind wiedergelesener Kontext. In einer Sitzung trug fast
+   jede Owner-Nachricht (auch „56 go") denselben ~2-KB-Block erneut. Jetzt merkt
+   sich der Hook je ``session_id``, welche Policies schon drin sind, und
+   injiziert nur neue. Ohne ``session_id`` oder ohne schreibbaren Zustand:
+   Verhalten wie vorher (fail-open). Bewusster Preis: nach einer Kompaktierung
+   kommt ein Kopf nicht erneut — er ist nur ein Zeiger, der Volltext bleibt lesbar.
+
 Env:
   POLICY_DIR               Policy-Verzeichnis (Default ~/.claude/policies).
   POLICY_KOPF_BYTES        Deckel je Policy (Default 1500). 0 deaktiviert.
   POLICY_INJEKTION_BYTES   Deckel gesamt (Default 6000).
+  POLICY_STATE_DIR         Merkliste je Sitzung (Default ~/.cache/inject-policies).
 """
 
 from __future__ import annotations
@@ -51,6 +61,7 @@ import json
 import os
 import re
 import sys
+import time
 from pathlib import Path
 
 TRIGGER_LINE_RE = re.compile(r"\*\*Trigger words:\*\*\s*(.+)", re.IGNORECASE)
@@ -61,6 +72,8 @@ REGEL_RE = re.compile(r"^(rule|regel)\b", re.IGNORECASE)
 KOPF_BYTES_DEFAULT = 1500
 GESAMT_BYTES_DEFAULT = 6000
 KERN_ZEILEN = 5
+STATE_AUFBEWAHRUNG_S = 7 * 24 * 3600
+_SESSION_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")  # wird Dateiname
 
 # Maschinen-Huellen am Prompt-Anfang. Ein Mensch beginnt seine Nachricht nicht
 # so; die Abschlussmeldung eines Hintergrund-Agenten und der Kompaktierungs-
@@ -300,6 +313,37 @@ def _zusammensetzen(teile: list[str], uebrig: list[Path], gesamt_budget: int) ->
     return "\n".join(out) + "\n"
 
 
+def state_dir() -> Path:
+    return Path(
+        os.environ.get("POLICY_STATE_DIR")
+        or (Path.home() / ".cache" / "inject-policies")
+    )
+
+
+def schon_injiziert(verzeichnis: Path, session_id: str) -> set[str]:
+    """Policy-Pfade, deren Kopf in dieser Sitzung schon im Kontext steht."""
+    try:
+        return set(json.loads((verzeichnis / f"{session_id}.json").read_text()))
+    except (OSError, ValueError, TypeError):
+        return set()
+
+
+def merke_injiziert(verzeichnis: Path, session_id: str, pfade: set[str]) -> None:
+    """Merkliste schreiben; alte Sitzungen raeumen. Jeder Fehler: still."""
+    try:
+        verzeichnis.mkdir(parents=True, exist_ok=True, mode=0o700)
+        grenze = time.time() - STATE_AUFBEWAHRUNG_S
+        for alt in verzeichnis.glob("*.json"):
+            if alt.stat().st_mtime < grenze:
+                alt.unlink(missing_ok=True)
+        ziel = verzeichnis / f"{session_id}.json"
+        tmp = ziel.with_suffix(".tmp")
+        tmp.write_text(json.dumps(sorted(pfade)))
+        tmp.replace(ziel)
+    except OSError:
+        pass
+
+
 def baue_ausgabe(
     matched: list[Path],
     kopf_budget: int = KOPF_BYTES_DEFAULT,
@@ -342,9 +386,20 @@ def main() -> int:
         return 0
     gesamt = int(os.environ.get("POLICY_INJEKTION_BYTES") or GESAMT_BYTES_DEFAULT)
 
-    text = baue_ausgabe(find_matches(prompt, load_triggers()), kopf_budget, gesamt)
+    treffer = find_matches(prompt, load_triggers())
+    session_id = str(event.get("session_id") or "")
+    gemerkt: set[str] | None = None
+    if _SESSION_ID_RE.match(session_id):
+        gemerkt = schon_injiziert(state_dir(), session_id)
+        treffer = [p for p in treffer if str(p) not in gemerkt]
+
+    text = baue_ausgabe(treffer, kopf_budget, gesamt)
     if text:
         sys.stdout.write(text)
+        if gemerkt is not None:
+            merke_injiziert(
+                state_dir(), session_id, gemerkt | {str(p) for p in treffer}
+            )
     return 0
 
 
