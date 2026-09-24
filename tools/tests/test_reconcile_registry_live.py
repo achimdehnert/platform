@@ -428,6 +428,98 @@ def test_should_report_unreachable_separately_from_drift_count(monkeypatch, caps
     assert rc == 1
 
 
+# ---------------------------------------------------------------------------
+# `betrieb: auf_zuruf` (#3471): ein planmaessig schlafender Host (GPU-Box,
+# WSL seit #3364 aus) darf keinen C0-Fund erzeugen — Muster flottenbild.py.
+# ---------------------------------------------------------------------------
+
+_HOSTS_AUF_ZURUF = {
+    "prod": {"ssh": "root@P", "hostname": "host-p"},
+    "prod-b": {"ssh": "root@B", "cloud_name": "host-b", "betrieb": "auf_zuruf"},
+}
+
+
+def test_should_report_schlaeft_not_c0_when_auf_zuruf_host_probe_fails(
+    monkeypatch, capsys
+):
+    """(a) auf_zuruf + Probe scheitert -> kein C0, eigene SCHLAEFT-Zeile,
+    Drift-/Unreachable-Kennzahlen bleiben bei 0."""
+    canonical = {"svc-b": {"rich": {"deployed": True}}}
+    ports_decl = {
+        "svc-b": {"prod": 8088, "container_name": "svc_b_web", "prod_host": "prod-b"},
+    }
+    _patch_io_multi(
+        monkeypatch,
+        canonical,
+        ports_decl,
+        je_ssh={
+            "root@P": {},
+            "root@B": RuntimeError("docker: 'docker ps' accepts no arguments"),
+        },
+    )
+    monkeypatch.setattr(rrl, "load_hosts", lambda: _HOSTS_AUF_ZURUF)
+
+    rc = _run(monkeypatch, argv=["--skip-dns"])
+
+    out = capsys.readouterr().out
+    assert "C0:prod-b" not in out
+    assert "C2:svc-b" not in out
+    assert (
+        "[SCHLAEFT] prod-b — betrieb: auf_zuruf, C1/C2 für 1 Dienst(e) ungeprüft" in out
+    )
+    assert "Drift-Kennzahl: drift: 0 (0 NEU + 0 baselined) · unreachable: 0" in out
+    assert rc == 0
+
+
+def test_should_still_report_c0_when_host_without_betrieb_probe_fails(
+    monkeypatch, capsys
+):
+    """(b) Gegenprobe: ein Host OHNE `betrieb: auf_zuruf` bleibt unveraendert
+    C0 — die Deklaration ist die Ausnahme, nicht der neue Normalfall."""
+    canonical = {"svc-b": {"rich": {"deployed": True}}}
+    ports_decl = {
+        "svc-b": {"prod": 8088, "container_name": "svc_b_web", "prod_host": "prod-b"},
+    }
+    _patch_io_multi(
+        monkeypatch,
+        canonical,
+        ports_decl,
+        je_ssh={"root@P": {}, "root@B": RuntimeError("ssh: connect: no route")},
+    )
+    # _HOSTS (Default-Fixture) deklariert kein `betrieb` fuer prod-b.
+
+    rc = _run(monkeypatch, argv=["--skip-dns"])
+
+    out = capsys.readouterr().out
+    assert "C0:prod-b" in out
+    assert "[SCHLAEFT]" not in out
+    assert rc == 1
+
+
+def test_should_check_normally_when_auf_zuruf_host_probe_succeeds(monkeypatch, capsys):
+    """(c) auf_zuruf, aber die Probe gelingt (Box ist gerade an) -> ganz
+    normal C1/C2-geprueft, keine SCHLAEFT-Zeile."""
+    canonical = {"svc-b": {"rich": {"deployed": True}}}
+    ports_decl = {
+        "svc-b": {"prod": 8088, "container_name": "svc_b_web", "prod_host": "prod-b"},
+    }
+    _patch_io_multi(
+        monkeypatch,
+        canonical,
+        ports_decl,
+        je_ssh={"root@P": {}, "root@B": {"svc_b_web": [8088]}},
+    )
+    monkeypatch.setattr(rrl, "load_hosts", lambda: _HOSTS_AUF_ZURUF)
+
+    rc = _run(monkeypatch, argv=["--skip-dns"])
+
+    out = capsys.readouterr().out
+    assert "[SCHLAEFT]" not in out
+    assert "C0:prod-b" not in out
+    assert "C2:svc-b" not in out
+    assert rc == 0
+
+
 def test_should_exit_zero_when_unreachable_host_is_baselined(monkeypatch, capsys):
     canonical = {"svc-b": {"rich": {"deployed": True}}}
     ports_decl = {
