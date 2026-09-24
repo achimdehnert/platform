@@ -121,15 +121,16 @@ for repo, rs in sorted(by_repo.items()):
     rep["phase1"][repo] = {k: v for k, v in f.items() if v and k != "n"} | {"n": f["n"]}
 
 # ---------- Phase 2.3 Supersession (innerhalb je Repo, da Nummern repo-lokal) ----------
-# Alle drei Regeln unten bleiben lokal — nicht in iil_adrfw.rules.drift (Stand
-# 0.9.0), Kandidat fuer Schritt 4, Refs #3457: pruefe_adr() gibt fuer ADRs mit
+# Alle drei Regeln unten bleiben lokal (Refs #3457, Kandidat fuer Schritt 4) —
+# nicht in iil_adrfw.rules.drift (Stand 0.9.0): pruefe_adr() gibt fuer ADRs mit
 # terminalem Status (u.a. "superseded", siehe ADRStatus/TERMINAL_STATUSES)
 # sofort leere Klassen zurueck — die Bibliothek bewertet ein bereits
-# abgeloestes ADR bewusst nicht weiter. Referenz-Integritaet (kaputtes/falsch
-# verweisendes supersedes/superseded_by, oder superseded ohne superseded_by)
-# ist dort keine eigene Regel; SUPERSEDED_REF prueft etwas anderes (ob ein
-# NICHT-terminales ADR auf ein bereits abgeloestes `related_adrs`-Ziel
-# verweist), nicht die Feld-Konsistenz von supersedes/superseded_by selbst.
+# abgeloestes ADR bewusst nicht weiter (Refs #3457). Referenz-Integritaet
+# (kaputtes/falsch verweisendes supersedes/superseded_by, oder superseded ohne
+# superseded_by) ist dort keine eigene Regel; SUPERSEDED_REF prueft etwas
+# anderes (ob ein NICHT-terminales ADR auf ein bereits abgeloestes
+# `related_adrs`-Ziel verweist), nicht die Feld-Konsistenz von
+# supersedes/superseded_by selbst.
 broken = []
 for repo, rs in by_repo.items():
     nums = {r["num"]: r for r in rs if r["num"] is not None}
