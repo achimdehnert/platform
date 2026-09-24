@@ -6,11 +6,15 @@ on:
       - "registry/repos.yaml"
       - "infra/scripts/validate_tenancy.py"
       - "infra/scripts/validate_repos.py"
+      - "Makefile"
+      - ".github/workflows/registry-lint.yml"
   pull_request:
     paths:
       - "registry/repos.yaml"
       - "infra/scripts/validate_tenancy.py"
       - "infra/scripts/validate_repos.py"
+      - "Makefile"
+      - ".github/workflows/registry-lint.yml"
 
 # Workflow-level default (least privilege, #818 permissions sweep) —
 # no job in this workflow needs to write via GITHUB_TOKEN.
@@ -31,5 +35,12 @@ jobs:
       - name: Install PyYAML
         run: pip install pyyaml
 
-      - name: Validate tenancy_mode
-        run: python3 infra/scripts/validate_tenancy.py
+      # Ueber das Make-Ziel statt per Direktaufruf, damit tools/ci_deckung.py
+      # das Ziel `lint-tenancy` als in CI ausgefuehrt erkennt (platform#3472,
+      # Session-Start 2026-09-24 #3471). Bewusst NICHT `make lint-registry`:
+      # das schliesst validate_repos.py ein, und der meldet heute 8 bekannte
+      # Inkonsistenzen ports.yaml <-> Registry (archivierte Hubs, mcp-hub 8000
+      # vs. 3000, chat-hub/lotse-raum ohne Registry-Eintrag) — als CI-Gate waere
+      # er sofort rot. Stundung mit Grund: governance/ci-deckung-verzicht.yaml.
+      - name: tenancy_mode validieren (make lint-tenancy)
+        run: make lint-tenancy

@@ -1,0 +1,60 @@
+# platform-make-checks.yml — Make-Ziele, die bisher NUR lokal liefen.
+#
+# tools/ci_deckung.py (platform#2990) loest seit 2026-09-24 wiederverwendbare
+# Workflows auf und sah danach in platform fuenf Make-Ziele ohne CI-Aufrufer
+# (platform#3472). Zwei davon sind reine Offline-Pruefungen mit eigenem
+# Akzeptanzkriterium und gehoeren in CI:
+#
+#   boards-check   K1-Beleg #2592: beide Board-Renderer sind reproduzierbar
+#                  (zweimal bauen mit festem Stichtag, byteweise identisch)
+#   betrieb-check  K4 #3015: jeder Backlog-Vorschlag traegt Gegenrede,
+#                  Alternative und Anker
+#
+# Die uebrigen drei: lint-tenancy laeuft in registry-lint.yml ueber das
+# Make-Ziel; check-push und workflow-lint sind lokale Spiegel von Gates, die in
+# CI direkt laufen; lint-registry ist gestundet, weil validate_repos.py heute
+# 8 bekannte Inkonsistenzen meldet — alles mit Grund in
+# governance/ci-deckung-verzicht.yaml.
+#
+# Pfadfilter = die Eingaben der beiden Ziele. Beide brauchen kein Netz, kein
+# Secret, keinen Prod-Zugriff (lokal gemessen 2026-09-24: je < 10 s).
+name: platform-make-checks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Makefile"
+      - "tools/mail_agent/**"
+      - "tools/todo_board/**"
+      - "tools/betrieb_backlog_check.py"
+      - "docs/betrieb/**"
+      - ".github/workflows/platform-make-checks.yml"
+  pull_request:
+    paths:
+      - "Makefile"
+      - "tools/mail_agent/**"
+      - "tools/todo_board/**"
+      - "tools/betrieb_backlog_check.py"
+      - "docs/betrieb/**"
+      - ".github/workflows/platform-make-checks.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  make-checks:
+    name: boards-check + betrieb-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml
+      - name: Board-Renderer reproduzierbar (K1 #2592)
+        run: make boards-check
+      - name: Backlog-Vorschlaege vollstaendig (K4 #3015)
+        run: make betrieb-check

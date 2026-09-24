@@ -22,3 +22,19 @@
 - repo: chat-hub
   ziel: chat-verify-init
   grund: "Prod-Zugriff — legt per docker exec einen echten Matrix-Nutzer an einem laufenden Homeserver an, dieselbe Begruendung wie chat-verify."
+
+# platform: drei lokale Spiegel-Ziele (platform#3472, Session-Start 2026-09-24 #3471).
+# Das Werkzeug matcht Kommandotext; ein Make-Ziel, dessen Pruefung in CI unter
+# anderem Namen laeuft, braucht den Verzicht MIT dem Ort, an dem sie laeuft.
+
+- repo: platform
+  ziel: check-push
+  grund: "Lokaler Spiegel der Push-Gates. Drei der vier laufen in CI direkt: check_registry_view_readers.py (registry-consistency.yml, tools-tests.yml), publish_gate_invariant.sh (validate-workflows.yml, pypi-fleet-health.yml), check_publish_gate.py (pypi-gate-meter.yml). Das vierte, tools/checks/mandantendaten_gate.py diff, vergleicht gegen Quellen, die bewusst NICHT im Repo liegen (~/.claude/mail-vorgaenge.json, Paperless) — laut eigenem Docstring ein lokaler Riegel, den CI nicht fuehren kann."
+
+- repo: platform
+  ziel: workflow-lint
+  grund: "Convenience-Preflight laut Makefile (KEIN Hard-Gate). yamllint und actionlint laufen in CI direkt in validate-workflows.yml mit denselben Configs; das Make-Ziel spiegelt sie nur lokal."
+
+- repo: platform
+  ziel: lint-registry
+  grund: "STUNDUNG, kein Dauerzustand: validate_repos.py meldet 8 Inkonsistenzen zwischen ports.yaml und der Repo-Registry (wedding-hub/recruiting-hub/onboarding-hub archiviert aber in ports.yaml; chat-hub, lotse-raum, chathub-rtc-livekit-7881/7882 ohne Registry-Eintrag; mcp-hub port_prod 8000 vs. 3000). Als CI-Gate sofort rot; die Klaerung braucht Owner-Entscheide (mcp-hub-Port ist seit Juli baselined, C4:8000). Der tenancy-Teil laeuft in registry-lint.yml ueber make lint-tenancy. Anker mit Akzeptanzkriterium: platform#3477."
