@@ -39,17 +39,18 @@ Das Journal liegt neben `befund-journal.json` unter `~/.claude/`; ein Host-Eingr
 (XDISK aktivieren) waere IaC-pflichtig und liefert nichts, was das Journal nicht
 auch liefert.
 
-Schlafende Knoten (`betrieb: auf_zuruf`)
------------------------------------------
+Schlafende Knoten (Deklaration `auf_zuruf`)
+-------------------------------------------
 `gpu-box` laeuft seit dem Owner-Entscheid 2026-08-31 nur auf Zuruf (Wake-on-LAN,
-WSL seit 2026-09-22 aus, platform#3364) — `infra/hosts.yaml` traegt dafuer
-`betrieb: auf_zuruf`. Ohne diese Unterscheidung meldet der Melder bei jedem
-Sitzungsstart `WARN: nicht erreichbar: gpu-box`, obwohl die Box planmaessig aus
-ist (platform#3471). `flottenbild.py` kennt das Muster laengst (Zeilen ~115–123):
-unerreichbar + `auf_zuruf` → Zustand `schlaeft`, Info statt Befund. Dieser Melder
-uebernimmt es: ein solcher Host landet in `schlaeft`, nicht in `unerreichbar`,
-und loest kein WARN aus. Ist er erreichbar, wird er wie jeder andere Host
-gemessen — `betrieb` schaltet nur die Bewertung der Unerreichbarkeit um.
+WSL seit 2026-09-22 aus, platform#3364). Ohne diese Unterscheidung meldet der
+Melder bei jedem Sitzungsstart `WARN: nicht erreichbar: gpu-box`, obwohl die Box
+planmaessig aus ist (platform#3471). Ein unerreichbarer Host mit einer gueltigen
+Deklaration `auf_zuruf` landet in `schlaeft`, nicht in `unerreichbar`, und loest
+kein WARN aus. Ist er erreichbar, wird er wie jeder andere Host gemessen. Die
+Deklaration kommt aus `befund_journal.deklarationen_fuer()` — derselben
+Funktion, die `flottenbild.py` und `reconcile_registry_live.py` fragen — und
+traegt ein Ablaufdatum: am Tag danach meldet dieser Melder den Host wieder
+(#3495 V2).
 
 Exit-Codes
 ----------
@@ -58,7 +59,7 @@ Exit-Codes
 3 = sauber gemessen, aber `--nur HOST` liess Hosts aus (Scope-Luecke) — gleicher
     Vertrag wie backup_deckung.py, damit der Workflow beide gleich liest.
 Ein einzelner unerreichbarer Host ist ein WARN-Befund, kein Werkzeugfehler —
-ausser er ist ein schlafender Knoten (`betrieb: auf_zuruf`, siehe oben).
+ausser er ist ein schlafender Knoten (Deklaration `auf_zuruf`, siehe oben).
 
 Usage
 -----
@@ -79,6 +80,9 @@ from pathlib import Path
 from statistics import median
 
 import yaml
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import befund_journal  # noqa: E402 — Deklarationen, #3495 V2
 
 WARN_TAGE = 7
 WARN_PROZENT_FREI = 10.0
@@ -169,23 +173,6 @@ def lade_hops(pfad: Path) -> dict[str, str]:
         name: str(cfg["ssh_via"]).split()[0]
         for name, cfg in roh.items()
         if isinstance(cfg, dict) and cfg.get("ssh_via")
-    }
-
-
-def lade_betrieb(pfad: Path) -> dict[str, str]:
-    """Name -> `betrieb` aus `infra/hosts.yaml`, z. B. `auf_zuruf` (gpu-box).
-
-    Owner-Entscheid 2026-08-31 (platform#3364): ein Knoten mit `betrieb: auf_zuruf`
-    laeuft planmaessig nur auf Zuruf (Wake-on-LAN) — Unerreichbarkeit ist dann kein
-    Befund, sondern der erwartete Zustand `schlaeft` (siehe `bewerte()`). Muster:
-    `flottenbild.py::messe_knoten` Zeilen ~115–123.
-    """
-    daten = yaml.safe_load(pfad.read_text(encoding="utf-8")) or {}
-    roh = daten.get("hosts", daten) or {}
-    return {
-        name: str(cfg["betrieb"])
-        for name, cfg in roh.items()
-        if isinstance(cfg, dict) and cfg.get("betrieb")
     }
 
 
@@ -348,12 +335,12 @@ def bewerte(
     messung: dict,
     journal: list[dict],
     heute: date,
-    betrieb: dict[str, str] | None = None,
+    deklarationen: Path | None = None,
 ) -> dict:
-    """`betrieb` = Name -> `betrieb` aus `lade_betrieb()`. Ein unerreichbarer Host
-    mit `betrieb == "auf_zuruf"` landet in `schlaeft` (Info), nicht in
-    `unerreichbar` (WARN) — siehe Docstring-Abschnitt „Schlafende Knoten" oben."""
-    betrieb = betrieb or {}
+    """Ein unerreichbarer Host mit gueltiger Deklaration `auf_zuruf` (Stand
+    ``heute``) landet in `schlaeft` (Info), nicht in `unerreichbar` (WARN) —
+    siehe Docstring-Abschnitt „Schlafende Knoten" oben. ``deklarationen`` ist
+    der Pfad der Deklarations-Datei (Tests); ``None`` = Vorgabe des Journals."""
     platten = []
     for host, liste in messung.items():
         if liste is None:
@@ -381,7 +368,10 @@ def bewerte(
     for h, v in messung.items():
         if v is not None:
             continue
-        (schlaeft if betrieb.get(h) == "auf_zuruf" else unerreichbar).append(h)
+        auf_zuruf = befund_journal.deklarationen_fuer(
+            h, heute, art="auf_zuruf", pfad=deklarationen
+        )
+        (schlaeft if auf_zuruf else unerreichbar).append(h)
     return {
         "heute": heute.isoformat(),
         "unerreichbar": sorted(unerreichbar),
@@ -481,6 +471,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--hosts", type=Path, default=HOSTS_YAML)
     p.add_argument("--heute", default=None, help="YYYY-MM-DD (Tests)")
     p.add_argument(
+        "--deklarationen",
+        type=Path,
+        default=None,
+        help="Deklarations-Datei (Tests; Vorgabe: befund_journal)",
+    )
+    p.add_argument(
         "--df-fixtures", type=Path, help="Verzeichnis mit <host>.txt statt ssh"
     )
     p.add_argument("--nur", action="append", default=None, help="nur diese(n) Host(s)")
@@ -513,7 +509,7 @@ def main(argv: list[str] | None = None) -> int:
             shells=lade_shells(a.hosts),
         )
     journal = schreibe_journal(a.journal, lies_journal(a.journal), heute, messung)
-    e = bewerte(messung, journal, heute, betrieb=lade_betrieb(a.hosts))
+    e = bewerte(messung, journal, heute, deklarationen=a.deklarationen)
     e["ausserhalb"] = ausserhalb
 
     if a.als_json:

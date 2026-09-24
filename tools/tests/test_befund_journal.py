@@ -990,3 +990,139 @@ def test_should_include_fix_in_json_report(journal: Path, capsys) -> None:
     satz = next(s for s in saetze if s["id"] == fid)
     assert satz["fix"]["pr"] == "https://example/pull/1"
     assert satz["fix_ueberfaellig"] is True
+
+
+# ── Deklarationen mit Pflicht-Ablauf (#3495 V2) ──────────────────────────────
+
+
+@pytest.fixture
+def dekl(tmp_path: Path) -> Path:
+    """Nie die echte governance/deklarationen.json."""
+    return tmp_path / "deklarationen.json"
+
+
+def _dekl_cli(dekl: Path, *args: str) -> int:
+    return bj.main([*args, "--deklarationen", str(dekl)])
+
+
+def test_should_set_and_read_declaration(dekl, capsys):
+    rc = _dekl_cli(
+        dekl,
+        "--deklaration",
+        "gpu-box",
+        "--art",
+        "auf_zuruf",
+        "--grund",
+        "Owner-Entscheid",
+        "--gueltig-bis",
+        "2099-12-31",
+    )
+    assert rc == 0
+    assert "Deklaration gesetzt: gpu-box [auf_zuruf]" in capsys.readouterr().out
+    treffer = bj.deklarationen_fuer("gpu-box", "2026-09-24", art="auf_zuruf", pfad=dekl)
+    assert [d["gueltig_bis"] for d in treffer] == ["2099-12-31"]
+    assert (
+        bj.deklarationen_fuer("gpu-box", "2026-09-24", art="stundung", pfad=dekl) == []
+    )
+    assert bj.deklarationen_fuer("gx10", "2026-09-24", pfad=dekl) == []
+
+
+def test_should_replace_declaration_with_same_target_and_kind(dekl):
+    bj.setze_deklaration("gpu-box", "auf_zuruf", "alt", "2099-01-01", pfad=dekl)
+    bj.setze_deklaration("gpu-box", "auf_zuruf", "neu", "2099-06-30", pfad=dekl)
+    alle = bj.lade_deklarationen(dekl)
+    assert [(d["grund"], d["gueltig_bis"]) for d in alle] == [("neu", "2099-06-30")]
+
+
+def test_should_refuse_declaration_without_expiry(dekl, capsys):
+    rc = _dekl_cli(
+        dekl, "--deklaration", "gpu-box", "--art", "auf_zuruf", "--grund", "x"
+    )
+    assert rc == 2
+    assert "--gueltig-bis" in capsys.readouterr().err
+    assert not dekl.exists()
+    with pytest.raises(ValueError, match="gueltig_bis fehlt"):
+        bj.setze_deklaration("gpu-box", "auf_zuruf", "x", "", pfad=dekl)
+
+
+def test_should_refuse_declaration_with_past_expiry_on_cli(dekl, capsys):
+    rc = _dekl_cli(
+        dekl,
+        "--deklaration",
+        "gpu-box",
+        "--art",
+        "auf_zuruf",
+        "--grund",
+        "x",
+        "--gueltig-bis",
+        "2000-01-01",
+    )
+    assert rc == 2
+    assert "Vergangenheit" in capsys.readouterr().err
+
+
+def test_should_ignore_hand_written_declaration_without_expiry(dekl):
+    """Ein Eintrag ohne `gueltig_bis` (von Hand ins JSON geschrieben) wirkt nie."""
+    dekl.write_text(
+        json.dumps(
+            {"deklarationen": [{"ziel": "gpu-box", "art": "auf_zuruf", "grund": "x"}]}
+        ),
+        encoding="utf-8",
+    )
+    assert bj.deklarationen_fuer("gpu-box", "2026-09-24", pfad=dekl) == []
+    zeilen = bj.deklarations_zeilen(bj.lade_deklarationen(dekl), "2026-09-24")
+    assert any("ungueltig (gueltig_bis fehlt" in z for z in zeilen)
+
+
+def test_should_expire_declaration_the_day_after_gueltig_bis(dekl):
+    """Positivkontrolle: am Tag `gueltig_bis` wirkt sie, am Tag danach nicht."""
+    bj.setze_deklaration("gpu-box", "auf_zuruf", "x", "2026-09-23", pfad=dekl)
+    assert bj.deklarationen_fuer("gpu-box", "2026-09-23", pfad=dekl)
+    assert bj.deklarationen_fuer("gpu-box", "2026-09-24", pfad=dekl) == []
+
+
+def test_should_show_active_sum_and_expired_lines_in_report(dekl, journal, capsys):
+    bj.setze_deklaration("gpu-box", "auf_zuruf", "x", "2099-12-31", pfad=dekl)
+    bj.setze_deklaration("svc-a", "stundung", "y", "2099-03-01", pfad=dekl)
+    bj.setze_deklaration("gx10", "auf_zuruf", "z", "2000-01-01", pfad=dekl)
+    bj.main(["--bericht", "--datei", str(journal), "--deklarationen", str(dekl)])
+    out = capsys.readouterr().out
+    assert "Journal leer" in out
+    assert "2 Deklaration(en) aktiv, nächste Fälligkeit 2099-03-01" in out
+    assert "⏰ Deklaration abgelaufen: gx10 [auf_zuruf] gueltig bis 2000-01-01" in out
+
+
+def test_should_leave_report_json_format_unchanged_by_declarations(
+    dekl, journal, capsys
+):
+    """`--bericht --json` bleibt eine Liste von Befunden — der Session-Start-
+    Runner und flottenbild.lese_melder lesen genau dieses Format."""
+    bj.setze_deklaration("gpu-box", "auf_zuruf", "x", "2099-12-31", pfad=dekl)
+    bj.main(
+        ["--bericht", "--json", "--datei", str(journal), "--deklarationen", str(dekl)]
+    )
+    assert json.loads(capsys.readouterr().out) == []
+
+
+def test_should_not_declare_auf_zuruf_in_hosts_yaml():
+    """Eine Quelle: `betrieb: auf_zuruf` in infra/hosts.yaml waere eine zweite,
+    ablauflose Deklaration neben governance/deklarationen.json (#3495 V2)."""
+    import yaml  # noqa: PLC0415
+
+    wurzel = Path(__file__).resolve().parents[2]
+    hosts = yaml.safe_load((wurzel / "infra/hosts.yaml").read_text(encoding="utf-8"))
+    mit_feld = sorted(
+        name
+        for name, h in (hosts.get("hosts") or {}).items()
+        if isinstance(h, dict) and h.get("betrieb") == "auf_zuruf"
+    )
+    assert mit_feld == [], f"auf_zuruf gehoert in die Deklaration: {mit_feld}"
+
+
+def test_should_keep_every_real_declaration_valid():
+    """Jede Deklaration im Repo hat Art, Ziel, Grund und `gueltig_bis`."""
+    alle = bj.lade_deklarationen(
+        Path(__file__).resolve().parents[2] / bj.DEKLARATIONEN_REL
+    )
+    fehler = [(d.get("ziel"), bj.deklarations_fehler(d)) for d in alle]
+    assert [f for f in fehler if f[1]] == []

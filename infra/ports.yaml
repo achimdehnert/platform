@@ -155,7 +155,7 @@ infra:
     betriebsstatus: blockiert
     betriebsstatus_grund: >
       Die GPU-Box laeuft nach Owner-Entscheid 2026-08-31 nur auf Zuruf (Wake-on-LAN,
-      hosts.yaml `betrieb: auf_zuruf`). Der Name antwortet deshalb nur, wenn das Geraet
+      Deklaration `auf_zuruf` in governance/deklarationen.json). Der Name antwortet deshalb nur, wenn das Geraet
       an ist — ein 502 ist dann kein Ausfall. Der Erreichbarkeits-Melder wuerde ihn
       sonst in jeder Sitzung als tot melden.
     note: >
@@ -816,8 +816,8 @@ services:
       Nachgetragen 2026-09-08 aus demselben Grund wie `ollama`: die Ausnahme
       `gpu-ollama` in hosts.yaml war ohne diesen Eintrag unlesbar fuer den Melder.
       Seit 2026-09-24 `blockiert` statt `aktiv` (platform#3471, #3115): die GPU-Box
-      laeuft nach Owner-Entscheid 2026-08-31 nur auf Zuruf (hosts.yaml
-      `betrieb: auf_zuruf`), der Origin hinter dem Tunnel hat keinen messbaren
+      laeuft nach Owner-Entscheid 2026-08-31 nur auf Zuruf (Deklaration
+      `auf_zuruf`, governance/deklarationen.json), der Origin hinter dem Tunnel hat keinen messbaren
       TLS-Port — `origin_tls_melder.py` las hier `aktiv`, mass ins Leere und
       meldete 41 Sitzungsstarts lang "nicht-messbar", obwohl der infra:-Eintrag
       derselben Datei laengst `blockiert` sagte. Zwei Eintraege, ein Dienst: #3422.

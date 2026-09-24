@@ -34,7 +34,9 @@ from pathlib import Path
 
 import yaml
 
-import hostzugang
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import befund_journal  # noqa: E402 — Deklarationen, #3495 V2
+import hostzugang  # noqa: E402
 
 WURZEL = Path(__file__).resolve().parents[1]
 HOSTS_YAML = WURZEL / "infra" / "hosts.yaml"
@@ -126,12 +128,15 @@ def messe_knoten(name: str, h: dict) -> dict:
     rc, out = _lauf(cmd, timeout=90, stdin=HOST_KOMMANDO)
     zeile = [z for z in out.splitlines() if z.count("|") >= 10]
     if rc != 0 or not zeile:
-        # `betrieb: auf_zuruf` — der Knoten laeuft planmaessig nur, wenn ihn jemand
-        # weckt (GPU-Box ab 2026-08-31, Owner-Entscheid Wake-on-LAN). Ein solcher
-        # Knoten ist nicht ausgefallen, er ist aus. Ohne diese Unterscheidung stuende
-        # er dauerhaft als "unerreichbar" im Bild — und nach drei Wochen schaut
-        # niemand mehr hin, auch nicht beim echten Ausfall (platform#2545).
-        aus = "schlaeft" if h.get("betrieb") == "auf_zuruf" else "unerreichbar"
+        # Deklaration `auf_zuruf` — der Knoten laeuft planmaessig nur, wenn ihn
+        # jemand weckt (GPU-Box ab 2026-08-31, Owner-Entscheid Wake-on-LAN). Ein
+        # solcher Knoten ist nicht ausgefallen, er ist aus. Ohne diese
+        # Unterscheidung stuende er dauerhaft als "unerreichbar" im Bild — und nach
+        # drei Wochen schaut niemand mehr hin, auch nicht beim echten Ausfall
+        # (platform#2545). Die Deklaration hat ein Ablaufdatum; danach steht der
+        # Knoten wieder als "unerreichbar" da (#3495 V2).
+        auf_zuruf = befund_journal.deklarationen_fuer(name, art="auf_zuruf")
+        aus = "schlaeft" if auf_zuruf else "unerreichbar"
         return {"knoten": name, "zustand": aus, "grund": out.strip()[:160]}
     f = zeile[-1].split("|")
     try:
