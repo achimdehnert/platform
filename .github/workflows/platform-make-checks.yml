@@ -2,22 +2,22 @@
 #
 # tools/ci_deckung.py (platform#2990) loest seit 2026-09-24 wiederverwendbare
 # Workflows auf und sah danach in platform fuenf Make-Ziele ohne CI-Aufrufer
-# (platform#3472). Zwei davon sind reine Offline-Pruefungen mit eigenem
-# Akzeptanzkriterium und gehoeren in CI:
+# (platform#3472). Eines davon ist eine reine Offline-Pruefung mit eigenem
+# Akzeptanzkriterium und gehoert in CI:
 #
-#   boards-check   K1-Beleg #2592: beide Board-Renderer sind reproduzierbar
-#                  (zweimal bauen mit festem Stichtag, byteweise identisch)
 #   betrieb-check  K4 #3015: jeder Backlog-Vorschlag traegt Gegenrede,
-#                  Alternative und Anker
+#                  Alternative und Anker (liest docs/betrieb/todo-liste.md)
 #
-# Die uebrigen drei: lint-tenancy laeuft in registry-lint.yml ueber das
-# Make-Ziel; check-push und workflow-lint sind lokale Spiegel von Gates, die in
-# CI direkt laufen; lint-registry ist gestundet, weil validate_repos.py heute
-# 8 bekannte Inkonsistenzen meldet — alles mit Grund in
+# Die uebrigen vier: lint-tenancy laeuft in registry-lint.yml ueber das
+# Make-Ziel; boards-check braucht das lokale Mail-Ledger (~/.claude/
+# mail-vorgaenge.json, bewusst nicht im Repo — erster CI-Lauf 2026-09-24 brach
+# genau daran ab); check-push und workflow-lint sind lokale Spiegel von Gates,
+# die in CI direkt laufen; lint-registry ist gestundet, weil validate_repos.py
+# heute 8 bekannte Inkonsistenzen meldet — alles mit Grund in
 # governance/ci-deckung-verzicht.yaml.
 #
-# Pfadfilter = die Eingaben der beiden Ziele. Beide brauchen kein Netz, kein
-# Secret, keinen Prod-Zugriff (lokal gemessen 2026-09-24: je < 10 s).
+# Pfadfilter = die Eingaben des Ziels. Kein Netz, kein Secret, kein
+# Prod-Zugriff (lokal gemessen 2026-09-24: < 10 s).
 name: platform-make-checks
 
 on:
@@ -25,16 +25,12 @@ on:
     branches: [main]
     paths:
       - "Makefile"
-      - "tools/mail_agent/**"
-      - "tools/todo_board/**"
       - "tools/betrieb_backlog_check.py"
       - "docs/betrieb/**"
       - ".github/workflows/platform-make-checks.yml"
   pull_request:
     paths:
       - "Makefile"
-      - "tools/mail_agent/**"
-      - "tools/todo_board/**"
       - "tools/betrieb_backlog_check.py"
       - "docs/betrieb/**"
       - ".github/workflows/platform-make-checks.yml"
@@ -45,7 +41,7 @@ permissions:
 
 jobs:
   make-checks:
-    name: boards-check + betrieb-check
+    name: betrieb-check
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -54,7 +50,5 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install pyyaml
-      - name: Board-Renderer reproduzierbar (K1 #2592)
-        run: make boards-check
       - name: Backlog-Vorschlaege vollstaendig (K4 #3015)
         run: make betrieb-check
