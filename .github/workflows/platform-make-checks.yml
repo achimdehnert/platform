@@ -10,8 +10,9 @@
 #
 # Die uebrigen vier: lint-tenancy laeuft in registry-lint.yml ueber das
 # Make-Ziel; boards-check braucht das lokale Mail-Ledger (~/.claude/
-# mail-vorgaenge.json, bewusst nicht im Repo — erster CI-Lauf 2026-09-24 brach
-# genau daran ab); check-push und workflow-lint sind lokale Spiegel von Gates,
+# mail-vorgaenge.json liegt nur auf der Dev-Maschine, Mandantendaten; der erste
+# CI-Lauf 2026-09-24 brach genau daran ab, Verzicht mit Grund, Refs #3472);
+# check-push und workflow-lint sind lokale Spiegel von Gates,
 # die in CI direkt laufen; lint-registry ist gestundet, weil validate_repos.py
 # heute 8 bekannte Inkonsistenzen meldet — alles mit Grund in
 # governance/ci-deckung-verzicht.yaml.
