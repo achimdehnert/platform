@@ -73,6 +73,7 @@ Kommandos:
   --deklaration ZIEL --art ART --grund "<Satz>" --gueltig-bis YYYY-MM-DD [--quelle TEXT]
                            Ausnahme mit Ablauf setzen (#3495 V2) — ZIEL ist Host,
                            Dienst oder Journal-Schluessel.
+  --gilt ZIEL [--art ART]  Exit 0, wenn eine gueltige Deklaration wirkt (#3507).
 
 Seit 2026-08-30 (KONZ-platform-054 E2) drei Dinge mehr, alle aus derselben Messung:
     17 Befunde offen, 0 verankert, 12 ohne Frist — und 7 davon waren platform-eigene
@@ -122,6 +123,37 @@ Seit 2026-09-24 (#3495 V2) Deklarationen — Ausnahmen mit Pflicht-Ablaufdatum:
     (`test_should_not_declare_auf_zuruf_in_hosts_yaml`) haelt das Feld dort fern,
     damit keine zweite Quelle nachwaechst. Gesetzt wird mit
     `--deklaration ZIEL --art ART --grund "<Satz>" --gueltig-bis YYYY-MM-DD`.
+
+Seit 2026-09-24 (#3507, V2-Rest) lesen alle vier Arten ueber ``deklarationen_fuer()``:
+    * ``auf_zuruf`` — wie oben (flottenbild, speicher, reconcile, host_datei_drift,
+      deploy-script-drift) und neu die Cloudflare-Gegenprobe
+      (`tools/cf_access/gegenprobe.sh` fragt ``--gilt GERAET --art auf_zuruf``;
+      der von Hand gesetzte Schalter ``URSPRUNG_DARF_SCHLAFEN`` ist entfallen).
+    * ``stundung`` — die Eintraege aus `infra/reconcile-baseline.yaml` stehen
+      jetzt in `governance/deklarationen.json` (Ziel = Drift-ID, z. B. ``C4:8000``);
+      die YAML ist geloescht. Abgelaufen heisst: der Fund zaehlt wieder als NEU
+      (Exit 1) plus eine ``[ABGELAUFEN]``-Zeile — nicht mehr Exit 2 fuer den ganzen
+      Lauf, der am 2026-08-08 vier weitere Funde verdeckt hatte (#1857).
+    * ``betriebsstatus`` — Wert und Grund bleiben in `infra/ports.yaml`
+      (Vokabular an EINER Stelle, `tools/betriebsstatus.py`; auch
+      `deploy_preflight.py` und `flottenbild.py` lesen den Wert). Die Deklaration
+      traegt NUR den Ablauf: ``betriebsstatus.wirksamer_status()`` behandelt einen
+      nicht-aktiven Dienst ohne gueltige Deklaration als ``aktiv``, die Melder
+      (erreichbarkeit, origin_tls, waisen, deploy_wirkung) melden ihn dann wieder.
+      Keine zweite Wahrheit: der Status steht an einer Stelle, das Ablaufdatum an
+      einer anderen, und keiner der beiden Werte steht doppelt.
+    * ``verzicht`` — der Verzicht bleibt am Befund im lokalen Journal
+      (``--verzichtet``: Laufausschnitt, Charta Art. 2); sein Ablauf ist die
+      ``wiedervorlage``. ``deklarationen_fuer(..., journal=daten)`` liest ihn als
+      Deklaration mit; ``verzicht_gilt()`` ist die einzige Stelle, die fragt, ob
+      ein Verzicht noch traegt. Ein abgelaufener Verzicht holt den Befund zurueck
+      ins Gate (``--offen-cross-repo``) — bis #3507 zaehlte er dort unbefristet.
+
+    Dazu das Feld ``verankert_am`` (#3507, Folgepunkt aus #3506): ``--verankert``,
+    ``--verzichtet`` und ``--falsch`` setzen es auf den Tag der Entscheidung;
+    ``--bericht --json`` liefert es. `tools/session_start_delta.py` rechnet die
+    [INFRA]-Ruhe ab diesem Datum und braucht seine Zustandsdatei nur noch fuer
+    Alt-Eintraege ohne Datum.
 """
 
 from __future__ import annotations
@@ -299,21 +331,56 @@ def _deklarationen_pfad(pfad: Path | None = None) -> Path:
     return Path(__file__).resolve().parent.parent / DEKLARATIONEN_REL
 
 
-def lade_deklarationen(pfad: Path | None = None) -> list[dict]:
+#: ``quelle`` der aus dem lokalen Journal abgeleiteten Verzicht-Deklarationen.
+JOURNAL_QUELLE = "befund-journal (lokal, --verzichtet)"
+
+
+def _journal_verzichte(journal: dict | None) -> list[dict]:
+    """Verzichte am Befund als Deklarationen — der Ablauf ist die ``wiedervorlage``.
+
+    Kein zweites Datum: ``--verzichtet`` setzt ``wiedervorlage``, und genau das ist
+    ``gueltig_bis``. Ein Alt-Verzicht ohne ``wiedervorlage`` ist damit ungueltig
+    und wirkt nicht — die sichere Richtung (Befund statt Schweigen).
+    """
+    aus = []
+    for fid, e in sorted(((journal or {}).get("befunde") or {}).items()):
+        v = e.get("verzicht") if isinstance(e, dict) else None
+        if not isinstance(v, dict):
+            continue
+        aus.append(
+            {
+                "ziel": fid,
+                "art": "verzicht",
+                "grund": str(v.get("grund") or ""),
+                "gesetzt_am": v.get("am"),
+                "gueltig_bis": e.get("wiedervorlage"),
+                "quelle": JOURNAL_QUELLE,
+            }
+        )
+    return aus
+
+
+def lade_deklarationen(
+    pfad: Path | None = None, journal: dict | None = None
+) -> list[dict]:
     """Alle Eintraege, auch ungueltige und abgelaufene — fuer den Bericht.
 
     Eine fehlende oder kaputte Datei ergibt ``[]``: dann gilt keine Ausnahme, und
     die Melder melden laut. Das ist die sichere Richtung — eine verlorene
     Deklaration erzeugt einen Befund, nie ein Schweigen.
+
+    ``journal`` (die geladenen Journal-Daten) haengt die Verzichte am Befund an
+    (#3507). Ohne Angabe nur die Repo-Datei — der Prod-Runner hat kein Journal,
+    und eine versteckte Disk-Lesung machte die Funktion in Tests unberechenbar.
     """
     try:
         daten = json.loads(_deklarationen_pfad(pfad).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return []
+        daten = {}
     liste = daten.get("deklarationen") if isinstance(daten, dict) else None
     if not isinstance(liste, list):
-        return []
-    return [d for d in liste if isinstance(d, dict)]
+        liste = []
+    return [d for d in liste if isinstance(d, dict)] + _journal_verzichte(journal)
 
 
 def deklarations_fehler(d: dict) -> str | None:
@@ -347,18 +414,20 @@ def deklarationen_fuer(
     heute: str | date | None = None,
     art: str | None = None,
     pfad: Path | None = None,
+    journal: dict | None = None,
 ) -> list[dict]:
     """DIE Lesefunktion: gueltige, nicht abgelaufene Deklarationen fuer ``ziel``.
 
-    ``ziel`` ist ein Host (Schluessel in `infra/hosts.yaml`), ein Dienst oder ein
-    Journal-Schluessel. ``art`` filtert (z. B. ``"auf_zuruf"``). Am Tag
-    ``gueltig_bis`` wirkt die Deklaration noch, am Tag danach nicht mehr.
-    Ungueltige Eintraege (ohne Ablauf, unbekannte Art) wirken nie.
+    ``ziel`` ist ein Host (Schluessel in `infra/hosts.yaml`), ein Dienst, eine
+    Drift-ID (``stundung``) oder ein Journal-Schluessel. ``art`` filtert (z. B.
+    ``"auf_zuruf"``). Am Tag ``gueltig_bis`` wirkt die Deklaration noch, am Tag
+    danach nicht mehr. Ungueltige Eintraege (ohne Ablauf, unbekannte Art) wirken
+    nie. ``journal`` bezieht die Verzichte am Befund ein (``lade_deklarationen``).
     """
     tag = _tag(heute)
     return [
         d
-        for d in lade_deklarationen(pfad)
+        for d in lade_deklarationen(pfad, journal)
         if str(d.get("ziel", "")).strip() == ziel
         and (art is None or d.get("art") == art)
         and deklarations_fehler(d) is None
@@ -436,11 +505,17 @@ def deklarations_zeilen(
             f"{naechste['gueltig_bis']} ({naechste['ziel']} [{naechste['art']}])"
         )
     for d in abgelaufen:
+        if d.get("quelle") == JOURNAL_QUELLE:
+            verlaengern = f"--verzichtet '{d['ziel']}' '<Grund>' [--frist TAGE]"
+        else:
+            verlaengern = (
+                f"--deklaration '{d['ziel']}' --art {d['art']} "
+                "--grund '<Satz>' --gueltig-bis YYYY-MM-DD"
+            )
         zeilen.append(
             f"  ⏰ Deklaration abgelaufen: {d['ziel']} [{d['art']}] gueltig bis "
             f"{d['gueltig_bis']} — wirkt nicht mehr, die Melder melden wieder. "
-            f"Verlaengern: --deklaration '{d['ziel']}' --art {d['art']} "
-            "--grund '<Satz>' --gueltig-bis YYYY-MM-DD"
+            f"Verlaengern: {verlaengern}"
         )
     for d, fehler in kaputt:
         zeilen.append(
@@ -448,6 +523,23 @@ def deklarations_zeilen(
             f"[{d.get('art') or '?'}] — wirkt nicht"
         )
     return zeilen
+
+
+def verzicht_gilt(
+    eintrag: dict, heute: str | None = None, fid: str | None = None
+) -> bool:
+    """Traegt ein Verzicht diesen Befund HEUTE noch? — nur ueber ``deklarationen_fuer``.
+
+    Zwei Quellen, eine Frage: der Verzicht am Befund (lokales Journal, Ablauf =
+    ``wiedervorlage``) und ein ``verzicht`` in `governance/deklarationen.json`
+    fuer denselben Schluessel. Abgelaufen = wirkungslos (#3507).
+    """
+    fid = fid or fingerabdruck(
+        str(eintrag.get("phase", "")), str(eintrag.get("repo", ""))
+    )
+    return bool(
+        deklarationen_fuer(fid, heute, "verzicht", journal={"befunde": {fid: eintrag}})
+    )
 
 
 def ruhezustand(eintrag: dict, heute: str) -> str:
@@ -838,8 +930,10 @@ def _cross_repo_offen(daten: dict, eigenes_repo: str) -> list[tuple[str, dict]]:
         Knoten, und zwar unabhaengig davon, unter welchem Repo er gefuehrt wird.
         Bis 2026-08-30 fielen genau diese durch die Eigen-Repo-Ausnahme.
     Lokale Zustaende (dirty Arbeitsbaum, `0.4 repo-sync`) bleiben draussen.
+    Ein Verzicht zaehlt nur, solange er gilt (``verzicht_gilt``, #3507).
     """
     offen = []
+    heute = _heute()
     for fid, e in sorted(daten.get("befunde", {}).items()):
         repo = str(e.get("repo", "-"))
         phase = str(e.get("phase", ""))
@@ -847,16 +941,16 @@ def _cross_repo_offen(daten: dict, eigenes_repo: str) -> list[tuple[str, dict]]:
         infra = phase in INFRA_PHASEN
         if not (fremd or infra):
             continue
-        if e.get("artefakt") or e.get("verzicht"):
+        if e.get("artefakt") or verzicht_gilt(e, heute, fid):
             continue
         offen.append((fid, e))
     return offen
 
 
 def ueberfaellig(eintrag: dict, heute: str) -> bool:
-    """Entscheidungsfrist verstrichen, ohne dass verankert oder verzichtet wurde."""
+    """Entscheidungsfrist verstrichen, ohne dass verankert oder (gueltig) verzichtet wurde."""
     frist = eintrag.get("entscheiden_bis")
-    if not frist or eintrag.get("artefakt") or eintrag.get("verzicht"):
+    if not frist or eintrag.get("artefakt") or verzicht_gilt(eintrag, heute):
         return False
     return heute > str(frist)
 
@@ -898,6 +992,10 @@ def bericht_json(daten: dict, eigenes_repo: str) -> list[dict]:
                 "note": e.get("letzte_note"),
                 "artefakt": e.get("artefakt"),
                 "verzicht": e.get("verzicht"),
+                "verzicht_gilt": verzicht_gilt(e, heute, fid),
+                # Tag der letzten Entscheidung (--verankert/--verzichtet/--falsch,
+                # #3507) — session_start_delta.py rechnet die [INFRA]-Ruhe ab hier.
+                "verankert_am": e.get("verankert_am"),
                 "wiedervorlage": e.get("wiedervorlage"),
                 "ruhezustand": ruhezustand(e, heute),
                 "entscheiden_bis": e.get("entscheiden_bis"),
@@ -930,6 +1028,7 @@ def bericht(
             if e.get("artefakt")
             else (
                 f"Verzicht ({e['verzicht'].get('grund', '')})"
+                + ("" if verzicht_gilt(e, _heute(), fid) else " ⏰ abgelaufen")
                 if e.get("verzicht")
                 else "OHNE Artefakt"
             )
@@ -944,7 +1043,9 @@ def bericht(
         frist = ""
         if ueberfaellig(e, _heute()):
             frist = f" · ⏰ Entscheidung seit {e.get('entscheiden_bis')} ueberfaellig"
-        elif e.get("entscheiden_bis") and not (e.get("artefakt") or e.get("verzicht")):
+        elif e.get("entscheiden_bis") and not (
+            e.get("artefakt") or verzicht_gilt(e, _heute(), fid)
+        ):
             frist = f" · entscheiden bis {e.get('entscheiden_bis')}"
         beleg = ""
         if e.get("kommando"):
@@ -1008,6 +1109,12 @@ def main(argv: list[str] | None = None) -> int:
         help="Deklaration setzen: Host, Dienst oder Journal-Schluessel "
         "(mit --art, --grund, --gueltig-bis)",
     )
+    p.add_argument(
+        "--gilt",
+        metavar="ZIEL",
+        help="Exit 0, wenn fuer ZIEL eine gueltige Deklaration (--art) wirkt, "
+        "sonst Exit 1 — fuer Shell-Aufrufer wie tools/cf_access/gegenprobe.sh",
+    )
     p.add_argument("--art", choices=DEKLARATIONS_ARTEN, help="mit --deklaration")
     p.add_argument("--grund", default=None, help="mit --deklaration: Grund als Satz")
     p.add_argument(
@@ -1054,6 +1161,19 @@ def main(argv: list[str] | None = None) -> int:
         help="Melder-Registry fuer geschaerft_am (Default: governance/melder-register.yaml)",
     )
     a = p.parse_args(argv)
+
+    if a.gilt:
+        # Vor dem Journal-Laden: die Frage betrifft nur die Repo-Deklarationen,
+        # ein Shell-Aufrufer soll nicht an einer lokalen Datei haengen.
+        treffer = deklarationen_fuer(a.gilt, art=a.art, pfad=a.deklarationen)
+        if treffer:
+            d = treffer[0]
+            print(
+                f"gilt: {d['ziel']} [{d['art']}] bis {d['gueltig_bis']} — {d['grund']}"
+            )
+            return 0
+        print(f"keine gueltige Deklaration fuer {a.gilt} [{a.art or '*'}]")
+        return 1
 
     pfad = Path(a.datei) if a.datei else JOURNAL
     daten = lade(pfad)
@@ -1181,7 +1301,10 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 print(f"Kein Befund mit ID {fid}", file=sys.stderr)
                 return 2
-        urteile_dazu(daten, fid, urteil, text)
+        eintrag = urteile_dazu(daten, fid, urteil, text)
+        if urteil == "falsch" and eintrag is not None:
+            # Fehlalarm = Entscheidung gefallen; Anker-Datum fuer die Delta-Ruhe (#3507).
+            eintrag["verankert_am"] = _heute()
         sichere(daten, pfad)
         print(f"{urteil}: {fid} — {text}")
         return 0
@@ -1225,6 +1348,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Kein Befund mit ID {fid}", file=sys.stderr)
             return 2
         e["artefakt"] = url
+        e["verankert_am"] = _heute()  # #3507 — Delta rechnet die Ruhe ab hier
         tage = a.frist if a.frist is not None else FRIST_VERANKERT_TAGE
         e["wiedervorlage"] = _frist(tage)
         e["ruht_note"] = e.get("letzte_note")
@@ -1244,6 +1368,7 @@ def main(argv: list[str] | None = None) -> int:
             print("Verzicht ohne Grund zaehlt nicht.", file=sys.stderr)
             return 2
         e["verzicht"] = {"grund": grund.strip(), "am": _heute()}
+        e["verankert_am"] = _heute()  # #3507
         tage = a.frist if a.frist is not None else FRIST_VERZICHT_TAGE
         e["wiedervorlage"] = _frist(tage)
         e["ruht_note"] = e.get("letzte_note")
@@ -1299,7 +1424,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    print(bericht(daten, a.repo, deklarationen=lade_deklarationen(a.deklarationen)))
+    print(
+        bericht(daten, a.repo, deklarationen=lade_deklarationen(a.deklarationen, daten))
+    )
     return 0
 
 

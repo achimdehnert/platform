@@ -199,9 +199,34 @@ def test_should_leave_a_normal_repo_as_a_real_backlog():
 # ── repo_betriebsstatus()/container_namen_aus_ports(): echte ports.yaml ──────
 
 
-def test_should_find_travel_beat_as_stillgelegt_in_real_ports_yaml():
-    """Ohne Naht gegen die reale Datei — sonst kann eine Attrappe alles zusagen."""
+def _betriebsstatus_bis(tmp_path, monkeypatch, dienst, tage):
+    """Fixture-Deklaration statt der echten — sonst kippt der Test am Ablauftag."""
+    import datetime as dt  # noqa: PLC0415
+
+    import befund_journal as bj  # noqa: PLC0415 — tools/ via exec_module im Pfad
+
+    dekl = tmp_path / "deklarationen.json"
+    monkeypatch.setenv("BEFUND_DEKLARATIONEN_DATEI", str(dekl))
+    bis = dt.datetime.now(dt.timezone.utc).date() + dt.timedelta(days=tage)
+    bj.setze_deklaration(dienst, "betriebsstatus", "Test", bis.isoformat(), pfad=dekl)
+
+
+def test_should_find_travel_beat_as_stillgelegt_in_real_ports_yaml(
+    tmp_path, monkeypatch
+):
+    """Ohne Naht gegen die reale ports.yaml — sonst kann eine Attrappe alles
+    zusagen. Die Deklaration (nur der Ablauf, #3507) kommt aus einer Fixture."""
+    _betriebsstatus_bis(tmp_path, monkeypatch, "travel-beat", 30)
     assert dw.repo_betriebsstatus().get("travel-beat") == "stillgelegt"
+
+
+def test_should_report_lag_again_when_betriebsstatus_declaration_expired(
+    tmp_path, monkeypatch
+):
+    """Positivkontrolle #3507: Ablauf einen Tag zurueck -> `stillgelegt` erklaert
+    den Rueckstand nicht mehr, deploy_wirkung meldet ihn wieder."""
+    _betriebsstatus_bis(tmp_path, monkeypatch, "travel-beat", -1)
+    assert "travel-beat" not in dw.repo_betriebsstatus()
 
 
 def test_should_find_illustration_hub_container_name_in_real_ports_yaml():
