@@ -70,12 +70,30 @@ stillen Treffers oder einer stillen Luecke:
 
 - Makefile vorhanden, aber keine Tab-Rezeptzeile gefunden (Leerzeichen-Rezepte,
   generiertes Makefile) → das ganze Repo ist NICHT PRUEFBAR.
-- Ein Workflow referenziert einen wiederverwendbaren Workflow
-  (`uses: .../.github/workflows/...`) oder eine lokale Composite-Action
-  (`uses: ./...`) → deren Inhalt ist von hier aus nicht einsehbar; jedes sonst
-  ungedeckte Kommando dieses Repos wird NICHT PRUEFBAR statt Befund.
+- Ein Workflow referenziert eine lokale Composite-Action (`uses: ./...`) → deren
+  Inhalt ist von hier aus nicht einsehbar; jedes sonst ungedeckte Kommando dieses
+  Repos wird NICHT PRUEFBAR statt Befund.
 - Ein `run:`-Kommando enthaelt eine Matrix-Expression (`${{ matrix.* }}`) an einer
   Stelle, die das Werkzeug/Ziel bestimmt → dieses eine Kommando ist NICHT PRUEFBAR.
+
+## Wiederverwendbare Workflows aufloesen (platform#2990)
+
+Ein Workflow referenziert einen wiederverwendbaren Workflow
+(`uses: <owner>/<repo>/.github/workflows/<datei>.yml@<ref>`) NICHT mehr pauschal
+NICHT PRUEFBAR: `loese_reusable_workflow()` sucht einen lokalen Klon unter
+`<github_base>/<repo>` (Konvention, `github_base` per `--github-base`, sonst aus
+`scripts/repo-registry.yaml` → `server.github_base`, Fallback `~/github`) und
+liest die Datei dort per `git show`. Ist `<ref>` im Klon auflösbar (`git -C <klon>
+rev-parse --verify`), wird GENAU dieser Stand gelesen; sonst `origin/main`/`HEAD`
+mit einer Warnzeile im Report (`warnungen`, gilt nicht als Deckungsluecke).
+Deren `run:`/`make <ziel>`-Kommandos fliessen in denselben Deckungsabgleich wie
+die des rufenden Repos ein — verschachtelte `uses:`-Referenzen werden bis
+Tiefe `MAX_REUSABLE_TIEFE` (3) rekursiv aufgeloest, Zyklen (`besucht`) und die
+Tiefengrenze selbst enden als NICHT PRUEFBAR fuer die dort verbliebenen
+Referenzen, nicht als Absturz. Kein lokaler Klon, fremde Datei fehlt im
+aufgeloesten Stand, oder ein unerwartetes `uses`-Format → unveraendert NICHT
+PRUEFBAR mit demselben Grund wie vor #2990 (kein Netzzugriff, siehe Nicht-Ziel
+im Issue).
 
 ## Bewusster Verzicht
 
@@ -102,6 +120,7 @@ import argparse
 import json
 import os
 import re
+import subprocess
 from dataclasses import asdict, dataclass
 
 # Maschinenlesbarer Kopf (KONZ-038 D8)
@@ -109,7 +128,7 @@ GATE_HEADER = {
     "slug": "ci-gate-narrower-than-local-test",
     "mode": "advisory",
     "owner": "achim",
-    "last_drill_pass": "2026-09-09",
+    "last_drill_pass": "2026-09-24",
     "evidence": "tools/tests/test_ci_deckung.py",
 }
 
@@ -200,6 +219,12 @@ REUSABLE_WF_RE = re.compile(r"^\s*uses:\s*(\S*\.github/workflows/\S+)", re.MULTI
 LOCAL_ACTION_RE = re.compile(r"^\s*uses:\s*(\./\S+)", re.MULTILINE)
 MATRIX_EXPR_RE = re.compile(r"\$\{\{\s*matrix\.")
 
+# Aufloesung wiederverwendbarer Workflows (platform#2990) — max. Verschachtelungstiefe,
+# darueber hinaus bleibt eine weitere `uses:`-Referenz NICHT PRUEFBAR statt Rekursion
+# ohne Grenze.
+MAX_REUSABLE_TIEFE = 3
+GIT_TIMEOUT_SEKUNDEN = 5
+
 
 @dataclass
 class Kommando:
@@ -214,6 +239,104 @@ def _lies(pfad: str) -> str:
             return f.read()
     except OSError:
         return ""
+
+
+def _default_github_base() -> str:
+    """`server.github_base` aus `scripts/repo-registry.yaml` lesen, ohne PyYAML —
+    nur die eine Zeile wird gebraucht (stdlib-only, Hausform dieses Moduls).
+    Fallback `~/github`, wenn die Datei fehlt oder das Feld nicht gefunden wird.
+    """
+    reg_pfad = os.path.join(REPO_ROOT, "scripts", "repo-registry.yaml")
+    text = _lies(reg_pfad)
+    m = re.search(r"(?m)^\s*github_base:\s*(\S+)\s*$", text)
+    if m:
+        return os.path.expanduser(m.group(1))
+    return os.path.expanduser("~/github")
+
+
+def _git_verify(klon: str, ref: str) -> bool:
+    """True, wenn `ref` im lokalen Klon `klon` auf einen Commit aufloest."""
+    try:
+        r = subprocess.run(
+            [
+                "git",
+                "-C",
+                klon,
+                "rev-parse",
+                "--verify",
+                "--quiet",
+                f"{ref}^{{commit}}",
+            ],
+            capture_output=True,
+            timeout=GIT_TIMEOUT_SEKUNDEN,
+        )
+        return r.returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def _git_show(klon: str, ref: str, pfad_im_klon: str) -> str | None:
+    """Datei-Inhalt bei `ref:pfad_im_klon` im lokalen Klon, oder None."""
+    try:
+        r = subprocess.run(
+            ["git", "-C", klon, "show", f"{ref}:{pfad_im_klon}"],
+            capture_output=True,
+            text=True,
+            timeout=GIT_TIMEOUT_SEKUNDEN,
+        )
+        if r.returncode == 0:
+            return r.stdout
+        return None
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def loese_reusable_workflow(treffer: str, github_base: str) -> tuple[str | None, str]:
+    """`<owner>/<repo>/.github/workflows/<datei>.yml@<ref>` ueber einen lokalen
+    Klon `<github_base>/<repo>` aufloesen — KEIN Netzzugriff (Nicht-Ziel #2990).
+
+    Rueckgabe (Inhalt, Warnung): bei Erfolg ist `Inhalt` der Dateitext und
+    `Warnung` "" oder ein Hinweis auf einen Ref-Fallback (origin/main/HEAD statt
+    dem referenzierten `<ref>`) — das ist KEINE Deckungsluecke, nur Transparenz.
+    Bei Fehlschlag ist `Inhalt` None und `Warnung` der NICHT-PRUEFBAR-Grund.
+    """
+    if "/.github/workflows/" not in treffer:
+        return None, f"unerwartetes uses-Format: {treffer}"
+    repo_teil, rest = treffer.split("/.github/workflows/", 1)
+    datei, _, ref = rest.partition("@")
+    repo_name = repo_teil.rstrip("/").rsplit("/", 1)[-1]
+    if not repo_name or not datei:
+        return None, f"unerwartetes uses-Format: {treffer}"
+    klon_pfad = os.path.join(github_base, repo_name)
+    if not os.path.isdir(klon_pfad):
+        return None, f"kein lokaler Klon unter {klon_pfad}"
+
+    pfad_im_klon = f".github/workflows/{datei}"
+    warnung = ""
+    if ref and _git_verify(klon_pfad, ref):
+        inhalt = _git_show(klon_pfad, ref, pfad_im_klon)
+        verwendeter_ref = ref
+    else:
+        if ref:
+            warnung = (
+                f"Ref '{ref}' im lokalen Klon {repo_name} nicht aufloesbar — "
+                "Fallback auf origin/main/HEAD"
+            )
+        inhalt = None
+        verwendeter_ref = ref or "HEAD"
+        for fallback_ref in ("origin/main", "HEAD"):
+            if _git_verify(klon_pfad, fallback_ref):
+                verwendeter_ref = fallback_ref
+                inhalt = _git_show(klon_pfad, fallback_ref, pfad_im_klon)
+                if inhalt is not None:
+                    break
+
+    if inhalt is None:
+        return None, (
+            f"Datei {pfad_im_klon} in lokalem Klon {repo_name}@{verwendeter_ref} "
+            "nicht gefunden"
+        )
+    return inhalt, warnung
 
 
 def _split_subcommands(zeile: str) -> list[str]:
@@ -385,42 +508,115 @@ def _run_bloecke(text: str) -> list[str]:
     return ergebnis
 
 
-def parse_workflows(pfade: list[str]) -> tuple[set[str], set[str], list[str]]:
-    """(normalisierte Inline-Kommandos, per `make <ziel>` aufgerufene Ziele, unresolved)."""
+def _sammle_workflow_kommandos(
+    text: str,
+    basisname: str,
+    github_base: str | None,
+    tiefe: int,
+    besucht: frozenset[str],
+) -> tuple[set[str], set[str], list[str], list[str]]:
+    """EIN Workflow-Text (Top-Level ODER ein aufgeloester wiederverwendbarer
+    Workflow) einsammeln: (normierte Inline-Kommandos, `make <ziel>`-Aufrufe,
+    unresolved-Gruende, Warnungen). Loest `uses: .../.github/workflows/...` bei
+    vorhandenem `github_base` rekursiv auf (max. `MAX_REUSABLE_TIEFE`, Zyklen
+    ueber `besucht` abgefangen) — ohne `github_base` bleibt jede Referenz wie vor
+    #2990 unresolved."""
     normierte: set[str] = set()
     make_ziele: set[str] = set()
     unresolved: list[str] = []
+    warnungen: list[str] = []
+
+    for treffer in REUSABLE_WF_RE.findall(text):
+        if github_base is None:
+            unresolved.append(
+                f"{basisname}: wiederverwendbarer Workflow referenziert, "
+                f"Inhalt nicht aufgeloest: {treffer}"
+            )
+            continue
+        if tiefe >= MAX_REUSABLE_TIEFE:
+            unresolved.append(
+                f"{basisname}: wiederverwendbarer Workflow referenziert, "
+                f"maximale Aufloesungstiefe ({MAX_REUSABLE_TIEFE}) erreicht: {treffer}"
+            )
+            continue
+        if treffer in besucht:
+            unresolved.append(
+                f"{basisname}: wiederverwendbarer Workflow referenziert, "
+                f"Zyklus erkannt, nicht aufgeloest: {treffer}"
+            )
+            continue
+        inhalt, grund_oder_warnung = loese_reusable_workflow(treffer, github_base)
+        if inhalt is None:
+            unresolved.append(
+                f"{basisname}: wiederverwendbarer Workflow referenziert, "
+                f"Inhalt nicht aufgeloest ({grund_oder_warnung}): {treffer}"
+            )
+            continue
+        if grund_oder_warnung:
+            warnungen.append(f"{treffer}: {grund_oder_warnung}")
+        rn, rm, ru, rw = _sammle_workflow_kommandos(
+            inhalt,
+            os.path.basename(treffer.split("@", 1)[0]),
+            github_base,
+            tiefe + 1,
+            besucht | {treffer},
+        )
+        normierte |= rn
+        make_ziele |= rm
+        unresolved += ru
+        warnungen += rw
+
+    for treffer in LOCAL_ACTION_RE.findall(text):
+        unresolved.append(
+            f"{basisname}: lokale Composite-Action referenziert, "
+            f"Inhalt nicht aufgeloest: {treffer}"
+        )
+
+    for zeile in _run_bloecke(text):
+        for sub in _split_subcommands(zeile):
+            if MATRIX_EXPR_RE.search(sub):
+                unresolved.append(
+                    f"{basisname}: Matrix-Expression im Kommando, "
+                    f"nicht aufloesbar: {sub[:80]}"
+                )
+                continue
+            m = MAKE_CALL_RE.match(sub)
+            if m:
+                make_ziele.add(m.group(1))
+                continue
+            norm = _normalize_one(sub)
+            if norm:
+                normierte.add(norm)
+
+    return normierte, make_ziele, unresolved, warnungen
+
+
+def parse_workflows(
+    pfade: list[str], github_base: str | None = None
+) -> tuple[set[str], set[str], list[str], list[str]]:
+    """(normalisierte Inline-Kommandos, per `make <ziel>` aufgerufene Ziele,
+    unresolved, warnungen) — ueber ALLE Workflow-Dateien eines Repos hinweg.
+
+    `github_base` aktiviert die Aufloesung wiederverwendbarer Workflows
+    (platform#2990); `None` erhaelt das Verhalten vor #2990 (immer unresolved).
+    """
+    normierte: set[str] = set()
+    make_ziele: set[str] = set()
+    unresolved: list[str] = []
+    warnungen: list[str] = []
     for pfad in pfade:
         text = _lies(pfad)
         if not text:
             continue
         basisname = os.path.basename(pfad)
-        for treffer in REUSABLE_WF_RE.findall(text):
-            unresolved.append(
-                f"{basisname}: wiederverwendbarer Workflow referenziert, "
-                f"Inhalt nicht aufgeloest: {treffer}"
-            )
-        for treffer in LOCAL_ACTION_RE.findall(text):
-            unresolved.append(
-                f"{basisname}: lokale Composite-Action referenziert, "
-                f"Inhalt nicht aufgeloest: {treffer}"
-            )
-        for zeile in _run_bloecke(text):
-            for sub in _split_subcommands(zeile):
-                if MATRIX_EXPR_RE.search(sub):
-                    unresolved.append(
-                        f"{basisname}: Matrix-Expression im Kommando, "
-                        f"nicht aufloesbar: {sub[:80]}"
-                    )
-                    continue
-                m = MAKE_CALL_RE.match(sub)
-                if m:
-                    make_ziele.add(m.group(1))
-                    continue
-                norm = _normalize_one(sub)
-                if norm:
-                    normierte.add(norm)
-    return normierte, make_ziele, unresolved
+        rn, rm, ru, rw = _sammle_workflow_kommandos(
+            text, basisname, github_base, tiefe=0, besucht=frozenset()
+        )
+        normierte |= rn
+        make_ziele |= rm
+        unresolved += ru
+        warnungen += rw
+    return normierte, make_ziele, unresolved, warnungen
 
 
 def lade_verzicht(pfad: str) -> tuple[dict[tuple[str, str], str], list[str]]:
@@ -468,8 +664,16 @@ def lade_verzicht(pfad: str) -> tuple[dict[tuple[str, str], str], list[str]]:
 
 
 def scan_repo(
-    repo_pfad: str, verzicht: dict[tuple[str, str], str] | None = None
+    repo_pfad: str,
+    verzicht: dict[tuple[str, str], str] | None = None,
+    github_base: str | None = None,
 ) -> dict:
+    """`github_base=None` (Default der Python-API, RUECKWAERTSKOMPATIBEL zu vor
+    #2990) laesst wiederverwendbare Workflows unresolved — bewusst, damit
+    bestehende Tests/Aufrufer ohne explizites `github_base` hermetisch bleiben
+    und nicht ungewollt gegen echte lokale Klone aufloesen. Die CLI (`main()`)
+    setzt `github_base` per Default aus der Registry — dort ist die Aufloesung
+    im Normalbetrieb aktiv."""
     verzicht = verzicht or {}
     repo_pfad = os.path.abspath(os.path.expanduser(repo_pfad))
     repo_name = os.path.basename(repo_pfad.rstrip("/"))
@@ -502,7 +706,9 @@ def scan_repo(
             for n in sorted(os.listdir(wf_dir))
             if n.endswith((".yml", ".yaml"))
         ]
-    ci_kommandos, ci_make_ziele, unresolved = parse_workflows(wf_pfade)
+    ci_kommandos, ci_make_ziele, unresolved, warnungen = parse_workflows(
+        wf_pfade, github_base
+    )
 
     gedeckt: list[dict] = []
     befunde: list[dict] = []
@@ -545,6 +751,7 @@ def scan_repo(
         "nicht_pruefbar": nicht_pruefbar,
         "verzicht": verzichtet,
         "unresolved": unresolved,
+        "warnungen": warnungen,
     }
 
 
@@ -552,12 +759,25 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--repo", default=REPO_ROOT, help="Pfad zum zu messenden Repo")
     parser.add_argument("--verzicht", default=DEFAULT_VERZICHT)
+    parser.add_argument(
+        "--github-base",
+        default=None,
+        help=(
+            "Basisverzeichnis lokaler Klone fuer die Aufloesung wiederverwendbarer "
+            "Workflows (platform#2990). Default: server.github_base aus "
+            "scripts/repo-registry.yaml, sonst ~/github. Leerer String schaltet "
+            "die Aufloesung ab (Vor-#2990-Verhalten)."
+        ),
+    )
     parser.add_argument("--kurz", action="store_true")
     parser.add_argument("--json", action="store_true", dest="als_json")
     args = parser.parse_args()
 
     verzicht, verzicht_fehler = lade_verzicht(args.verzicht)
-    ergebnis = scan_repo(args.repo, verzicht)
+    github_base = (
+        args.github_base if args.github_base is not None else _default_github_base()
+    )
+    ergebnis = scan_repo(args.repo, verzicht, github_base=github_base or None)
     ergebnis["verzicht_fehler"] = verzicht_fehler
 
     if args.als_json:
@@ -628,6 +848,12 @@ def main() -> int:
         print("🚨 Ungueltige Verzicht-Eintraege (ohne Grund — nicht wirksam):\n")
         for f in verzicht_fehler:
             print(f"  · {f}")
+        print()
+
+    if ergebnis["warnungen"]:
+        print("ℹ️  Ref-Fallback bei aufgeloesten wiederverwendbaren Workflows:\n")
+        for w in ergebnis["warnungen"]:
+            print(f"  · {w}")
 
     return 0
 
