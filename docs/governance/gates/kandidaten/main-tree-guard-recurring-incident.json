@@ -1,9 +1,0 @@
-{
- "slug": "main-tree-guard-recurring-incident",
- "quelle": "Retro 2752dc (2026-08) + Retro f1d54f §5 (2026-09-21, platform#3348 F15)",
- "kern": "`git switch -c` im Haupt-Tree statt `tools/repo-session.sh start`: der main-tree-guard (ADR-233, proposed/partial) ist nur Snap-back nach dem Flip, kein Hard-Block; .git/iil-guard-events.log zaehlt 120 unauthorized_head_flip seit ADR-Erstellung, 6 seit 2026-09-16. Gate-Vorschlag: PreToolUse-Hook, der `git switch -c`/`git checkout -b` im Haupt-Tree eines repo-session-faehigen Repos abweist und auf `repo-session.sh start` verweist — Positivkontrolle = der Vorfall 2026-09-21T08:35:36Z; Drill = Hook-Test mit Fake-Tree. Aenderung an Hooks ist Permissions-nah (Charta Art. 3): Vorschlag, Owner-Zug.",
- "zustand": "schranke-kandidat",
- "vorkommen": 2,
- "letztes_vorkommen": "2026-09-21",
- "erhoben": "2026-09-21"
-}

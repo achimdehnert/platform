@@ -1,0 +1,37 @@
+{
+  "slug": "main-tree-guard-recurring-incident",
+  "mode": "blocking",
+  "owner": "achim",
+  "module": "tools/claude-hooks/main_tree_switch_guard.py",
+  "drill": "tools/claude-hooks/tests/test_main_tree_switch_guard.py",
+  "built": "2026-09-24",
+  "ref": "Retro 2752dc (2026-08) + Retro f1d54f §5 (2026-09-21, platform#3348 F15); Owner-Entscheid platform#3471",
+  "covers": [
+    "unauthorized-head-flip-in-protected-main-tree"
+  ],
+  "faengt": [
+    {
+      "fall": "`git switch -c` im Haupt-Tree statt `repo-session.sh start` (Positivkontrolle: Vorfall 2026-09-21T08:35:36Z)",
+      "probe": "test_should_deny_switch_c_in_main_tree_realfall"
+    },
+    {
+      "fall": "derselbe Befehl in einem Session-Worktree bleibt erlaubt",
+      "probe": "test_should_allow_same_command_in_worktree"
+    },
+    {
+      "fall": "`git checkout -b`/`-B` mit explizitem `-C <haupt-tree>` statt cwd",
+      "probe": "test_should_deny_checkout_b_with_explicit_dash_c_path"
+    },
+    {
+      "fall": "kaputte Hook-Eingabe faellt fail-open durch",
+      "probe": "test_should_allow_on_broken_json_input"
+    }
+  ],
+  "zustand": "ohne-traeger",
+  "zustand_note": "Modul und Drill sind gebaut und gruen, aber kein Hook ruft es automatisch auf: die Verdrahtung in ~/.claude/settings.json ist Owner-Zug (Charta Art. 3, keine Aenderung an Permissions/Hooks durch die Sitzung selbst) und steht als eigener Schritt im PR-Text. `erzwungen_seit` faellt bewusst weg, solange kein Traeger existiert (Deklaration != Realitaet, wie bei `gui-geaendert-ohne-klick`).",
+  "positivkontrolle": {
+    "ref": "tools/claude-hooks/tests/test_main_tree_switch_guard.py::test_should_deny_switch_c_in_main_tree_realfall — wörtliches Kommando `git switch -c session/2026-09-21/achim-dehnert/retro-f1d54f` (Vorfall 2026-09-21T08:35:36Z, Retro f1d54f §5, 120 unauthorized_head_flip in .git/iil-guard-events.log seit ADR-233, 6 seit 2026-09-16) wird gegen einen Fake-Haupt-Tree deny; Gegenprobe test_should_allow_same_command_in_worktree gegen einen Fake-Worktree bleibt allow.",
+    "datum": "2026-09-24"
+  },
+  "note": "Der post-checkout-Enforcer main-tree-guard.sh (ADR-233) ist nur Snap-back NACH dem HEAD-Flip, kein Hard-Block davor. Dieser Hook liest den Bash-Befehlstext VOR der Ausfuehrung (PreToolUse) und weist branch-erzeugendes `git switch -c`/`git switch --create`/`git checkout -b`/`git checkout -B` im Ziel-Verzeichnis (cwd oder `-C <pfad>`) ab, wenn es unter $GITHUB_DIR (Default ~/github) und NICHT unter $REPO_SESSION_DIR/worktrees liegt. FAIL-OPEN bei kaputtem JSON, fehlendem branch-erzeugendem Aufruf und Pfaden mit Variablen/Substitution, die zur Pruefzeit unbekannt sind — benannt im Modul-Docstring, nicht behauptet."
+}
