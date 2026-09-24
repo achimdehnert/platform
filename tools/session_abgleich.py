@@ -67,6 +67,14 @@ den Kernfunktionen; der `gh`-Abruf lebt in der duennen Schicht unter
 "gh-Schicht". Nur so ist das drillbar — und mit `--eingabe <datei>` ist der
 ganze Weg auch ohne Netz nachvollziehbar.
 
+`--sitzung <id>` (platform#2234, Retro #3543 Befund #2): ohne diese Option holt
+der Lauf ALLE PRs des Kontos seit heute — auch die paralleler Sitzungen. Am
+2026-09-24 ergab das `RESULT: BEFUND 35`; das eigene offene Issue #3469 (aus
+#3489, `Refs #3469`) ging darin unter. Mit `--sitzung` zaehlen nur PRs, deren
+`headRefName` ein Branch dieser Claude-Sitzung ist (`tools/sitzungs_branches.py`
+liest ihn aus den Leases). Ist kein Branch zuordenbar, endet der Lauf mit
+`RESULT: HINWEIS 0 (sitzung-nicht-zuordenbar: …)` — keine Entwarnung.
+
 Exit: 0 = sauber (auch: nur HINWEISe, dann sagt die RESULT-Zeile HINWEIS)
     · 1 = Befund (advisory) · 2 = Werkzeugfehler (gh fehlt / Abruf gescheitert)
       — ein Melder, der beim Ausfall schweigt, ist schlimmer als keiner.
@@ -81,6 +89,9 @@ import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sitzungs_branches  # noqa: E402  (Nachbarmodul, Sitzungsabgrenzung #2234)
 
 # Maschinenlesbarer Kopf (KONZ-038 D8) — von tools/gate_drill_check.py gegen
 # docs/governance/gates/ abgeglichen. Der Kopf traegt den ERSTEN
@@ -135,6 +146,9 @@ BELEG_WOERTER = (
 # Deckel fuer Detail-Abrufe in der gh-Schicht (ein Gate darf eine Sitzung nicht
 # aufhalten). Was darueber liegt, wird als HINWEIS ausgewiesen, nicht verschwiegen.
 MAX_DETAIL_ABRUFE = 30
+
+# Felder des PR-Abrufs. `headRefName` traegt die Sitzungsabgrenzung (--sitzung).
+PR_FELDER = "number,author,body,state,mergedAt,files,headRefName"
 
 
 # ─────────────────────────── Hilfen (rein) ──────────────────────────────────
@@ -693,7 +707,7 @@ def gh_sitzungs_prs(repo: str, autor: str, seit: str) -> list[dict]:
             "--limit",
             "50",
             "--json",
-            "number,author,body,state,mergedAt,files",
+            PR_FELDER,
         ]
     )
     try:
@@ -703,6 +717,60 @@ def gh_sitzungs_prs(repo: str, autor: str, seit: str) -> list[dict]:
     for pr in daten:
         pr["repo"] = repo
     return daten
+
+
+def gh_branch_prs(repo: str, branches: list[str]) -> list[dict]:
+    """PRs genau dieser Branches (alle Zustaende) — je Branch EIN `--head`-Abruf.
+
+    Anders als `gh_sitzungs_prs` ohne Datums- und Autorfilter und ohne den
+    50er-Deckel ueber das ganze Konto: eine Sitzung hat wenige Branches, ein
+    Konto an einem vollen Tag mehr PRs als der Deckel.
+    """
+    daten: list[dict] = []
+    for branch in branches:
+        roh = _gh(
+            [
+                "pr",
+                "list",
+                "--repo",
+                repo,
+                "--head",
+                branch,
+                "--state",
+                "all",
+                "--limit",
+                "50",
+                "--json",
+                PR_FELDER,
+            ]
+        )
+        try:
+            teil = json.loads(roh or "[]")
+        except json.JSONDecodeError as exc:
+            raise GhFehler(f"gh pr list --head lieferte kein JSON: {exc}") from exc
+        for pr in teil:
+            pr["repo"] = repo
+        daten += teil
+    return daten
+
+
+def auf_branches_begrenzen(daten: dict, branches: list[str] | set[str]) -> dict:
+    """Rein: nur PRs (und ihre Texte), deren `headRefName` ein Sitzungs-Branch ist.
+
+    `issues` und `pr_zustaende` bleiben unberuehrt — sie werden nur ueber die
+    PRs erreicht und stoeren ohne sie nicht.
+    """
+    erlaubt = set(branches)
+    prs = [
+        p for p in daten.get("prs", []) if str(p.get("headRefName") or "") in erlaubt
+    ]
+    nummern = {(_repo_von(p), int(p.get("number"))) for p in prs}
+    texte = [
+        t
+        for t in daten.get("texte", [])
+        if (str(t.get("repo") or ""), int(t.get("nummer") or 0)) in nummern
+    ]
+    return {**daten, "prs": prs, "texte": texte}
 
 
 def gh_issue(repo: str, nummer: int) -> dict | None:
@@ -750,9 +818,23 @@ def gh_hunks(repo: str, nummer: int) -> dict[str, list[tuple[int, int]]] | None:
     return hunks_aus_patch(patch)
 
 
-def sammle_via_gh(repo: str, autor: str, seit: str, mit_hunks: bool) -> dict:
-    """Baut genau die Datenstruktur, die `--eingabe` auch aus einer Datei liest."""
-    prs = gh_sitzungs_prs(repo, autor, seit)
+def sammle_via_gh(
+    repo: str,
+    autor: str,
+    seit: str,
+    mit_hunks: bool,
+    branches: list[str] | None = None,
+) -> dict:
+    """Baut genau die Datenstruktur, die `--eingabe` auch aus einer Datei liest.
+
+    Mit `branches` (Sitzungsabgrenzung) kommen die PRs je Branch statt aus dem
+    Konto-weiten Abruf — die Detail-Abrufe unten laufen dann nur noch fuer die
+    PRs dieser Sitzung.
+    """
+    if branches is None:
+        prs = gh_sitzungs_prs(repo, autor, seit)
+    else:
+        prs = gh_branch_prs(repo, branches)
     gemergt = [p for p in prs if ist_gemergt(p)]
 
     issues: list[dict] = []
@@ -889,6 +971,17 @@ def lade_eingabe(pfad: str) -> dict:
 # ──────────────────────────────── CLI ───────────────────────────────────────
 
 
+def kurz_refs(eintraege: list[dict]) -> str:
+    """`owner/repo#N` → `repo#N`, Reihenfolge erhalten, ohne Dubletten."""
+    gesehen: list[str] = []
+    for e in eintraege:
+        ref = str(e.get("ref") or "")
+        kurz = ref.split("/")[-1] if "/" in ref else ref
+        if kurz and kurz not in gesehen:
+            gesehen.append(kurz)
+    return " ".join(gesehen)
+
+
 def _ausgabe_zeile(eintrag: dict) -> str:
     marke = {"befund": "⚠", "hinweis": "◌", "sauber": "✓"}.get(eintrag["art"], "◌")
     return f"   {marke} [{eintrag['slug']}] {eintrag['ref']}: {eintrag['text']}"
@@ -1019,6 +1112,18 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     ap.add_argument("--json", action="store_true", help="Ergebnis als JSON")
+    ap.add_argument(
+        "--sitzung",
+        help=(
+            "Claude-Sitzungs-ID (>= 8 Zeichen): nur PRs der Branches dieser "
+            "Sitzung (aus den repo-session-Leases) — ohne Option wie bisher alle "
+            "PRs des Kontos seit --seit"
+        ),
+    )
+    ap.add_argument(
+        "--lease-dir",
+        help="Lease-Verzeichnis fuer --sitzung (Default: $LEASE_DIR bzw. ~/.repo-session/leases)",
+    )
     args = ap.parse_args(argv)
 
     if args.pr is not None:
@@ -1029,6 +1134,31 @@ def main(argv: list[str] | None = None) -> int:
     will_belege = args.belege or keiner_gewaehlt
     will_serien = args.serien or keiner_gewaehlt
 
+    branches: list[str] | None = None
+    if args.sitzung is not None:
+        lease_dir = (
+            Path(args.lease_dir)
+            if args.lease_dir
+            else sitzungs_branches.standard_lease_dir()
+        )
+        zuordnung = sitzungs_branches.zuordnen(
+            sitzungs_branches.lade_leases(lease_dir), args.sitzung
+        )
+        repo_name = (args.repo or "").split("/")[-1]
+        branches = sorted(
+            b for r, b in zuordnung["paare"] if not repo_name or r == repo_name
+        )
+        if not branches:
+            grund = zuordnung["grund"] or (
+                f"kein Branch der Sitzung {zuordnung['schluessel']} in {repo_name}"
+            )
+            print(f"◌ Sitzung nicht zuordenbar — {grund}. Keine Entwarnung.")
+            print(f"RESULT: HINWEIS 0 (sitzung-nicht-zuordenbar: {grund})")
+            return 0
+        print(
+            f"Sitzung {zuordnung['schluessel']}: {len(branches)} Branch(es) — {' '.join(branches)}"
+        )
+
     if args.eingabe:
         try:
             daten = lade_eingabe(args.eingabe)
@@ -1036,6 +1166,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"⚠ Eingabe nicht lesbar: {exc}", file=sys.stderr)
             print("RESULT: FEHLER")
             return 2
+        if branches is not None:
+            daten = auf_branches_begrenzen(daten, branches)
     else:
         if not args.repo:
             print("⚠ ohne --eingabe wird --repo owner/repo gebraucht.", file=sys.stderr)
@@ -1043,7 +1175,11 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         try:
             daten = sammle_via_gh(
-                args.repo, args.autor, args.seit, mit_hunks=not args.ohne_hunks
+                args.repo,
+                args.autor,
+                args.seit,
+                mit_hunks=not args.ohne_hunks,
+                branches=branches,
             )
         except GhFehler as exc:
             print(
@@ -1082,6 +1218,9 @@ def main(argv: list[str] | None = None) -> int:
             print("⚠ Sitzungs-Abgleich — Befunde (advisory):")
             for e in befunde:
                 print(_ausgabe_zeile(e))
+            # Kompakte Ref-Liste fuer die Runner-Zelle (E.10): dort war bisher nur
+            # EINE abgeschnittene Zeile sichtbar (Retro #3543 Befund #2).
+            print(f"KURZ: {kurz_refs(befunde)}")
         if hinweise:
             print("◌ NICHT falsifizierbar / nicht abrufbar — keine Entwarnung:")
             for e in hinweise:

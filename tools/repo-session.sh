@@ -29,7 +29,13 @@
 #                                              # (default: Repo des cwd); Leases werden .closed
 #
 # Lease-Felder (ADR-233 §2.4): session_id, owner, created_at, last_touch, branch,
-#   base_sha, repo, worktree, ziel, intended_pr, expires_at, ephemeral.
+#   base_sha, repo, worktree, ziel, intended_pr, expires_at, ephemeral,
+#   claude_session.
+#
+# `claude_session` (platform#2234, Retro #3543 Befunde #2/#4) = $CLAUDE_CODE_SESSION_ID
+# beim Start, leer ohne diese Variable. `session_id` ist die LEASE-ID, nicht die
+# Claude-Sitzung — ohne dieses Feld konnte kein Werkzeug die PRs EINER Sitzung von
+# denen paralleler Sitzungen desselben Kontos trennen (tools/sitzungs_branches.py).
 #
 # Befund-Sperre (platform#3495 V1): Am 2026-09-24 legten zwei Sitzungen desselben
 # Owners 6 s auseinander dieselben PRs an (#3465/#3466) und 17 s auseinander
@@ -378,7 +384,7 @@ cmd_start() {
   fi
   mkdir -p "$(dirname "$wt")" "$LEASE_DIR"
 
-  local now exp lease ziel_json
+  local now exp lease ziel_json cs_json
   exp="$(date -u -d "+${TTL_DAYS} days" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)"
 
   # Befund-Sperre (#3495 V1) VOR dem Worktree: eine zweite Sitzung auf denselben
@@ -400,6 +406,8 @@ cmd_start() {
   else
     ziel_json="null"
   fi
+  # JSON-kodiert wie `ziel`: der Wert kommt aus der Umgebung, nicht aus diesem Skript.
+  cs_json="$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "${CLAUDE_CODE_SESSION_ID:-}")"
   lease="$LEASE_DIR/$sid.json"
   cat > "$lease" <<JSON
 {
@@ -414,7 +422,8 @@ cmd_start() {
   "expires_at": "$exp",
   "ziel": ${ziel_json},
   "intended_pr": null,
-  "ephemeral": $ephemeral
+  "ephemeral": $ephemeral,
+  "claude_session": ${cs_json}
 }
 JSON
   echo "$wt"                 # stdout = Worktree-Pfad (zum cd)

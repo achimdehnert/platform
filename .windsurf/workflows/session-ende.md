@@ -39,13 +39,14 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_ende_checks.sh" "$TARGE
 | `E.0 banner` | Platform-Version + Commit | — | Zahl in den Abschlussbericht |
 | `E.1 deploy-status` | `failure:` = Prod nicht live · `waiting:` = Run hängt am Gate | Repo ohne Deploy-Workflow | transienter Flake: `gh run rerun <id> --failed`; sonst Run-ID als offenen Punkt ins Handover |
 | `E.2 handover-prs` | >1 offener PR fasst `AGENT_HANDOVER.md` an | höchstens einer · im Fragment-Modus Übergangsbefund | Alt-Branch übernehmen ODER Alt-PR als „ersetzt durch #N" schließen, **vor** dem Push |
-| `E.3 handover-frische` | ❌ Commits seit dem letzten Nachtrag und kein offener Handover-PR · ⚠️ Stand älter als der letzte Commit der Datei · **Fragment-Modus:** ❌ kein eigenes Fragment | Exit 0, Nachtrag offen als PR, oder eigenes Fragment auf `main`/im PR | Deutung in 0a-freshness bzw. 0b-fragment |
+| `E.3 handover-frische` | ❌ Commits seit dem letzten Nachtrag und kein offener Handover-PR · ⚠️ Stand älter als der letzte Commit der Datei · **Fragment-Modus:** ❌ kein eigenes Fragment · ❌ `veraltet`: nach dem jüngsten eigenen Fragment legte die Sitzung weitere PRs an · ◌ Sitzung nicht zuordenbar (Lease ohne `claude_session`) | Exit 0, Nachtrag offen als PR, oder eigenes Fragment auf `main`/im PR ohne späteren Sitzungs-PR | Deutung in 0a-freshness bzw. 0b-fragment; `veraltet` → neues Fragment |
 | `E.4 cross-repo-befunde` | Fremd-Repo-Befund ohne Artefakt oder Verzicht | Exit 0 | Deutung in 0f |
 | `E.5 zusagen` | Vertagung ohne Anker im Segment (advisory) | `✅` je Zusage | Deutung in 0g |
 | `E.6 template-drift` | Error-Drift gegen die Repo-Templates | 0 Errors | fixen oder Issue im betroffenen Repo |
 | `E.7 dirty-repos` | eigenes Repo mit uncommittetem Stand (Lease heute) | 0 eigene | in 3.1 committen; fremd dirty melden, nicht einsammeln |
 | `E.8 worktree-hygiene` | ❌ verknüpfter Baum älter als 14 Tage (`SESSION_ENDE_WORKTREE_MAX_TAGE`); `prunable`-Einträge räumt der Runner selbst | kein Baum über der Grenze | entfernen (`repo-session.sh reap` / `git worktree remove`) oder Grund in `<gitdir>/behalten` |
 | `E.9 dist-drift` | verteilte Skills weichen von `.windsurf/workflows/` ab | Lanes synchron | `cc-skill-dist/generate.py` laufen lassen, Diff committen |
+| `E.10 session-abgleich` | ⚠️ `N Befund(e) dieser Sitzung: <refs>` (mit `--session-id` nur PRs der eigenen Branches; ohne: `kontoweit`) · ◌ Sitzung nicht zuordenbar | Exit 0 | je Ref Issue nachziehen oder Fehlalarm notieren (Zeile 25) |
 
 **Läuft der Runner nicht** (Shell blockiert, keine Ausgabe nach 5 s): Session neu starten;
 bis dahin nur `Read`/`Write`/`Edit` + `mcp__github__*`, und **auf einem Branch, nie auf
@@ -96,7 +97,9 @@ python3 tools/agent-handover/fragments.py pruefen
 - Das Fragment kommt in den letzten PR der Sitzung (oder einen eigenen); nach dem Merge
   ist es **unveränderlich**, eine Korrektur ist ein neues Fragment (CI prüft das).
 - Memory (Phase 2) bleibt Pflicht — das Fragment ersetzt den Handover, nicht pgvector.
-- `E.3` ist grün, sobald das Fragment auf `main` oder in einem offenen PR liegt.
+- `E.3` ist grün, sobald das Fragment auf `main` oder in einem offenen PR liegt **und** die
+  Sitzung danach keinen weiteren PR angelegt hat (Branches aus den Leases, Feld
+  `claude_session`). Weitergearbeitet nach dem Fragment → neues Fragment (#2234).
 
 ### 0a-freshness: Handover-Rezenz erzwingen (PFLICHT — Gate `handover-stale-vor-merge`)
 
@@ -459,6 +462,12 @@ Phase, also dort zuerst nachsehen, wenn die Zeile auffällig steigt. Herleitung 
   Gesamt 302,5 s → 94,9 s, Status aller 11 Phasen unverändert. Messung:
   `docs/governance/session-skills-lehren/laufzeit.md`.
 
+- 2026-09-24: **Sitzungsabgrenzung für E.3 und E.10** (#2234, Retro #3543 Befunde #2/#4) —
+  Leases tragen `claude_session`; E.10 prüft mit `--session-id` nur die PRs der eigenen
+  Branches und nennt Anzahl + Refs (vorher: 35 kontoweite Befunde, eine abgeschnittene
+  Zeile sichtbar, das eigene offene Issue nicht). E.3 im Fragment-Modus ❌, wenn die
+  Sitzung nach ihrem jüngsten Fragment weitere PRs anlegte (vorher: grün ab dem ersten
+  Fragment, obwohl drei Stunden Arbeit folgten).
 - 2026-09-16: **Phase 0b-fragment + Runner mit `--session-id`** (#1944 K6, KONZ-platform-027) —
   in Repos mit `docs/handover.d/` schreibt jede Sitzung ihr eigenes Fragment statt die
   geteilten Handover-Dateien zu ändern; `E.3` prüft das eigene Fragment. Anlass: parallele
