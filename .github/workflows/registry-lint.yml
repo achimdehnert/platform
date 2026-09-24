@@ -36,11 +36,12 @@ jobs:
         run: pip install pyyaml
 
       # Ueber das Make-Ziel statt per Direktaufruf, damit tools/ci_deckung.py
-      # das Ziel `lint-tenancy` als in CI ausgefuehrt erkennt (platform#3472,
-      # Session-Start 2026-09-24 #3471). Bewusst NICHT `make lint-registry`:
-      # das schliesst validate_repos.py ein, und der meldet heute 8 bekannte
-      # Inkonsistenzen ports.yaml <-> Registry (archivierte Hubs, mcp-hub 8000
-      # vs. 3000, chat-hub/lotse-raum ohne Registry-Eintrag) — als CI-Gate waere
-      # er sofort rot. Stundung mit Grund: governance/ci-deckung-verzicht.yaml.
-      - name: tenancy_mode validieren (make lint-tenancy)
-        run: make lint-tenancy
+      # das Ziel `lint-registry` als in CI ausgefuehrt erkennt (platform#3477,
+      # Entscheid 4). `make lint-registry` deckt validate_repos.py UND
+      # validate_tenancy.py ab (Makefile: lint-registry laeuft beide); die
+      # fruehere Stundung (8 bekannte Inkonsistenzen ports.yaml <-> Registry —
+      # archivierte Hubs, mcp-hub 8000 vs. 3000, chat-hub/lotse-raum ohne
+      # Registry-Eintrag) ist mit #3477 behoben, der Verzicht-Eintrag
+      # `lint-registry` in governance/ci-deckung-verzicht.yaml entfernt.
+      - name: Registry validieren (make lint-registry)
+        run: make lint-registry

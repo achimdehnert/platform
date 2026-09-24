@@ -39,6 +39,7 @@
   ziel: workflow-lint
   grund: "Convenience-Preflight laut Makefile (KEIN Hard-Gate). yamllint und actionlint laufen in CI direkt in validate-workflows.yml mit denselben Configs; das Make-Ziel spiegelt sie nur lokal."
 
-- repo: platform
-  ziel: lint-registry
-  grund: "STUNDUNG, kein Dauerzustand: validate_repos.py meldet 8 Inkonsistenzen zwischen ports.yaml und der Repo-Registry (wedding-hub/recruiting-hub/onboarding-hub archiviert aber in ports.yaml; chat-hub, lotse-raum, chathub-rtc-livekit-7881/7882 ohne Registry-Eintrag; mcp-hub port_prod 8000 vs. 3000). Als CI-Gate sofort rot; die Klaerung braucht Owner-Entscheide (mcp-hub-Port ist seit Juli baselined, C4:8000). Der tenancy-Teil laeuft in registry-lint.yml ueber make lint-tenancy. Anker mit Akzeptanzkriterium: platform#3477."
+# platform#3477: der lint-registry-Verzicht ist behoben (0 Inkonsistenzen,
+# .github/workflows/registry-lint.yml laeuft jetzt `make lint-registry` statt
+# `make lint-tenancy`) und deshalb entfernt — kein Eintrag mehr fuer `ziel:
+# lint-registry` hier.
