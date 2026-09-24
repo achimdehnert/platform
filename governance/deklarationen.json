@@ -211,6 +211,14 @@
   {
    "art": "betriebsstatus",
    "gesetzt_am": "2026-09-24",
+   "grund": "blockiert — Wiedervorlage: haelt der Blocker aus betriebsstatus_grund (infra/ports.yaml) noch? Staging loopback laeuft (meiki-hub#494 K3), Prod erst nach Hosting-Entscheid",
+   "gueltig_bis": "2026-11-24",
+   "quelle": "Wert + Grund: infra/ports.yaml; Ablauf seit #3507",
+   "ziel": "buerger-hub"
+  },
+  {
+   "art": "betriebsstatus",
+   "gesetzt_am": "2026-09-24",
    "grund": "blockiert — Wiedervorlage: haelt der Blocker aus betriebsstatus_grund (infra/ports.yaml) noch?",
    "gueltig_bis": "2026-11-26",
    "quelle": "Wert + Grund: infra/ports.yaml; Ablauf seit #3507",

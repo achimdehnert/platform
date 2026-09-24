@@ -205,6 +205,15 @@ services:
     betriebsstatus: blockiert
     betriebsstatus_grund: "Repo am 2026-09-11 angelegt (PostAssist-Host, meiki-lra); noch kein Code, kein Deploy — Prod erst nach Hosting-Entscheid wie frist-hub; post-hub.iil.pet hat bewusst keinen DNS-Eintrag"
     note: "meiki-lra · PostAssist-Host (Posteingang) — Skelett, prod blockiert"
+  buerger-hub:
+    prod: 11437
+    staging: 11437
+    dev: 11437
+    container_name: buerger_hub_web
+    domain_prod: buerger-hub.iil.pet
+    betriebsstatus: blockiert
+    betriebsstatus_grund: "Repo am 2026-09-24 angelegt (Bürgerverzeichnis-Dienst je Haus, core:ADR-003, meiki-lra); Staging auf dem Dev-Desktop nur loopback mit synthetischem Bestand (meiki-hub#494 K3); Prod blockiert wie post-/schreib-/frist-hub; buerger-hub.iil.pet hat bewusst keinen DNS-Eintrag"
+    note: "meiki-lra · Bürgerverzeichnis-Dienst (BuergerAssist) — ein Dienst je Haus, prod blockiert"
   frist-hub:
     prod: 8111
     staging: 8111
