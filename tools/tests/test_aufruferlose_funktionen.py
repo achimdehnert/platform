@@ -192,7 +192,13 @@ def test_should_funktion_ganz_ohne_test_nicht_melden(tmp_path) -> None:
     assert probe.scanne(wurzel) == []
 
 
-# --- Ausnahmeliste --------------------------------------------------------
+# --- Ausnahmeliste ----------------------------------------------------------
+#
+# Fall 2 aus der Registry (platform#2944, Gate `built-but-never-called`):
+# tools/aufruferlose_funktionen.py — Ausnahmen brauchen einen Anker. `lade_ausnahmen()`
+# selbst erzwingt das nicht (jede TSV-Zeile mit zwei Spalten wird uebernommen) —
+# die Bestandsprobe unten ist deshalb die einzige Stelle, die das durchsetzt:
+# sie liest die ECHTE Ausnahmeliste des Repos und lehnt jede Zeile ohne "#" ab.
 
 
 def test_should_ausnahmen_nur_mit_grund_uebernehmen() -> None:
@@ -201,3 +207,23 @@ def test_should_ausnahmen_nur_mit_grund_uebernehmen() -> None:
     assert "tools/melder_ergebnis.py::lies" in ausnahmen
     for schluessel, grund in ausnahmen.items():
         assert "#" in grund, f"Ausnahme ohne Anker: {schluessel}"
+
+
+def test_should_reject_an_exception_without_an_anchor_as_uncovered(tmp_path) -> None:
+    """POSITIVKONTROLLE zur Bestandsprobe: eine Ausnahme ohne Anker im Grund ist
+    nach dem Wortlaut des Falls keine gueltige Ausnahme — nachgebaut mit einer
+    eigenen TSV-Datei, damit der Test nicht von der aktuellen Bestandsdatei
+    abhaengt."""
+    tsv = tmp_path / "ausnahmen.tsv"
+    tsv.write_text(
+        "tools/x.py::f\tkommt spaeter\ntools/y.py::g\techter Grund #123\n",
+        encoding="utf-8",
+    )
+    zeilen = [
+        z
+        for z in tsv.read_text(encoding="utf-8").splitlines()
+        if z.strip() and not z.lstrip().startswith("#")
+    ]
+    geladen = {z.split("\t")[0]: z.split("\t")[1] for z in zeilen}
+    ohne_anker = [s for s, grund in geladen.items() if "#" not in grund]
+    assert ohne_anker == ["tools/x.py::f"], ohne_anker

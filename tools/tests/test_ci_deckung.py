@@ -30,6 +30,7 @@ Run: `python3 -m pytest tools/tests/test_ci_deckung.py -q`
 from __future__ import annotations
 
 import importlib.util
+import subprocess
 import sys
 from pathlib import Path
 
@@ -51,6 +52,38 @@ def _repo(
         wf_dir = repo / ".github" / "workflows"
         wf_dir.mkdir(parents=True, exist_ok=True)
         (wf_dir / "ci.yml").write_text(workflow, encoding="utf-8")
+    return repo
+
+
+def _git_klon_mit_workflow(
+    basis: Path, repo_name: str, dateiname: str, inhalt: str
+) -> Path:
+    """Echten lokalen Git-Klon unter `basis/repo_name` mit einer
+    `.github/workflows/<dateiname>` anlegen (Konvention `<github_base>/<repo>`,
+    platform#2990) — `git show`/`git rev-parse` brauchen ein echtes Repo, keine
+    reine Verzeichnisstruktur. `main` ist der Default-Branch, ein Commit reicht."""
+    repo = basis / repo_name
+    wf_dir = repo / ".github" / "workflows"
+    wf_dir.mkdir(parents=True)
+    (wf_dir / dateiname).write_text(inhalt, encoding="utf-8")
+    subprocess.run(["git", "init", "-q", "-b", "main", str(repo)], check=True)
+    subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "-c",
+            "user.email=test@example.invalid",
+            "-c",
+            "user.name=Test",
+            "commit",
+            "-q",
+            "-m",
+            "init",
+        ],
+        check=True,
+    )
     return repo
 
 
@@ -441,3 +474,168 @@ def test_should_collapse_realfall_3469_boards_check_shape(tmp_path):
     betrieb_check_dedup = [d for d in dedup if d["ziel"] == "betrieb-check"]
     assert len(betrieb_check_dedup) == 1
     assert betrieb_check_dedup[0]["anzahl"] == 1
+
+
+# ────────── Aufloesung wiederverwendbarer Workflows (platform#2990) ────────
+
+
+def test_should_resolve_reusable_workflow_via_local_clone_and_cover_matching_command(
+    tmp_path,
+):
+    """Akzeptanzkriterium 4: rot ohne lokalen Klon (heutiges Verhalten bleibt,
+    `github_base=None`), gruen mit — die referenzierte Datei wird per `git show`
+    gelesen und ihr `run:`-Kommando deckt das Makefile-Ziel des rufenden Repos."""
+    github_base = tmp_path / "github_base"
+    _git_klon_mit_workflow(
+        github_base,
+        "toolrepo",
+        "_ci.yml",
+        "on:\n  workflow_call: {}\njobs:\n  ci:\n    steps:\n      - run: pytest tests/\n",
+    )
+    makefile = "test:\n\tpytest tests/\n"
+    workflow = (
+        "on: [push]\n"
+        "jobs:\n"
+        "  ci:\n"
+        "    uses: someorg/toolrepo/.github/workflows/_ci.yml@main\n"
+    )
+    repo = _repo(tmp_path, makefile, workflow, name="caller-repo")
+
+    # rot ohne Klon (Default-Verhalten der Python-API, unveraendert vor #2990)
+    ergebnis_ohne = cd.scan_repo(str(repo))
+    assert ergebnis_ohne["befunde"] == []
+    assert any(n["ziel"] == "test" for n in ergebnis_ohne["nicht_pruefbar"])
+
+    # gruen mit Klon
+    ergebnis_mit = cd.scan_repo(str(repo), github_base=str(github_base))
+    assert ergebnis_mit["nicht_pruefbar"] == []
+    assert ergebnis_mit["befunde"] == []
+    assert "test" in _gedeckt_ziele(ergebnis_mit)
+
+
+def test_should_report_a_genuine_finding_when_resolved_workflow_does_not_cover_it(
+    tmp_path,
+):
+    """Akzeptanzkriterium 1+2: nach der Aufloesung ist ein Ziel, das der
+    referenzierte Workflow NICHT ausfuehrt, ein echter Befund — kein stiller
+    Treffer (faelschlich gedeckt) und keine stille Luecke (faelschlich NICHT
+    PRUEFBAR)."""
+    github_base = tmp_path / "github_base"
+    _git_klon_mit_workflow(
+        github_base,
+        "toolrepo",
+        "_ci.yml",
+        "on:\n  workflow_call: {}\njobs:\n  ci:\n    steps:\n      - run: pytest tests/\n",
+    )
+    makefile = "test:\n\tpytest tests/\n\nlint:\n\truff check src/\n"
+    workflow = (
+        "on: [push]\n"
+        "jobs:\n"
+        "  ci:\n"
+        "    uses: someorg/toolrepo/.github/workflows/_ci.yml@main\n"
+    )
+    repo = _repo(tmp_path, makefile, workflow, name="caller-repo")
+    ergebnis = cd.scan_repo(str(repo), github_base=str(github_base))
+    assert ergebnis["nicht_pruefbar"] == []
+    assert "lint" in _befund_ziele(ergebnis)
+    assert "test" in _gedeckt_ziele(ergebnis)
+
+
+def test_should_stay_not_pruefbar_when_no_local_clone_exists(tmp_path):
+    """Akzeptanzkriterium 2: fremde Org/kein Klon bleibt NICHT PRUEFBAR mit
+    demselben Grund wie vor #2990 — keine Verschlechterung, auch wenn die
+    Aufloesung ueber `github_base` aktiv ist."""
+    makefile = "test:\n\tpytest tests/\n"
+    workflow = (
+        "on: [push]\n"
+        "jobs:\n"
+        "  ci:\n"
+        "    uses: fremde-org/unbekanntes-repo/.github/workflows/_ci.yml@main\n"
+    )
+    repo = _repo(tmp_path, makefile, workflow, name="caller-repo")
+    ergebnis = cd.scan_repo(str(repo), github_base=str(tmp_path / "leer"))
+    assert ergebnis["befunde"] == []
+    assert any(n["ziel"] == "test" for n in ergebnis["nicht_pruefbar"])
+
+
+def test_should_fall_back_to_head_with_warning_when_ref_is_not_resolvable(tmp_path):
+    """`@<ref>` nicht im lokalen Klon aufloesbar (Tag existiert dort nicht) →
+    Fallback auf origin/main/HEAD, mit Warnzeile im Report statt stillschweigend
+    falscher Zuordnung."""
+    github_base = tmp_path / "github_base"
+    _git_klon_mit_workflow(
+        github_base,
+        "toolrepo",
+        "_ci.yml",
+        "on:\n  workflow_call: {}\njobs:\n  ci:\n    steps:\n      - run: pytest tests/\n",
+    )
+    makefile = "test:\n\tpytest tests/\n"
+    workflow = (
+        "on: [push]\n"
+        "jobs:\n"
+        "  ci:\n"
+        "    uses: someorg/toolrepo/.github/workflows/_ci.yml@v9-nicht-vorhanden\n"
+    )
+    repo = _repo(tmp_path, makefile, workflow, name="caller-repo")
+    ergebnis = cd.scan_repo(str(repo), github_base=str(github_base))
+    assert "test" in _gedeckt_ziele(ergebnis)
+    assert ergebnis["warnungen"]
+    assert "v9-nicht-vorhanden" in ergebnis["warnungen"][0]
+
+
+def test_should_stop_recursion_at_max_tiefe_and_report_not_pruefbar(tmp_path):
+    """Verschachtelte `uses:`-Referenzen werden nur bis `MAX_REUSABLE_TIEFE`
+    rekursiv aufgeloest — Kette a→b→c→d→e (4 Hops, > 3) laesst die letzte
+    Referenz NICHT PRUEFBAR statt unbegrenzter Rekursion."""
+    github_base = tmp_path / "github_base"
+    kette = ["a", "b", "c", "d"]
+    for i, name in enumerate(kette):
+        naechster = kette[i + 1] if i + 1 < len(kette) else "e"
+        _git_klon_mit_workflow(
+            github_base,
+            name,
+            "_ci.yml",
+            "on:\n  workflow_call: {}\njobs:\n  ci:\n    uses: "
+            f"someorg/{naechster}/.github/workflows/_ci.yml@main\n",
+        )
+    _git_klon_mit_workflow(
+        github_base,
+        "e",
+        "_ci.yml",
+        "on:\n  workflow_call: {}\njobs:\n  ci:\n    steps:\n      - run: pytest tests/\n",
+    )
+    makefile = "test:\n\tpytest tests/\n"
+    workflow = (
+        "on: [push]\njobs:\n  ci:\n    uses: someorg/a/.github/workflows/_ci.yml@main\n"
+    )
+    repo = _repo(tmp_path, makefile, workflow, name="caller-repo")
+    ergebnis = cd.scan_repo(str(repo), github_base=str(github_base))
+    assert ergebnis["befunde"] == []
+    assert any(n["ziel"] == "test" for n in ergebnis["nicht_pruefbar"])
+    assert any("Aufloesungstiefe" in n["grund"] for n in ergebnis["nicht_pruefbar"])
+
+
+def test_should_detect_a_cycle_between_two_reusable_workflows(tmp_path):
+    """a referenziert b, b referenziert a zurueck — ohne Zyklus-Schutz eine
+    Endlosrekursion. Bleibt NICHT PRUEFBAR statt Absturz oder Haenger."""
+    github_base = tmp_path / "github_base"
+    _git_klon_mit_workflow(
+        github_base,
+        "a",
+        "_ci.yml",
+        "on:\n  workflow_call: {}\njobs:\n  ci:\n    uses: someorg/b/.github/workflows/_ci.yml@main\n",
+    )
+    _git_klon_mit_workflow(
+        github_base,
+        "b",
+        "_ci.yml",
+        "on:\n  workflow_call: {}\njobs:\n  ci:\n    uses: someorg/a/.github/workflows/_ci.yml@main\n",
+    )
+    makefile = "test:\n\tpytest tests/\n"
+    workflow = (
+        "on: [push]\njobs:\n  ci:\n    uses: someorg/a/.github/workflows/_ci.yml@main\n"
+    )
+    repo = _repo(tmp_path, makefile, workflow, name="caller-repo")
+    ergebnis = cd.scan_repo(str(repo), github_base=str(github_base))
+    assert ergebnis["befunde"] == []
+    assert any(n["ziel"] == "test" for n in ergebnis["nicht_pruefbar"])
