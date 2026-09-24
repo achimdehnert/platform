@@ -6,8 +6,8 @@
   "drill": "tools/claude-hooks/tests/test_scope_checkpoint_scanner.py",
   "built": "2026-08-02",
   "ref": "platform#1646",
-  "revised": "2026-09-23",
-  "revision_note": "Rev 7, Retro 69d15d Befund 7 (Gate RUECKFAELLIG, Ursache am AUSGANG): Der Melder feuerte beim Dienst-Neustart, die Antwort blieb im Chat, ein durables Artefakt entstand nicht — genau das, was der Slug benennt. Konsequenz umbauen statt lauter stellen: der Scanner prueft nach einem Checkpoint-Turn, ob im selben Segment eine Board-Zeile oder ein Issue entstand, und meldet sonst erneut. Zweitens deckt er den Schwellenfall 'drittes Repo ohne Prod-Aktion' bisher nicht ab (in dieser Sitzung kam writing-hub als drittes Repo dazu, ohne dass der Melder ansprang).",
+  "revised": "2026-09-24",
+  "revision_note": "Rev 8, Retro 2026-09-24 e911bf Befund #5 (Gate RUECKFAELLIG, Ursache an der QUELLE, Konsequenz ausweiten): Der Checkpoint (07:43Z, durabel 07:49Z) nannte sechs Repos und stellte 'weitere Repos' unter ein neues Owner-Wort; beschrieben hatte die Sitzung davon erst vier. Ab 13:37Z kam cad-hub per Worktree-Pfad dazu — die Repo-Erkennung sah es (Replay: repos_beschrieben = 5), aber Fehlerform C verglich Zahlen: 5 - 4 = 1 < NACHWACHS_SCHWELLE 2, also stumm (Replay des Scanners von origin/main als Stop-Hook auf das Transkript bis 14:00Z: keine Ausgabe). Rev 8 vergleicht Mengen: jedes beschriebene Repo, das beim letzten Checkpoint weder beschrieben war noch in einem Checkpoint-Text genannt ist, macht den Checkpoint ueberholt — schon das erste. Replay Rev 8 auf dasselbe Transkript: bis 13:36Z stumm, bis 14:00Z Meldung 'cad-hub'. Rev 7 (Retro 69d15d Befund 7, Ausgang) bleibt davon unberuehrt.",
   "faengt": [
     {
       "fall": "drittes Repo beruehrt, Scope nicht durabel abgelegt",
@@ -22,6 +22,10 @@
       "probe": "Fehlerform C"
     },
     {
+      "fall": "Checkpoint abgelegt, danach erstes Repo, das er nicht nennt, per Worktree-Pfad beschrieben (Retro e911bf #5)",
+      "probe": "checkpoint_did_not_name"
+    },
+    {
       "fall": "fremden Dienst scharfschalten (enable/start) ohne durablen Scope-Vermerk",
       "probe": "fremde_ressource"
     }
@@ -31,7 +35,7 @@
   "expires": "2026-10-31",
   "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet.",
   "positivkontrolle": {
-    "ref": "docs/retros/session-retro-2026-09-23-platform-69d15d.md",
-    "datum": "2026-09-23"
+    "ref": "docs/retros/session-retro-2026-09-24-platform-e911bf.md",
+    "datum": "2026-09-24"
   }
 }
