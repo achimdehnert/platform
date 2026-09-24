@@ -58,8 +58,10 @@ hosts:
       getrennte Compose-Projekte auf EINER Engine (COMPOSE_PROJECT_NAME pro Hub pinnen,
       ADR-248). Docker-Daten auf dem 350-GB-Volume (/mnt/HC_Volume_105908261),
       Root-Platte traegt CI-Runner und Backups. Offsite-Backup laeuft von hier (02:30,
-      Tags pgdump/volumes/config). Traegt wg0 zur GPU-Box (10.99.0.2) — deshalb kann
-      illustration-hub nicht wandern.
+      Tags pgdump/volumes/config) nach Storage Box 601177 (fsn1), Unterkonto
+      u618904-sub1, Repo sftp:storagebox-offsite:/home/restic (ADR-289 Rev 3, seit
+      2026-09-24; vorher netcup rest-server, tot seit 2026-09-08). Traegt wg0 zur
+      GPU-Box (10.99.0.2) — deshalb kann illustration-hub nicht wandern.
     historie:
       - "2026-07-20: OOM-Ausfall 16 h unbemerkt — kein Monitoring; seit 2026-08-30 scrapt der odoo-Prometheus diesen Host (cadvisor 9338; node_exporter 9100 wartet auf ufw-Regel, platform#2504)"
       - "2026-07-22: Freeze #1314 + Long-Tail-Umzug nach prod-b haben die Speichernotlage entspannt"
@@ -90,6 +92,10 @@ hosts:
       Zweiter Prod-Host fuer den Long Tail der Hubs (prod_host=prod-b, ADR-292).
       Entstanden 2026-07-22 durch Rebuild der ungenutzten Maschine lastwar-bot (Snapshot
       lastwar-bot-archive-20260722, id 411324113). Standort Helsinki — siehe auflage.
+      Offsite-Backup laeuft von hier (03:30, Tags pgdump/volumes/config) nach Storage Box
+      601177 (fsn1), Unterkonto u618904-sub2, Repo sftp:storagebox-offsite:/home/restic
+      (ADR-289 Rev 3, seit 2026-09-24; 08.09.–24.09. ohne Offsite, keine lokale
+      Dump-Schicht — die acht Postgres-Instanzen haengen allein an diesem Lauf).
       Ingress ueber eigenen cloudflared-Tunnel; nginx terminiert hier KEIN TLS.
     historie:
       - "2026-08-04: Long-Tail-Welle — apo, pptx, weltenhub, wedding, coach, research, cad, trading, dms liegen hier (platform#1752/#1753)"
