@@ -93,6 +93,22 @@ _SKRIPT_SCHREIBT = re.compile(
 #: Ein Pfad im Skripttext, der auf eine Repo-Datei zeigt.
 _PFAD_IM_TEXT = re.compile(r"['\"]([A-Za-z0-9_./-]+/[A-Za-z0-9_.-]+\.[a-z]{1,5})['\"]")
 
+#: Ausweitung 2026-09-24 (Retro 02b7f5, platform#3545 §5a): dieselbe Fehlerklasse ohne
+#: Schreibziel. Ein Inline-Text an `gh … --body "…"` oder `git commit -m "…"` mit einem
+#: deutschen „…", das mit einem ASCII-`"` statt `“` endet: das ASCII-Zeichen beendet den
+#: Shell-String. Zweimal an einem Tag — ein Issue-Kommentar kam abgeschnitten an, ein
+#: Commit scheiterte. Ein korrekt geschlossenes „…“ bleibt still.
+_INLINE_TEXT = re.compile(r"(?:^|\s)(?:--body|--title|--message|-m|-b)\s+\"")
+_ASCII_SCHLUSS = re.compile(r"„[^“\"\n]*\"")
+
+
+def inline_quote_bricht(kommando: str) -> bool:
+    """Inline-Text mit „…" (ASCII-Schluss) — Heredoc-Körper zählen nicht."""
+    ohne_heredoc = _HEREDOC.sub(" ", kommando)
+    return bool(
+        _INLINE_TEXT.search(ohne_heredoc) and _ASCII_SCHLUSS.search(ohne_heredoc)
+    )
+
 
 def _modus() -> str:
     """advisory (Default) | blocking. Anders herum als beim Evidenz-Scanner:
@@ -179,6 +195,13 @@ def entscheide(kommando: str, cwd: str) -> str | None:
             "Standardeingabe (`git commit -F -`) und Wegwerf-Skripte im Scratchpad "
             "sind nicht gemeint."
         )
+    if inline_quote_bricht(kommando):
+        return (
+            'Inline-Text mit „…" an `--body`/`--title`/`-m`: das ASCII-Schlusszeichen '
+            "beendet den Shell-String, der Text kommt abgeschnitten an oder der Befehl "
+            "scheitert. Text in eine Datei schreiben (Write-Werkzeug) und per "
+            "`--body-file` bzw. `git commit -F` übergeben."
+        )
     return None
 
 
@@ -199,7 +222,9 @@ def main() -> int:
 
         gate_hits.notiere(
             SLUG,
-            "Shell-Schreibziel im Repo",
+            "Inline-Text mit ASCII-Schluss"
+            if grund.startswith("Inline")
+            else "Shell-Schreibziel im Repo",
             beleg=kommando[:200],
             session=daten.get("session_id", ""),
             modus=modus,

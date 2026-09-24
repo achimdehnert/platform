@@ -126,6 +126,15 @@ lokale Dateien (`~/.claude/bin/kontingent-woche`, systemd-Timer, Memory-Index).
 `docs/governance/gates/gates/` (per `ls`: fünf Treffer), daher 5a. **Kein Gate** hat `deferred-item-no-tracking-issue`
 (×49) — geführt als `gate_candidate`, nicht unter 5a. (Die Erstfassung behauptete „alle sechs"; vom Meta-Prüfer korrigiert.)
 
+> **Nachtrag 2026-09-24 (Umsetzung von 5a, Owner-Wort „9 10 go"):** Die Korrektur war selbst falsch.
+> `deferred-item-no-tracking-issue` ist gedeckt — über `covers` im Gate `aufschub-anker` (blocking,
+> `tools/deferral_anchor_check.py`); der eigene Scanner wurde am 2026-09-14 bewusst stillgelegt
+> (`docs/governance/gates/declined/deferred-item-no-tracking-issue.json`, Belegart „kein Effekt").
+> Der Existenz-Check per Dateiname übersah das `covers`-Feld. Kein neues Gate. Befund #5 (Dockerfile-Hinweis
+> als Kommentarnotiz) war keine Vertagungsformulierung, die `aufschub-anker` sehen könnte — kein Rückfall
+> dieses Gates. Der `gate_candidate`-Eintrag oben ist damit gegenstandslos. Umgesetzt aus 5a:
+> `inline-heredoc-quoting-rework` ausgeweitet (dieser PR).
+
 ### 5a. Rückfall-Prüfung
 
 | Gate | Stand `gate_wirkung.py` vor diesem Bericht | diese Sitzung | Entscheidung |

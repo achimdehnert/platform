@@ -5,7 +5,9 @@
   "module": "tools/claude-hooks/block_repo_write_via_shell.py",
   "drill": "tools/claude-hooks/tests/test_block_repo_write_via_shell.py",
   "built": "2026-09-23",
-  "last_drill_pass": "2026-09-23",
+  "revised": "2026-09-24",
+  "revision_note": "Rueckfall ausgeweitet (Retro 02b7f5, platform#3545 §5a, Owner-Wort '9 10 go' 2026-09-24): zwei Vorkommen am 2026-09-24 ohne Schreibziel im Repo — `gh issue comment --body \"…„25 go 26 go\": …\"` kam abgeschnitten an, `git commit -m \"…(„26 go\", …)\"` scheiterte. Beide Male beendete das ASCII-Schlusszeichen eines deutschen „…\" den Shell-String. Neue Probe im selben Modul: Inline-Text an --body/--title/--message/-m/-b mit „…\" (ASCII-Schluss); korrekt geschlossenes „…“ und Heredoc-Koerper bleiben frei. Replay gegen alle 150 Bash-Befehle der Sitzung: genau die 2 Realfaelle, 0 Fehlalarme.",
+  "last_drill_pass": "2026-09-24",
   "ref": "Retro 3bdc4e (platform#3441) §5, Owner-Entscheid '180 -> dein vorschlag' Kapitaens-Kanal 2026-09-23",
   "zustand": "melder",
   "expires": "2026-10-21",
@@ -46,11 +48,19 @@
     {
       "fall": "`python3 -c` mit schreibendem `open(..., 'w')` auf eine Repo-Datei",
       "probe": "python_dash_c_writing_a_repo_file"
+    },
+    {
+      "fall": "Inline-Text an `gh … --body \"…\"` mit „…\" (ASCII-Schluss) — Realfall 2026-09-24, Kommentar abgeschnitten",
+      "probe": "inline_body_with_ascii_closing_quote"
+    },
+    {
+      "fall": "`git commit -m \"…\"` mit „…\" (ASCII-Schluss) — Realfall 2026-09-24, Commit gescheitert",
+      "probe": "commit_message_with_ascii_closing_quote"
     }
   ],
   "positivkontrolle": {
-    "datum": "2026-09-23",
-    "ref": "tools/claude-hooks/tests/test_block_repo_write_via_shell.py — acht Befehle muessen ausdruecklich DURCHLAUFEN: `git commit -F - <<'MSG'` (Heredoc an die Standardeingabe, vier davon liefen allein am 2026-09-23), Schreiben in den Scratchpad, Schreiben ausserhalb der Repo-Wurzeln, Pfad mit Variable (`> \"$S/x.json\"`, fail-open), Deskriptor-Umleitungen (`2>&1`, `>&2`), `/dev/null`, ein `>` innerhalb von Anfuehrungszeichen (PR-Text), und eine LESENDE Umleitung (`< datei`). Dazu zwei Laeufe durch `main()` mit echtem Hook-Payload: der Realfall feuert in advisory mit Exit 0 und Warnzeile, derselbe Befehl blockt mit Exit 2, sobald die Modus-Datei auf blocking steht."
+    "datum": "2026-09-24",
+    "ref": "Ausweitung 2026-09-24: vier weitere Formen muessen DURCHLAUFEN — korrekt geschlossenes „…“, `--body-file`, „…\" im Heredoc-Koerper von `git commit -F -`, Inline-Text ohne deutsche Anfuehrungszeichen (test_should_stay_silent_on_*). Replay gegen 150 echte Bash-Befehle der Sitzung 02b7f5: 2 Treffer = die 2 Realfaelle, 0 Fehlalarme. Stand 2026-09-23: tools/claude-hooks/tests/test_block_repo_write_via_shell.py — acht Befehle muessen ausdruecklich DURCHLAUFEN: `git commit -F - <<'MSG'` (Heredoc an die Standardeingabe, vier davon liefen allein am 2026-09-23), Schreiben in den Scratchpad, Schreiben ausserhalb der Repo-Wurzeln, Pfad mit Variable (`> \"$S/x.json\"`, fail-open), Deskriptor-Umleitungen (`2>&1`, `>&2`), `/dev/null`, ein `>` innerhalb von Anfuehrungszeichen (PR-Text), und eine LESENDE Umleitung (`< datei`). Dazu zwei Laeufe durch `main()` mit echtem Hook-Payload: der Realfall feuert in advisory mit Exit 0 und Warnzeile, derselbe Befehl blockt mit Exit 2, sobald die Modus-Datei auf blocking steht."
   },
   "kalibrierfenster": {
     "klasse": "kinds=repo-write-via-shell",

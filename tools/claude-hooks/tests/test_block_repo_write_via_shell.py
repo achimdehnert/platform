@@ -216,3 +216,40 @@ def test_should_stay_silent_through_main_on_commit_heredoc(
     code, err = _lauf(monkeypatch, capsys, kommando, WORKTREE, tmp_path=tmp_path)
     assert code == 0
     assert err == ""
+
+
+# --- Ausweitung 2026-09-24: Inline-Text mit „…" (Retro 02b7f5, platform#3545) ---
+# Die beiden Realfaelle des Tages, woertlich verkuerzt.
+
+
+def test_should_warn_on_inline_body_with_ascii_closing_quote():
+    kommando = (
+        'gh issue comment 382 -R achimdehnert/dev-hub --body "Stand nach Owner-Wort '
+        '„25 go 26 go": - **25 (Merge #383):** gesperrt"'
+    )
+    assert "Inline-Text" in (modul.entscheide(kommando, REPO) or "")
+
+
+def test_should_warn_on_commit_message_with_ascii_closing_quote():
+    kommando = 'git commit -q -m "ci(deploy): Owner-Wort („26 go", „32 erlaubt")."'
+    assert "Inline-Text" in (modul.entscheide(kommando, WORKTREE) or "")
+
+
+def test_should_stay_silent_on_correctly_closed_german_quotes():
+    kommando = 'gh pr comment 1 --body "Owner-Wort „25 go“ liegt vor."'
+    assert modul.entscheide(kommando, REPO) is None
+
+
+def test_should_stay_silent_on_body_file():
+    kommando = "gh issue comment 382 --body-file /tmp/x/scratchpad/c.md"
+    assert modul.entscheide(kommando, REPO) is None
+
+
+def test_should_stay_silent_on_german_quotes_inside_commit_heredoc():
+    kommando = "git commit -q -F - <<'MSG'\nfix(x): Owner-Wort „go\" im Body\nMSG"
+    assert modul.entscheide(kommando, WORKTREE) is None
+
+
+def test_should_stay_silent_on_inline_text_without_german_quotes():
+    kommando = 'git commit -q -m "fix(x): \\"zitiert\\" ohne deutsche Quotes"'
+    assert modul.entscheide(kommando, WORKTREE) is None
