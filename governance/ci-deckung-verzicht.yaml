@@ -39,6 +39,10 @@
   ziel: workflow-lint
   grund: "Convenience-Preflight laut Makefile (KEIN Hard-Gate). yamllint und actionlint laufen in CI direkt in validate-workflows.yml mit denselben Configs; das Make-Ziel spiegelt sie nur lokal."
 
+- repo: platform
+  ziel: lint-tenancy
+  grund: "Teilmenge von lint-registry: validate_tenancy.py laeuft in registry-lint.yml ueber make lint-registry (seit #3505, 2026-09-24). Ein zweiter Aufruf per make lint-tenancy wuerde dieselbe Pruefung doppelt fahren; Session-Start 0.7.26 meldete das Ziel nach dem Umbau als einzigen Rest (platform#3472)."
+
 # platform#3477: der lint-registry-Verzicht ist behoben (0 Inkonsistenzen,
 # .github/workflows/registry-lint.yml laeuft jetzt `make lint-registry` statt
 # `make lint-tenancy`) und deshalb entfernt — kein Eintrag mehr fuer `ziel:
