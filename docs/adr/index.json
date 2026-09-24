@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-22",
+  "generated": "2026-09-24",
   "total": 253,
   "next_free": 308,
   "adrs": [
@@ -5458,7 +5458,7 @@
         "ADR-248",
         "ADR-257"
       ],
-      "implementation_status": "none"
+      "implementation_status": "partial"
     },
     {
       "number": 290,

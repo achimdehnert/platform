@@ -16,8 +16,8 @@ ai_sparring_by:
     role: adversarial-review
     summary: "Externes LLM (Runde 2) auf ADR-289: Verdikt ueberarbeiten. Kern: das ADR wiederholt den Fehler, den es an ADR-241 diagnostiziert (eine belegte Entscheidung an drei unfertige gebunden); ungestellte Frage warum ADR-241 sechs Wochen nicht gebaut wurde; Kapazitaetsargument gegen Option B und D gegenlaeufig verwendet; ADR-257-Lehre nur auf R3 statt auch auf R2 angewandt; Append-only ist unterverkauft (SFTP kann es nicht erzwingen, rest-server schon). Tag-Tabelle Paragraph 11."
 related: [ADR-059, ADR-098, ADR-142, ADR-157, ADR-164, ADR-248, ADR-257]
-implementation_status: none
-last_reviewed: 2026-09-08
+implementation_status: partial
+last_reviewed: 2026-09-24
 staleness_months: 6
 tags: [infrastructure, hosts, backup, disaster-recovery, provider-diversity, netcup, object-storage]
 ---
@@ -287,7 +287,63 @@ Host existiert. R2 und R4 bleiben unverändert zurückgestellt.
 **Offen:** `infra/hosts.yaml` führt den netcup-Block samt
 `hosts_runners: [netcup-ci, netcup-ci-2, netcup-ci-3]` (drei — registriert waren vier). Der
 Block gehört auf den Ist-Stand gezogen, sobald entschieden ist, ob der Vertrag endet.
-Getrackt in achimdehnert/platform#2956.
+Getrackt in achimdehnert/platform#2956. **Erledigt 2026-09-10:** netcup ist gekündigt (Owner),
+Block nach `ehemalige_hosts:` (#3093), Runner-Registrierungen gelöscht.
+
+### 3.1b Revision 2 (2026-09-24) — netcup gekündigt, 17 Nächte ohne Offsite, Zielbild geschärft
+
+**Auslöser, gemessen (achimdehnert/platform#3475, K1):** Der Offsite-Lauf endet auf **beiden**
+Prod-Hosts seit dem 08.09. jede Nacht mit `connection refused` gegen das gekündigte Ziel —
+letzter Snapshot 2026-09-07 03:30. Das Umstellskript aus #2968 ist gemergt, aber nie
+angewendet, weil es weder Bucket noch S3-Schlüssel gibt. `prod-b` trägt acht Postgres-Container
+und **keine** lokale Dump-Schicht; mit dem toten Offsite ist der Host seit 17 Tagen ungesichert
+(Ausnahme `chat-hub-backup.timer`). Der einzige geplante Frische-Leser (`backup-meter.yml`)
+wurde am 07.09. abgeschaltet (R2, #2506) — einen Tag vor dem Ausfall; der benannte Ersatz
+(Flottenbild-Timer) schreibt nicht (#3486).
+
+**Was die Analyse an §3.1a bestätigt:** Ziel Hetzner Object Storage **Helsinki** mit Object
+Lock. Hetzner-Doku (gelesen 2026-09-24): Object Lock „has to be enabled during Bucket creation",
+Modi `GOVERNANCE`/`COMPLIANCE`, „not possible to end compliance mode in advance"; Standorte
+fsn1/nbg1/hel1; Preis mit Monatsdeckel, inklusive Kontingent ≈ 1 TB Speicher + ≈ 1 TB Egress.
+Datenmenge heute: 39 GB Volumes prod + 13 GB prod-b, dazu Dumps — ein Bucket, weit unter dem
+Kontingent.
+
+**Was diese Revision ändert oder schärft — nummeriert, damit §5 darauf zeigen kann:**
+
+1. **Ein Bucket, zwei Hosts.** `prod` und `prod-b` sichern in denselben Bucket, getrennt über
+   `--host` (schon so im Skript). prod-b bekommt **keine** eigene lokale Dump-Schicht — der
+   Offsite-`pg_dumpall` ist die Dump-Schicht; eine dritte Kopie auf demselben Host wäre Aufwand
+   ohne zusätzlichen Schutz.
+2. **Retention passt zum Lock, nicht umgekehrt.** Default-Retention des Buckets `COMPLIANCE`
+   **30 Tage**; restic-Policy `--keep-within 30d --keep-daily 7 --keep-weekly 4
+   --keep-monthly 6`. `prune` läuft **monatlich von prod** und darf gesperrte Packs nicht
+   löschen können — das ist gewollt: ein fehlgeschlagener Löschversuch ist der Append-only-
+   Beweis aus §8 Nr. 4. **Nicht verifiziert:** wie restic 0.17 auf `AccessDenied` beim Prune
+   reagiert (Abbruch vs. Weiterlauf); der erste Prune ist deshalb ein Messlauf mit
+   Positivkontrolle, kein Cron. Das Löschkonzept (#2504) bleibt der Grund, warum keine
+   personenbezogenen Daten mit längerer Frist als 30 Tage in diesem Repo liegen dürfen.
+3. **Schlüssel-Hygiene.** Hetzner-S3-Schlüssel sind projektweit, es gibt keinen Nur-Lese-
+   Schlüssel. Deshalb: eigenes Cloud-**Projekt** nur für das Backup, ein Schlüsselpaar auf
+   `prod` und `prod-b` (`/etc/offsite-backup.env`, 0600), Escrow nach `~/.secrets/` mit
+   Inventarzeile, Übergabe ausschließlich über `~/shared/` (Schleuse). Der restic-Schlüssel
+   (`restic-repo.pass`) bleibt — sonst werden alte Snapshots unlesbar.
+4. **Dead-Man's-Switch statt Journal.** Snapshot-Frische wird täglich **außerhalb** der
+   gesicherten Hosts geprüft (dev-desktop, Schlüssel aus `~/.secrets`), Ergebnis geht bei
+   Snapshot > 26 h über den belegten Alarmweg (0.7.21), nicht nur ins Befund-Journal. Der
+   `schedule` von `backup-meter.yml` kommt zurück, sobald das Ziel steht (#3486). Ein
+   „NICHT messbar" der Klasse INFRA ruht künftig höchstens 3 Tage.
+5. **Gleicher Anbieter — benannt, nicht kaschiert.** Provider-Diversität ist mit Option E
+   aufgegeben (§3.1a). Zweite Kopie bei einem Dritten (S3 + Object Lock, EU) ist **erwogen und
+   zurückgestellt** — Treiber: erster Konto- oder Abrechnungsvorfall bei Hetzner, oder
+   personenbezogene Daten mit Aufbewahrungspflicht im Repo.
+6. **Lokale Schichten nachziehen, nicht vermehren.** Sieben App-Crons mit ≈ 80 GB auf prod
+   (#3484) und ≈ 25 verwaiste Volumes (#3485) werden konsolidiert, sobald der Offsite-Lauf
+   grün ist — nicht vorher, damit keine Schicht wegfällt, bevor die nächste steht.
+
+**Gates (Owner, ausdrücklich):** Bucket anlegen = Spend + irreversible Lock-Konfiguration (Gate
+1 + 5). Umstellung je Host über `deployment/scripts/offsite-auf-objectstorage-umstellen.sh` =
+Prod-Eingriff (Gate 2), je Host ein Wort. Alles davor und danach (IaC, Melder, Drill-Skript,
+Issues) läuft autonom.
 
 ---
 
@@ -388,16 +444,24 @@ Feuerübung** — sonst gilt für das neue Backup dieselbe Blindheit wie für da
 |---|---|---|---|
 | 0 — Host in SoT | ✅ Abgeschlossen | 2026-07-30 | `infra/hosts.yaml`, PR #1560 |
 | 1 — Grundinstallation | ✅ Abgeschlossen | 2026-07-30 | `netcup-bootstrap.sh`; rollenneutral, greift der Entscheidung nicht vor |
-| 2 — **AVV mit netcup** | ⬜ Ausstehend | – | **Vorbedingung für Phase 5.** Braucht Datum + Aufwandsschätzung, sonst Platzhalter vor offener Datenlücke |
-| 3 — Kosten/Laufzeit offenlegen | ⬜ Ausstehend | – | ⚠ Phase 1 lief bereits vorher — zulässig, weil rollenneutral, aber vor Phase 5 zwingend (Option E bleibt sonst nicht vergleichbar) |
-| 4 — Speicherbudget erheben (§4.3) | ⬜ Ausstehend | – | drei Zahlen; danach eigenes Dateisystem für das Repository |
-| 5 — `rest-server --append-only` + Provisionierung | ⬜ Ausstehend | – | der fehlende Schritt aus ADR-241 |
-| 6 — risk-hub inkl. MinIO sichern | ⬜ Ausstehend | – | dringlichster Einzelfix |
-| 7 — `mcp_hub_pgdata` sichern | ⬜ Ausstehend | – | kein Backup-Skript vorhanden |
-| 8 — Alarm-Zustellung + Snapshot-Frische (§4.5) | ⬜ Ausstehend | – | **vor** Phase 9; netcup-unabhängig, in Stunden baubar |
-| 9 — Feuerübung G3 (Cross-Host) | ⬜ Ausstehend | – | erst danach gilt R1 als belegt |
+| 2 — **AVV mit netcup** | ⛔ Entfallen | 2026-09-10 | netcup gekündigt; AVV-Frage wandert zu Hetzner (bereits Vertragspartner, Zusatz Object Storage prüfen) |
+| 3 — Kosten/Laufzeit offenlegen | ⛔ Entfallen | 2026-09-24 | durch §3.1b ersetzt: Datenmenge 52 GB, Kontingent ≈ 1 TB, Preis mit Monatsdeckel |
+| 4 — Speicherbudget erheben (§4.3) | ✅ Abgeschlossen | 2026-09-24 | 39 GB prod + 13 GB prod-b Volumes; ≈ 80 GB lokale Dumps zusätzlich (#3484) |
+| 5 — `rest-server --append-only` + Provisionierung | ⛔ Entfallen | 2026-09-08 | ersetzt durch Object Lock (§3.1a); Provisionierung = E1–E3 unten |
+| 6 — risk-hub inkl. MinIO sichern | 🟡 Teilweise | 2026-08-25 | lokal täglich 02:00 (`/opt/risk-hub/scripts/backup.sh`, Drill 25.08.); offsite erst mit E3 |
+| 7 — `mcp_hub_pgdata` sichern | 🟡 Teilweise | 2026-08-31 | im `pg_dumpall`-Lauf des Offsite-Skripts enthalten — wirksam erst mit E3 |
+| 8 — Alarm-Zustellung + Snapshot-Frische (§4.5) | ⛔ **Rückschritt** | 2026-09-07 | Meter-`schedule` entfernt, Ersatz läuft nicht → **E5**, [#3486](https://github.com/achimdehnert/platform/issues/3486) |
+| 9 — Feuerübung G3 (Cross-Host) | ⬜ Ausstehend | – | → **E6**; bisher nur Same-Host-Drills (25.08., 30.08.) |
 | 10 — ADR-241 Statuszeile | ⬜ Ausstehend | – | `amended_by: ADR-289` + `implementation_status: partial`, sobald dieses ADR `accepted` ist |
 | 11 — ADR-157 amendieren | ⬜ Ausstehend | – | 3-Server-Architektur vs. sechs reale Hosts — eigener Vorgang, [#1564](https://github.com/achimdehnert/platform/issues/1564) |
+| **E1 — Bucket + Projekt anlegen** | 🟢 **Owner** | – | Cloud Console: Projekt `iil-backup`, Bucket `hel1`, **Object Lock beim Anlegen**, Default-Retention `COMPLIANCE` 30 d, S3-Schlüssel → `~/shared/` (Schleuse). Gate 1 + 5 |
+| E2 — Schlüssel übernehmen | ⬜ Ausstehend | – | Agent: `~/.secrets/` + `secrets-inventory.yaml`, Schleuse leeren; Wert nirgends im Klartext |
+| E3 — prod umstellen | 🟢 Owner-Wort | – | `offsite-auf-objectstorage-umstellen.sh` (hartes Lock-Tor), Beweis: erster Lauf über `prod-offsite-daily.sh`, `restic snapshots` zeigt `pgdump`/`volumes`/`config` |
+| E4 — prod-b umstellen | 🟢 Owner-Wort | – | dasselbe Skript mit `PROD_HOST=hetzner-prod-b`; Beweis wie E3 |
+| E5 — Dead-Man's-Switch + Meter-Schedule | ⬜ Ausstehend | – | §3.1b Nr. 4, [#3486](https://github.com/achimdehnert/platform/issues/3486); danach `backup_deckung.py` Exit 0 als K3/K4-Beweis |
+| E6 — Cross-Host-Drill G3 | ⬜ Ausstehend | – | `restore-drill.sh` gegen den Bucket von einem dritten Host (dev-desktop), Zeit messen, Ergebnis in `docs/runbooks/restore-drills/` |
+| E7 — Retention/Prune-Messlauf | ⬜ Ausstehend | – | §3.1b Nr. 2: erster `forget`+`prune` von Hand mit Positivkontrolle (gesperrte Packs bleiben, Fehlerbild dokumentiert) |
+| E8 — lokale Schichten konsolidieren | ⬜ Ausstehend | – | erst nach E3/E4 grün: [#3484](https://github.com/achimdehnert/platform/issues/3484), [#3485](https://github.com/achimdehnert/platform/issues/3485) |
 
 ---
 
@@ -509,6 +573,7 @@ Feuerübung** — sonst gilt für das neue Backup dieselbe Blindheit wie für da
 | 2026-07-30 | Achim Dehnert | Phase 1 + Random-IOPS-Messung abgeschlossen; Grundinstallation als `netcup-bootstrap.sh` ins IaC gespiegelt. |
 | 2026-07-30 | Achim Dehnert | **Interner adversarialer Review:** R2-Treiber falsifiziert (§1.3) — der Prod-Uptime-Canary existierte und meldete nach 16 Minuten. |
 | 2026-07-30 | Achim Dehnert | **Zwei externe Reviews (§11) → Zusammenschnitt.** Entscheidungsinhalt auf **R1 + Negativ-Regel** reduziert; Monitoring, CI-Runner und DR-Standby als „erwogen, zurückgestellt" mit auslösendem Treiber (§3.2). Acht Sachfehler korrigiert (u.a. die nicht propagierte Falsifikation in §3/§6.1, das gegenläufig verwendete Kapazitätsargument, die unbelegte AVV-Ausnahme für Metriken/Logs, fehlende Mengenwerte, Nürnberg als gemeinsame Region). Zehn fachlich stärkere Lösungen übernommen (Allowlist statt Denylist, Disk-Trennung vor **jedem** Mitbewohner, Dead-Man's-Switch in dritter Domäne, `rest-server --append-only` als eigentliches Argument, Cross-Host-Restore). Optionen E und F ergänzt, Option D rehabilitiert. |
+| 2026-09-24 | Achim Dehnert | **§3.1b Revision 2 + §5 neu geschnitten.** Anlass: netcup gekündigt (10.09.), 17 Nächte ohne Offsite auf prod **und** prod-b, prod-b ohne lokale Dump-Schicht, Frische-Melder am 07.09. abgeschaltet. Zielbild bestätigt (Hetzner Object Storage hel1, Object Lock `COMPLIANCE`), sechs Schärfungen: ein Bucket für beide Hosts, Retention 30 d zum Lock passend mit Prune-Messlauf, projektgebundene Schlüssel mit Escrow, Dead-Man's-Switch außerhalb der Hosts, gleiche-Anbieter-Schwäche benannt, lokale Schichten erst nach grünem Offsite konsolidieren. Phasen 2/3/5 entfallen, 8 als Rückschritt markiert, E1–E8 ergänzt. Messung: achimdehnert/platform#3475 (K1). |
 | 2026-07-30 | Achim Dehnert | **§1.2 neu — die entscheidende Ursachenklärung.** Recherche auf die Review-Frage „warum lag ADR-241 sechs Wochen?" ergab: es lag **nicht** brach. Der restic-Wrapper, der Meter und die Soll-Liste wurden am Accept-Tag gebaut (#620/#622); es fehlt allein die Repository-Provisionierung — und die war **durch das Ziel blockiert**. Das widerlegt den stärksten externen Einwand (AD-8: „kein Bestandteil war durch das Ziel blockiert") und macht R1 zur Provisionierung statt zum Neubau. Zugleich Anlass für #1567: der Meter meldete sechs Wochen grün über leerer Sicherung. |
 
 ---
