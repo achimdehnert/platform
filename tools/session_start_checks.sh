@@ -1555,11 +1555,38 @@ esac
 STAGING=$(ernte staging)
 record "0.9 staging" "PASS" "$STAGING"
 
+# ── Delta gegen das Befund-Journal (#3495 V3) ────────────────────────────────
+# Jede WARN-Zeile bekommt eine Klasse gegen den Journalstand VOR diesem Lauf —
+# deshalb steht die Auswertung hier, vor der Summary und vor `--aufnehmen` weiter
+# unten (danach truege das Journal schon die Notizen dieses Laufs, und jede Zeile
+# waere "unveraendert"). Nur Anzeige: kein Status, kein RESULT aendert sich.
+# SESSION_CHECKS_DELTA=nur blendet VERANKERT-Zeilen in der Summary aus; sie stehen
+# dann nur noch in der Summenzeile. Uebergeben wird die erste Zeile der Note —
+# genau das, was das Journal aus seinem TSV liest; mehrzeilige Notizen wuerden
+# sonst die Zeilenzuordnung der Klassen verschieben. Nie werfend.
+declare -a P_DELTA=()
+DELTA_OUT=""
+if [ -f "$PLATFORM_DIR/tools/session_start_delta.py" ]; then
+  DELTA_KLASSEN="$(mktemp "${TMPDIR:-/tmp}/ssc-delta.XXXXXX")"
+  DELTA_OUT=$(
+    for i in "${!P_NAME[@]}"; do
+      printf '%s\t%s\t%s\t%s\n' "${P_NAME[$i]}" "${P_STATUS[$i]}" \
+        "${P_REPO[$i]:-$TARGET_REPO}" "${P_NOTE[$i]%%$'\n'*}"
+    done | python3 "$PLATFORM_DIR/tools/session_start_delta.py" \
+             --repo "$TARGET_REPO" --klassen-datei "$DELTA_KLASSEN" 2>/dev/null || true
+  )
+  mapfile -t P_DELTA < "$DELTA_KLASSEN" 2>/dev/null || true
+  rm -f "$DELTA_KLASSEN"
+fi
+
 # ── Summary (maschinenlesbar, Basis der Startklar-Checkliste Rows 1–7) ──────
 echo ""
 echo "| Phase | Status | Repo | Note |"
 echo "|---|---|---|---|"
 for i in "${!P_NAME[@]}"; do
+  if [ "${SESSION_CHECKS_DELTA:-}" = "nur" ] && [ "${P_DELTA[$i]:-}" = "VERANKERT" ]; then
+    continue
+  fi
   case "${P_STATUS[$i]}" in
     PASS) ICON="✅" ;;
     WARN) ICON="⚠️" ;;
@@ -1581,6 +1608,10 @@ for i in "${!P_NAME[@]}"; do
     "${P_NAME[$i]}" "$ICON" "${P_STATUS[$i]}" "${P_REPO[$i]:-$TARGET_REPO}" "${P_NOTE[$i]}"
 done
 echo ""
+if [ -n "$DELTA_OUT" ]; then
+  echo "$DELTA_OUT"
+  echo ""
+fi
 
 # ── Laufzeit: gesamt + die Phasen, die die Zeit fressen (platform#3373) ─────
 # Bewusst eine eigene Zeile UNTER der Tabelle, nicht eine fuenfte Spalte darin:
