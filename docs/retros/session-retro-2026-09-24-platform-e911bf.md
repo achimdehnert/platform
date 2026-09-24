@@ -18,7 +18,7 @@ scores:
   entscheidungsqualitaet: 4
 gate_candidates: [push-to-merged-branch-silently-lost, infra-detail-in-public-repo]
 recurring_findings: [push-to-merged-branch-silently-lost, issue-offen-nach-gemergtem-fix, handover-stale-vor-merge, inline-heredoc-quoting-rework, scope-checkpoint-not-durably-recorded, claim-before-cheapest-check]
-gates_caught: [claim-before-cheapest-check, direct-gh-pr-merge-bypasses-sa-m]
+gates_caught: [claim-before-cheapest-check]
 over_ask_klassen: []
 over_act_klassen: [neues-repo-nach-checkpoint-ohne-spiegelung]
 widerlegung: "0 gekippt, 1 neu"
@@ -38,7 +38,7 @@ prod und prod-b, Link-Dienst). Footprint `deep` (≥3 Repos, Prod), keine Redukt
 
 **Agenten:** 3 Finder (sonnet) · 2 Skeptiker (sonnet, gebündelt je Dimension, nur
 Bewertungsbefunde und Finder-Widersprüche) · 1 Widerlegungsbahn (opus) · 1 Meta (sonnet) = 7.
-Kosten nach Budget-Richtwert ~55k je Skeptiker; gemessen je Agent 108k–131k Token (Finder und
+Kosten nach Budget-Richtwert ~55k je Skeptiker; laut Nutzungsmeldung der Agent-Läufe je Finder/Skeptiker 108k–131k Token, Widerlegungsbahn 87k (Finder und
 Skeptiker haben das 15-MB-Transkript gezielt durchsucht).
 
 ## 1. Executive Summary
@@ -190,7 +190,7 @@ Verweis auf das Gate, sobald es gebaut ist, und wird dann `rule_class: A`.
 - **Nicht verifizierbar:** Die Aussage des 0e-Prüfers beim Sitzungsende („k1.md wortgleich mit
   dem Issue-Kommentar") — mein Gegencheck lief gegen eine Rate-Limit-Fehlerantwort der API und
   ist wertlos. Billigster Check: den K1-Kommentar in #3475 per `gh api repos/achimdehnert/platform/issues/3475/comments --jq '.[].body'` bei freiem Limit holen und gegen die k1-Kopie `diff`en.
-- **Nicht geprüft (3b-Kandidaten ohne Lauf):** `.env.prod`-Handänderung auf news-hub gegen den
+- **Nicht verifizierbar in dieser Retro (3b-Kandidaten ohne Lauf):** `.env.prod`-Handänderung auf news-hub gegen den
   nächsten Deploy; Konsumenten der ersetzten Hetzner-Token-Datei (mindestens
   mcp-hub `scripts/start-deployment-mcp.sh` liest sie, ob das Lese-Schreib-Token dort mehr
   Rechte gibt als nötig, ist offen); fehlendes Review der Subagent-PRs. Billigster Check fürs
