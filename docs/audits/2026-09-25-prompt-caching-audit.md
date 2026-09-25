@@ -10,7 +10,8 @@ ausdrücklich nicht Teil des Auftrags.
   unter `~/github/` (Abgleich mit `gh repo list`: keine Lücke).
 - Lokale Suche nach `anthropic.Anthropic(`, `AsyncAnthropic(`, `messages.create(`,
   `api.anthropic.com`, `from anthropic import` (Python/TS/JS/Shell, ohne `_ARCHIVED`, `_archive`,
-  `vendor`, Tests), gegengeprüft mit `gh search code` über die drei Orgs.
+  `vendor`, Tests), zusätzlich selbst per `gh search code` über die drei Orgs gesucht (keine
+  unabhängige Zweitprüfung; Abgleich: 56 Remote-Repos, alle lokal vorhanden).
 - Schwellen für die kleinste cachebare Präfixlänge: Sonnet 4.5 → 1024 Tokens, Haiku 3.5 → 2048,
   Haiku 4.5 → 4096, Opus 5/5.5-Familie → 512. Unterhalb der Schwelle ist `cache_control` ein
   stiller No-op (keine Fehlermeldung, `cache_creation_input_tokens: 0`).
