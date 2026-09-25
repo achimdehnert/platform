@@ -19,8 +19,20 @@ beschrieben, lief ein Prod-/Publish-Schritt) — die ist sichtbar, egal ob
 jemand den Mund aufmacht. Der Wortlaut wird erst danach geprueft, und zwar
 als ERFUELLUNG, nicht als Ausloeser.
 
-DREI FEHLERFORMEN, GETRENNT GEMELDET
+VIER FEHLERFORMEN, GETRENNT GEMELDET
 ------------------------------------
+D ``prod-frage-ohne-checkpoint`` (Rev 9, 2026-09-25) — die Antwort BITTET um ein
+                        Prod-Wort (Zeile mit Freigabe-Bitte UND Deploy/Prod/
+                        Publish/Release/Rollout), und in der Sitzung ist noch
+                        kein Checkpoint gefallen. A–C messen Tool-Evidenz und
+                        kommen deshalb erst NACH dem Schritt. Rueckfall aus Retro
+                        02b7f5 (platform#3545 §5a, Owner „12 go"): der Owner gab
+                        „25 go" fuer einen Merge mit Prod-Deploy und klickte selbst
+                        — ohne Tool-Evidenz der Sitzung feuerte A erst 22 min
+                        spaeter an einem ganz anderen Ausloeser. Die Frage nach
+                        dem Wort ist der letzte Moment, an dem der Checkpoint
+                        VOR der Wirkung liegt. Bloßes „mergen" zaehlt bewusst
+                        nicht: Merges in Repos ohne Deploy sind Alltag.
 A ``kein-checkpoint``   Bedingung erfuellt, in der ganzen Sitzung kein
                         Checkpoint ausgesprochen. Das ist der x10-Fehler,
                         fuer den Rev 1 blind war.
@@ -112,12 +124,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import gate_hits  # noqa: E402  (haengt am sys.path oben)
 from artefakt_budget import _PROD  # noqa: E402  (dieselbe Prod-Definition)
+from evidence_claim_scanner import _last_turn_blocks  # noqa: E402
 
 GATE_HEADER = {
     "slug": "scope-checkpoint-not-durably-recorded",
     "mode": "advisory",
     "owner": "achim",
-    "last_drill_pass": "2026-08-19",
+    "last_drill_pass": "2026-09-25",
     "evidence": "tools/claude-hooks/tests/test_scope_checkpoint_scanner.py",
 }
 
@@ -198,6 +211,31 @@ _FREMDE_RESSOURCE = re.compile(
 # Durables Artefakt (unveraendert aus Rev 1, nur sitzungsweit ausgewertet).
 _DURABLE_CMD = re.compile(r"gh\s+(?:pr|issue)\s+(?:comment|create|edit)", re.I)
 _DURABLE_FILE = re.compile(r"docs/|AGENT_HANDOVER|KONZ-|ledger|\.claude/boards/", re.I)
+
+#: Fehlerform D (Rev 9): eine Zeile der letzten Antwort, die um ein Wort bittet UND
+#: einen Prod-Begriff nennt. Beide Signale muessen in DERSELBEN Zeile stehen — ein
+#: Board-Item traegt Bitte und Wirkung zusammen; ueber Zeilen hinweg waere jede
+#: Antwort mit „Deploy" irgendwo und einem 🟢 irgendwo ein Treffer.
+_PROD_WORT = re.compile(
+    r"\b(?:deploy\w*|prod(?:uktion|uction)?\b|publish\w*|release\w*|rollout)", re.I
+)
+#: Bewusst ohne das Substantiv „Freigabe" und ohne ein nacktes „go": im Replay der
+#: Realsitzung 02b7f5 trafen beide Erklaerprosa („der Freigabe-Vermerk wurde gesperrt"),
+#: keine Bitte. Uebrig bleiben die Formen, mit denen ein Board-Item um ein Wort bittet.
+_WORT_BITTE = re.compile(
+    r"🟢|\bdein(?:e)?\s+(?:Zug|Wort|Klick)\b|\bfreigeben\b|\b\d+\s+go\b",
+    re.I,
+)
+
+
+def prod_frage(text: str) -> str:
+    """Die erste Zeile, die um ein Prod-Wort bittet, oder ''."""
+    for zeile in text.splitlines():
+        if _PROD_WORT.search(zeile) and _WORT_BITTE.search(zeile):
+            return zeile.strip()
+    return ""
+
+
 _DURABLE_TOOL_PREFIXES = (
     "mcp__github__create_issue",
     "mcp__github__add_issue_comment",
@@ -476,6 +514,31 @@ def main() -> int:
         return 0
 
     ev = sammle_evidenz(Path(transcript_path))
+    session = event.get("session_id", "")
+
+    # Fehlerform D (Rev 9) VOR allem anderen: sie braucht keine Tool-Evidenz, weil
+    # sie genau den Moment fassen soll, bevor es welche gibt.
+    letzter_text, _, _ = _last_turn_blocks(transcript_path)
+    frage = prod_frage(letzter_text)
+    if (
+        frage
+        and not ev["checkpoint_text"]
+        and not CHECKPOINT_PATTERNS.search(letzter_text)
+        and not _schon_gemeldet(session, "prod-frage-ohne-checkpoint")
+    ):
+        _merken(session, "prod-frage-ohne-checkpoint")
+        gate_hits.notiere(
+            GATE_HEADER["slug"], frage[:200], turn="prod-frage", session=session,
+            modus="advisory",
+        )  # fmt: skip
+        _melde(
+            "🧭 scope-checkpoint: diese Antwort bittet um ein Prod-Wort ("
+            f"„{frage[:120]}“) — in der Sitzung ist aber noch kein Scope-Checkpoint "
+            "gefallen. Den gewachsenen Scope JETZT mitspiegeln, im selben Board, "
+            "bevor der Owner antwortet; danach ist die Wirkung schon da. (Gate "
+            "scope-checkpoint-not-durably-recorded Rev 9, Fehlerform D, advisory.)"
+        )
+        return 0
     repos = sorted(ev["repos_beschrieben"])
     ausloeser = []
     if len(repos) >= REPO_SCHWELLE:
@@ -487,7 +550,6 @@ def main() -> int:
     if not ausloeser:
         return 0  # keine Pflicht entstanden
 
-    session = event.get("session_id", "")
     grund = " + ".join(ausloeser)
 
     if not ev["checkpoint_text"]:

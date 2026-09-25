@@ -1,0 +1,7 @@
+{
+  "slug": "claim-before-cheapest-check-issue-text",
+  "owner": "achim",
+  "decided": "2026-09-25",
+  "ref": "docs/retros/session-retro-2026-09-24-dev-hub-02b7f5.md §5a (Befund #17); Owner-Wort '12 go' 2026-09-25",
+  "reason": "Keine Ausweitung von claim-before-cheapest-check auf Issue-/PR-Kommentartexte. Anlass war Befund #17: ein Kommentar sagte 'Den Merge durch Claude hat der Klassifizierer gesperrt', gesperrt war aber der Freigabe-Vermerk (gh issue edit), ein Merge-Aufruf existierte nicht. Das ist eine falsche UMDEUTUNG eines vorliegenden Belegs, kein fehlender Check — der Evidenz-Scanner prueft, ob zu einer pruefbaren Behauptung ein Tool-Lauf existiert, und der existierte (die Ablehnung). Ein Muster, das 'gesperrt/blockiert' in Kommentaren gegen den tatsaechlich abgelehnten Befehl abgleicht, muesste den Wortlaut der Ablehnung semantisch mit dem Satz vergleichen — per Regex nicht zuverlaessig, jeder Kommentar ueber Sperren waere ein Kandidat fuer Fehlalarme. Stattdessen verankert als Verhaltensregel (Memory-Kandidat 'feedback_sperrgrund_woertlich_zitieren' im selben Retro-Bericht): Sperrgrund mit gesperrtem Befehl und Klasse woertlich zitieren. Wiedervorlage: faellt dieselbe Umdeutung ein zweites Mal an, ist das der Beleg fuer ein eigenes Gate mit eigenem Zuschnitt."
+}
