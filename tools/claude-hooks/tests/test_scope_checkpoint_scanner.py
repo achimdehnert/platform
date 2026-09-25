@@ -684,3 +684,67 @@ def test_should_still_flag_ssh_prefixed_case_from_rev5():
         "ssh hetzner-prod 'systemctl enable --now doc-hub-splitter.timer'"
     )
     assert treffer is not None
+
+
+# --- Fehlerform D (Rev 9): Frage nach einem Prod-Wort ohne Checkpoint -------
+# Realfall Retro 02b7f5 (2026-09-24): Board-Zeile bat um „25 go" fuer einen Merge
+# mit Prod-Deploy; der Owner klickte selbst, Tool-Evidenz gab es nie.
+
+_OWNER = {"type": "user", "message": {"content": "25 go 26 go"}}
+_PROD_BITTE = (
+    "- **[25]** 🟢 Merge von #383 mit Prod-Deploy von dev-hub freigeben · du — "
+    "https://github.com/achimdehnert/dev-hub/pull/383"
+)
+
+
+def test_should_fire_form_d_when_answer_asks_for_prod_word_without_checkpoint(
+    tmp_path, monkeypatch, capsys
+):
+    path = _transcript(tmp_path, [_OWNER, _zeile_text(_PROD_BITTE)])
+    _, antwort = _run(monkeypatch, capsys, path)
+    assert "Fehlerform D" in _kontext(antwort)
+
+
+def test_should_stay_silent_on_form_d_when_checkpoint_spoken_in_same_answer(
+    tmp_path, monkeypatch, capsys
+):
+    text = "Scope-Checkpoint: wir sind jetzt 2 Repos und einen Prod-Schritt weiter.\n"
+    path = _transcript(tmp_path, [_OWNER, _zeile_text(text + _PROD_BITTE)])
+    _, antwort = _run(monkeypatch, capsys, path)
+    assert "Fehlerform D" not in _kontext(antwort)
+
+
+def test_should_stay_silent_on_form_d_when_checkpoint_fell_earlier_in_session(
+    tmp_path, monkeypatch, capsys
+):
+    frueher = _zeile_text(
+        "Scope-Checkpoint: Scope ist gewachsen, ist das noch gewollt?"
+    )
+    path = _transcript(tmp_path, [frueher, _OWNER, _zeile_text(_PROD_BITTE)])
+    _, antwort = _run(monkeypatch, capsys, path)
+    assert "Fehlerform D" not in _kontext(antwort)
+
+
+def test_should_stay_silent_on_form_d_for_plain_merge_request(
+    tmp_path, monkeypatch, capsys
+):
+    text = "- **[11]** 🟢 PR #3552 und #3553 mergen · platform · du"
+    path = _transcript(tmp_path, [_OWNER, _zeile_text(text)])
+    _, antwort = _run(monkeypatch, capsys, path)
+    assert antwort == {}
+
+
+def test_should_stay_silent_on_form_d_when_signals_sit_in_different_lines(
+    tmp_path, monkeypatch, capsys
+):
+    text = "Der Deploy lief gestern durch.\n- **[3]** 🟢 Bericht lesen · du"
+    path = _transcript(tmp_path, [_OWNER, _zeile_text(text)])
+    _, antwort = _run(monkeypatch, capsys, path)
+    assert antwort == {}
+
+
+def test_should_report_form_d_only_once_per_session(tmp_path, monkeypatch, capsys):
+    path = _transcript(tmp_path, [_OWNER, _zeile_text(_PROD_BITTE)])
+    _run(monkeypatch, capsys, path)
+    _, zweite = _run(monkeypatch, capsys, path)
+    assert "Fehlerform D" not in _kontext(zweite)
