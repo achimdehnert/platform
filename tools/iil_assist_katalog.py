@@ -364,10 +364,21 @@ def bahn_verbesserung(d: dict, heute: dt.date, inventar: Path | None) -> dict:
     }
 
 
+# durable Ablage der Briefings und Antworten (0e: ~/shared ist transient)
+BAHNEN_DIR = KATALOG.parent / "bahnen"
+
+
 def bahn_extern(d: dict, heute: dt.date, bahn: str) -> dict:
+    """Briefing fuer die externe Zweitmeinung: durable Kopie im Repo, Uebergabe-Kopie in ~/shared.
+
+    ~/shared ist die Uebergabeschleuse und wird geraeumt; was der Regelkreis liest, muss im
+    Repo liegen. Liegt eine Antwortdatei in ~/shared, wird sie ebenfalls ins Repo kopiert.
+    """
     frage = d["bahnen"][bahn]["frage"]
     brief = SHARED / f"iil-assist-{bahn}-{heute.isoformat()}.md"
     antwort = brief.with_name(brief.stem + "-response.md")
+    brief_repo = BAHNEN_DIR / f"{heute.isoformat()}-{bahn}.md"
+    antwort_repo = BAHNEN_DIR / f"{heute.isoformat()}-{bahn}-antwort.md"
     text = (
         f"# iil-assist — Bahn {bahn} ({heute.isoformat()})\n\n"
         f"Aufgabe: {frage}\n\nAntworte als nummerierte Liste, je Punkt: Befund, Beleg, Konsequenz.\n"
@@ -376,9 +387,13 @@ def bahn_extern(d: dict, heute: dt.date, bahn: str) -> dict:
     )
     return {
         "datum": heute.isoformat(),
-        "briefing": str(brief),
+        "briefing": str(brief_repo.relative_to(PLATFORM)),
+        "uebergabe": str(brief),
         "briefing_text": text,
-        "antwort": str(antwort) if antwort.exists() else None,
+        "antwort": str(antwort_repo.relative_to(PLATFORM))
+        if antwort.exists()
+        else None,
+        "antwort_quelle": str(antwort) if antwort.exists() else None,
         "antwort_kopf": antwort.read_text(encoding="utf-8").splitlines()[0][:160]
         if antwort.exists()
         else None,
@@ -403,8 +418,15 @@ def cmd_bahn(args: argparse.Namespace) -> int:
         )
         return 0
     if text:
+        BAHNEN_DIR.mkdir(parents=True, exist_ok=True)
+        (PLATFORM / lauf["briefing"]).write_text(text, encoding="utf-8")
         SHARED.mkdir(parents=True, exist_ok=True)
-        Path(lauf["briefing"]).write_text(text, encoding="utf-8")
+        Path(lauf["uebergabe"]).write_text(text, encoding="utf-8")
+        if lauf.get("antwort_quelle"):
+            (PLATFORM / lauf["antwort"]).write_text(
+                Path(lauf["antwort_quelle"]).read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
     laeufe = d["bahnen"][args.bahn].setdefault("laeufe", [])
     laeufe[:] = [x for x in laeufe if x.get("datum") != lauf["datum"]] + [lauf]
     d["stand"] = heute.isoformat()
