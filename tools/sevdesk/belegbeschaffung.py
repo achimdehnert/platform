@@ -187,6 +187,8 @@ EIGENE_LOGINS: dict[str, str] = {}
 
 RE_ISO_DATUM = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b")
 RE_DMY_SLASH = re.compile(r"\b(\d{1,2})/(\d{1,2})/(\d{4})\b")
+#: JJJJ/MM/TT — BiblioCAD-Quittungen ("2026/01/13"), gesehen 2026-09-13.
+RE_YMD_SLASH = re.compile(r"\b(\d{4})/(\d{1,2})/(\d{1,2})\b")
 RE_DMY_PUNKT = re.compile(r"\b(\d{1,2})\.(\d{1,2})\.(\d{4})\b")
 #: "May 13, 2026" / "13. Mai 2026" — Rechnungen aus dem englischen Sprachraum
 #: schreiben den Monat aus (Echtprobe 2026-09-13: zwei Anbieter, 16 Belege
@@ -526,9 +528,12 @@ def _steuer_aus_summenzeile(zeile: str | None) -> float | None:
 
 
 def _datum_aus(zeile: str) -> str | None:
-    """ISO, DD/MM/YYYY, DD.MM.YYYY, "May 13, 2026", "13. Mai 2026" — alle
-    fuenf Schreibweisen real gesehen (2026-09-13)."""
+    """ISO, YYYY/MM/DD, DD/MM/YYYY, DD.MM.YYYY, "May 13, 2026", "13. Mai 2026" —
+    alle sechs Schreibweisen real gesehen (2026-09-13)."""
     m = RE_ISO_DATUM.search(zeile)
+    if m:
+        return _iso_bauen(m.group(1), m.group(2), m.group(3))
+    m = RE_YMD_SLASH.search(zeile)
     if m:
         return _iso_bauen(m.group(1), m.group(2), m.group(3))
     for muster in (RE_DMY_SLASH, RE_DMY_PUNKT):

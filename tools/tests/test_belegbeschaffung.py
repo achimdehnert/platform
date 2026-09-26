@@ -228,6 +228,13 @@ def test_should_read_spelled_out_month_dates():
     assert bb.pdf_lesen(deutsch, "b.pdf")["datum"] == "2026-05-13"
 
 
+def test_should_parse_year_first_slash_date():
+    """JJJJ/MM/TT (BiblioCAD-Quittungen) — und DD/MM/YYYY bleibt unveraendert
+    erkannt (2026-09-13)."""
+    assert bb._datum_aus("Stripe recurrent 2026/01/13 USD $18.82") == "2026-01-13"
+    assert bb._datum_aus("Rechnungsdatum 07/09/2025") == "2025-09-07"
+
+
 def test_should_fall_back_to_filename_when_no_invoice_number_in_text():
     feld = bb.pdf_lesen("Irgendein Text ohne Nummer\nGesamt 10,00 €", "beleg-4711.pdf")
     assert feld["nummer"] == "beleg-4711"
