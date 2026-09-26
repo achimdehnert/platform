@@ -39,8 +39,18 @@ from pdf_forms import (
     querformat_gewuenscht,
 )
 
+from deckblatt_meta import (
+    cover_zielgruppe,
+    extract_meta,
+    meta_rows,
+    strip_meta_prefix_lines,
+)
 import llm_gate  # Datenschutz-Gate (#1297) — bewusst importfrei, siehe Modul-Docstring
 import profile_policy  # Profil-Voreinstellungen (#1297, zweiter Befund)
+from asset_gate import (
+    asset_freigegeben,
+    bild_mime,
+)  # Lizenz-Gate je Asset-Bereich, importfrei
 
 OUTPUT_DIR = Path.home() / "pdf-output"
 SECRETS_DIRS = [
@@ -157,8 +167,9 @@ def _install_brand_fonts(primary_rel: str) -> bool:
 def _profile_to_design(profile_name: str) -> dict:
     """Lädt ein design-hub-Profil und mappt es auf das interne Design-Dict.
 
-    Erzwingt `allowed_assets`: DB-Logo/Fonts werden nur eingebettet, wenn
-    `allowed_assets.db: true`. Bricht bei fehlendem Profil hart ab.
+    Erzwingt `allowed_assets` je Asset-Bereich: ein Logo oder eine Schrift unter
+    `assets/<bereich>/` wird nur eingebettet, wenn `allowed_assets.<bereich>: true`
+    (siehe `asset_gate.asset_freigegeben`). Bricht bei fehlendem Profil hart ab.
     """
     prof_file = DESIGN_HUB_DIR / "profiles" / f"{profile_name}.yaml"
     if not prof_file.exists():
@@ -170,7 +181,6 @@ def _profile_to_design(profile_name: str) -> dict:
 
     c = prof.get("colours", {})
     allowed = prof.get("allowed_assets", {})
-    db_ok = bool(allowed.get("db"))
 
     design = {
         "primary": c.get("primary", "#000000"),
@@ -222,7 +232,8 @@ def _profile_to_design(profile_name: str) -> dict:
 
     # Fonts (nur wenn DB-Assets erlaubt — Lizenz §1 DB Type)
     fonts = prof.get("fonts", {})
-    if db_ok and fonts.get("primary_path"):
+    font_ok, font_bereich = asset_freigegeben(fonts.get("primary_path") or "", allowed)
+    if font_ok and fonts.get("primary_path"):
         if _install_brand_fonts(fonts["primary_path"]):
             fallbacks = ", ".join(fonts.get("fallbacks", ["Arial", "sans-serif"]))
             design["_body_font"] = f"'{fonts.get('primary')}', {fallbacks}"
@@ -230,25 +241,30 @@ def _profile_to_design(profile_name: str) -> dict:
             print("⚠️  Brand-Fonts nicht auffindbar — Fallback-Fonts.")
     elif fonts.get("primary_path"):
         print(
-            "🔒 allowed_assets.db=false → DB-Fonts NICHT eingebettet (Lizenz). Nutze Fallback-Fonts."
+            f"🔒 allowed_assets.{font_bereich}=false → Schriften aus '{font_bereich}' "
+            "NICHT eingebettet (Lizenz). Nutze Fallback-Fonts."
         )
 
     # Logo (cover) — base64-Embed, nur wenn erlaubt
     logo = prof.get("logo") or {}
-    if db_ok and logo.get("url"):
+    logo_ok, logo_bereich = asset_freigegeben(logo.get("url") or "", allowed)
+    if logo_ok and logo.get("url"):
         import base64
 
         logo_f = (DESIGN_HUB_DIR / logo["url"]).resolve()
         if logo_f.exists():
             b64 = base64.b64encode(logo_f.read_bytes()).decode("ascii")
-            ext = logo_f.suffix.lstrip(".").lower().replace("jpg", "jpeg")
-            design["_logo_data_uri"] = f"data:image/{ext};base64,{b64}"
+            mime = bild_mime(logo_f.suffix)
+            design["_logo_data_uri"] = f"data:image/{mime};base64,{b64}"
             design["_logo_height_px"] = logo.get("height_px", 36)
             design["_logo_alt"] = logo.get("alt", "")
         else:
             print(f"⚠️  Logo fehlt, übersprungen: {logo_f}")
     elif logo.get("url"):
-        print("🔒 allowed_assets.db=false → DB-Logo NICHT eingebettet (Lizenz).")
+        print(
+            f"🔒 allowed_assets.{logo_bereich}=false → Logo aus '{logo_bereich}' "
+            "NICHT eingebettet (Lizenz)."
+        )
 
     # Klassifizierungs-Banner (z.B. db-intern: VERTRAULICH)
     cls = prof.get("classification") or {}
@@ -322,10 +338,16 @@ def get_secret(name: str) -> str | None:
     val = os.environ.get(name.upper())
     if val:
         return val
+    # infra/lib/secrets.py ist der einzige Leser fuer Secret-Dateien —
+    # er versteht bare UND NAME=WERT (platform#3129). Lokaler Import, weil
+    # dieses Modul sonst nur schwere Abhaengigkeiten zieht.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from infra.lib.secrets import secret_wert
+
     for base in SECRETS_DIRS:
         path = base / name.lower()
         if path.exists():
-            return path.read_text().strip()
+            return secret_wert(path)
     return None
 
 
@@ -1009,122 +1031,13 @@ def preprocess_md(md_text: str, design: dict | None = None) -> str:
     return text
 
 
-_INLINE_PATTERNS = {
-    "stand": r"\*\*Stand:\*\*\s*([^|\n]+)",
-    "zielgruppe": r"\*\*Zielgruppe:\*\*\s*([^\n]+)",
-    "angebot_nr": r"\*\*Angebot Nr\.:\*\*\s*([^\n]+)",
-    "datum": r"\*\*Datum:\*\*\s*([^\n]+)",
-    "gueltig_bis": r"\*\*Gültig bis:\*\*\s*([^\n]+)",
-    # Beide Schreibweisen: "**Auftraggeber:** Firma" und "**Auftraggeber**\n Firma".
-    # Nur die zweite war abgedeckt — die erste wurde vom Deckblatt-Filter aus dem
-    # Fliesstext entfernt UND nicht aufs Deckblatt uebernommen, der Mandantenname
-    # verschwand also ganz (gefunden 2026-08-26 an einer Reihe Erfassungsboegen).
-    "auftraggeber": r"\*\*Auftraggeber:?\*\*:?\s*\n*[ \t]*(.+)",
-    # Generic document fields (used by konzept/briefing templates)
-    "doc_type": r"\*\*(?:Typ|Doc[- ]?Type|Dokumenttyp):\*\*\s*([^\n]+)",
-    "status": r"\*\*Status:\*\*\s*([^\n]+)",
-    "adressat": r"\*\*Adressat:\*\*\s*([^\n]+)",
-    "zielentscheidung": r"\*\*Zielentscheidung:\*\*\s*([^\n]+)",
-    "autor": r"\*\*Autor(?:in)?:\*\*\s*([^\n]+)",
-    "anlass": r"\*\*Anlass:\*\*\s*([^\n]+)",
-}
-
-
-def extract_meta(md_text: str, fm: dict | None = None) -> dict:
-    """Merge markdown.meta frontmatter (primary) with inline-bold regex (fallback)."""
-    meta = {}
-    # 1. Frontmatter from markdown.meta extension (key already lowercase)
-    if fm:
-        for k, v in fm.items():
-            meta[k] = " ".join(v) if isinstance(v, list) else v
-    # 2. Regex fallback for keys not found in frontmatter
-    for key, pattern in _INLINE_PATTERNS.items():
-        if key not in meta:
-            m = re.search(pattern, md_text)
-            if m:
-                meta[key] = m.group(1).strip()
-    return meta
-
-
-# Bold-prefix patterns that should NOT appear in the body — they're already in the cover.
-_META_PREFIX_RE = re.compile(
-    r"^\*\*(?:Stand|Status|Datum|Adressat|Zielentscheidung|Anlass|Autor(?:in)?|"
-    r"Typ|Dokumenttyp|Doc[- ]?Type|Zielgruppe|Angebot Nr\.|Gültig bis|Auftraggeber|"
-    r"Begleitdokument):\*\*",
-    re.IGNORECASE,
-)
-
-
-def strip_meta_prefix_lines(md_text: str) -> str:
-    """Remove lines like '**Status:** Konzept' from MD body — they're already on the cover.
-
-    Keeps everything else intact, including the trailing blank-line separator
-    so that downstream markdown parsing doesn't merge paragraphs.
-    """
-    out_lines = []
-    for line in md_text.splitlines():
-        if _META_PREFIX_RE.match(line.strip()):
-            continue
-        out_lines.append(line)
-    return "\n".join(out_lines)
-
-
 def _build_meta_rows(meta: dict, design: dict, stem: str) -> list:
-    """Return list of (label, value) tuples for the meta table."""
-    template = design.get("meta_template", "meiki")
-    if template == "db":
-        rows = []
-        if meta.get("status"):
-            rows.append(("Status", meta["status"]))
-        if meta.get("datum"):
-            rows.append(("Datum", meta["datum"]))
-        if meta.get("adressat"):
-            rows.append(("Adressat", meta["adressat"]))
-        if meta.get("anlass"):
-            rows.append(("Anlass", meta["anlass"]))
-        return rows
-    if template == "iil":
-        rows = []
-        # Angebot-specific fields (only shown if filled)
-        if meta.get("angebot_nr"):
-            rows.append(("Angebot-Nr.", meta["angebot_nr"]))
-        # Generic Konzept/Briefing-Felder (always shown if present)
-        if meta.get("status"):
-            rows.append(("Status", meta["status"]))
-        if meta.get("datum"):
-            rows.append(("Datum", meta["datum"]))
-        if meta.get("gueltig_bis"):
-            rows.append(("Gültig bis", meta["gueltig_bis"]))
-        if meta.get("adressat"):
-            rows.append(("Adressat", meta["adressat"]))
-        if meta.get("anlass"):
-            rows.append(("Anlass", meta["anlass"]))
-        if meta.get("zielentscheidung"):
-            rows.append(("Zielentscheidung", meta["zielentscheidung"]))
-        if meta.get("auftraggeber"):
-            rows.append(("Auftraggeber", meta["auftraggeber"]))
-        # Die Auftragnehmer-Zeile gehoert zum Angebots-Kontext. Ein IIL-Dokument, in dem
-        # IIL selbst der Auftraggeber ist (z.B. ein Pruefbogen an eigene Dienstleister),
-        # bekaeme sonst eine sachlich falsche Rollenzuweisung auf dem Deckblatt.
-        if (
-            meta.get("angebot_nr")
-            or meta.get("gueltig_bis")
-            or meta.get("auftraggeber")
-        ):
-            rows.append(("Auftragnehmer", "IIL GmbH · Achim Dehnert · info@iil.gmbh"))
-        return rows
-    # meiki default
-    stand = meta.get("stand", "")
-    if not stand:
-        return []
-    doc_id = stem.upper().replace("_", "-")
-    return [
-        ("Dokument-ID", doc_id),
-        ("Konsortium", "LRA Traunstein · LRA Günzburg · TH Rosenheim · HNU Neu-Ulm"),
-        ("Stand", stand),
-        ("Projektlaufzeit", "März 2026 – März 2027"),
-        ("Vertraulichkeit", "Vertraulich – nur für Konsortium MEiKI"),
-    ]
+    """Return list of (label, value) tuples for the meta table.
+
+    Liegt in deckblatt_meta, damit die Deckblatt-Logik ohne weasyprint/litellm
+    testbar bleibt (#2621).
+    """
+    return meta_rows(meta, design, stem)
 
 
 def build_html(
@@ -1145,8 +1058,7 @@ def build_html(
         datum = meta.get("datum", "")
         date_line = f"{doc_type} · {datum}".strip(" ·")
     else:
-        zg = meta.get("zielgruppe", "Lenkungskreis, IT-Leitung, Entscheider LRA")
-        date_line = f"Zielgruppe: {zg}"
+        date_line = f"Zielgruppe: {cover_zielgruppe(meta, design)}"
 
     footer_text = (f"Stand: {stand} — " if stand else "") + design.get(
         "footer_suffix", ""

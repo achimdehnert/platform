@@ -1,0 +1,223 @@
+{
+ "quelle": "befund_journal.py --bericht --json + Runner-Lauf 2026-09-24 (platform); Hostnamen und Secret-Namen ersetzt",
+ "heute": "2026-09-24",
+ "journal": [
+  {
+   "id": "0.4.4 basis-abstand::platform",
+   "phase": "0.4.4 basis-abstand",
+   "repo": "platform",
+   "infra": false,
+   "erstmals": "2026-08-23",
+   "zuletzt": "2026-09-24",
+   "laeufe": 135,
+   "note": "2 Lease(s) ueber der Schwelle — vor weiterer Arbeit im Worktree: git merge origin/main",
+   "artefakt": "https://github.com/achimdehnert/platform/issues/2562",
+   "verzicht": null,
+   "wiedervorlage": "2026-09-15",
+   "ruhezustand": "laut",
+   "entscheiden_bis": "2026-09-07",
+   "ueberfaellig": false,
+   "urteil": null,
+   "fix": null,
+   "fix_ueberfaellig": false
+  },
+  {
+   "id": "0.7.12 prod-wirkung::illustration-hub",
+   "phase": "0.7.12 prod-wirkung",
+   "repo": "illustration-hub",
+   "infra": false,
+   "erstmals": "2026-09-07",
+   "zuletzt": "2026-09-24",
+   "laeufe": 62,
+   "note": "RUECKSTAND:illustration-hub,tax-hub · wartet auf Prod-Freigabe (kein Befund):risk-hub(13d) · nur Doku hinter main (kein Befund):ausschreibungs-hub,pptx-hub · verwaistes Manifest:illustration-hub",
+   "artefakt": "https://github.com/achimdehnert/illustration-hub/issues/344",
+   "verzicht": null,
+   "wiedervorlage": "2026-09-21",
+   "ruhezustand": "laut",
+   "entscheiden_bis": "2026-09-14",
+   "ueberfaellig": false,
+   "urteil": "echt",
+   "fix": null,
+   "fix_ueberfaellig": false
+  },
+  {
+   "id": "0.7.12 prod-wirkung::tax-hub",
+   "phase": "0.7.12 prod-wirkung",
+   "repo": "tax-hub",
+   "infra": false,
+   "erstmals": "2026-09-21",
+   "zuletzt": "2026-09-24",
+   "laeufe": 15,
+   "note": "RUECKSTAND:illustration-hub,tax-hub · wartet auf Prod-Freigabe (kein Befund):risk-hub(13d) · nur Doku hinter main (kein Befund):ausschreibungs-hub,pptx-hub · verwaistes Manifest:illustration-hub",
+   "artefakt": "https://github.com/iilgmbh/tax-hub/issues/141",
+   "verzicht": null,
+   "wiedervorlage": "2026-10-05",
+   "ruhezustand": "laut",
+   "entscheiden_bis": "2026-09-28",
+   "ueberfaellig": false,
+   "urteil": "echt",
+   "fix": null,
+   "fix_ueberfaellig": false
+  },
+  {
+   "id": "0.7.17 backup-deckung::platform",
+   "phase": "0.7.17 backup-deckung",
+   "repo": "platform",
+   "infra": true,
+   "erstmals": "2026-09-08",
+   "zuletzt": "2026-09-24",
+   "laeufe": 57,
+   "note": "Deckung NICHT messbar — nicht erreichbar: backup-ziel (kein Urteil, keine Entwarnung)",
+   "artefakt": "https://github.com/achimdehnert/platform/issues/2950",
+   "verzicht": null,
+   "wiedervorlage": "2026-09-24",
+   "ruhezustand": "ruht",
+   "entscheiden_bis": "2026-09-15",
+   "ueberfaellig": false,
+   "urteil": "echt",
+   "fix": {
+    "gesetzt_am": "2026-09-24",
+    "messung": "2026-10-08",
+    "pr": "https://github.com/achimdehnert/platform/pull/3488"
+   },
+   "fix_ueberfaellig": false
+  },
+  {
+   "id": "0.7.2 cron-melder::platform",
+   "phase": "0.7.2 cron-melder",
+   "repo": "platform",
+   "infra": true,
+   "erstmals": "2026-09-12",
+   "zuletzt": "2026-09-24",
+   "laeufe": 43,
+   "note": "kein blinder Melder; rot per Design und damit offener Fund: Registry-Live-Reconcile (KONZ-015) (10x seit 2026-09-15); alarmweg-probe (4x seit 2026-08-31) — triagieren, nicht reparieren",
+   "artefakt": "https://github.com/achimdehnert/platform/issues/1508",
+   "verzicht": null,
+   "wiedervorlage": "2026-09-26",
+   "ruhezustand": "laut",
+   "entscheiden_bis": "2026-09-19",
+   "ueberfaellig": false,
+   "urteil": "echt",
+   "fix": {
+    "gesetzt_am": "2026-09-24",
+    "messung": "2026-09-26",
+    "pr": "https://github.com/achimdehnert/platform/pull/3479"
+   },
+   "fix_ueberfaellig": false
+  },
+  {
+   "id": "0.7.25 rotation-faelligkeit::platform",
+   "phase": "0.7.25 rotation-faelligkeit",
+   "repo": "platform",
+   "infra": false,
+   "erstmals": "2026-09-05",
+   "zuletzt": "2026-09-24",
+   "laeufe": 77,
+   "note": "11 faellig, 12 ohne Beleg, 33 ohne Konsumenten (von 49 Secrets) — SECRET_A, SECRET_B, SECRET_C",
+   "artefakt": "https://github.com/achimdehnert/platform/issues/2813#issuecomment-5557198331",
+   "verzicht": null,
+   "wiedervorlage": "2026-09-20",
+   "ruhezustand": "laut",
+   "entscheiden_bis": "2026-09-12",
+   "ueberfaellig": false,
+   "urteil": null,
+   "fix": null,
+   "fix_ueberfaellig": false
+  },
+  {
+   "id": "0.7.27 sichtbarkeits-drift::platform",
+   "phase": "0.7.27 sichtbarkeits-drift",
+   "repo": "platform",
+   "infra": false,
+   "erstmals": "2026-09-17",
+   "zuletzt": "2026-09-24",
+   "laeufe": 26,
+   "note": "Sichtbarkeits-Drift: Aufrufer 4 · Raw 21 (Laufzeit 2) · Kopien 2 · Fristen 0 — platform PUBLIC, Ziel 0/0/1/0 (#3234); Laufzeit: iilgmbh/iil-klickdummy, iilgmbh/risk-hub",
+   "artefakt": "https://github.com/achimdehnert/platform/issues/3234",
+   "verzicht": null,
+   "wiedervorlage": "2026-10-07",
+   "ruhezustand": "ruht",
+   "entscheiden_bis": "2026-09-24",
+   "ueberfaellig": false,
+   "urteil": null,
+   "fix": {
+    "gesetzt_am": "2026-09-24",
+    "messung": "2026-10-01",
+    "pr": "https://github.com/iilgmbh/iil-klickdummy/pull/245"
+   },
+   "fix_ueberfaellig": false
+  },
+  {
+   "id": "0.7.7 gate-wirkung::platform",
+   "phase": "0.7.7 gate-wirkung",
+   "repo": "platform",
+   "infra": false,
+   "erstmals": "2026-09-17",
+   "zuletzt": "2026-09-17",
+   "laeufe": 4,
+   "note": "1 Gate(s) rueckfaellig — gate-modul-prueft-weniger-als-sein-name: 2x seit Bau 2026-08-31, zuletzt 2026-09-16",
+   "artefakt": null,
+   "verzicht": {
+    "am": "2026-09-23",
+    "grund": "Phase aus /session-start gestrichen (Retro 8185e1)"
+   },
+   "wiedervorlage": "2026-10-23",
+   "ruhezustand": "ruht",
+   "entscheiden_bis": "2026-09-24",
+   "ueberfaellig": false,
+   "urteil": null,
+   "fix": null,
+   "fix_ueberfaellig": false
+  }
+ ],
+ "zeilen": [
+  {
+   "phase": "0.2 platform-sync",
+   "status": "WARN",
+   "repo": "platform",
+   "note": "platform-Pull fehlgeschlagen (dirty/Netz?) — Sync Loop unvollständig"
+  },
+  {
+   "phase": "0.4.4 basis-abstand",
+   "status": "WARN",
+   "repo": "platform",
+   "note": "2 Lease(s) ueber der Schwelle — vor weiterer Arbeit im Worktree: git merge origin/main"
+  },
+  {
+   "phase": "0.7 deploy-scan",
+   "status": "WARN",
+   "repo": "risk-hub",
+   "note": "waiting>24h: risk-hub — Gate blockiert die Concurrency-Group, Folge-Deploys erreichen Prod NICHT; altes Gate mit state=rejected beantworten (7/10 Repos · stillgelegt (kein Befund): coach-hub travel-beat wedding-hub)"
+  },
+  {
+   "phase": "0.7.2 cron-melder",
+   "status": "WARN",
+   "repo": "platform",
+   "note": "kein blinder Melder; rot per Design und damit offener Fund: Registry-Live-Reconcile (KONZ-015) (10x seit 2026-09-15); alarmweg-probe (4x seit 2026-08-31) — triagieren, nicht reparieren"
+  },
+  {
+   "phase": "0.7.17 backup-deckung",
+   "status": "WARN",
+   "repo": "platform",
+   "note": "Deckung NICHT messbar — nicht erreichbar: backup-ziel (kein Urteil, keine Entwarnung)"
+  },
+  {
+   "phase": "0.7.12 prod-wirkung",
+   "status": "WARN",
+   "repo": "illustration-hub tax-hub",
+   "note": "RUECKSTAND:illustration-hub,tax-hub · wartet auf Prod-Freigabe (kein Befund):risk-hub(13d) · nur Doku hinter main (kein Befund):ausschreibungs-hub,pptx-hub · verwaistes Manifest:illustration-hub"
+  },
+  {
+   "phase": "0.7.25 rotation-faelligkeit",
+   "status": "WARN",
+   "repo": "platform",
+   "note": "11 faellig, 12 ohne Beleg, 33 ohne Konsumenten (von 49 Secrets) — SECRET_A, SECRET_B, SECRET_C"
+  },
+  {
+   "phase": "0.7.27 sichtbarkeits-drift",
+   "status": "WARN",
+   "repo": "platform",
+   "note": "Sichtbarkeits-Drift: Aufrufer 4 · Raw 21 (Laufzeit 2) · Kopien 2 · Fristen 0 — platform PUBLIC, Ziel 0/0/1/0 (#3234); Laufzeit: iilgmbh/iil-klickdummy, iilgmbh/risk-hub"
+  }
+ ]
+}

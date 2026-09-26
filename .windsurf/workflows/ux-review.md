@@ -45,7 +45,7 @@ Fix-PR mit Gate-Test behoben oder als Hypothese/offen getrackt.
 - **A6 Bericht = Sammel-Issue** mit Stationstabelle (drei Zustaende + Datenlage), Zaehler
   `befund/ok/blind/bekannt`, Falsifikator-Spalte **neben** der Rohzahl, `Nicht verifiziert`.
   *Pruefung:* Output-Format bis `Nicht verifiziert` eingehalten.
-- **A7 Beheben (ohne `--nur-melden`):** je `fehler` ein Fix-PR mit Ursache `Datei:Zeile`, Gate-Test
+- **A7 Beheben (ohne `--nur-melden`):** je `fehler` ein Fix-PR (Buendelung nur nach Step 8 „Buendel-Ausnahme") mit Ursache `Datei:Zeile`, Gate-Test
   `test_should_…` (ohne Fix rot, mit Fix gruen — beides gemessen), Nachlauf klick-only mit derselben
   Datenlage; `--nur-melden` und Default liefern denselben Rohbericht. *Pruefung:* Block `Behoben`;
   `diff` beider Berichte bis `Nicht verifiziert` = 0 Zeilen.
@@ -88,7 +88,9 @@ Alles hier ist PFLICHT/STOP — der Weg darf variieren, diese Punkte nicht.
 - **G12** JS-Fehler in der Konsole → Station `befund`, ohne Ausnahme. Diagnose aus dem Antwortkoerper,
   nie aus dem Statuscode (403 ist CSRF **und** Tenant-Sperre).
 - **G13** Absenz („fehlt") nur nach zweitem Suchpfad (`grep -rn` in templates/apps); Treffer =
-  Rendering-Bedingung mit `Datei:Zeile`. Feld `gegenprobe` beginnt mit einer Zahl (E18).
+  Rendering-Bedingung mit `Datei:Zeile`. Feld `gegenprobe` beginnt mit einer Zahl (E18) — die Zahl
+  der **Treffer fuer die Absenz**, nicht der Kandidaten; strukturiert dazu `gegenprobe_treffer`
+  setzen (Step 5b, E18-Praezisierung platform#3168).
 - **G14** Zaehler (Step 3b/4) bestehen Positiv- **und** Negativkontrolle; Kontrolle mit nicht existierendem
   Namen zaehlt nicht. Je Treffer eine Antwort — einhaengen oder entfernen —, nie keine.
 - **G15** Inhaltskriterien nur I1–I7 mit Referenz; Geschmack ist kein Befund (R3). I7 auf leerem Objekt
@@ -240,7 +242,12 @@ python3 <platform>/tools/ux_falsifikator.py --datei /tmp/befund.json [--echtdate
 Eingabe-Typen: `klasse`, `severity` (`fehler|optimierung`), `station`, `symptom`, `antwortkoerper`,
 `gegenprobe`, `referenz` — alle String; **`bekannt` ist Boolean** (`true|false`, nie `"nein"`: ein
 String ist truthy, das Werkzeug castet still und Regel 4 wertet einen echten Befund als `widerlegt`
-ab — Dogfood 2026-09-02, platform#2616). Schluessel-Zeiger `~/.secrets/groq_api_key`. Regeln G19–G21.
+ab — Dogfood 2026-09-02, platform#2616). `gegenprobe_treffer` (int, **Pflicht bei Absenz-Befunden**):
+Anzahl Treffer fuer genau das, was laut Befund fehlt, nicht die Zahl der Kandidaten — z. B. bei
+"Feld X fehlt in 6 Formularen" ist `gegenprobe_treffer` die Treffer fuer Feld X selbst (0 bei echter
+Absenz), nicht die 6 Formulare. Damit entscheidet Regel 2 deterministisch vor dem LLM-Aufruf (E18/R7,
+platform#3168); ohne das Feld bleibt Regel 2 LLM-gedeutet und der Bericht traegt `hinweis`.
+Schluessel-Zeiger `~/.secrets/groq_api_key`. Regeln G19–G21.
 
 ### Step 5c — Gegenchecks `-kd` / `-marker` (optional)
 
@@ -283,6 +290,15 @@ Je `fehler`, in Berichtsreihenfolge: Ursache (G26) → Branch `ux-review/<datum>
 Fix + Gate-Test (G27) → Nachlauf (G28) → PR `fix(<app>): <klasse> an <station> (ux-review <datum>)` →
 Merge (G29). `optimierung` nur bei benannter Referenz und kleinem Diff (ein Template/eine View), sonst
 `offen`. Mit `--no-issues` gibt es kein Issue zum Schliessen — der PR verlinkt Bericht und Tracking-Issue.
+
+**Buendel-Ausnahme (Owner-Entscheid 2026-09-14, Retro kbiAvn-incr #5):** Mehrere `fehler` duerfen in EINEN
+Fix-PR, wenn ein technischer Zwang sie verbindet — gemeinsame Migrationskette (sonst Nummern-Kollision),
+dieselbe Single-Source (z. B. FSM-YAML) oder derselbe Gate-Test. Pflicht dann: (1) der Grund steht
+**vor** dem ersten Commit als Kommentar im Sammel-Issue, (2) der PR fuehrt je Befund eine Zeile
+`#<n> · Ursache Datei:Zeile · Gate-Test` und ein eigenes „Nicht verifiziert", (3) die Commits bleiben je
+Befund-Gruppe getrennt. Bequemlichkeit oder „weniger Merges" sind kein Grund — ohne Zwang gilt je
+`fehler` ein PR. Realfall: apo-hub#138 buendelte sechs Befunde wegen Migrationen 0004–0006 und derselben
+FSM-YAML, der Grund stand aber nur im PR-Text.
 
 ## Klassen-Katalog (Gate-Vorlagen)
 
@@ -400,6 +416,13 @@ Zaehler: behoben <f> · offen <o> · hypothese <h> · Prod-Merge wartet <p>
 
 ## Changelog
 
+- 2026-09-14 (6, Owner-Entscheid aus Retro kbiAvn-incr #5): **A7/Step 8 Buendel-Ausnahme** — mehrere
+  `fehler` in einem Fix-PR nur bei technischem Zwang (Migrationskette, Single-Source, gemeinsamer
+  Gate-Test), Grund vorab im Sammel-Issue, je Befund Zeile + „Nicht verifiziert" im PR.
+- 2026-09-14 (5, E18-Praezisierung an platform#3168, Nachtrag zu R7): apo-hub#110 wiederholte R7 — die
+  fuehrende Zahl in `gegenprobe` zaehlte Kandidaten statt Absenz. **G13** und Step 5b nennen jetzt
+  `gegenprobe_treffer` (int, Pflicht bei Absenz-Befunden); `tools/ux_falsifikator.py` entscheidet Regel 2
+  damit deterministisch vor dem LLM-Aufruf statt sie zu deuten.
 - 2026-09-02 (4, Revision nach Dogfood v2 an platform#2616): **G4** STOP nur bei fremdem Container/Prozess
   auf dem Dev-Port (Zuordnung per `docker ps`-Name), eigener Dev-Stack zulaessig; **G3** drei Anmeldewege
   (Zeiger, passwortloser Repo-Weg wie `make login`, `createsuperuser` nur im eigenen Stack) — `blind` erst

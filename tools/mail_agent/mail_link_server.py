@@ -48,6 +48,7 @@ from anker import lade as anker_lade  # noqa: E402
 from referenzen import SUCHORDNER  # noqa: E402
 import graph_anker  # noqa: E402
 import graph_mail  # noqa: E402
+import lese_eingang  # noqa: E402
 from anker import speichere as anker_speichere  # noqa: E402
 from anker import uebernehme as anker_uebernehme  # noqa: E402
 from read_mail import (  # noqa: E402
@@ -79,6 +80,26 @@ LINK_REGISTRY = Path.home() / ".claude" / "mail-links.json"
 #: für die Anzeige gedacht ist.
 BOARD_ROOT = Path.home() / ".claude" / "boards"
 
+#: Tondateien zu den Arbeitslisten (Stimmproben, Hörfassungen). Eigener
+#: Unterordner: eine Datei ist nur dann über den Tunnel hörbar, wenn sie bewusst
+#: dorthin gelegt wurde — die Board-Wurzel selbst bleibt reiner Text.
+MEDIEN_ROOT = BOARD_ROOT / "medien"
+
+#: Endung → Medientyp. Allowlist statt ``mimetypes.guess_type``: hier soll
+#: ausschliesslich Ton und PDF herausgehen, kein HTML und kein Skript, das der
+#: Browser sonst im Ursprung dieses Dienstes ausführen würde. PDF seit
+#: 2026-09-24 (Owner: Link zu einem erzeugten Screenshot-PDF); es wird mit
+#: ``Content-Disposition: inline`` und einer Sandbox-CSP ausgeliefert.
+TON_TYPEN = {
+    ".wav": "audio/wav",
+    ".mp3": "audio/mpeg",
+    ".ogg": "audio/ogg",
+    ".opus": "audio/ogg",
+    ".flac": "audio/flac",
+    ".m4a": "audio/mp4",
+    ".pdf": "application/pdf",
+}
+
 #: Aus einer Graph-`id` wird der OWA-Deeplink so gebaut (belegt: funktioniert im Board).
 OWA_TEMPLATE = (
     "https://outlook.office365.com/owa/?ItemID={id}&exvsurl=1&viewmodel=ReadMessageItem"
@@ -87,6 +108,8 @@ OWA_TEMPLATE = (
 _UID = re.compile(r"^\d+$")
 _KURZ_ID = re.compile(r"^[A-Za-z0-9_-]{1,24}$")
 _BOARD_NAME = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+#: Dateiname einer Tondatei: wie ein Board-Name, aber mit genau einer Endung.
+_TON_NAME = re.compile(r"^[A-Za-z0-9_-]{1,64}\.[A-Za-z0-9]{1,5}$")
 
 
 def board_pfad(name: str, wurzel: Path = BOARD_ROOT) -> Path | None:
@@ -105,6 +128,91 @@ def board_pfad(name: str, wurzel: Path = BOARD_ROOT) -> Path | None:
     except (ValueError, OSError):
         return None
     return ziel if ziel.is_file() else None
+
+
+def ton_pfad(name: str, wurzel: Path = MEDIEN_ROOT) -> Path | None:
+    """Dateiname aus der URL → Tondatei unter ``wurzel``. None, wenn unbrauchbar.
+
+    Derselbe Schnitt wie bei :func:`board_pfad`, zusätzlich die Endung gegen
+    :data:`TON_TYPEN`: ein ``.html`` im Medienordner wird nicht ausgeliefert,
+    auch wenn es dort liegt.
+    """
+    if not _TON_NAME.match(name) or Path(name).suffix.lower() not in TON_TYPEN:
+        return None
+    ziel = (wurzel / name).resolve()
+    try:
+        ziel.relative_to(wurzel.resolve())
+    except (ValueError, OSError):
+        return None
+    return ziel if ziel.is_file() else None
+
+
+TODO_BASIS = "https://todo.iil.pet"  # Arbeitsliste (todo-board.service, 8789)
+_UID_IM_PFAD = re.compile(r"(\d{3,7})$")
+_BODY_TAG = re.compile(rb"<body[^>]*>", re.IGNORECASE)
+_TITLE_ENDE = re.compile(rb"</title>", re.IGNORECASE)
+_DOCTYPE = re.compile(rb"<!doctype[^>]*>", re.IGNORECASE)
+
+
+def vorgaenge_zu_pfad(pfad: str, ledger: dict | list) -> list[dict]:
+    """Welche Vorgaenge des Ledgers zu dieser Mail-Adresse gehoeren.
+
+    `/r/<nr>`, `/a/<nr>` und `/i/<nr>` nennen die Board-Nummer selbst.
+    `/a/<konto-ordner-uid>` und `/m/…/<uid>` nennen nur die Mail; dann zaehlt jeder
+    Vorgang, dessen Verlauf die Nummer als `#<uid>` fuehrt — dieselbe Schreibweise,
+    die die Vorgangsseite verlinkt. Nichts wird geraten: ohne Treffer bleibt nur
+    der Weg zur Liste (Owner-Weisung 2026-09-10: jede aufgerufene Seite traegt
+    den Weg zu ihrer Herkunft).
+    """
+    items = ledger if isinstance(ledger, list) else ledger.get("vorgaenge", [])
+    teile = [t for t in pfad.split("?", 1)[0].split("/") if t]
+    if len(teile) < 2 or teile[0] not in ("a", "m", "r", "i"):
+        return []
+    letzter = unquote(teile[-1])
+    if len(teile) == 2 and letzter.isdigit() and teile[0] in ("r", "a", "i"):
+        return [v for v in items if str(v.get("nr")) == letzter]
+    m = _UID_IM_PFAD.search(letzter)
+    if not m:
+        return []
+    muster = re.compile(r"#" + re.escape(m.group(1)) + r"\b")
+    return [v for v in items if muster.search(str(v.get("notiz") or ""))]
+
+
+def rueckweg_html(vorgaenge: list[dict], todo_basis: str = TODO_BASIS) -> str:
+    """Die Leiste: Arbeitsliste, dazu je zugehoerigem Vorgang seine Seite."""
+    basis = todo_basis.rstrip("/")
+    teile = [f"<a href='{basis}/'>Arbeitsliste</a>"]
+    for v in vorgaenge:
+        nr = html.escape(str(v.get("nr") or "?"))
+        key = str(v.get("thread_key") or "")
+        text = f"Vorgang #{nr}" + (f": {html.escape(key)}" if key else "")
+        if key:
+            teile.append(f"<a href='{basis}/t/{quote(key, safe='')}'>{text}</a>")
+        else:
+            teile.append(f"<span>{text}</span>")
+    return (
+        "<nav class='rueckweg' style='font:14px/1.5 -apple-system,Segoe UI,sans-serif;"
+        "padding:.4rem .8rem;border-bottom:1px solid #d0d0d0;background:#f6f6f4'>"
+        "<style>@media (prefers-color-scheme:dark){.rueckweg{background:#23262c!important;"
+        "border-color:#333!important;color:#e6e6e6}.rueckweg a{color:#7ab7ff}}</style>"
+        + " · ".join(teile)
+        + "</nav>"
+    )
+
+
+def mit_rueckweg(body: bytes, nav: str) -> bytes:
+    """Die Leiste an den Anfang des sichtbaren Inhalts setzen.
+
+    Nach `<body>`, sonst nach `</title>`, sonst nach dem Doctype — die gerenderten
+    Mails (`mail_view`, Graph) tragen keinen `<body>`, und vor dem Doctype waere
+    die Leiste ein Quirks-Mode-Ausloeser.
+    """
+    einschub = nav.encode("utf-8")
+    for muster in (_BODY_TAG, _TITLE_ENDE, _DOCTYPE):
+        m = muster.search(body)
+        if m:
+            return body[: m.end()] + einschub + body[m.end() :]
+    return einschub + body
 
 
 def board_als_html(text: str, titel: str) -> str:
@@ -224,12 +332,32 @@ class MailLinkHandler(BaseHTTPRequestHandler):
     cache_root: Path = CACHE_ROOT
     registry_pfad: Path = LINK_REGISTRY
     anker_pfad: Path = ANKER_DATEI
+    ledger_pfad: Path = Path.home() / ".claude" / "mail-vorgaenge.json"
 
     board_root: Path = BOARD_ROOT
+    medien_root: Path = MEDIEN_ROOT
+    lese_ablage: Path = lese_eingang.ABLAGE
 
     # --- Antwort-Helfer ----------------------------------------------------
 
+    def _rueckweg(self) -> str:
+        """Leiste fuer diese Anfrage; ohne lesbares Ledger nur der Weg zur Liste."""
+        try:
+            ledger = json.loads(self.ledger_pfad.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            ledger = {}
+        return rueckweg_html(vorgaenge_zu_pfad(self.path, ledger))
+
     def _sende(self, status: HTTPStatus, body: bytes, ctype: str) -> None:
+        # Jede Mail-Seite (auch 404/410) traegt den Weg zurueck: Arbeitsliste und
+        # der Vorgang, zu dem die Mail gehoert (Owner-Weisung 2026-09-10).
+        erster = self.path.split("?", 1)[0].split("/")[1:2]
+        if (
+            ctype.startswith("text/html")
+            and erster
+            and erster[0] in ("a", "m", "r", "i")
+        ):
+            body = mit_rueckweg(body, self._rueckweg())
         self.send_response(status)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
@@ -276,7 +404,32 @@ class MailLinkHandler(BaseHTTPRequestHandler):
             return self._mail(teile[1:])
         if teile[0] == "d" and len(teile) == 2:
             return self._board(teile[1])
+        if teile[0] == "t" and len(teile) == 2:
+            return self._ton(teile[1])
+        if teile == ["lesen"]:
+            basis = lese_eingang.basis_aus_host(self.headers.get("Host"))
+            body = lese_eingang.seite(basis).encode("utf-8")
+            return self._sende(HTTPStatus.OK, body, "text/html; charset=utf-8")
         return self._fehler(HTTPStatus.NOT_FOUND, "Unbekannter Pfad.")
+
+    def do_POST(self) -> None:  # noqa: N802
+        """Einziger schreibender Pfad: `/lesen` legt Artikeltext ab (chat-hub#140).
+
+        Schreibt nur in `lese_ablage`, stoesst nichts an — siehe lese_eingang.py.
+        """
+        if self.path.split("?", 1)[0].rstrip("/") != "/lesen":
+            return self._fehler(HTTPStatus.NOT_FOUND, "Unbekannter Pfad.")
+        try:
+            laenge = int(self.headers.get("Content-Length") or 0)
+            lese_eingang.pruefe_anfrage(
+                self.headers.get("Origin"), self.headers.get("Content-Type"), laenge
+            )
+            ziel = lese_eingang.ablegen(self.rfile.read(laenge), self.lese_ablage)
+            status, antwort = HTTPStatus.OK, {"abgelegt": ziel.name}
+        except (ValueError, lese_eingang.AblageFehler) as fehler:
+            status, antwort = HTTPStatus.BAD_REQUEST, {"fehler": str(fehler)}
+        body = json.dumps(antwort).encode("utf-8")
+        self._sende(status, body, "application/json; charset=utf-8")
 
     def _anker(self, teile: list[str]) -> None:
         """`/a/<item>` — Board-Eintrag über seine Message-ID auflösen.
@@ -371,6 +524,39 @@ class MailLinkHandler(BaseHTTPRequestHandler):
         seite = board_als_html(text, name)
         self._sende(HTTPStatus.OK, seite.encode("utf-8"), "text/html; charset=utf-8")
 
+    def _ton(self, name: str) -> None:
+        """`/t/<datei>` — Tondatei aus ``~/.claude/boards/medien/`` abspielen.
+
+        Der Browser spielt sie selbst ab; eine eigene Abspielseite braucht es
+        dafür nicht. Gestreamt statt eingelesen, weil eine Hörfassung mehrere
+        hundert Megabyte hat — ein Kapitel soll nicht erst komplett in den
+        Speicher des Dienstes wandern.
+        """
+        pfad = ton_pfad(name, self.medien_root)
+        if pfad is None:
+            return self._fehler(
+                HTTPStatus.NOT_FOUND, "Keine Tondatei unter diesem Namen."
+            )
+        try:
+            groesse = pfad.stat().st_size
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", TON_TYPEN[pfad.suffix.lower()])
+            self.send_header("Content-Length", str(groesse))
+            self.send_header("Referrer-Policy", "no-referrer")
+            if pfad.suffix.lower() == ".pdf":
+                self.send_header(
+                    "Content-Disposition", f'inline; filename="{pfad.name}"'
+                )
+                self.send_header("Content-Security-Policy", "sandbox")
+            self.end_headers()
+            if self.command == "HEAD":
+                return
+            with pfad.open("rb") as f:
+                while stueck := f.read(256 * 1024):
+                    self.wfile.write(stueck)
+        except OSError as e:
+            return self._fehler(HTTPStatus.INTERNAL_SERVER_ERROR, f"Nicht lesbar: {e}")
+
     def _index(self) -> None:
         eintraege = lade_registry(self.registry_pfad)
         zeilen = (
@@ -405,6 +591,22 @@ class MailLinkHandler(BaseHTTPRequestHandler):
             )
             or "<li><em>keine Arbeitslisten abgelegt</em></li>"
         )
+        try:
+            toene = sorted(
+                p.name
+                for p in self.medien_root.glob("*")
+                if p.is_file() and p.suffix.lower() in TON_TYPEN
+            )
+        except OSError:
+            toene = []
+        ton_zeilen = (
+            "".join(
+                f"<li><a href='/t/{quote(n)}'>{html.escape(n)}</a></li>"
+                for n in toene
+                if _TON_NAME.match(n)
+            )
+            or "<li><em>keine Tondateien abgelegt</em></li>"
+        )
         seite = f"""<!doctype html><meta charset=utf-8><title>Mail-Links</title>
 <body style="font:15px/1.55 -apple-system,Segoe UI,sans-serif;max-width:40rem;margin:3rem auto;padding:0 1rem">
 <h1>Mail-Links</h1>
@@ -422,6 +624,10 @@ verfügbar: {html.escape(konten)}.</p>
 
 <p><code>/d/&lt;name&gt;</code> zeigt eine Arbeitsliste aus <code>~/.claude/boards/</code>.</p>
 <h2>Arbeitslisten</h2><ul>{boards}</ul>
+
+<p><code>/t/&lt;datei&gt;</code> spielt eine Tondatei aus
+<code>~/.claude/boards/medien/</code> ab — Stimmproben und Hörfassungen.</p>
+<h2>Tondateien</h2><ul>{ton_zeilen}</ul>
 <h2>Registrierte Kurz-Links</h2><ul>{zeilen}</ul>
 <p style="color:#777;font-size:.85rem">Nur über Loopback erreichbar. Läuft der Zugriff
 über einen SSH-Tunnel, sieht niemand sonst diese Inhalte.</p>"""
@@ -1068,6 +1274,7 @@ def main() -> None:
     MailLinkHandler.default_konto = args.default_account
     MailLinkHandler.ordner = args.folder
     MailLinkHandler.graph_konto = args.graph_account
+    MailLinkHandler.ledger_pfad = Path(args.ledger)
 
     with ThreadingHTTPServer((args.host, args.port), MailLinkHandler) as srv:
         print(

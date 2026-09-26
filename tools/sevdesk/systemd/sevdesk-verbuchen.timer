@@ -1,0 +1,9 @@
+[Unit]
+Description=Alle 10 Minuten: Paperless-Tag "verbuchen" abarbeiten
+
+[Timer]
+OnCalendar=*:0/10
+Persistent=false
+
+[Install]
+WantedBy=timers.target

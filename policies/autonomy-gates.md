@@ -310,12 +310,24 @@ berührt.
 
 ```yaml
 sa_m:
-  deckung: {W0: M0, W1: M1, W2: M2, W3: M3}
+  deckung: {W0: M0, W1: M1, W2: M2, W3: M1}   # W3 = M1 + Prüffrage (2026-08-27); Block angeglichen 2026-09-16 (#3244)
   doku_glob: ["*.md", "docs/**", "README*", "CHANGELOG*"]
   governance_pfade: [".github/", "docs/adr/", "docs/governance/", "docs/konzepte/KONZ-platform-025-lotsen-charta.md", "policies/", "registry/", "packages/", "CODEOWNERS", "tools/pr_merge_sa.py"]
   sync_only_repos: ["achimdehnert/platform"]
   fail_closed: true
 ```
+
+**Block ≠ Prosa, aufgelöst 2026-09-16 (Owner-Wort „Regel: solche Merges künftig
+autonom ausführen" + „#3244 go", Realfall dev-hub#357):** Die Prosa oben sagt seit
+2026-08-27 „W3 braucht M1 + Prüffrage", der maschinenlesbare Block stand noch auf
+`W3: M3` — das Werkzeug verlangte weiter das Deploy-Wort, und ein CI-grüner, M1-gedeckter
+PR musste von Hand gemergt werden. Jetzt gilt der Block wie die Prosa: `tools/pr_merge_sa.py`
+deckt W3 mit M1 und zieht M3 nur, wenn die Prüffrage **mechanisch** greift —
+Migrationsdatei im Diff (Datenmigration) oder Publish-Workflow, den der Merge auf `main`
+anstößt (Irreversibles). Security-Config bleibt über den Governance-Pfad bei M2; die echte
+Wahlfrage bleibt Urteil des Agenten **vor** dem Aufruf. Der Auftrag eines Cross-Repo-Programms
+darf im Leit-Repo liegen: `owner/repo#N` im PR-Text wird dort gelesen. Selbstbetreffende
+Änderung, als Vorschlag #3244 vorgelegt und vom Owner freigegeben.
 
 **Deploy-Vermerk je PR-Nummer deckt W3 als M3-Äquivalent (2026-09-04, #2812,
 präzisiert #2814, Owner-Entscheid (b)):** Ein Approve-Review auf einen eigenen

@@ -8,6 +8,7 @@ erfuellen, die reale Datei nicht.
 
 from __future__ import annotations
 
+import datetime as dt
 import importlib.util
 import json
 import pathlib
@@ -21,6 +22,8 @@ _spec = importlib.util.spec_from_file_location(
 )
 em = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(em)
+
+import befund_journal as bj  # noqa: E402 — tools/ liegt seit exec_module im Pfad
 
 
 def _dienst(name="x-hub", status="aktiv", grund=None):
@@ -140,18 +143,71 @@ def test_should_echte_ports_yaml_lesen_koennen():
 def test_should_jede_echte_ausnahme_einen_grund_tragen():
     """Die Invariante, die das Feld ueberhaupt vertrauenswuerdig macht."""
     dienste = em.lade_dienste(str(WURZEL / "infra" / "ports.yaml"))
+    # `deklariert` = Wert aus ports.yaml; seit #3507 ist `betriebsstatus` der
+    # wirksame Wert, und eine abgelaufene Ausnahme braucht ihren Grund trotzdem.
     ohne_grund = [
-        d["name"] for d in dienste if d["betriebsstatus"] != "aktiv" and not d["grund"]
+        d["name"] for d in dienste if d["deklariert"] != "aktiv" and not d["grund"]
     ]
     assert ohne_grund == [], f"betriebsstatus ohne Grund: {ohne_grund}"
 
 
 def test_should_nur_erlaubte_betriebsstatus_werte_verwenden():
     dienste = em.lade_dienste(str(WURZEL / "infra" / "ports.yaml"))
-    falsch = [
-        d["name"] for d in dienste if d["betriebsstatus"] not in em.STATUS_ERLAUBT
-    ]
+    falsch = [d["name"] for d in dienste if d["deklariert"] not in em.STATUS_ERLAUBT]
     assert falsch == [], f"unbekannter betriebsstatus: {falsch}"
+
+
+# ── Ablauf der Ausnahme (#3507): betriebsstatus nur mit gueltiger Deklaration ──
+
+
+def _ports_mit_blockiertem(tmp_path):
+    ports = tmp_path / "ports.yaml"
+    ports.write_text(
+        "services:\n"
+        "  x-hub:\n"
+        "    domain_prod: x-hub.example.org\n"
+        "    betriebsstatus: blockiert\n"
+        "    betriebsstatus_grund: Test\n",
+        encoding="utf-8",
+    )
+    return str(ports)
+
+
+def _betriebsstatus_bis(tmp_path, monkeypatch, tage):
+    """Fixture-Deklarationsdatei; ``tage=None`` = keine Deklaration."""
+    dekl = tmp_path / "deklarationen.json"
+    monkeypatch.setenv("BEFUND_DEKLARATIONEN_DATEI", str(dekl))
+    if tage is not None:
+        bis = dt.datetime.now(dt.timezone.utc).date() + dt.timedelta(days=tage)
+        bj.setze_deklaration(
+            "x-hub", "betriebsstatus", "Test", bis.isoformat(), pfad=dekl
+        )
+
+
+def test_should_keep_exception_while_betriebsstatus_declaration_is_valid(
+    tmp_path, monkeypatch
+):
+    _betriebsstatus_bis(tmp_path, monkeypatch, 30)
+    (d,) = em.lade_dienste(_ports_mit_blockiertem(tmp_path))
+    assert d["betriebsstatus"] == "blockiert"
+
+
+def test_should_probe_service_again_when_betriebsstatus_declaration_expired(
+    tmp_path, monkeypatch
+):
+    """Positivkontrolle #3507: Ablauf einen Tag zurueck -> `aktiv`, also geprueft."""
+    _betriebsstatus_bis(tmp_path, monkeypatch, -1)
+    (d,) = em.lade_dienste(_ports_mit_blockiertem(tmp_path))
+    assert d["betriebsstatus"] == "aktiv"
+    assert d["deklariert"] == "blockiert"
+
+
+def test_should_probe_service_when_betriebsstatus_has_no_declaration(
+    tmp_path, monkeypatch
+):
+    _betriebsstatus_bis(tmp_path, monkeypatch, None)
+    (d,) = em.lade_dienste(_ports_mit_blockiertem(tmp_path))
+    assert d["betriebsstatus"] == "aktiv"
 
 
 # ── Gemeinsame Melder-Huelle (platform#2944) ────────────────────────────────

@@ -30,6 +30,7 @@ mode: read-only
 | Handoff fortsetzen / offene Issues weiterbearbeiten | `/issues-abarbeiten` |
 | Antwort-Format auf Kompakt-/Struktur-Modus umstellen | `/antwort-modus-schablone` |
 | In Achims Stimme schreiben (Mail, Konzept, PR-Text) | `/schreibstil` |
+| Literatur an der HNU suchen (E-Books, begutachtete Aufsätze) | `/hnu-recherche` |
 
 ### Coding-Flow
 

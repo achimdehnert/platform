@@ -48,7 +48,12 @@ def _lies_geheim(name: str) -> str:
     pfad = GEHEIM / name
     if not pfad.is_file():
         sys.exit(f"fehlt: ~/.secrets/{name}")
-    return pfad.read_text().strip()
+    # Einziger Leser fuer Secret-Dateien — versteht bare UND NAME=WERT
+    # (platform#3129).
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
+    from infra.lib.secrets import secret_wert
+
+    return secret_wert(pfad)
 
 
 def api(acc: str, tok: str, pfad: str, methode: str = "GET", nutzlast=None) -> dict:

@@ -1,0 +1,14 @@
+{
+  "slug": "gui-geaendert-ohne-klick",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": "tools/claude-hooks/gui_ohne_klick_scanner.py",
+  "drill": "tools/claude-hooks/tests/test_gui_ohne_klick_scanner.py",
+  "built": "2026-08-26",
+  "ref": "platform#2343",
+  "revision_note": "Owner-Weisung 2026-08-26: geht es um GUI oder Templates, wird /ux-review verwendet. Ein Memory reicht dafuer nicht — es wird gelesen, wenn jemand sucht, und der Fehler passiert gerade dann, wenn niemand sucht. Anlass: ein kompletter GUI-Durchlauf durch writing-hub am 2026-08-25/26 ohne einen einzigen /ux-review-Aufruf, obwohl der Skill die Kette abdeckt UND die Fehler der Vorsitzung bereits als Realfaelle nennt; drei davon passierten erneut. Bedingung aus Tool-Evidenz (GUI-Datei geschrieben) statt aus dem Antworttext — gegen Nicht-Gesagtes ist ein Wortlaut-Scanner blind, dieselbe Lehre wie scope_checkpoint_scanner Rev 2. Erfuellung ist bewusst niedrig: EIN Browser-Aufruf genuegt, der Scanner verlangt nicht den ganzen Skill.",
+  "zustand": "ohne-traeger",
+  "zustand_note": "Kein automatischer Aufrufer: das Modul steht in keiner Hook-Verdrahtung (~/.claude/settings.json) und in keinem Workflow (gegengeprueft 2026-09-02, platform#2606 E4). Ein registriertes Gate ohne Traeger ist Dekoration — genau die Klasse built-but-never-called. Abgang: verdrahten ODER streichen. `erzwungen_seit` ist hier entfernt: es behauptete eine Erzwingung seit 2026-08-26, die es mangels Traeger nie gab (Deklaration != Realitaet).",
+  "expires": "2026-10-31",
+  "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
+}

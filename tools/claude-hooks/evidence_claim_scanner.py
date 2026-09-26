@@ -41,7 +41,7 @@ GATE_HEADER = {
     "slug": "claim-before-cheapest-check",
     "mode": "blocking",  # Laufzeit-Opt-out: state-Datei, s. _mode()
     "owner": "achim",
-    "last_drill_pass": "2026-09-07",  # Drill = test_should_block_* in tests/ + test_evidence_claim_scanner_bypass.py + _vollzug.py
+    "last_drill_pass": "2026-09-14",  # Drill = test_should_block_* in tests/ + test_evidence_claim_scanner_bypass.py + _vollzug.py + _kriterium.py
     "evidence": "tools/claude-hooks/tests/test_evidence_claim_scanner.py",
 }
 
@@ -683,6 +683,272 @@ RULESET_READ_RE = re.compile(
 )
 
 
+# --- Rev 8 (2026-09-14, Retro oqu6Z6 §5a / Befund #4, M5): KRITERIUMS-CLAIM ---
+#
+# platform#3015 wurde mit „Alle fünf Kriterien sind erreicht und belegt" geschlossen.
+# K3 verlangte Verfallsignale „mit Schwelle und Vorlauf", einen Melder, der feuert,
+# „bevor der Ausfall eintritt", und eine Positivkontrolle mit „Beleg im Journal". Die
+# Belegzeile des Abschluss-Kommentars gab das Kriterium verkuerzt wieder („Verfall-
+# signale mit Schwelle, Positivkontrolle") — Vorlauf, Ausfall und Journal kamen darin
+# nicht vor. Der Turn war voll von Artefakt-Links, keine vorhandene Art fragte, ob sie
+# JEDEN Satzteil des Kriteriums tragen.
+#
+# Die Pruefung: ein publizierter Body behauptet ein Kriterium als erreicht/erfuellt und
+# fuehrt Kriterien mit Kennung (K1, K2, …). Fuer jede Kennung wird der Wortlaut im Turn
+# gesucht (gelesenes Auftrags-Issue). Fehlt er, feuert die Art — der billigste Check ist
+# das Lesen des Kriteriums. Steht er da, wird er in Satzteile zerlegt; jeder Satzteil
+# muss mit mindestens einem seiner Inhaltswoerter in den Body-Zeilen dieser Kennung
+# vorkommen. GRENZE, bewusst benannt: gemessen wird, ob jeder Satzteil ANGESPROCHEN
+# ist, nicht ob der genannte Beleg ihn traegt — eine Belegzeile, die das Kriterium
+# nur abschreibt, kommt durch. Die Luecke des Realfalls war aber genau das Weglassen,
+# und Weglassen macht diese Pruefung sichtbar. Bodies ohne Kennungen bleiben still
+# („Akzeptanzkriterien erfuellt" in PR-Bodies waere sonst eine Fehlalarm-Flut).
+_KRIT_VERB = r"erreicht|erf(?:ü|ue)llt|nachgewiesen"
+KRITERIUM_CLAIM_RE = re.compile(
+    rf"(?:(?i:kriteri\w*)|\bK\d{{1,2}}\b)[^.!?\n]{{0,60}}(?i:{_KRIT_VERB})"
+    rf"|(?i:{_KRIT_VERB})[^.!?\n]{{0,60}}(?:(?i:kriteri\w*)|\bK\d{{1,2}}\b)"
+)
+_K_LABEL_RE = re.compile(r"\bK(\d{1,2})\b")
+_SATZTEIL_SPLIT_RE = re.compile(
+    r"[.;:,]|\s(?:und|mit|bevor|sowie|samt|inklusive|danach|dann)\s", re.I
+)
+_INHALTSWORT_RE = re.compile(r"[A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß-]{4,}")
+#: Woerter ohne Unterscheidungskraft — sie stehen in fast jeder Kriterien- und
+#: Belegzeile und wuerden einen Satzteil scheinbar decken.
+_KRIT_STOPP = frozenset(
+    {
+        "mindestens",
+        "beispiele",
+        "beispiel",
+        "beleg",
+        "belege",
+        "belegt",
+        "kriterium",
+        "kriterien",
+        "jeweils",
+        "werden",
+        "wird",
+        "einer",
+        "einem",
+        "eines",
+        "jeder",
+        "jedes",
+        "diese",
+        "dieser",
+        "dieses",
+        "immer",
+        "damit",
+        "nicht",
+        "ohne",
+        "durch",
+        "keine",
+        "einen",
+        "sind",
+    }
+)
+_STAMM = 6
+
+
+def _normiere(text: str) -> str:
+    t = (text or "").lower()
+    for a, b in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")):
+        t = t.replace(a, b)
+    return t
+
+
+def _kriterium_wortlaut(label: str, evidenz: str) -> str:
+    """Laengste Zeile im Turn-Beleg, die die Kennung traegt und danach wie ein
+    Kriterium aussieht (mindestens sechs Woerter). Leer = nicht gelesen."""
+    beste = ""
+    muster = re.compile(rf"\b{re.escape(label)}\b")
+    for zeile in evidenz.replace("\\n", "\n").splitlines():
+        m = muster.search(zeile)
+        if not m:
+            continue
+        rest = zeile[m.end() :]
+        if len(rest.split()) >= 6 and len(rest) > len(beste):
+            beste = rest
+    return beste
+
+
+def _satzteile(wortlaut: str) -> list[str]:
+    text = re.sub(r"^[^:]{0,60}:\**", "", wortlaut.strip(), count=1)  # Titel ab
+    # Klammern (Beispiele) und Code-Spannen (Pfade wie `docs/<x>.md`) sind keine
+    # Satzteile — ein Punkt im Dateinamen wuerde sonst einen Satz zerschneiden.
+    text = re.sub(r"`[^`]*`", " ", text)
+    text = re.sub(r"\([^)]*\)", " ", text.replace("**", "").replace("*", ""))
+    return [t.strip() for t in _SATZTEIL_SPLIT_RE.split(text) if t and t.strip()]
+
+
+def _kriteriums_luecken(bodies: list, evidenz: str) -> list[str]:
+    """→ ["K3: Vorlauf; der Ausfall eintritt", "K5: Wortlaut nicht gelesen", …].
+
+    Leer, wenn kein Body ein Kriterium als erreicht behauptet oder keine Kennung
+    fuehrt. Rein und ohne Seiteneffekt — der Drill ruft sie direkt."""
+    luecken: list[str] = []
+    body_text = "\n".join(bodies)
+    if not KRITERIUM_CLAIM_RE.search(body_text):
+        return luecken
+    zeilen_je_label: dict[str, list[str]] = {}
+    for zeile in body_text.splitlines():
+        for nummer in _K_LABEL_RE.findall(zeile):
+            zeilen_je_label.setdefault(f"K{nummer}", []).append(zeile)
+    for label in sorted(zeilen_je_label, key=lambda k: int(k[1:])):
+        wortlaut = _kriterium_wortlaut(label, evidenz)
+        if not wortlaut:
+            luecken.append(f"{label}: Wortlaut nicht im Turn gelesen")
+            continue
+        belegzeilen = _normiere(" ".join(zeilen_je_label[label]))
+        offen = []
+        for teil in _satzteile(wortlaut):
+            woerter = [
+                w
+                for w in (_normiere(x) for x in _INHALTSWORT_RE.findall(teil))
+                if w not in _KRIT_STOPP
+            ]
+            if woerter and not any(w[:_STAMM] in belegzeilen for w in woerter):
+                offen.append(teil)
+        if offen:
+            luecken.append(f"{label}: " + "; ".join(offen[:4]))
+    return luecken
+
+
+# --- Rev 9 (2026-09-17, Retro 7d2e16 §5a, platform#3283, Gate rueckfaellig -> 'umbauen') ---
+#
+# (1) UNPRUEFBAR-CLAIM. Der Scanner erkannte Erfolgs-Behauptungen, nicht die
+# Absenz-Form: „nicht pruefbar", „laesst sich nicht belegen", „nicht moeglich". Im
+# Realfall (writing-hub PR #1201: „Rasterbilder, nicht pruefbar") stand kein
+# gescheiterter Versuch daneben — die Sitzung hatte es nicht probiert, sondern
+# erklaert. Der Hook feuerte auf einen anderen Satz, der Text blieb, der Owner
+# wiederholte die Frage eine halbe Stunde spaeter. Korroboration ist ein
+# FEHLVERSUCH im Turn (HTTP 3xx/4xx/5xx, Exit-Code, denied, not found, Traceback,
+# ABBRUCH) — ODER der Satz nennt den billigsten Check selbst (Policy
+# evidence-discipline: „nicht verifiziert: Y — billigster Check ist Z"); das ist die
+# ehrliche Form und bleibt still. Gilt fuer Chat UND publizierte Bodies.
+_UNPRUEFBAR_VERB = r"pr(?:ü|ue)f(?:en|bar)|(?:ü|ue)berpr(?:ü|ue)f(?:en|bar)|beleg(?:en|bar)|best(?:ä|ae)tig(?:en|bar)|mess(?:en|bar)|verifizier(?:en|bar)"
+UNPRUEFBAR_CLAIM_RE = re.compile(
+    rf"\bnicht\s+(?:{_UNPRUEFBAR_VERB})\b"
+    rf"|\b(?:l(?:ä|ae)sst|liess|ließ)\s+sich\s+nicht\s+(?:{_UNPRUEFBAR_VERB})"
+    rf"|\bkann\s+(?:ich\s+)?nicht\s+(?:{_UNPRUEFBAR_VERB})"
+    rf"|\bnicht\s+m(?:ö|oe)glich\s*(?:,|zu)\s*(?:{_UNPRUEFBAR_VERB})",
+    re.I,
+)
+#: Ein Satz, der den Check benennt, ist die geforderte ehrliche Form — kein Treffer.
+_UNPRUEFBAR_HEDGE_RE = re.compile(
+    r"billigst|\bcheck\b|pr(?:ü|ue)fen\s+w(?:ü|ue)rde|w(?:ä|ae)re\s+zu\s+pr(?:ü|ue)fen",
+    re.I,
+)
+FEHLVERSUCH_RE = re.compile(
+    r"\b(?:30[1278]|40[0-9]|41[0-9]|5\d\d)\b|exit(?:[ _-]?code)?[=: ]+[1-9]|returncode=[1-9]"
+    r"|\bdenied\b|verweigert|Permission|not found|nicht gefunden|No such file|timed out"
+    r"|Connection refused|ABBRUCH|Traceback|\bError\b|Fehler|login|anmeld",
+    re.I,
+)
+
+
+def _unpruefbar_ungehedgt(text: str) -> str:
+    """Erster unpruefbar-Satz ohne benannten Check, sonst ''."""
+    for satz in _SENTENCE_SPLIT_RE.split(text):
+        if UNPRUEFBAR_CLAIM_RE.search(satz) and not _UNPRUEFBAR_HEDGE_RE.search(satz):
+            return satz.strip()
+    return ""
+
+
+# (2) FREMDPRUEFUNGS-CLAIM, deckt den Slug `self-review-presented-as-review`
+# (x2, GATE-PFLICHT seit Retro 7d2e16 #2). Realfall writing-hub#1181 K4: „jede
+# Seitenangabe am Chunk gegengeprueft" — bei 44 von 51 Belegen prueften die
+# erzeugenden Agenten sich selbst (PR #1187 wies es spaeter selbst aus). Ein Body,
+# der eine Fremdpruefung behauptet (gegengeprueft, unabhaengig, fremder Blick,
+# Skeptiker, Vier-Augen), braucht im Turn einen ZWEITEN KONTEXT: einen Agent-/
+# Task-/Workflow-Aufruf, `claude -p`, headless_run oder delegate_subtask. GRENZE,
+# bewusst benannt: gemessen wird, ob ein zweiter Kontext LIEF, nicht ob er
+# unabhaengig vom Erzeuger war — dafuer braeuchte es die Prompt-Inhalte. Nur
+# publizierte Bodies: im Chat ist „gegenpruefen" oft eine Absicht.
+FREMDPRUEFUNG_CLAIM_RE = re.compile(
+    r"gegengepr(?:ü|ue)ft|unabh(?:ä|ae)ngig(?:e|en)?\s+(?:gepr(?:ü|ue)ft|pr(?:ü|ue)fung|blick)"
+    r"|fremde[rn]?\s+blick|skeptiker|vier-augen|zweitpr(?:ü|ue)fung|zweite\s+meinung"
+    r"|von\s+einem\s+(?:zweiten|anderen|frischen)\s+(?:agenten|kontext)",
+    re.I,
+)
+# --- Rev 10: Widerspruch im selben Zug --------------------------------------
+#
+# Die Art fragt NICHT nach einem fehlenden Beleg, sondern nach einem Beleg, der
+# im selben Zug das Gegenteil sagt. Deshalb keine Korroborations-Regex, sondern
+# ein Abgleich zweier Texte ueber gemeinsame, UNTERSCHEIDENDE Merkmale.
+#
+# Warum die bestehende Wortmechanik (`_INHALTSWORT_RE`, ab 5 Zeichen) nicht
+# reicht: der Realfall teilt sich „UDP" (drei Zeichen) und „7882" (Ziffern) —
+# beides faellt dort durch. Gemessen wird deshalb ueber Kennungen: Abkuerzungen
+# in Grossbuchstaben, Zahlen ab drei Stellen, und lange Woerter als Beiwerk.
+_WSPR_BELEGT = re.compile(
+    r"[^.!?\n]*\b(?:ist|sind|damit|somit|hiermit)\b[^.!?\n]{0,80}"
+    r"\b(?:belegt|verifiziert|best(?:ä|ae)tigt|nachgewiesen|gepr(?:ü|ue)ft)\b[^.!?\n]*",
+    re.I,
+)
+_WSPR_VERNEINT = re.compile(
+    r"[^.!?\n]*(?:nicht\s+(?:verifizierbar|verifiziert|belegt|gepr(?:ü|ue)ft|nachweisbar)"
+    r"|offen\s+geblieben|steht\s+aus|ungepr(?:ü|ue)ft|kein\s+Beleg)[^.!?\n]*",
+    re.I,
+)
+#: Kennungen: Abkuerzung (ab 3 Grossbuchstaben) oder Zahl (ab 3 Stellen).
+_WSPR_KENNUNG = re.compile(r"\b[A-Z]{3,}\b|\b\d{3,}\b")
+#: Beiwerk: lange Woerter, zwei davon zaehlen wie eine Kennung.
+_WSPR_WORT = re.compile(r"\b[A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß-]{6,}\b")
+
+
+def _wspr_merkmale(satz: str) -> tuple[set[str], set[str]]:
+    return (
+        set(_WSPR_KENNUNG.findall(satz)),
+        {w.lower() for w in _WSPR_WORT.findall(satz)},
+    )
+
+
+def _widerspruch_im_zug(bodies: list, assistant_text: str) -> str:
+    """Body nennt X belegt, der uebrige Zug nennt X nicht verifizierbar.
+
+    Gibt den Kurzbeleg zurueck oder "". Bewusst streng: es braucht entweder eine
+    geteilte Kennung (Abkuerzung/Zahl) oder zwei geteilte lange Woerter. Ohne
+    diese Schwelle traefe die Art jeden Bericht, der irgendwo etwas belegt und
+    anderswo eine Restluecke nennt — und das ist die ehrliche Normalform, nicht
+    der Fehler.
+    """
+    gegentext = assistant_text or ""
+    if not gegentext.strip():
+        return ""
+    verneinungen = [s.strip() for s in _WSPR_VERNEINT.findall(gegentext) if s.strip()]
+    if not verneinungen:
+        return ""
+    for body in bodies:
+        for behauptung in _WSPR_BELEGT.findall(body or ""):
+            b_kenn, b_wort = _wspr_merkmale(behauptung)
+            if not b_kenn and len(b_wort) < 2:
+                continue
+            for verneinung in verneinungen:
+                v_kenn, v_wort = _wspr_merkmale(verneinung)
+                geteilte_kennung = b_kenn & v_kenn
+                geteilte_woerter = b_wort & v_wort
+                if geteilte_kennung or len(geteilte_woerter) >= 2:
+                    marke = sorted(geteilte_kennung or geteilte_woerter)[:2]
+                    return (
+                        f"„{behauptung.strip()[:70]}" + "“ vs. „"
+                        f"{verneinung[:70]}“ — gemeinsam: {', '.join(marke)}"
+                    )
+    return ""
+
+
+_ZWEITER_KONTEXT_TOOLS = {"Agent", "Task", "Workflow"}
+_ZWEITER_KONTEXT_RE = re.compile(
+    r"\bclaude\s+-p\b|headless_run|delegate_subtask|workflow_(?:run|execute)|subagent_type",
+    re.I,
+)
+
+
+def _zweiter_kontext_lief(tool_inputs: list, evidence_text: str) -> bool:
+    if any(name in _ZWEITER_KONTEXT_TOOLS for name, _inp in tool_inputs):
+        return True
+    return bool(_ZWEITER_KONTEXT_RE.search(evidence_text))
+
+
 _GH_COMMENT_RE = re.compile(r"\bgh\s+(?:pr|issue)\s+comment\b")
 _GH_MERGE_RE = re.compile(r"\bgh\s+pr\s+merge\b")
 _STATUS_IN_COMMENT_RE = re.compile(
@@ -909,6 +1175,8 @@ def main() -> int:
     assistant_text, evidence_text, tool_inputs = _last_turn_blocks(transcript_path)
 
     fired = []
+    #: Advisory-Arten (entwurf-messzahl, Rev-9-Arten): blocken nie, s.u.
+    fired_advisory: list[str] = []
     #: Erstes woertliches Treffer-Zitat — der Beleg, an dem die Kalibrierung
     #: spaeter FEHLALARM oder ECHT entscheidet. Ohne ihn stehen im Protokoll nur
     #: Zeitstempel und Label, und die Fehlalarm-Quote ist nicht ableitbar
@@ -1106,6 +1374,67 @@ def main() -> int:
                 "platform#2954: der Job stand nicht in required_status_checks)"
             )
 
+    # Rev 8: Kriteriums-Claim im publizierten Body. Korroboration ist der
+    # Kriterien-WORTLAUT im Turn (ohne den Body selbst), nicht ein Werkzeuglauf —
+    # im Realfall platform#3015 lagen reichlich Artefakt-Links vor.
+    if bodies:
+        try:
+            _krit = _kriteriums_luecken(bodies, _ev_ohne_body)
+        except Exception:  # noqa: BLE001 — Scanner darf nie werfen
+            _krit = []
+        if _krit:
+            fired.append(
+                "kriteriums-claim (Kriterium als erreicht behauptet, aber nicht jeder "
+                "Satzteil hat eine Entsprechung in der Belegzeile — "
+                + " | ".join(_krit)[:300]
+                + "; Realfall platform#3015 K3)"
+            )
+
+    # Rev 9 (1): Unpruefbar-Claim in Chat oder Body ohne Fehlversuch im Turn.
+    # Advisory-Sonderweg bis zum Ende des Kalibrierfensters (platform#3283):
+    # „nicht pruefbar" steht auch in ehrlichen Restluecken-Zeilen; die Hedge-Regel
+    # (Check benannt) soll erst an echten Treffern kalibriert werden, bevor sie blockt.
+    _unpruefbar_quelle = (assistant_text or "") + "\n" + "\n".join(bodies or [])
+    _unpruefbar_satz = _unpruefbar_ungehedgt(_unpruefbar_quelle)
+    if _unpruefbar_satz and not FEHLVERSUCH_RE.search(
+        _ev_ohne_body if bodies else evidence_text
+    ):
+        fired_advisory.append(
+            "unpruefbar-claim (Unpruefbarkeit behauptet, ohne dass im Turn ein Versuch "
+            "scheiterte oder der billigste Check benannt ist — Realfall writing-hub#1201 "
+            '„Rasterbilder, nicht pruefbar": „' + _unpruefbar_satz[:80] + '")'
+        )
+
+    # Rev 9 (2): Fremdpruefung im publizierten Body ohne zweiten Kontext im Turn
+    # (deckt self-review-presented-as-review). Advisory-Sonderweg wie oben.
+    if (
+        bodies
+        and FREMDPRUEFUNG_CLAIM_RE.search("\n".join(bodies))
+        and not _zweiter_kontext_lief(tool_inputs, _ev_ohne_body)
+    ):
+        fired_advisory.append(
+            "fremdpruefungs-claim (Gegen-/Fremdpruefung im PR-/Issue-Body behauptet, aber "
+            "kein zweiter Kontext im Turn — kein Agent/Task/Workflow, kein claude -p; "
+            "Realfall writing-hub#1181 K4: 44 von 51 Belegen vom Erzeuger selbst geprueft)"
+        )
+
+    # Rev 10 (2026-09-23): WIDERSPRUCH im selben Zug. Anders als jede Art davor
+    # fragt diese nicht, ob ein Beleg FEHLT — sie fragt, ob derselbe Zug den Beleg
+    # an anderer Stelle ausdruecklich VERNEINT. Realfall Retro 8946e8 Befund #14:
+    # chat-hub#127 wurde mit „Damit ist auch UDP 7882 belegt" geschlossen, waehrend
+    # §8 desselben Berichts genau diesen Punkt als nicht verifizierbar fuehrte. Der
+    # Traeger war gedeckt (`gh issue close` steht seit Rev 5 im Carrier) und Belege
+    # lagen im Turn — nur sagte einer davon das Gegenteil. Keine Einzelsatz-Pruefung
+    # kann das sehen; noetig ist der Abgleich zweier Texte desselben Zuges.
+    if bodies:
+        _wspr = _widerspruch_im_zug(bodies, assistant_text or "")
+        if _wspr:
+            fired_advisory.append(
+                "widerspruch-im-zug (der publizierte Body nennt etwas belegt, das derselbe "
+                "Zug an anderer Stelle als nicht verifizierbar fuehrt — Realfall "
+                f"chat-hub#127: {_wspr})"
+            )
+
     if _kommentar_vor_merge(tool_inputs):
         fired.append(
             "comment-before-merge (Status-/Bypass-Kommentar in derselben Befehlskette VOR "
@@ -1123,7 +1452,6 @@ def main() -> int:
     # additionalContext-Form aus. Ein Mail-Entwurf soll trotz Warnzeile abgelegt
     # werden koennen; blockiert wird nur, wenn eine der uebrigen, haerteren Arten
     # gleichzeitig feuert.
-    fired_advisory: list[str] = []
     try:
         entwurf_bodies = _entwurf_bodies(tool_inputs)
     except Exception:  # noqa: BLE001 — Scanner darf nie werfen

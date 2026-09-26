@@ -31,12 +31,12 @@ herunter — dann steht dort ehrlich `SKIP`, nicht `PASS`.
 | E.0 banner | −0.1 | Version + Commit der platform | — |
 | E.1 deploy-status | 0a-deploy | letzter Deploy-Run je berührtem Repo: `success` / `failure` / `waiting` / kein Deploy | `gh run list` |
 | E.2 handover-prs | 0a-handover-pr | offene PRs, die `AGENT_HANDOVER.md` anfassen; >1 = konkurrierende Stände | `gh pr list` |
-| E.3 handover-frische | 0a-freshness | Gate `handover-stale-vor-merge` | `scripts/checks/agent_handover_freshness_check.py` |
+| E.3 handover-frische | 0a-freshness | Gate `handover-stale-vor-merge`; seit 2026-09-14 mit `--commits-schwelle 0 --beruehrung-auf-basis` — Commits seit dem letzten Nachtrag ohne offenen Handover-PR (E.2) = FAIL (Retro oqu6Z6 #22) | `scripts/checks/agent_handover_freshness_check.py` |
 | E.4 cross-repo-befunde | 0f | offene Fremd-Repo-Befunde ohne Artefakt/Verzicht (Zahl, nicht Deutung) | `tools/befund_journal.py --offen-cross-repo` |
 | E.5 zusagen | 0g | eigene PRs von heute, 4 Ausgabeklassen (✅ / ⚠️ / NICHT PRUEFBAR / UNGEPRUEFT) | `tools/verankerung_pruefer.py` |
 | E.6 template-drift | 1c | Error-Drifts gegen die Repo-Templates | `scripts/drift_check.py --severity=error` |
 | E.7 dirty-repos | 3.3 | uncommittete Änderungen; eigene (Lease heute) = WARN, fremde = Hinweis | `git status --porcelain` |
-| E.8 worktree-reap | 3.1c | **SKIP mit Hinweis** — das Aufräumen ist an `session_start_checks.sh` 0.4.5 vergeben (`repo-session.sh reap --alle` über alle Leases, Gate-Revision 2026-08-20); ein zweiter Lauf am Sitzungsende wäre dieselbe Mechanik doppelt | — |
+| E.8 worktree-hygiene | 3.1c | seit 2026-09-14 (Retro oqu6Z6 #21): `git worktree prune` wird ausgeführt; jeder verknüpfte Baum, dessen letzter Commit und Anlage älter als 14 Tage sind, ist FAIL, außer mit Grund in `<gitdir>/behalten`. Gemergte Bäume räumt weiterhin `session_start_checks.sh` 0.4.5 — bis 2026-09-14 stand hier SKIP, und die Anzeige blieb folgenlos | `git worktree prune`, `git worktree list --porcelain` |
 | E.9 dist-drift | (neu, analog Start 0.7.13) | weichen die verteilten Skills von `.windsurf/workflows/` ab | `tools/cc-skill-dist/doctor.py` |
 
 **Repos dieser Sitzung** (Basis für E.1 und die Eigen/Fremd-Trennung in E.7):

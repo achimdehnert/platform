@@ -5,7 +5,7 @@
 # Bewusst KISS: Ports lauschen offen, der Schutz ist die Cloud-Firewall-Allowlist.
 services:
   node-exporter:
-    image: prom/node-exporter:v1.8.2
+    image: prom/node-exporter:v1.12.1
     container_name: mon_node_exporter
     restart: unless-stopped
     network_mode: host          # exportiert Host-Metriken auf :9100
@@ -19,7 +19,7 @@ services:
       - "/:/host:ro,rslave"
 
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    image: gcr.io/cadvisor/cadvisor:v0.55.1
     container_name: mon_cadvisor
     restart: unless-stopped
     ports:

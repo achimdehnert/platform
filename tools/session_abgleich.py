@@ -3,7 +3,7 @@
 
 Dieses eine Modul traegt DREI registrierte Slugs. `tools/gate_drill_check.py`
 liest den maschinenlesbaren Kopf (GATE_HEADER) und findet dort den ERSTEN;
-`docs/governance/gate-registry.json` nennt das Modul dreimal — einmal je Slug.
+`docs/governance/gates/` nennt das Modul dreimal — einmal je Slug.
 Zuordnung Slug → Funktion (die Registry-Zeilen zeigen auf dieselbe Datei):
 
   1. `issue-offen-nach-gemergtem-fix`   → befunde_issues()
@@ -52,6 +52,13 @@ und wird ausdruecklich als HINWEIS gefuehrt, nie als Befund und nie als sauber.
 Ausserdem sind gate-erzwungene Serien legitim (der zweite PR korrigiert, was
 ein Gate am ersten beanstandet hat) — deshalb ist dieses Gate advisory.
 
+`--pr N` (Retro 2026-09-10): der Sitzungs-Lauf oben kommt erst NACH allen
+Merges — #3034 und #3042 gingen nacheinander auf `test_todo_board.py`
+(ueberlappende Hunks), ohne dass das Gate vorher lief. `--pr` prueft
+`befunde_serien_fuer_pr()` GENAU EINEN PR gegen offene + heute gemergte PRs
+desselben Autors und laeuft als Advisory-Kommentar beim PR selbst (Workflow
+`.github/workflows/serielle-prs-advisory.yml`), nicht erst am Sitzungsende.
+
 BAUFORM
 -------
 Jede Kernlogik ist eine REINE Funktion ueber einfachen Python-Datenstrukturen
@@ -59,6 +66,14 @@ Jede Kernlogik ist eine REINE Funktion ueber einfachen Python-Datenstrukturen
 den Kernfunktionen; der `gh`-Abruf lebt in der duennen Schicht unter
 "gh-Schicht". Nur so ist das drillbar — und mit `--eingabe <datei>` ist der
 ganze Weg auch ohne Netz nachvollziehbar.
+
+`--sitzung <id>` (platform#2234, Retro #3543 Befund #2): ohne diese Option holt
+der Lauf ALLE PRs des Kontos seit heute — auch die paralleler Sitzungen. Am
+2026-09-24 ergab das `RESULT: BEFUND 35`; das eigene offene Issue #3469 (aus
+#3489, `Refs #3469`) ging darin unter. Mit `--sitzung` zaehlen nur PRs, deren
+`headRefName` ein Branch dieser Claude-Sitzung ist (`tools/sitzungs_branches.py`
+liest ihn aus den Leases). Ist kein Branch zuordenbar, endet der Lauf mit
+`RESULT: HINWEIS 0 (sitzung-nicht-zuordenbar: …)` — keine Entwarnung.
 
 Exit: 0 = sauber (auch: nur HINWEISe, dann sagt die RESULT-Zeile HINWEIS)
     · 1 = Befund (advisory) · 2 = Werkzeugfehler (gh fehlt / Abruf gescheitert)
@@ -75,8 +90,11 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sitzungs_branches  # noqa: E402  (Nachbarmodul, Sitzungsabgrenzung #2234)
+
 # Maschinenlesbarer Kopf (KONZ-038 D8) — von tools/gate_drill_check.py gegen
-# docs/governance/gate-registry.json abgeglichen. Der Kopf traegt den ERSTEN
+# docs/governance/gates/ abgeglichen. Der Kopf traegt den ERSTEN
 # der drei Slugs; die beiden anderen stehen im Docstring oben.
 GATE_HEADER = {
     "slug": "issue-offen-nach-gemergtem-fix",
@@ -129,6 +147,9 @@ BELEG_WOERTER = (
 # aufhalten). Was darueber liegt, wird als HINWEIS ausgewiesen, nicht verschwiegen.
 MAX_DETAIL_ABRUFE = 30
 
+# Felder des PR-Abrufs. `headRefName` traegt die Sitzungsabgrenzung (--sitzung).
+PR_FELDER = "number,author,body,state,mergedAt,files,headRefName"
+
 
 # ─────────────────────────── Hilfen (rein) ──────────────────────────────────
 
@@ -139,6 +160,24 @@ def _befund(slug: str, ref: str, text: str) -> dict:
 
 def _hinweis(slug: str, ref: str, text: str) -> dict:
     return {"slug": slug, "art": "hinweis", "ref": ref, "text": text}
+
+
+def _sauber(slug: str, ref: str, text: str) -> dict:
+    """Informations-Zeile fuer eine gepruefte, aber falsifizierte Stelle.
+
+    Kein Befund und kein Hinweis: die Falsifikation LIEF und war erfolgreich
+    (Hunks disjunkt) — das gehoert in die Zusammenfassung, sonst wirkt ein
+    sauberer --pr-Lauf ununterscheidbar von einem, der nichts geprueft hat.
+    """
+    return {"slug": slug, "art": "sauber", "ref": ref, "text": text}
+
+
+def _autor_von(pr: dict) -> str:
+    """Login aus `pr["author"]` (dict `{"login": ...}` oder bereits String)."""
+    autor = pr.get("author")
+    if isinstance(autor, dict):
+        autor = autor.get("login") or ""
+    return str(autor or "")
 
 
 def _repo_von(eintrag: dict) -> str:
@@ -447,10 +486,7 @@ def befunde_serien(prs: list[dict], stunden: int = 24) -> list[dict]:
     for pr in prs or []:
         if not ist_gemergt(pr):
             continue
-        autor = pr.get("author")
-        if isinstance(autor, dict):
-            autor = autor.get("login") or ""
-        autor = str(autor or "")
+        autor = _autor_von(pr)
         repo = _repo_von(pr)
         zeit = _zeitpunkt(pr.get("mergedAt"))
         for datei in pr.get("files") or []:
@@ -517,6 +553,118 @@ def befunde_serien(prs: list[dict], stunden: int = 24) -> list[dict]:
     return ergebnisse
 
 
+def befunde_serien_fuer_pr(
+    ziel_nummer: int, prs: list[dict], heute: str | None = None
+) -> list[dict]:
+    """--pr-Modus: EIN PR gegen offene + heute gemergte PRs desselben Autors.
+
+    Retro 2026-09-10: der Sitzungs-Lauf von befunde_serien() kommt erst NACH
+    allen Merges — #3034 und #3042 liefen nacheinander auf `test_todo_board.py`
+    (Hunks 467-531 vs 526-542, ueberlappend), ohne dass das Gate vorher lief.
+    Dieser Modus soll beim PR selbst laufen (Advisory-Kommentar), also VOR dem
+    Merge — die Population ist deshalb nicht "gemergt binnen X Stunden",
+    sondern "offen ODER heute gemergt" (Autor + Repo wie beim Ziel-PR).
+
+    Rein: `prs` in der Form von `gh pr list --json
+    number,author,state,mergedAt,files,repo`, Hunks je Datei optional unter
+    `files[].hunks`. `heute` ist ein YYYY-MM-DD-Stichtag (Default: UTC-heute).
+
+    Dieselbe Falsifikationsregel wie befunde_serien():
+      - Hunks auf beiden Seiten bekannt und ueberlappend → Befund.
+      - Hunks auf beiden Seiten bekannt und disjunkt → "sauber"-Zeile
+        ("gleiche Datei, disjunkte Bereiche — kein Befund"), NIE ein Befund.
+      - Hunks fehlen → Hinweis, nie Befund und nie Entwarnung.
+    Kein zweiter PR desselben Autors/Repos auf einer gemeinsamen Datei →
+    leere Liste (kein Ballast im PR-Kommentar).
+    """
+    heute = heute or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    ziel = next(
+        (p for p in prs or [] if int(p.get("number") or -1) == ziel_nummer), None
+    )
+    if ziel is None:
+        return []
+
+    ziel_autor = _autor_von(ziel)
+    ziel_repo = _repo_von(ziel)
+    ziel_ref = _ref_text(ziel_repo, ziel_nummer)
+
+    ziel_dateien: dict[str, list[tuple[int, int]] | None] = {}
+    for datei in ziel.get("files") or []:
+        pfad = str(datei.get("path") or "")
+        if not pfad:
+            continue
+        hunks = datei.get("hunks")
+        ziel_dateien[pfad] = (
+            [(int(h[0]), int(h[1])) for h in hunks] if hunks is not None else None
+        )
+
+    def ist_population(pr: dict) -> bool:
+        if int(pr.get("number") or -1) == ziel_nummer:
+            return False
+        if _autor_von(pr) != ziel_autor or _repo_von(pr) != ziel_repo:
+            return False
+        zustand = str(pr.get("state") or "").upper()
+        if zustand == "OPEN":
+            return True
+        if zustand == "MERGED":
+            zeit = _zeitpunkt(pr.get("mergedAt"))
+            return bool(zeit) and zeit.strftime("%Y-%m-%d") == heute
+        return False
+
+    ueberlappend: list[tuple[str, str]] = []
+    unklar: list[tuple[str, str]] = []
+    disjunkt: list[tuple[str, str]] = []
+    for pr in prs or []:
+        if not ist_population(pr):
+            continue
+        ref = _ref_text(_repo_von(pr), int(pr.get("number")))
+        for datei in pr.get("files") or []:
+            pfad = str(datei.get("path") or "")
+            if pfad not in ziel_dateien:
+                continue
+            ziel_bereich = ziel_dateien[pfad]
+            hunks = datei.get("hunks")
+            andere_bereich = (
+                [(int(h[0]), int(h[1])) for h in hunks] if hunks is not None else None
+            )
+            if ziel_bereich is None or andere_bereich is None:
+                unklar.append((ref, pfad))
+            elif bereiche_ueberlappen(ziel_bereich, andere_bereich):
+                ueberlappend.append((ref, pfad))
+            else:
+                disjunkt.append((ref, pfad))
+
+    ergebnisse: list[dict] = []
+    for ref, pfad in sorted(set(ueberlappend)):
+        ergebnisse.append(
+            _befund(
+                SLUG_SERIEN,
+                pfad,
+                f"{ziel_ref} + {ref} (Autor {ziel_autor or '?'}) beruehren "
+                f"`{pfad}` an ueberlappenden Zeilen — Falsifikation gescheitert",
+            )
+        )
+    for ref, pfad in sorted(set(unklar)):
+        ergebnisse.append(
+            _hinweis(
+                SLUG_SERIEN,
+                pfad,
+                f"{ziel_ref} + {ref} beruehren `{pfad}`, aber Hunk-Angabe fehlt "
+                "— NICHT falsifizierbar",
+            )
+        )
+    for ref, pfad in sorted(set(disjunkt)):
+        ergebnisse.append(
+            _sauber(
+                SLUG_SERIEN,
+                pfad,
+                f"{ziel_ref} + {ref} beruehren `{pfad}` — gleiche Datei, "
+                "disjunkte Bereiche — kein Befund",
+            )
+        )
+    return ergebnisse
+
+
 # ─────────────────────────── gh-Schicht (duenn) ─────────────────────────────
 # Alles ab hier fasst das Netz an und enthaelt bewusst KEINE Bewertungslogik.
 
@@ -559,7 +707,7 @@ def gh_sitzungs_prs(repo: str, autor: str, seit: str) -> list[dict]:
             "--limit",
             "50",
             "--json",
-            "number,author,body,state,mergedAt,files",
+            PR_FELDER,
         ]
     )
     try:
@@ -569,6 +717,60 @@ def gh_sitzungs_prs(repo: str, autor: str, seit: str) -> list[dict]:
     for pr in daten:
         pr["repo"] = repo
     return daten
+
+
+def gh_branch_prs(repo: str, branches: list[str]) -> list[dict]:
+    """PRs genau dieser Branches (alle Zustaende) — je Branch EIN `--head`-Abruf.
+
+    Anders als `gh_sitzungs_prs` ohne Datums- und Autorfilter und ohne den
+    50er-Deckel ueber das ganze Konto: eine Sitzung hat wenige Branches, ein
+    Konto an einem vollen Tag mehr PRs als der Deckel.
+    """
+    daten: list[dict] = []
+    for branch in branches:
+        roh = _gh(
+            [
+                "pr",
+                "list",
+                "--repo",
+                repo,
+                "--head",
+                branch,
+                "--state",
+                "all",
+                "--limit",
+                "50",
+                "--json",
+                PR_FELDER,
+            ]
+        )
+        try:
+            teil = json.loads(roh or "[]")
+        except json.JSONDecodeError as exc:
+            raise GhFehler(f"gh pr list --head lieferte kein JSON: {exc}") from exc
+        for pr in teil:
+            pr["repo"] = repo
+        daten += teil
+    return daten
+
+
+def auf_branches_begrenzen(daten: dict, branches: list[str] | set[str]) -> dict:
+    """Rein: nur PRs (und ihre Texte), deren `headRefName` ein Sitzungs-Branch ist.
+
+    `issues` und `pr_zustaende` bleiben unberuehrt — sie werden nur ueber die
+    PRs erreicht und stoeren ohne sie nicht.
+    """
+    erlaubt = set(branches)
+    prs = [
+        p for p in daten.get("prs", []) if str(p.get("headRefName") or "") in erlaubt
+    ]
+    nummern = {(_repo_von(p), int(p.get("number"))) for p in prs}
+    texte = [
+        t
+        for t in daten.get("texte", [])
+        if (str(t.get("repo") or ""), int(t.get("nummer") or 0)) in nummern
+    ]
+    return {**daten, "prs": prs, "texte": texte}
 
 
 def gh_issue(repo: str, nummer: int) -> dict | None:
@@ -616,9 +818,23 @@ def gh_hunks(repo: str, nummer: int) -> dict[str, list[tuple[int, int]]] | None:
     return hunks_aus_patch(patch)
 
 
-def sammle_via_gh(repo: str, autor: str, seit: str, mit_hunks: bool) -> dict:
-    """Baut genau die Datenstruktur, die `--eingabe` auch aus einer Datei liest."""
-    prs = gh_sitzungs_prs(repo, autor, seit)
+def sammle_via_gh(
+    repo: str,
+    autor: str,
+    seit: str,
+    mit_hunks: bool,
+    branches: list[str] | None = None,
+) -> dict:
+    """Baut genau die Datenstruktur, die `--eingabe` auch aus einer Datei liest.
+
+    Mit `branches` (Sitzungsabgrenzung) kommen die PRs je Branch statt aus dem
+    Konto-weiten Abruf — die Detail-Abrufe unten laufen dann nur noch fuer die
+    PRs dieser Sitzung.
+    """
+    if branches is None:
+        prs = gh_sitzungs_prs(repo, autor, seit)
+    else:
+        prs = gh_branch_prs(repo, branches)
     gemergt = [p for p in prs if ist_gemergt(p)]
 
     issues: list[dict] = []
@@ -671,6 +887,76 @@ def sammle_via_gh(repo: str, autor: str, seit: str, mit_hunks: bool) -> dict:
     }
 
 
+def gh_pr_einzel(repo: str, nummer: int) -> dict | None:
+    """Ein einzelner PR — Fallback, falls `gh_sitzungs_prs` ihn nicht erfasst
+    (z.B. `--seit` liegt nach seinem letzten `updated`-Zeitpunkt)."""
+    try:
+        roh = _gh(
+            [
+                "pr",
+                "view",
+                str(nummer),
+                "--repo",
+                repo,
+                "--json",
+                "number,author,body,state,mergedAt,files",
+            ]
+        )
+    except GhFehler:
+        return None
+    try:
+        daten = json.loads(roh)
+    except json.JSONDecodeError:
+        return None
+    daten["repo"] = repo
+    return daten
+
+
+def sammle_serien_fuer_pr_via_gh(
+    repo: str, ziel_nummer: int, autor: str, seit: str
+) -> list[dict]:
+    """Population fuer den --pr-Modus, mit Hunks fuer alle relevanten PRs.
+
+    Holt die Sitzungs-PRs des Autors (Fallback: Einzelabruf, falls der Ziel-PR
+    darin fehlt) und laedt Hunks NUR fuer den Ziel-PR sowie fuer offene bzw.
+    heute gemergte PRs desselben Autors (Deckel MAX_DETAIL_ABRUFE) — genau die
+    Population, die befunde_serien_fuer_pr() auch bewertet.
+    """
+    prs = gh_sitzungs_prs(repo, autor, seit)
+    if not any(int(p.get("number") or -1) == ziel_nummer for p in prs):
+        einzel = gh_pr_einzel(repo, ziel_nummer)
+        if einzel is not None:
+            prs.append(einzel)
+
+    heute = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    abgerufen = 0
+    for pr in prs:
+        if abgerufen >= MAX_DETAIL_ABRUFE:
+            break
+        nummer = int(pr.get("number") or -1)
+        zustand = str(pr.get("state") or "").upper()
+        if nummer == ziel_nummer:
+            relevant = True
+        elif zustand == "OPEN":
+            relevant = True
+        elif zustand == "MERGED":
+            zeit = _zeitpunkt(pr.get("mergedAt"))
+            relevant = bool(zeit) and zeit.strftime("%Y-%m-%d") == heute
+        else:
+            relevant = False
+        if not relevant:
+            continue
+        hunks = gh_hunks(repo, nummer)
+        abgerufen += 1
+        if hunks is None:
+            continue
+        for datei in pr.get("files") or []:
+            pfad = str(datei.get("path") or "")
+            if pfad in hunks:
+                datei["hunks"] = [list(h) for h in hunks[pfad]]
+    return prs
+
+
 def lade_eingabe(pfad: str) -> dict:
     daten = json.loads(Path(pfad).read_text(encoding="utf-8"))
     if not isinstance(daten, dict):
@@ -685,9 +971,93 @@ def lade_eingabe(pfad: str) -> dict:
 # ──────────────────────────────── CLI ───────────────────────────────────────
 
 
+def kurz_refs(eintraege: list[dict]) -> str:
+    """`owner/repo#N` → `repo#N`, Reihenfolge erhalten, ohne Dubletten."""
+    gesehen: list[str] = []
+    for e in eintraege:
+        ref = str(e.get("ref") or "")
+        kurz = ref.split("/")[-1] if "/" in ref else ref
+        if kurz and kurz not in gesehen:
+            gesehen.append(kurz)
+    return " ".join(gesehen)
+
+
 def _ausgabe_zeile(eintrag: dict) -> str:
-    marke = "⚠" if eintrag["art"] == "befund" else "◌"
+    marke = {"befund": "⚠", "hinweis": "◌", "sauber": "✓"}.get(eintrag["art"], "◌")
     return f"   {marke} [{eintrag['slug']}] {eintrag['ref']}: {eintrag['text']}"
+
+
+def _lauf_pr_modus(args) -> int:
+    """--pr-Modus: kurze, Markdown-taugliche Ausgabe fuer einen PR-Kommentar."""
+    if args.eingabe:
+        try:
+            daten = lade_eingabe(args.eingabe)
+        except (OSError, ValueError) as exc:
+            print(f"⚠ Eingabe nicht lesbar: {exc}", file=sys.stderr)
+            print("RESULT: FEHLER")
+            return 2
+        prs = daten["prs"]
+    else:
+        if not args.repo:
+            print("⚠ ohne --eingabe wird --repo owner/repo gebraucht.", file=sys.stderr)
+            print("RESULT: FEHLER")
+            return 2
+        try:
+            prs = sammle_serien_fuer_pr_via_gh(
+                args.repo, args.pr, args.autor, args.seit
+            )
+        except GhFehler as exc:
+            print(
+                f"⚠ {exc} — NICHT bewertbar (nie als sauber werten).", file=sys.stderr
+            )
+            print("RESULT: FEHLER")
+            return 2
+
+    ergebnisse = befunde_serien_fuer_pr(args.pr, prs, heute=args.heute)
+    befunde = [e for e in ergebnisse if e["art"] == "befund"]
+    hinweise = [e for e in ergebnisse if e["art"] == "hinweis"]
+    sauber = [e for e in ergebnisse if e["art"] == "sauber"]
+
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "befunde": befunde,
+                    "hinweise": hinweise,
+                    "sauber": sauber,
+                    "result": "BEFUND"
+                    if befunde
+                    else ("HINWEIS" if hinweise else "OK"),
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+    else:
+        print(f"**Serielle-PRs-Abgleich fuer #{args.pr}** ({SLUG_SERIEN}, advisory)")
+        if befunde:
+            for e in befunde:
+                print(_ausgabe_zeile(e))
+        if hinweise:
+            for e in hinweise:
+                print(_ausgabe_zeile(e))
+        if sauber:
+            for e in sauber:
+                print(_ausgabe_zeile(e))
+        if not befunde and not hinweise and not sauber:
+            print(
+                "   ✅ kein weiterer offener/heute gemergter PR desselben Autors "
+                "auf denselben Dateien."
+            )
+
+    if befunde:
+        print(f"RESULT: BEFUND {len(befunde)} (hinweise={len(hinweise)})")
+        return 1
+    if hinweise:
+        print(f"RESULT: HINWEIS {len(hinweise)}")
+        return 0
+    print("RESULT: OK")
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -725,13 +1095,69 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="keine Patches abrufen — die Serien-Pruefung wird dann nicht falsifizierbar",
     )
+    ap.add_argument(
+        "--pr",
+        type=int,
+        help=(
+            f"Nur DIESEN PR gegen offene + heute gemergte PRs desselben Autors "
+            f"vergleichen ({SLUG_SERIEN}, kurze Ausgabe fuer einen PR-Kommentar) "
+            "— ersetzt den Drei-Gates-Lauf, ignoriert --issues/--belege/--serien"
+        ),
+    )
+    ap.add_argument(
+        "--heute",
+        help=(
+            "Stichtag YYYY-MM-DD fuer 'heute gemergt' im --pr-Modus "
+            "(Default: UTC-heute)"
+        ),
+    )
     ap.add_argument("--json", action="store_true", help="Ergebnis als JSON")
+    ap.add_argument(
+        "--sitzung",
+        help=(
+            "Claude-Sitzungs-ID (>= 8 Zeichen): nur PRs der Branches dieser "
+            "Sitzung (aus den repo-session-Leases) — ohne Option wie bisher alle "
+            "PRs des Kontos seit --seit"
+        ),
+    )
+    ap.add_argument(
+        "--lease-dir",
+        help="Lease-Verzeichnis fuer --sitzung (Default: $LEASE_DIR bzw. ~/.repo-session/leases)",
+    )
     args = ap.parse_args(argv)
+
+    if args.pr is not None:
+        return _lauf_pr_modus(args)
 
     keiner_gewaehlt = not (args.issues or args.belege or args.serien)
     will_issues = args.issues or keiner_gewaehlt
     will_belege = args.belege or keiner_gewaehlt
     will_serien = args.serien or keiner_gewaehlt
+
+    branches: list[str] | None = None
+    if args.sitzung is not None:
+        lease_dir = (
+            Path(args.lease_dir)
+            if args.lease_dir
+            else sitzungs_branches.standard_lease_dir()
+        )
+        zuordnung = sitzungs_branches.zuordnen(
+            sitzungs_branches.lade_leases(lease_dir), args.sitzung
+        )
+        repo_name = (args.repo or "").split("/")[-1]
+        branches = sorted(
+            b for r, b in zuordnung["paare"] if not repo_name or r == repo_name
+        )
+        if not branches:
+            grund = zuordnung["grund"] or (
+                f"kein Branch der Sitzung {zuordnung['schluessel']} in {repo_name}"
+            )
+            print(f"◌ Sitzung nicht zuordenbar — {grund}. Keine Entwarnung.")
+            print(f"RESULT: HINWEIS 0 (sitzung-nicht-zuordenbar: {grund})")
+            return 0
+        print(
+            f"Sitzung {zuordnung['schluessel']}: {len(branches)} Branch(es) — {' '.join(branches)}"
+        )
 
     if args.eingabe:
         try:
@@ -740,6 +1166,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"⚠ Eingabe nicht lesbar: {exc}", file=sys.stderr)
             print("RESULT: FEHLER")
             return 2
+        if branches is not None:
+            daten = auf_branches_begrenzen(daten, branches)
     else:
         if not args.repo:
             print("⚠ ohne --eingabe wird --repo owner/repo gebraucht.", file=sys.stderr)
@@ -747,7 +1175,11 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         try:
             daten = sammle_via_gh(
-                args.repo, args.autor, args.seit, mit_hunks=not args.ohne_hunks
+                args.repo,
+                args.autor,
+                args.seit,
+                mit_hunks=not args.ohne_hunks,
+                branches=branches,
             )
         except GhFehler as exc:
             print(
@@ -786,6 +1218,9 @@ def main(argv: list[str] | None = None) -> int:
             print("⚠ Sitzungs-Abgleich — Befunde (advisory):")
             for e in befunde:
                 print(_ausgabe_zeile(e))
+            # Kompakte Ref-Liste fuer die Runner-Zelle (E.10): dort war bisher nur
+            # EINE abgeschnittene Zeile sichtbar (Retro #3543 Befund #2).
+            print(f"KURZ: {kurz_refs(befunde)}")
         if hinweise:
             print("◌ NICHT falsifizierbar / nicht abrufbar — keine Entwarnung:")
             for e in hinweise:

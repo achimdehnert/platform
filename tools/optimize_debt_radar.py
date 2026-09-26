@@ -27,6 +27,7 @@ registry_coverage_drift.py::compute_drift).
 """
 
 import argparse
+import os
 import json
 import re
 import sys
@@ -244,7 +245,10 @@ def render_text(
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--github-dir", default=str(Path.home() / "github"))
+    ap.add_argument(
+        "--github-dir",
+        default=os.environ.get("GITHUB_DIR", str(Path.home() / "github")),
+    )
     ap.add_argument("--canonical", default=str(CANONICAL))
     ap.add_argument(
         "--repos",

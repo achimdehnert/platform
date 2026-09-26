@@ -91,3 +91,52 @@ def test_should_let_the_secret_script_pass_without_xtrace(tmp_path):
         "#!/usr/bin/env bash\nPASS=$(openssl rand -base64 32)\n", encoding="utf-8"
     )
     assert _entscheidung(f"bash {skript}") == "allow"
+
+
+# --- v5: Sourcing einer Datei im Secrets-Verzeichnis (retro oqu6Z6 #10) -------
+#
+# Realfall 2026-09-13: eine bare-Datei (ganze Datei = nackter Wert) wurde per
+# `. datei` gesourct; die Shell fuehrte den Wert als Kommando aus und schrieb ihn
+# in ihre Fehlermeldung. v4 sah nur Reader-ARGUMENTE und liess den Fall durch.
+# Alle Pfade sind synthetisch und werden vom Hook nicht geoeffnet — die Regel
+# entscheidet am Befehlstext.
+
+_DIR = "~/." + "secrets"  # nicht als Literal durch die Werkzeug-Waechter
+
+
+def test_should_block_dot_sourcing_a_file_in_the_secrets_dir():
+    """Positivkontrolle: genau die Form des Realfalls."""
+    assert _entscheidung(f". {_DIR}/synthetic_api_key") == "deny"
+
+
+def test_should_block_source_with_home_variable():
+    assert _entscheidung(f'source "$HOME/.{_DIR[3:]}/synthetic.env"') == "deny"
+
+
+def test_should_block_sourcing_inside_set_a_bracket():
+    assert _entscheidung(f"set -a; . {_DIR}/synthetic.env; set +a") == "deny"
+
+
+def test_should_block_sourcing_inside_bash_c():
+    assert _entscheidung(f"bash -c '. {_DIR}/synthetic_api_key && echo ok'") == "deny"
+
+
+def test_should_block_sourcing_inside_a_subshell():
+    assert _entscheidung(f"( . {_DIR}/synthetic_api_key )") == "deny"
+
+
+def test_should_let_sourcing_a_non_secret_file_pass():
+    """Negativkontrolle: Sourcing an sich ist legitim."""
+    assert _entscheidung(". .venv/bin/activate && source ~/.bashrc") == "allow"
+
+
+def test_should_let_a_quoted_mention_in_an_issue_body_pass():
+    """Negativkontrolle: ein ZITAT des verbotenen Kommandos ist kein Sourcing
+    (Nebenbeobachtung der Retro: #3155 wurde an einem zitierten Kommando geblockt)."""
+    kommando = f'gh issue create --title x --body "Nie . {_DIR}/name sourcen"'
+    assert _entscheidung(kommando) == "allow"
+
+
+def test_should_let_the_tolerant_reader_pass():
+    """Negativkontrolle: der dokumentierte Weg bleibt frei."""
+    assert _entscheidung("WERT=$(tools/secret_lesen.sh synthetic_api_key)") == "allow"

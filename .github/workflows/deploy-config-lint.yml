@@ -2,7 +2,8 @@ name: "Deploy-Config-Lint"
 
 # Org-Gate gegen den Auto-Prod-Deploy-Drift (risk-hub-Klasse): deploy.yml, das
 # push->main auf 'production' defaultet, deployt unbemerkt direkt auf Prod.
-# Org-Standard (_deploy-unified.yml): push->main = staging; Prod nur Tag/manuell.
+# Org-Standard (iilgmbh/shared-ci/_deploy-unified.yml, #3398): push->main =
+# staging; Prod nur Tag/manuell.
 # Hintergrund: session-retro 2026-06-04 (risk-hub ~20 Tage Auto-Prod).
 #
 # Adoption im Repo-CI:

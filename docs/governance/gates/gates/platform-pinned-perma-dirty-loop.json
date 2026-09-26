@@ -1,0 +1,24 @@
+{
+  "slug": "platform-pinned-perma-dirty-loop",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": "tools/policy_frische.py",
+  "drill": "tools/tests/test_policy_frische.py",
+  "built": "2026-08-23",
+  "ref": "platform#2234 (3x in den Retros, nie gegated)",
+  "note": "Gebaut statt abgelegt, nachdem die Pruefung die eigene Empfehlung widerlegte: der Slug klang nach 'Arbeitsbaum dauerhaft dirty' und meint tatsaechlich 'Policy-Pin ohne Frische-Garantie zur Nutzungszeit' (Retro 2026-07-31, Befund 9: Pin 17 Commits zurueck, darunter PR #1601 mit genau zwei der injizierten Policies). Vergleich am Inhalt gegen origin/main, nicht an der mtime. Verdrahtet als Runner-Phase 0.7.14. Beim Bauen selbst ausgeloest: eine Probe hing an ~/.claude/policies an, das SYMLINKS in den Pin sind — der Pin wurde dirty, zurueckgenommen und mit origin/main gegengeprueft.",
+  "faengt": [
+    {
+      "fall": "ausgelieferte Policy weicht inhaltlich von origin/main ab",
+      "probe": "stale"
+    },
+    {
+      "fall": "gleicher Inhalt mit uraltem Datum ist KEIN Befund (mtime-Falle)",
+      "probe": "mtime"
+    }
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-08-23",
+  "expires": "2026-10-31",
+  "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
+}

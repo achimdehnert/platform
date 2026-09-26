@@ -141,3 +141,77 @@ def test_should_repeat_the_collision_without_the_reservation(reservierungsdatei)
     erste = nn.naechste(refs)
     zweite = nn.naechste(refs)
     assert erste == zweite == 44
+
+
+def test_should_ignore_review_files_with_year_prefixed_numbers():
+    """docs/adr/reviews/REVIEW-ADR-2026-001-….md ergab 2026 → naechste 2027 (2026-09-17)."""
+    assert (
+        nn.MUSTER["adr"].search("docs/adr/reviews/REVIEW-ADR-2026-001-Shared.md")
+        is None
+    )
+    assert nn.MUSTER["adr"].search("docs/adr/ADR-2026-001-Shared.md") is None
+
+
+def test_should_count_only_ref_tips_not_deleted_history(tmp_path, monkeypatch):
+    """ADR-400/401 lagen im Februar auf einem Zweig und wurden im Archiv-Cleanup
+    geloescht; `rev-list --objects` sah sie weiter und meldete 402."""
+    import subprocess
+
+    repo = tmp_path / "r"
+    repo.mkdir()
+
+    def g(*a):
+        subprocess.run(["git", "-C", str(repo), *a], check=True, capture_output=True)
+
+    g("init", "-q", "-b", "main")
+    g("config", "user.email", "t@t")
+    g("config", "user.name", "t")
+    (repo / "docs" / "adr").mkdir(parents=True)
+    (repo / "docs/adr/ADR-401-alt.md").write_text("x")
+    g("add", "-A")
+    g("commit", "-qm", "alt")
+    g("rm", "-q", "docs/adr/ADR-401-alt.md")
+    (repo / "docs" / "adr").mkdir(parents=True, exist_ok=True)
+    (repo / "docs/adr/ADR-307-neu.md").write_text("x")
+    g("add", "-A")
+    g("commit", "-qm", "neu")
+    g("update-ref", "refs/remotes/origin/main", "HEAD")
+    monkeypatch.setattr(nn, "REPO_ROOT", repo)
+    assert nn.aus_refs("adr") == {307}
+
+
+def test_should_ignore_archive_folders_on_non_main_refs(tmp_path, monkeypatch):
+    """Mai-Zweige tragen `_archive/superseded/ADR-401` noch mit — main hat es
+    aufgeraeumt; nur main-Archive reservieren Nummern."""
+    import subprocess
+
+    repo = tmp_path / "r"
+    repo.mkdir()
+
+    def g(*a):
+        subprocess.run(["git", "-C", str(repo), *a], check=True, capture_output=True)
+
+    g("init", "-q", "-b", "main")
+    g("config", "user.email", "t@t")
+    g("config", "user.name", "t")
+    (repo / "docs/adr/_archive").mkdir(parents=True)
+    (repo / "docs/adr/ADR-307-neu.md").write_text("x")
+    (repo / "docs/adr/_archive/ADR-101-alt.md").write_text("x")
+    g("add", "-A")
+    g("commit", "-qm", "main")
+    g("update-ref", "refs/remotes/origin/main", "HEAD")
+    g("switch", "-qc", "alt")
+    (repo / "docs/adr/_archive/ADR-401-tot.md").write_text("x")
+    g("add", "-A")
+    g("commit", "-qm", "zweig")
+    g("update-ref", "refs/remotes/origin/alt", "HEAD")
+    monkeypatch.setattr(nn, "REPO_ROOT", repo)
+    assert nn.aus_refs("adr") == {307}
+    assert nn.aus_archiv("adr") == {101}
+    assert nn.naechste(nn.aus_refs("adr"), nn.aus_archiv("adr")) == 308
+
+
+def test_should_skip_archived_numbers_above_the_live_maximum():
+    """main-Archiv sperrt 400/401; lebend ist 307 → 308, nicht 402."""
+    assert nn.naechste({307}, {400, 401}) == 308
+    assert nn.naechste({307}, {308, 309}) == 310

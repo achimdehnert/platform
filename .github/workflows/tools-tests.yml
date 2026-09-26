@@ -135,6 +135,13 @@ jobs:
             --changed-file changed-files.txt \
             --github-output "$GITHUB_OUTPUT"
 
+      - name: Handover-Fragmente pruefen (#1944 K6)
+        # Bewusst OHNE Relevanz-Bedingung: ein reiner Fragment-PR (nur docs/handover.d/)
+        # ist fuer die Tests irrelevant, muss aber Lint + Unveraenderlichkeit bestehen.
+        # Nur stdlib + git, laeuft in unter einer Sekunde.
+        if: github.event_name == 'pull_request'
+        run: python3 tools/agent-handover/fragments.py pruefen --basis "origin/${{ github.base_ref }}"
+
       - name: Install test deps
         if: steps.relevanz.outputs.relevant == 'true'
         # pydantic: shared_contracts-Tests (platform#820); Liste = Teilmenge von requirements-dev.txt
@@ -142,7 +149,10 @@ jobs:
         # Abhaengigkeit statt skipif — ein skip-gegateter Test rottet still vor
         # sich hin (Lehre "Skip-guarded tests mask drift"), und gerade der
         # sealed-box-Drill ist der, der die Verschluesselung wirklich misst.
-        run: pip install pytest pyyaml pydantic pynacl jsonschema httpx --quiet --break-system-packages
+        # iil-adrfw>=0.9.0: tools/adr/adr_analyze.py importiert seit platform#3457
+        # Schritt 3 iil_adrfw.rules.drift — ohne diese Zeile bricht der Import in
+        # CI, obwohl requirements-dev.txt (lokale SSoT, s.o.) es schon listet.
+        run: pip install pytest pyyaml pydantic pynacl jsonschema httpx "iil-adrfw>=0.9.0,<1" --quiet --break-system-packages
 
       - name: Install ruff
         if: steps.relevanz.outputs.relevant == 'true'

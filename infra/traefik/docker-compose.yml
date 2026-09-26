@@ -11,7 +11,7 @@
 
 services:
   traefik:
-    image: traefik:v3.3
+    image: traefik:v3.7
     container_name: traefik
     restart: always
     command:
@@ -82,7 +82,7 @@ services:
   # Smoke-Test-Container — validiert Klausel-3-Routing
   # Nur temporär: nach erfolgreichem Smoke-Test entfernen oder profile: [test] setzen
   whoami:
-    image: traefik/whoami:v1.10
+    image: traefik/whoami:v1.12
     container_name: traefik_whoami
     restart: unless-stopped
     networks:

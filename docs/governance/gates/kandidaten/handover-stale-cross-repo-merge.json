@@ -1,0 +1,9 @@
+{
+  "slug": "handover-stale-cross-repo-merge",
+  "quelle": "Retro 0f59ce §5a (2026-09-03)",
+  "kern": "Ausweitung von handover-stale-vor-merge: Merges per gh pr merge in Fremd-Repos derselben Sitzung zaehlen; Schreibmoment = Scope-Checkpoint. Realfall: 13 Merges in 7 Repos bei AGENT_HANDOVER.md Stand 7902c652.",
+  "zustand": "schranke-kandidat",
+  "vorkommen": 1,
+  "letztes_vorkommen": "2026-09-03",
+  "erhoben": "2026-09-03"
+}

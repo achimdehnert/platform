@@ -1,0 +1,6 @@
+[Unit]
+Description=sevdesk Rechnungslauf: Entwuerfe fuer den Vormonat anlegen (kein Versand) — platform#3102
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env bash %h/github/platform/tools/sevdesk/rechnungslauf_monatlich.sh

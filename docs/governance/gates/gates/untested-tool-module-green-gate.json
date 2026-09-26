@@ -1,0 +1,34 @@
+{
+  "slug": "untested-tool-module-green-gate",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": "tools/check_new_module_tests.py",
+  "drill": "tools/tests/test_check_new_module_tests.py",
+  "built": "2026-08-12",
+  "ref": "platform#1650 Owner-Go 2026-08-12",
+  "note": "Diff-Check nur ueber im PR HINZUGEFUEGTE .py unter tools/+scripts/ (Bestandsschutz fuer die ~24 ungetesteten Altfaelle = 0-FP-Baseline). Test-Spur = test_<stem>.py ODER Stem-Erwaehnung in einer Testdatei. Verdrahtet als non-gating Step in tools-tests.yml; Exit 2 (Werkzeugfehler) macht den Step ROT statt still. advisory->blocking erst nach Kalibrierfenster (frozen_note).",
+  "faengt": [
+    {
+      "fall": "neu hinzugefuegtes Werkzeug-Modul ohne Test",
+      "probe": "flag_new"
+    },
+    {
+      "fall": "neues Modul, dessen Stem nur in Prosa einer Testdatei steht",
+      "probe": "prose"
+    },
+    {
+      "fall": "neuer Gate-Drill ohne dokumentierten Falsifikationslauf (cc4e11 #4)",
+      "probe": "falsification"
+    }
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-08-12",
+  "expires": "2026-10-31",
+  "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet.",
+  "revised": "2026-09-07",
+  "revision_note": "Rev 2 (2026-09-07, platform#2374, Gate rueckfaellig x4 -> 'ausweiten', wie in Retro cc4e11 Z. 89-91 vorgeschlagen). Zwei Ausweitungen, beide aus den Rueckfaellen selbst. (1) SPUR 2 WAR ZU WEICH: 'Stem kommt woertlich in einer Testdatei vor' traf auch eine blosse Erwaehnung in Prosa -- ein Modul galt als getestet, weil sein NAME irgendwo stand (Rueckfall 4b1399 #4: link_pruefen.py ohne Test und ohne CI-Einbindung). Jetzt zaehlt nur ein Bezug: import/from, ein Pfad <stem>.py oder ein String-Literal. Wirkung gemessen ueber alle 230 pruefpflichtigen Bestandsmodule: GENAU EINES kippt (tools/schleuse.py) -- und das zu Recht, sein Name stand nur in Prosa. Das Gate prueft ohnehin nur Neuzugaenge, der Bestand bleibt unberuehrt. (2) DIE FAMILIE FEHLTE: das Gate adressiert Werkzeug-MODULE, der Rueckfall cc4e11 #4 traf einen TEST, der selbst als Gate dient (das erste Klassen-Gate bestand die eigene Gegenprobe nicht, ein 3000-Zeichen-Fenster griff in die Nachbarfunktion). Eine neu hinzugefuegte Testdatei, die sich selbst als Gate-Drill ausweist, muss ihren Falsifikationslauf dokumentieren. Ehrlich benannte Grenze: erzwungen wird, dass die Gegenprobe DASTEHT, nicht dass sie richtig ist -- gegen das zweite hilft kein Scanner (siehe test-asserts-the-case-in-mind-not-the-harmful-one in declined).",
+  "positivkontrolle": {
+    "ref": "tools/tests/test_check_new_module_tests.py -- TestSpurZweiAlsBezug.test_should_flag_module_only_mentioned_in_prose macht den Realfall 4b1399 #4 rot (vor Rev 2 gruen); TestGateDrillOhneFalsifikation.test_should_flag_gate_drill_without_falsification macht cc4e11 #4 rot. Beide mit Gegenprobe daneben (Import/String-Literal bzw. benannte Gegenprobe bleiben gruen).",
+    "datum": "2026-09-07"
+  }
+}

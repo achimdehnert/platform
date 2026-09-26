@@ -56,9 +56,18 @@ STATUS_UNVERBUCHT = "100"
 
 
 def token_lesen(pfad: Path = TOKEN_DATEI) -> str:
-    """Token-Datei ist KEY=WERT, nicht der rohe Wert — die ganze Zeile als Header gibt 401."""
-    roh = pfad.read_text(encoding="utf-8").strip()
-    return roh.split("=", 1)[1].strip() if "=" in roh else roh
+    """Token-Datei ist KEY=WERT oder roher Wert — die ganze Zeile als Header gibt 401.
+
+    Beide Formen versteht der zentrale Leser (platform#3129); die frueher hier
+    stehende Eigenbau-Zerlegung (``split("=")``) verschluckte base64-
+    Auffuellung am Zeilenende.
+    """
+    # Einziger Leser fuer Secret-Dateien — versteht bare UND NAME=WERT
+    # (platform#3129).
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from infra.lib.secrets import secret_wert  # noqa: PLC0415
+
+    return secret_wert(pfad)
 
 
 def hole(pfad: str, kopf: dict, **params) -> list[dict]:
@@ -102,12 +111,21 @@ def kurz(text: str, laenge: int) -> str:
     return (text[: laenge - 1] + "…") if len(text) > laenge else text
 
 
-def zuordnen(text: str, betrag: float, regeln: list[dict]) -> tuple[str, str, str]:
-    """Erste passende Regel gewinnt. Rückgabe: (konto, bezeichnung, anmerkung)."""
+def regel_treffer(text: str, regeln: list[dict]) -> dict | None:
+    """Erste Regel, deren Muster auf den kleingeschriebenen Text passt — die
+    Regel selbst, nicht nur Konto/Bezeichnung (kostenabgleich braucht die
+    Zusatzfelder einer Regel: beleg, taxrule, autonom, …)."""
     klein = text.lower()
     for regel in regeln:
-        if not re.search(regel["muster"], klein):
-            continue
+        if re.search(regel["muster"], klein):
+            return regel
+    return None
+
+
+def zuordnen(text: str, betrag: float, regeln: list[dict]) -> tuple[str, str, str]:
+    """Erste passende Regel gewinnt. Rückgabe: (konto, bezeichnung, anmerkung)."""
+    regel = regel_treffer(text, regeln)
+    if regel is not None:
         konto = regel["konto"]
         anmerkung = regel.get("anmerkung", "")
         # Eine Sammelüberweisung kann mehrere Zwecke bündeln. Beträge, die nicht

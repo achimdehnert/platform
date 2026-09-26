@@ -67,4 +67,7 @@ def test_should_load_server_probe_targets_from_hosts_yaml():
     assert sp.SERVERS["dev"] == "88.99.38.75"
     assert sp.SERVERS["staging"] == "178.104.184.168"
     assert len(sp.ALLE_HOSTS) >= 7
-    assert "netcup" in sp.ALLE_HOSTS and "gpu-box" in sp.ALLE_HOSTS
+    assert "gpu-box" in sp.ALLE_HOSTS
+    # netcup ist seit 2026-09-10 gekuendigt und steht unter `ehemalige_hosts:` —
+    # kein Melder darf ihn mehr anfassen (platform#2950).
+    assert "netcup" not in sp.ALLE_HOSTS

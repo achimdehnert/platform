@@ -5,6 +5,7 @@ zurueckliegenden fremden Klon melden und bei einem aktuellen schweigen. Ein
 Drill, der nur die Stille prueft, belegt nichts (Lehre: eine Null ist erst ein
 Beleg, wenn dasselbe Verfahren nachweislich auch etwas finden kann).
 """
+
 from __future__ import annotations
 
 import json
@@ -18,8 +19,9 @@ HOOK = Path(__file__).resolve().parents[2] / "tools/hooks/foreign_clone_check.sh
 
 
 def _git(pfad: Path, *args: str) -> None:
-    subprocess.run(["git", "-C", str(pfad), *args], check=True,
-                   capture_output=True, text=True)
+    subprocess.run(
+        ["git", "-C", str(pfad), *args], check=True, capture_output=True, text=True
+    )
 
 
 def _repo_bauen(wurzel: Path, name: str, commits_voraus: int) -> Path:
@@ -34,8 +36,12 @@ def _repo_bauen(wurzel: Path, name: str, commits_voraus: int) -> Path:
     _git(quelle, "commit", "-qm", "start")
 
     klon = wurzel / name
-    subprocess.run(["git", "clone", "-q", str(quelle), str(klon)],
-                   check=True, capture_output=True, text=True)
+    subprocess.run(
+        ["git", "clone", "-q", str(quelle), str(klon)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
 
     for i in range(commits_voraus):
         (quelle / "datei.txt").write_text(f"stand {i}\n", encoding="utf-8")
@@ -52,8 +58,9 @@ def _hook_laufen(wurzel: Path, kommando: str, eigenes_repo: Path) -> str:
     umgebung["TMPDIR"] = str(wurzel / "tmp")
     (wurzel / "tmp").mkdir(exist_ok=True)
     eingabe = json.dumps({"tool_input": {"command": kommando}})
-    ergebnis = subprocess.run(["bash", str(HOOK)], input=eingabe,
-                              capture_output=True, text=True, env=umgebung)
+    ergebnis = subprocess.run(
+        ["bash", str(HOOK)], input=eingabe, capture_output=True, text=True, env=umgebung
+    )
     assert ergebnis.returncode == 0, "Der Hook darf niemals blockieren"
     return ergebnis.stdout
 
@@ -73,6 +80,21 @@ def test_should_melden_wenn_fremder_klon_zurueckliegt(
         assert str(commits_voraus) in ausgabe
     else:
         assert ausgabe.strip() == ""
+
+
+def test_should_melden_den_namensgebenden_realfall(tmp_path: Path) -> None:
+    # Der Realfall selbst (platform#2732), nicht nur eine generische Fixture:
+    # frist-hub 3 Commits hinter origin, gelesen aus einer meiki-hub-Sitzung (2026-09-03)
+    # — portiert aus einem frist-hub-Klon, Spec/Bildschirme/12 Bilder/Handbuch
+    # fehlten, gefunden nur durch Zufall.
+    meiki_hub = _repo_bauen(tmp_path, "meiki-hub", 0)
+    frist_hub = _repo_bauen(tmp_path, "frist-hub", 3)
+
+    ausgabe = _hook_laufen(tmp_path, f"cat {frist_hub}/datei.txt", meiki_hub)
+
+    assert "FREMDER KLON VERALTET" in ausgabe
+    assert "frist-hub" in ausgabe
+    assert "3" in ausgabe
 
 
 def test_should_das_eigene_repo_nicht_melden(tmp_path: Path) -> None:

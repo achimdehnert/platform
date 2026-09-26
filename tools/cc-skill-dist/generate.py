@@ -7,17 +7,23 @@ aufgelöst) ein Ziel-Verzeichnis mit:
 - `MANAGED_BY` (erlaubter Writer, Commit, Regen-Kommando)
 - `manifest.json` (source_repo/commit, generator_version, kind, timestamp, files+hashes)
 
-Zwei Lanes (`--kind`):
-- `commands` (Default): `.windsurf/workflows/*.md` → **flach** nach `~/.claude/commands/`
-  (CC-Slash-Commands).
-- `skills`: `skills/<name>/SKILL.md` → **verschachtelt** nach `~/.claude/skills/<name>/SKILL.md`
-  (Anthropic Agent Skills, user-level → gelten in JEDER Session / jedem Repo / jeder Org,
-  ohne Repo-Kopie). Genau deshalb braucht eine Agent-Skill KEINE Verteilung in N Repos —
-  ein generierter Install pro Maschine deckt alles ab; die Kanonik bleibt SSoT in platform.
+Lanes (`--kind`, s. `LANES`) je in `mode: swap` (Default, atomarer Verzeichnistausch)
+oder `mode: merge` (Ziel gehört dem Generator NICHT allein, s. `merge_in_place`):
+- `commands` (Default, swap): `.windsurf/workflows/*.md` → **flach** nach
+  `~/.claude/commands/` (CC-Slash-Commands).
+- `skills` (merge, seit platform#3467): `skills/<name>/SKILL.md` (+ evtl. weitere
+  Dateien) → **verschachtelt** nach `~/.claude/skills/<name>/` (Anthropic Agent Skills,
+  user-level → gelten in JEDER Session / jedem Repo / jeder Org, ohne Repo-Kopie).
+  Genau deshalb braucht eine Agent-Skill KEINE Verteilung in N Repos — ein generierter
+  Install pro Maschine deckt alles ab; die Kanonik bleibt SSoT in platform. Merge statt
+  Swap, weil der claude.ai-Skill-Sync eigenmächtig `synced/<bucket-id>/` ins selbe
+  Verzeichnis schreibt — ein Swap würde das wegwischen.
+- `hooks`/`claude-hooks`: s. Kommentare in `LANES` (ADR-258 bzw. platform#1989).
 
-Atomar: erst `<target>.tmp`, dann Rename-Swap (+ `.bak`). **Determinismus:** gleicher
-resolved Commit + Generator-Version ⇒ bit-identische Kopien + Manifest (Zeitstempel
-separat, nicht hash-relevant).
+Swap-Lanes: erst `<target>.tmp`, dann atomarer Rename-Swap (+ `.bak`). **Determinismus:**
+gleicher resolved Commit + Generator-Version ⇒ bit-identische Kopien + Manifest
+(Zeitstempel separat, nicht hash-relevant). Merge-Lanes schreiben einzeln ins bestehende
+Ziel (kein `.bak`-Verzeichnis-Swap) — s. `merge_in_place`.
 
 SICHERHEIT: `--target` ist Pflicht; schreibt NIE ins Live-Ziel der Lane ohne explizites
 `--allow-live`. Default = Staging.
@@ -45,7 +51,20 @@ DISTRIBUTE_FALSE = re.compile(r"^distribute:\s*false\b", re.MULTILINE)
 # Lane-Konfiguration: Quell-Pfad im Repo + Live-Ziel (ohne --allow-live gesperrt).
 LANES = {
     "commands": {"src": ".windsurf/workflows/", "live": "~/.claude/commands"},
-    "skills": {"src": "skills/", "live": "~/.claude/skills"},
+    # platform#3467: seit 2026-09-17 schreibt der claude.ai-Skill-Sync eigenmächtig
+    # nach ~/.claude/skills (synced/<bucket-id>/, .bucket-*-Marker). Ein Swap dort
+    # würde diesen Fremdinhalt wegwischen — derselbe Fehler, gegen den `merge` bei
+    # `claude-hooks` schon existiert. `mode: merge` macht das Ziel-Verzeichnis darum
+    # zu einem GETEILTEN Verzeichnis: nur die eigenen (Manifest-gelisteten) Skill-
+    # Unterverzeichnisse werden angefasst, alles andere bleibt liegen (`merge_in_place`).
+    #
+    # Übergang vom alten Swap-Regime: ein Ziel, das noch ein `MANAGED_BY`/`manifest.json`
+    # aus einem früheren SWAP-Lauf trägt, ist beim ersten Merge-Lauf KEIN Fehler mehr —
+    # `pruefe_swap_ziel` greift nur noch für Lanes mit `mode: swap` (s.u. in `main()`).
+    # `merge_in_place` räumt die beiden Alt-Dateien auf (superseded durch das
+    # dot-file `.cc-skill-dist-manifest.json`, s. MERGE_MANIFEST) statt sie als
+    # Leiche liegen zu lassen.
+    "skills": {"src": "skills/", "live": "~/.claude/skills", "mode": "merge"},
     # ADR-258 Stufe A: Hook-Skripte (.sh) flach nach ~/.claude/hooks/managed/, ausführbar.
     # WICHTIG: dediziertes managed/-Unterverzeichnis, NICHT ~/.claude/hooks/ selbst — denn
     # generate macht einen atomaren Verzeichnis-SWAP, und ~/.claude/hooks/ enthält auch
@@ -197,26 +216,88 @@ def pruefe_swap_ziel(target, kind):
     )
 
 
+#: Dateinamen aus dem alten SWAP-Regime — beim Übergang eines Lane-Ziels von
+#: `mode: swap` auf `mode: merge` sind sie Leichen (superseded durch MERGE_MANIFEST,
+#: das eigene Skill-Verzeichnisse listet statt einer flachen Datei-Liste). Nur diese
+#: beiden Namen: sie sind eine eigene Konvention dieses Tools, keine generische
+#: Fremddatei-Heuristik.
+_LEGACY_SWAP_ARTEFAKTE = ("MANAGED_BY", "manifest.json")
+
+
+def _dirs_equal(a, b):
+    """True, wenn zwei Verzeichnisse rekursiv identischen Inhalt haben (Namen + Bytes).
+
+    Für den Skill-Merge: eine `<name>/`-Kopie wird nur ersetzt, wenn sie sich
+    wirklich unterscheidet — kein Backup-/Kopier-Rauschen bei unveraenderten Skills.
+    """
+    vergleich = filecmp.dircmp(a, b)
+    if (
+        vergleich.left_only
+        or vergleich.right_only
+        or vergleich.diff_files
+        or vergleich.funny_files
+    ):
+        return False
+    return all(
+        _dirs_equal(os.path.join(a, sub), os.path.join(b, sub))
+        for sub in vergleich.common_dirs
+    )
+
+
 def merge_in_place(staging, target, manifest):
-    """Erzeugte Dateien EINZELN ins Ziel schreiben — nie löschen, nie swappen.
+    """Erzeugte Dateien/Verzeichnisse EINZELN ins Ziel schreiben — nie löschen, nie swappen.
 
-    Die Lane `claude-hooks` teilt sich ihr Ziel mit hand-gepflegten Hooks, Zustand
-    (`state/`), einer zweiten Lane (`managed/`) und dem Treffer-Protokoll. Für so
-    ein Verzeichnis ist der atomare Swap die falsche Operation: er ist genau dann
-    korrekt, wenn das Ziel dem Generator allein gehört.
+    Zwei Merge-Lanes, zwei Layouts:
+    - `claude-hooks`: flache Dateien (`<name>` direkt unter `staging`/`target`).
+    - `skills`: Verzeichnisse (`<name>/SKILL.md`, ADR-230) — das ganze `<name>/`-
+      Verzeichnis wird ersetzt, nicht einzelne Dateien darin (ein Skill kann weitere
+      Dateien neben SKILL.md tragen).
 
-    Gibt den Backup-Pfad zurück (oder ""), wenn eine bestehende Datei ersetzt wurde.
-    Ein Lauf, der nichts ersetzt, legt kein leeres Backup-Verzeichnis an.
+    Beide teilen sich ihr Ziel mit Fremdinhalt (claude-hooks: hand-gepflegte Hooks,
+    Zustand, eine zweite Lane; skills: `synced/` vom claude.ai-Skill-Sync seit
+    2026-09-17, platform#3467). Für so ein Verzeichnis ist der atomare Swap die
+    falsche Operation: er ist genau dann korrekt, wenn das Ziel dem Generator allein
+    gehört.
+
+    Gibt den Backup-Pfad zurück (oder ""), wenn eine bestehende Datei/ein Verzeichnis
+    ersetzt wurde. Ein Lauf, der nichts ersetzt, legt kein leeres Backup-Verzeichnis an.
     """
     os.makedirs(target, exist_ok=True)
     stempel = manifest["generated_at"].replace(":", "").replace("-", "")[:15]
     backup = os.path.join(target, f".cc-dist-backup-{stempel}")
     ersetzt = 0
 
+    # Übergang eines Ziels von mode:swap auf mode:merge (platform#3467): die alten
+    # Swap-Marker sind ab hier bedeutungslos — MERGE_MANIFEST unten ersetzt sie.
+    # Liegen bleiben lassen wuerde ein `regenerate:`-Kommando zeigen, das fuer diese
+    # Lane nicht mehr stimmt (es rief den Swap-Modus auf).
+    for legacy in _LEGACY_SWAP_ARTEFAKTE:
+        legacy_pfad = os.path.join(target, legacy)
+        if os.path.isfile(legacy_pfad):
+            os.remove(legacy_pfad)
+
     for eintrag in manifest["files"]:
         name = eintrag["name"]
         neu = os.path.join(staging, name)
         alt = os.path.join(target, name)
+        if os.path.isdir(neu):
+            # Skills: <name>/ als Ganzes ersetzen (SKILL.md + evtl. weitere Dateien).
+            if os.path.islink(alt) or os.path.isfile(alt):
+                # Fremder Eintrag mit demselben Namen wie ein eigenes Skill-Verzeichnis
+                # (z.B. ein kaputter Symlink) — nicht blind ueberschreiben.
+                sys.exit(
+                    f"ABBRUCH: {alt} ist keine Datei/kein Symlink, sondern sollte ein "
+                    f"Skill-Verzeichnis sein — Merge bricht ab, statt es zu ersetzen."
+                )
+            if os.path.isdir(alt):
+                if _dirs_equal(neu, alt):
+                    continue  # identisch: nicht anfassen, kein Backup-Rauschen
+                os.makedirs(backup, exist_ok=True)
+                shutil.copytree(alt, os.path.join(backup, name))
+                shutil.rmtree(alt)
+                ersetzt += 1
+            shutil.copytree(neu, alt)
+            continue
         if os.path.exists(alt):
             # Die ersetzte Fassung ist der einzige Zeuge dessen, was zuletzt real
             # lief — bei einem Fehlverhalten will man sie vergleichen können.

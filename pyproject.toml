@@ -23,6 +23,9 @@ markers = [
     "f1: ADR-058 F1 — Unit Test: eine Funktion, ein Ergebnis",
     "f2: ADR-058 F2 — Parametrized Test: gleiche Funktion, viele Eingaben",
     "f3: ADR-058 F3 — Exception Test: Fehlertyp und Meldung",
+    # print_agent/tests/test_pdf_forms.py (seit #2621 in make test) — drei Tests
+    # rendern ein echtes PDF; lokal kennt iil-testkit den Marker, die CI nicht.
+    "slow: langsamer Test (echtes Rendering/IO), lokal per -m 'not slow' abwaehlbar",
 ]
 # tools/tests/ ist die CI-Suite (tools-tests.yml); tests/ enthält megatest + Altbestand.
 # Ohne beide Pfade sähe nacktes `pytest` nur 5 von 40 Testdateien (Blindfleck, repo-optimize L-4).

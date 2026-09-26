@@ -2,13 +2,17 @@
 
 Deckt: find_drafts_folder (SPECIAL-USE \\Drafts gewinnt, --folder-Vorgabe, de/en-Namens-
 heuristik, kein Kandidat), html_to_text (Absätze/Listen/Entities), build_draft (Empfänger,
-Cc, multipart/alternative nur mit HTML, abgeleiteter Text-Teil, Anhänge, leerer Body).
-Kein Netz-/IMAP-Test (append_draft bleibt Dogfood/Integration, wie send() in send_mail).
+Cc, multipart/alternative nur mit HTML, abgeleiteter Text-Teil, Anhänge, leerer Body,
+Message-ID), verankere_entwurf/nach_dem_ablegen (Anker-Verankerung nach dem APPEND,
+--ohne-anker, Fehlertoleranz — #3015 K1).
+Kein Netz-/IMAP-Test (append_draft bleibt Dogfood/Integration, wie send() in send_mail);
+verankere_entwurf/nach_dem_ablegen brauchen kein IMAP und sind darum direkt testbar.
 
 Run: `python3 -m pytest tools/tests/test_draft_mail.py -q`
 """
 
 import importlib.util
+import json
 import pathlib
 
 import pytest
@@ -130,6 +134,16 @@ def test_should_attach_file_with_guessed_mimetype(tmp_path):
 def test_should_reject_draft_without_any_body():
     with pytest.raises(ValueError):
         dm.build_draft("me@x.de", ["a@b.de"], [], "Betreff")
+
+
+def test_should_set_a_message_id_with_the_sender_domain():
+    """Ohne Message-ID kann `anker.py` den Entwurf nach einem Outlook-Umzug nicht
+    mehr wiederfinden (#3015 K1) — sie muss beim Bau gesetzt sein, nicht erst beim
+    Senden."""
+    msg = dm.build_draft("me@hnu.de", ["a@b.de"], [], "Betreff", text="Hallo")
+    message_id = msg["Message-ID"]
+    assert message_id is not None
+    assert message_id.strip().endswith("@hnu.de>")
 
 
 # --- Konto-Guard: Rolle setzt den Absender, --account das Postfach (platform#1610) ---
@@ -287,3 +301,69 @@ class TestEigeneSchlagworteErlaubt:
         Schlagworte in einen Ordner, den er nie geoeffnet hat."""
         imap = _FakeSelect(rb"(\\*)", typ="NO")
         assert dm.erlaubt_eigene_schlagworte(imap, "Entwuerfe") is False
+
+
+# --- Anker: Entwurf per Message-ID auffindbar machen (#3015 K1) ----------------
+#
+# verankere_entwurf/nach_dem_ablegen brauchen kein IMAP (der Anker wird aus dem
+# schon gebauten `msg` + der vom APPEND zurueckgegebenen UID geschrieben) —
+# deshalb hier direkt getestet, ohne den Dogfood-Vorbehalt von append_draft.
+
+
+def _entwurf(tmp_path):
+    """Ordner-Rohform, wie sie find_drafts_folder/APPEND liefern ('Entw&APw-rfe'
+    ist die modified-UTF-7-Kodierung von 'Entwürfe')."""
+    msg = dm.build_draft("me@hnu.de", ["a@b.de"], [], "Betreff", text="Hallo")
+    return msg, tmp_path / "anker.json"
+
+
+def test_should_anchor_the_draft_after_append_with_its_message_id(tmp_path):
+    msg, anker_pfad = _entwurf(tmp_path)
+    schluessel, warnung = dm.verankere_entwurf(
+        pathlib.Path("mail-hnu.env"),
+        "Entw&APw-rfe",
+        "24049",
+        msg,
+        "Betreff",
+        anker_pfad=anker_pfad,
+    )
+    assert warnung is None
+    assert schluessel == "hnu-entwuerfe-24049"
+    daten = json.loads(anker_pfad.read_text(encoding="utf-8"))
+    assert daten[schluessel]["message_id"] == msg["Message-ID"]
+    assert daten[schluessel]["ordner"] == "Entwürfe"
+
+
+def test_should_write_no_anchor_when_ohne_anker_is_set(tmp_path):
+    msg, anker_pfad = _entwurf(tmp_path)
+    schluessel, warnung = dm.nach_dem_ablegen(
+        pathlib.Path("mail-hnu.env"),
+        "Entw&APw-rfe",
+        "24050",
+        msg,
+        "Betreff",
+        ohne_anker=True,
+        anker_pfad=anker_pfad,
+    )
+    assert schluessel is None
+    assert warnung is None
+    assert not anker_pfad.exists()
+
+
+def test_should_warn_but_not_raise_when_the_anchor_file_is_unwritable(tmp_path):
+    """Ein Verzeichnis statt einer Datei laesst `read_text` scheitern — das darf
+    die Warnung ausloesen, aber nie eine Ausnahme (der Entwurf liegt schon)."""
+    msg = dm.build_draft("me@hnu.de", ["a@b.de"], [], "Betreff", text="Hallo")
+    kaputter_pfad = tmp_path / "anker.json"
+    kaputter_pfad.mkdir()
+    schluessel, warnung = dm.verankere_entwurf(
+        pathlib.Path("mail-hnu.env"),
+        "Entw&APw-rfe",
+        "24051",
+        msg,
+        "Betreff",
+        anker_pfad=kaputter_pfad,
+    )
+    assert schluessel is None
+    assert warnung is not None
+    assert "Anker nicht geschrieben" in warnung

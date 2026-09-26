@@ -8,7 +8,7 @@ metadata:
 
 # Schreibstil
 
-*v1.1 · Stand 2026-08-21*
+*v1.1 · Stand 2026-09-23*
 
 **Zweck.** Der Owner soll nicht jede Mail, jedes Konzept und jeden PR-Text Wort für
 Wort gegenlesen müssen. Dieser Skill hält fest, wie er schreibt — belegt an
@@ -203,6 +203,12 @@ Drei Regeln dazu:
 - 2026-09-01 · hnu · ersetzt: „und eine Anzeige nach § 80 SGB X ist **auch** für Pilot 2 nicht abzugeben" → „und **damit** ist eine Anzeige nach § 80 SGB X für Pilot 2 nicht abzugeben" · Grund: „auch" reiht auf, „damit" verknüpft — der erste Satz soll die Folge tragen, nicht eine zweite Tatsache danebenstellen
 - 2026-09-01 · hnu · getrennt: „Damit verarbeitet … Und die Hochschule erhält keinen Zugriff …" → eigener Satz ohne „Und" · Grund: zwei tragende Tatsachen in einem Absatz brauchen zwei Sätze; die angehängte wirkt nachgeschoben
 - 2026-09-04 · hnu · ergänzt: Angebotsanfrage an prodactive (über den Vizekanzler) bekam nach Owner-Korrektur einen Block „Umgebung und Schnittstellen" (Fachverfahren, DMS, Zustellung, Identität, Posteingang) und den Technologiestack · Grund: „Infos zum Technologiestack und die Umgebung mit aufnehmen" — eine Angebotsanfrage ohne Systemlandschaft zwingt den Anbieter zur Rückfrage oder zum Blindangebot; Thema und Anschrift allein reichen nicht
+
+- 2026-09-11 · hnu · gestrichen: „Was ocos von uns zurückbekommt: Vorgangs-ID, Status und Zeitstempel, sobald das Dokument einer Akte zugeordnet und im DMS abgelegt ist." (ganzer Absatz, Schnittstellen-Anfrage an ocos) · Grund (Hypothese, Owner nannte keinen): die erste Anfrage legt nur fest, was wir **brauchen**; ein Rückkanal ist eine eigene Zusage an die Gegenseite und gehört erst in die Mail, wenn er entschieden ist — **eine Anfrage, eine Richtung**
+
+- 2026-09-14 · hnu · gekürzt: Kapitel-Feedback zu einer Abschlussarbeit 1.012 → 376 Wörter, aus fünf Abschnitten mit Herleitung, Zitaten und Satzreparaturen wurden fünf nummerierte nächste Schritte, Kleinkram als Seitenliste · Grund: „antwort kürzen (max 1 page) als feedback zur arbeit mit next steps“ — eine Rückmeldung zur Arbeit ist ein Arbeitsauftrag; die Begründung, warum ein Punkt zählt, kürzt sich auf einen Satz je Schritt, die Belegkette gehört ins Gespräch
+
+- 2026-09-23 · dsb · ersetzt: „Gemeint ist ein schriftlich festgelegter Weg für den Fall einer Datenpanne: wer einen Vorfall aufnimmt, wer ihn bewertet, wer innerhalb von 72 Stunden … meldet und wie das dokumentiert wird." (ein Satz mit vier Gliedern) → fünf Aufzählungspunkte, je Punkt eine Rolle oder Frist; dazu die Rückfrage des Empfängers („ob der Prozess nicht schon mit der DSGVO abgedeckt ist") wörtlich aufgegriffen, bevor die Antwort kommt · Grund: „Entwurf um die Frage des databreach ergänzen. details des proz. eher als aufzählung" — **wer nach einer Erklärung fragt, soll seine Frage im Text wiederfinden**, und ein Ablauf mit mehreren Rollen liest sich als Liste, nicht als Satzkette
 
 ## 7 — Verhältnis zu anderen Regeln
 

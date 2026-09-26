@@ -185,3 +185,4 @@ Zustandsdatei (`status` je MVP). Prüfdatum 2026-10-24.
 | B4 | Zustellweg der Morgen-Zeitung in den Chat ist in news-hub nicht belegt | O4 — Hypothese Host-Unit; billigster Check: `systemctl list-units` auf dem Host |
 | B5 | `iil-django-commons` ist eingefroren und ohne Abnehmer | D3 — neues kleines Paket statt Wiederbelebung |
 | B6 | Sechs Registry-Repos archiviert, darunter bfagent mit 56 MCP-Werkzeugen und einem Toolkit | nicht im Katalog; wer bfagent reaktiviert, deklariert dort Dienste |
+| B4 | Gateway-Transport aus D2 ist nicht ausführbar: kein SSH-Programm und keine Schlüssel im Orchestrator-Container, prod hat keinen Zugang zu prod-b (dev-hub), `ports.yaml` liegt nicht im Container (Symlink ins Runner-Verzeichnis). Gemessen 2026-09-10, erste Sitzung mit sichtbaren Werkzeugen | O5 — [mcp-hub#264](https://github.com/achimdehnert/mcp-hub/issues/264), Entscheidung [#3011](https://github.com/achimdehnert/platform/issues/3011) |

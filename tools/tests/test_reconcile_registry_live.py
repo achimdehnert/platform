@@ -13,16 +13,21 @@ Faellen:
     Kill-Gate-KPI eine reale Drift stillschweigend verschlucken).
 
 subprocess-Aufrufe (docker ps, getent hosts, ssh) werden NIE ausgefuehrt — alle
-IO-Grenzen (`load_declared`, `load_baseline`, `live_containers`, `live_dns`)
-sind hier gemonkeypatcht. Modul heisst wie eine Datei mit Unterstrich, daher
+IO-Grenzen (`load_declared`, `live_containers`, `live_dns`) sind hier
+gemonkeypatcht; Stundungen (#3507, vorher `load_baseline`) stehen in einer
+Fixture-Deklarationsdatei. Modul heisst wie eine Datei mit Unterstrich, daher
 regulaerer `import`.
 """
 
 from __future__ import annotations
 
+import datetime as dt
 import importlib.util
+import os
 import pathlib
 import sys
+
+import pytest
 
 _SPEC = importlib.util.spec_from_file_location(
     "reconcile_registry_live",
@@ -32,12 +37,44 @@ rrl = importlib.util.module_from_spec(_SPEC)
 sys.modules["reconcile_registry_live"] = rrl
 _SPEC.loader.exec_module(rrl)
 
+bj = rrl.befund_journal
+
+
+@pytest.fixture(autouse=True)
+def _deklarationen(tmp_path, monkeypatch):
+    """Nie die echte `governance/deklarationen.json` (#3495 V2) — sonst haenge
+    jeder Test davon ab, welche Knoten gerade real deklariert sind."""
+    pfad = tmp_path / "deklarationen.json"
+    monkeypatch.setenv("BEFUND_DEKLARATIONEN_DATEI", str(pfad))
+    return pfad
+
+
+def _heute_utc() -> dt.date:
+    return dt.datetime.now(dt.timezone.utc).date()
+
+
+def _stunde(baseline):
+    """Stundungen als Deklarationen in die Fixture-Datei schreiben (#3507).
+
+    ``baseline`` ist eine Liste ``{"id", "reason", "expires_at"}`` — die Form
+    der frueheren infra/reconcile-baseline.yaml, damit die Tests lesbar bleiben.
+    """
+    pfad = pathlib.Path(os.environ["BEFUND_DEKLARATIONEN_DATEI"])
+    for e in baseline or []:
+        bj.setze_deklaration(
+            e["id"],
+            "stundung",
+            e.get("reason") or "Test",
+            str(e["expires_at"]),
+            pfad=pfad,
+        )
+
 
 def _patch_io(
     monkeypatch, canonical, ports_decl, containers, baseline=None, dns_ok=True
 ):
     monkeypatch.setattr(rrl, "load_declared", lambda: (canonical, ports_decl))
-    monkeypatch.setattr(rrl, "load_baseline", lambda: baseline or [])
+    _stunde(baseline)
     monkeypatch.setattr(rrl, "live_containers", lambda ssh: containers)
     monkeypatch.setattr(rrl, "live_dns", lambda domain, ssh: dns_ok)
 
@@ -74,7 +111,7 @@ def test_should_report_no_drift_when_registry_matches_live(monkeypatch, capsys):
 
     out = capsys.readouterr().out
     assert rc == 0
-    assert "Drift-Kennzahl: 0 gesamt" in out
+    assert "Drift-Kennzahl: drift: 0 (0 NEU + 0 baselined) · unreachable: 0" in out
     assert "Keine neue Drift" in out
 
 
@@ -153,8 +190,31 @@ def test_should_suppress_baseline_drift_but_count_it_separately(monkeypatch, cap
 
     out = capsys.readouterr().out
     assert rc == 0
-    assert "Drift-Kennzahl: 1 gesamt = 0 NEU + 1 baselined" in out
-    assert "[baseline] C1:svc-a" in out
+    assert "Drift-Kennzahl: drift: 1 (0 NEU + 1 baselined)" in out
+    assert "[baseline]    C1:svc-a" in out
+
+
+def test_should_count_drift_as_new_when_stundung_expired_yesterday(monkeypatch, capsys):
+    """Positivkontrolle #3507: Stundung einen Tag zurueckdatiert -> wirkungslos.
+
+    Der Fund zaehlt wieder als NEU (Exit 1, FUND) und eine `[ABGELAUFEN]`-Zeile
+    nennt die Stundung. Vorher brach ein abgelaufener Eintrag den ganzen Lauf mit
+    Exit 2 ab und verdeckte alle anderen Funde (#1857).
+    """
+    canonical = {"svc-a": {"rich": {"deployed": True}, "flat": {}}}
+    ports_decl = {"svc-a": {"prod": 8080, "container_name": "svc_a_web"}}
+    containers = {"svc_a_web": [9090]}
+    gestern = (_heute_utc() - dt.timedelta(days=1)).isoformat()
+    baseline = [{"id": "C1:svc-a", "reason": "bekannt", "expires_at": gestern}]
+    _patch_io(monkeypatch, canonical, ports_decl, containers, baseline=baseline)
+
+    rc = _run(monkeypatch, argv=["--skip-dns"])
+
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "Drift-Kennzahl: drift: 1 (1 NEU + 0 baselined)" in out
+    assert "[NEU]         C1:svc-a" in out
+    assert f"[ABGELAUFEN] Stundung C1:svc-a gueltig bis {gestern}" in out
 
 
 def test_should_exit_2_on_unreadable_live_state(monkeypatch, capsys):
@@ -167,7 +227,6 @@ def test_should_exit_2_on_unreadable_live_state(monkeypatch, capsys):
         raise RuntimeError("docker: connection refused")
 
     monkeypatch.setattr(rrl, "load_declared", lambda: (canonical, ports_decl))
-    monkeypatch.setattr(rrl, "load_baseline", lambda: [])
     monkeypatch.setattr(rrl, "live_containers", boom)
 
     rc = _run(monkeypatch, argv=["--skip-dns"])
@@ -203,7 +262,7 @@ def _patch_io_multi(monkeypatch, canonical, ports_decl, je_ssh, baseline=None):
         return wert
 
     monkeypatch.setattr(rrl, "load_declared", lambda: (canonical, ports_decl))
-    monkeypatch.setattr(rrl, "load_baseline", lambda: baseline or [])
+    _stunde(baseline)
     monkeypatch.setattr(rrl, "load_hosts", lambda: _HOSTS)
     monkeypatch.setattr(rrl, "lokaler_host", lambda hosts: None)
     monkeypatch.setattr(rrl, "live_containers", containers)
@@ -388,3 +447,176 @@ def test_should_report_c5_when_same_port_declared_twice_on_one_host(
     assert rc == 1
     assert "C5:prod:8100" in out
     assert "svc-a + svc-b" in out
+
+
+# --- Zwei Klassen: drift vs. unreachable (#2636) ---
+
+
+def test_should_classify_c0_as_unreachable_not_as_drift():
+    befunde = [
+        ("C0:prod-b", "Host 'prod-b' nicht erreichbar"),
+        ("C2:svc-a", "svc-a: Container läuft nicht"),
+        ("C4:2287", "Port 2287 unbekannt"),
+    ]
+    k = rrl.klassifizieren(befunde, baseline_ids={"C4:2287"})
+    assert [i for i, _ in k["unreachable_neu"]] == ["C0:prod-b"]
+    assert [i for i, _ in k["drift_neu"]] == ["C2:svc-a"]
+    assert [i for i, _ in k["drift_baselined"]] == ["C4:2287"]
+    assert k["unreachable_baselined"] == []
+
+
+def test_should_report_unreachable_separately_from_drift_count(monkeypatch, capsys):
+    """Ein SSH-Fehler darf die Drift-Kennzahl (Kill-Gate-KPI) nicht erhoehen —
+    der Lauf vom 2026-09-02 zaehlte 4 Transportfehler als Drift."""
+    canonical = {"svc-b": {"rich": {"deployed": True}}}
+    ports_decl = {
+        "svc-b": {"prod": 8088, "container_name": "svc_b_web", "prod_host": "prod-b"},
+    }
+    _patch_io_multi(
+        monkeypatch,
+        canonical,
+        ports_decl,
+        je_ssh={"root@P": {}, "root@B": RuntimeError("ssh: connect: no route")},
+    )
+
+    rc = _run(monkeypatch, argv=["--skip-dns"])
+
+    out = capsys.readouterr().out
+    assert "drift: 0 (0 NEU + 0 baselined) · unreachable: 1 (1 NEU" in out
+    assert "[UNREACHABLE] C0:prod-b" in out
+    assert rc == 1
+
+
+# ---------------------------------------------------------------------------
+# Deklaration `auf_zuruf` (#3471, #3495 V2): ein planmaessig schlafender Host
+# (GPU-Box, WSL seit #3364 aus) darf keinen C0-Fund erzeugen — solange die
+# Deklaration gilt. Seit V2 kommt sie aus befund_journal.deklarationen_fuer(),
+# nicht mehr aus `betrieb` in hosts.yaml.
+# ---------------------------------------------------------------------------
+
+
+def _auf_zuruf(pfad, host, gueltig_bis):
+    bj.setze_deklaration(
+        host, "auf_zuruf", "Owner-Entscheid (Test)", gueltig_bis.isoformat(), pfad=pfad
+    )
+
+
+def _schlafender_prod_b(monkeypatch):
+    canonical = {"svc-b": {"rich": {"deployed": True}}}
+    ports_decl = {
+        "svc-b": {"prod": 8088, "container_name": "svc_b_web", "prod_host": "prod-b"},
+    }
+    _patch_io_multi(
+        monkeypatch,
+        canonical,
+        ports_decl,
+        je_ssh={
+            "root@P": {},
+            "root@B": RuntimeError("docker: 'docker ps' accepts no arguments"),
+        },
+    )
+
+
+def test_should_report_schlaeft_not_c0_when_auf_zuruf_host_probe_fails(
+    monkeypatch, capsys, _deklarationen
+):
+    """(a) auf_zuruf + Probe scheitert -> kein C0, eigene SCHLAEFT-Zeile,
+    Drift-/Unreachable-Kennzahlen bleiben bei 0."""
+    _auf_zuruf(_deklarationen, "prod-b", _heute_utc() + dt.timedelta(days=30))
+    _schlafender_prod_b(monkeypatch)
+
+    rc = _run(monkeypatch, argv=["--skip-dns"])
+
+    out = capsys.readouterr().out
+    assert "C0:prod-b" not in out
+    assert "C2:svc-b" not in out
+    assert "[SCHLAEFT] prod-b — C1/C2 für 1 Dienst(e) ungeprüft" in out
+    assert "Deklaration auf_zuruf bis" in out
+    assert "Drift-Kennzahl: drift: 0 (0 NEU + 0 baselined) · unreachable: 0" in out
+    assert rc == 0
+
+
+def test_should_report_c0_again_when_auf_zuruf_declaration_expired_yesterday(
+    monkeypatch, capsys, _deklarationen
+):
+    """Positivkontrolle #3495 V2: Ablauf einen Tag zurueckdatiert -> derselbe
+    schlafende Host ist wieder `C0:prod-b`, Exit 1 (Fund)."""
+    _auf_zuruf(_deklarationen, "prod-b", _heute_utc() - dt.timedelta(days=1))
+    _schlafender_prod_b(monkeypatch)
+
+    rc = _run(monkeypatch, argv=["--skip-dns"])
+
+    out = capsys.readouterr().out
+    assert "C0:prod-b" in out
+    assert "[SCHLAEFT]" not in out
+    assert rc == 1
+
+
+def test_should_still_report_c0_when_host_without_declaration_probe_fails(
+    monkeypatch, capsys
+):
+    """(b) Gegenprobe: ein Host OHNE Deklaration `auf_zuruf` bleibt unveraendert
+    C0 — die Deklaration ist die Ausnahme, nicht der neue Normalfall."""
+    canonical = {"svc-b": {"rich": {"deployed": True}}}
+    ports_decl = {
+        "svc-b": {"prod": 8088, "container_name": "svc_b_web", "prod_host": "prod-b"},
+    }
+    _patch_io_multi(
+        monkeypatch,
+        canonical,
+        ports_decl,
+        je_ssh={"root@P": {}, "root@B": RuntimeError("ssh: connect: no route")},
+    )
+    # Die Deklarations-Fixture (autouse) ist leer: prod-b ist nicht deklariert.
+
+    rc = _run(monkeypatch, argv=["--skip-dns"])
+
+    out = capsys.readouterr().out
+    assert "C0:prod-b" in out
+    assert "[SCHLAEFT]" not in out
+    assert rc == 1
+
+
+def test_should_check_normally_when_auf_zuruf_host_probe_succeeds(
+    monkeypatch, capsys, _deklarationen
+):
+    """(c) auf_zuruf, aber die Probe gelingt (Box ist gerade an) -> ganz
+    normal C1/C2-geprueft, keine SCHLAEFT-Zeile."""
+    _auf_zuruf(_deklarationen, "prod-b", _heute_utc() + dt.timedelta(days=30))
+    canonical = {"svc-b": {"rich": {"deployed": True}}}
+    ports_decl = {
+        "svc-b": {"prod": 8088, "container_name": "svc_b_web", "prod_host": "prod-b"},
+    }
+    _patch_io_multi(
+        monkeypatch,
+        canonical,
+        ports_decl,
+        je_ssh={"root@P": {}, "root@B": {"svc_b_web": [8088]}},
+    )
+
+    rc = _run(monkeypatch, argv=["--skip-dns"])
+
+    out = capsys.readouterr().out
+    assert "[SCHLAEFT]" not in out
+    assert "C0:prod-b" not in out
+    assert "C2:svc-b" not in out
+    assert rc == 0
+
+
+def test_should_exit_zero_when_unreachable_host_is_baselined(monkeypatch, capsys):
+    canonical = {"svc-b": {"rich": {"deployed": True}}}
+    ports_decl = {
+        "svc-b": {"prod": 8088, "container_name": "svc_b_web", "prod_host": "prod-b"},
+    }
+    _patch_io_multi(
+        monkeypatch,
+        canonical,
+        ports_decl,
+        je_ssh={"root@P": {}, "root@B": RuntimeError("ssh: connect: no route")},
+        baseline=[{"id": "C0:prod-b", "owner": "ops", "expires_at": "2099-01-01"}],
+    )
+
+    rc = _run(monkeypatch, argv=["--skip-dns"])
+
+    assert "unreachable: 1 (0 NEU + 1 baselined)" in capsys.readouterr().out
+    assert rc == 0

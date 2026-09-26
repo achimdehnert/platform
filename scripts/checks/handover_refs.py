@@ -103,6 +103,20 @@ def alle_refs(text: str, default_owner: str, default_repo: str) -> list[Ref]:
     )
 
 
+#: **Die ID im Zeilentext ist kein Markdown-Link** — `- **[chat-hub#94]** Kurztext —
+#: <URL>` ist die vom Hausformat vorgeschriebene Form (stabile ID im Text, damit der
+#: Renderer geordnete Listen nicht neu durchnummeriert). `_MD_LINK` greift dort NICHT,
+#: weil auf die Klammer keine `(url)` folgt. Ergebnis vor dem Fix: das Label
+#: `chat-hub#94` blieb stehen, bekam den Default-Owner und wurde als
+#: `achimdehnert/chat-hub#94` abgefragt — 404, obwohl die richtige URL
+#: (`iilgmbh/chat-hub#94`) auf derselben Zeile stand. Das Auslagerungs-Gate brach
+#: daran mit „Zustand nicht ermittelbar" ab (platform#3204, 2026-09-16).
+#:
+#: Die Regel unten ist deshalb allgemeiner als `_MD_LINK` und ersetzt sie nicht:
+#: gelesene Angabe schlaegt geratene, wenn beide auf derselben Zeile dieselbe Nummer
+#: nennen — unabhaengig davon, ob die Klammer eine Link-Syntax bildet.
+_ID_NEBEN_URL = "siehe _refs_aus_zeilen: gelesen_auf_zeile"
+
 #: `[#66](https://github.com/achimdehnert/robo-lab/issues/66)` enthaelt ZWEI Treffer:
 #: das Label `#66` (Owner/Repo geraten) und die URL daneben (Owner/Repo gelesen).
 #: Genau diese Verwechslung hat am 2026-08-16 vier falsche Owner erzeugt (s. `Ref`).
@@ -129,6 +143,14 @@ def _refs_aus_zeilen(
     seen: set[tuple[str, str, int]] = set()
     refs: list[Ref] = []
     for line_no, line in lines:
+        # Steht auf DERSELBEN Zeile zu einer Nummer sowohl eine gelesene Angabe
+        # (volle URL oder `owner/repo#N`) als auch eine geratene (`repo#N`,
+        # blankes `#N`), gewinnt die gelesene. Siehe `_ID_NEBEN_URL`.
+        gelesen_auf_zeile = {
+            int(m.group("u_num") or m.group("s_num"))
+            for m in REF_RE.finditer(line)
+            if m.group("u_num") or m.group("s_num")
+        }
         for m in REF_RE.finditer(line):
             explizit = True
             if m.group("u_num"):
@@ -149,6 +171,8 @@ def _refs_aus_zeilen(
             else:
                 owner, repo, num = default_owner, default_repo, m.group("b_num")
                 explizit = False  # blankes `#N` — Owner UND Repo sind Annahme
+            if not explizit and int(num) in gelesen_auf_zeile:
+                continue
             key = (owner, repo, int(num))
             if key in seen:
                 continue

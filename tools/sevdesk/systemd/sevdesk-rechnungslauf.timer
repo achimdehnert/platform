@@ -1,0 +1,9 @@
+[Unit]
+Description=Am 10. jeden Monats 07:30: sevdesk Rechnungslauf (Owner-Wort 2026-09-12)
+
+[Timer]
+OnCalendar=*-*-10 07:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -28,7 +28,8 @@ from pr_merge_sa import (  # noqa: E402
 )
 
 REGELN = {
-    "deckung": {"W0": "M0", "W1": "M1", "W2": "M2", "W3": "M3"},
+    # W3: M1 seit 2026-08-27 (Pruefrage), Block angeglichen 2026-09-16 (#3244)
+    "deckung": {"W0": "M0", "W1": "M1", "W2": "M2", "W3": "M1"},
     "doku_glob": ["*.md", "docs/**", "README*", "CHANGELOG*"],
     "governance_pfade": [
         ".github/",
@@ -104,25 +105,41 @@ def test_should_accept_prod_when_approval_names_it():
 # --- Ablehnungen: jede mit Grund ----------------------------------------------
 
 
-def test_should_reject_prod_deploy_with_plain_approval():
+def test_should_reject_prod_deploy_with_plain_approval_when_pruefrage_greift():
+    """Greift die Pruefrage (hier: Datenmigration), reicht ein plain Approval nicht."""
     u = classify(
-        _facts(wirkung="W3", mandat="M2", files=["app/x.py"], checks_total=2), REGELN
+        _facts(
+            wirkung="W3",
+            mandat="M2",
+            files=["app/x.py"],
+            checks_total=2,
+            pruef_pflicht=["Datenmigration im Diff"],
+        ),
+        REGELN,
     )
     assert u.erlaubt is False and "fehlt: M3" in u.grund
 
 
-def test_should_reject_doc_pr_in_prod_repo_without_named_approval():
-    """Der Fall, an dem SA-6 zu weit war: Doku aendert nichts, der Deploy laeuft
-    trotzdem."""
+def test_should_accept_doc_pr_in_prod_repo_with_auftrag():
+    """Bis 2026-08-27 brauchte das M3 (SA-6 war zu weit, Auto-Deploy lief trotzdem).
+    Seit der Pruefrage ist Auto-Deploy Normalbetrieb: Auftrag (M1) genuegt, wenn
+    keine der vier Klassen greift."""
     u = classify(_facts(wirkung="W3", mandat="M1", files=["README.md"]), REGELN)
-    assert u.erlaubt is False and "fehlt: M3" in u.grund
+    assert u.erlaubt is True
 
 
 def test_should_name_the_deploy_vermerk_path_when_w3_lacks_m3():
     """#2812 (b): die Meldung nennt beide Wege zu M3, nicht nur den generischen
     Ablehnungssatz."""
     u = classify(
-        _facts(wirkung="W3", mandat="M0", files=["app/x.py"], checks_total=2), REGELN
+        _facts(
+            wirkung="W3",
+            mandat="M0",
+            files=["app/x.py"],
+            checks_total=2,
+            pruef_pflicht=["Publish-Workflow auf main (irreversibel)"],
+        ),
+        REGELN,
     )
     assert u.erlaubt is False
     assert "fehlt: M3" in u.grund
@@ -642,3 +659,67 @@ def test_should_prefer_review_m3_over_vermerk_and_never_read_the_issue(monkeypat
     }
     assert pr_merge_sa.mandat_des_prs("owner/repo", 2804, pr) == "M3"
     assert aufrufe == []
+
+
+# ── Pruefrage (#3244): W3 braucht M1, M3 nur bei mechanisch erkannter Klasse ──
+
+
+def test_should_cover_w3_with_m1_when_pruefrage_finds_nothing():
+    """Auto-Deploy ist Normalbetrieb (Policy 2026-08-27): CI-gruen + Auftrag reicht."""
+    f = _facts(wirkung="W3", mandat="M1", files=["apps/core/x.py"], checks_total=3)
+    v = classify(f, REGELN)
+    assert v.erlaubt, v.grund
+
+
+def test_should_still_need_m3_for_w3_when_migration_in_diff():
+    f = _facts(
+        wirkung="W3",
+        mandat="M1",
+        files=["apps/core/x.py"],
+        checks_total=3,
+        pruef_pflicht=["Datenmigration im Diff"],
+    )
+    v = classify(f, REGELN)
+    assert not v.erlaubt
+    assert "M3" in v.grund and "Datenmigration" in v.grund
+
+
+def test_should_find_migration_and_publish_as_pruef_pflicht(monkeypatch):
+    import pr_merge_sa
+
+    publish = (
+        "on:\n  push:\n    branches: [main]\njobs:\n  p:\n    run: twine upload pypi\n"
+    )
+    monkeypatch.setattr(pr_merge_sa, "workflow_texte", lambda repo: [publish])
+    gruende = pr_merge_sa.pruef_pflicht_gruende(
+        "owner/app", ["apps/x/migrations/0002_y.py"], REGELN
+    )
+    assert gruende == [
+        "Datenmigration im Diff",
+        "Publish-Workflow auf main (irreversibel)",
+    ]
+    assert pr_merge_sa.pruef_pflicht_gruende("owner/app", ["docs/x.md"], REGELN) == [
+        "Publish-Workflow auf main (irreversibel)"
+    ]
+    monkeypatch.setattr(pr_merge_sa, "workflow_texte", lambda repo: [])
+    assert pr_merge_sa.pruef_pflicht_gruende("owner/app", ["docs/x.md"], REGELN) == []
+
+
+def test_should_read_the_auftrag_from_a_cross_repo_issue_reference(monkeypatch):
+    """Realfall dev-hub#357: der Auftrag liegt in platform#3234, der PR in dev-hub."""
+    import pr_merge_sa
+
+    gelesen = []
+
+    def _fake(args):
+        gelesen.append(args[args.index("-R") + 1])
+        return {"body": "Freigabe: akzeptiert durch Owner 2026-09-16", "state": "OPEN"}
+
+    monkeypatch.setattr(pr_merge_sa, "_gh", _fake)
+    pr = {
+        "reviewDecision": None,
+        "latestReviews": [],
+        "body": "Zahlt ein auf achimdehnert/platform#3234",
+    }
+    assert pr_merge_sa.mandat_des_prs("achimdehnert/dev-hub", 357, pr) == "M1"
+    assert gelesen == ["achimdehnert/platform"]

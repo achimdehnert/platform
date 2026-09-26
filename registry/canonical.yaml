@@ -38,6 +38,15 @@ meta:
     # "meiki-"-Präfix), daher fiel er ohne dieses Override auf den
     # achimdehnert-Default zurück → deploy-failure-monitor 404 im Fleet-Scan.
     frist-hub: meiki-lra
+    # 2026-09-16 (Z1 #3226): post-hub und schreib-hub liegen real unter meiki-lra —
+    # verifiziert ueber `gh api repos/meiki-lra/<repo> -q .owner.login`. Kein
+    # "meiki-"-Praefix, daher fielen sie seit der Registrierung (2026-09-11) auf den
+    # achimdehnert-Default → deploy-failure-monitor 404, Lauf auf main rot.
+    post-hub: meiki-lra
+    schreib-hub: meiki-lra
+    # 2026-09-24 (meiki-hub#494, core:ADR-003): buerger-hub liegt unter meiki-lra —
+    # verifiziert ueber `gh repo view meiki-lra/buerger-hub` bei der Anlage.
+    buerger-hub: meiki-lra
     # 2026-09-09 (meiki-hub#374): chat-hub liegt real unter iilgmbh — verifiziert
     # ueber `gh api repos/iilgmbh/chat-hub -q .owner.login` (nicht ueber den
     # angefragten Pfad, s. ADR-297 unten). Es steht nicht in `repos` und matcht
@@ -344,6 +353,32 @@ repos:
         migrate_cmd: python manage.py migrate --noinput
         multi_tenant: false
         port: 8094
+  # chat-hub (platform#3477): fehlte bisher komplett in der Registry, obwohl
+  # infra/ports.yaml einen Repo-Dienst deklariert (repo: iilgmbh/chat-hub,
+  # betriebsstatus: aktiv). Minimal gehalten (kein Django, kein Plattform-
+  # Deploy-Schema/Dockerfile/compose — 7 eigene Container: synapse, db,
+  # element, rtc_{jwt,proxy,livekit}, tunnel). Der Registrierungs-Eintrag hier
+  # loest ueber infra/scripts/validate_repos.py check_ports_consistency auch
+  # die drei weiteren ports.yaml-Eintraege ohne eigenen Registry-Match auf
+  # (lotse-raum, chathub-rtc-livekit-7881/7882 tragen alle
+  # repo: iilgmbh/chat-hub und matchen per repo-Name-Fallback).
+  chat-hub:
+    in_flat: true
+    in_rich: true
+    flat:
+      type: infra
+      prod_url: chat.iil.pet
+      port: 8008
+    domain: Developer Platform
+    rich:
+      name: chat-hub
+      repo: chat-hub
+      description: Matrix-basierter Chat-/Assist-Zugang (Produktname iil-assist-hub) — Synapse, Element, LiveKit RTC
+      github: iilgmbh/chat-hub
+      deployed: true
+      type: other
+      lifecycle: production
+      tenancy_mode: none
   coach-hub:
     in_flat: true
     in_rich: true
@@ -485,6 +520,27 @@ repos:
     flat:
       type: django
       port: 8111
+      health: /livez/
+  post-hub:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: django
+      port: 11435
+      health: /livez/
+  schreib-hub:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: django
+      port: 11436
+      health: /livez/
+  buerger-hub:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: django
+      port: 11437
       health: /livez/
   gaeb-toolkit:
     in_flat: true
@@ -714,8 +770,10 @@ repos:
     flat:
       type: infra
       prod_url: orchestrator.iil.pet  # war mcp.iil.pet (NXDOMAIN) — Fund reconcile-Sweep 2026-07-10, live 200 verifiziert
-      port: 3000
-      note: MCP Orchestrator Server (Container publiziert real 8000 — Port-Klärung offen, s. reconcile-baseline C4:8000)
+      port: 8000  # platform#3477: Port-Klaerung entschieden. docker-compose.prod.yml auf mcp-hub@main
+      # publiziert "127.0.0.1:8000:8000" fuer mcp_hub_orchestrator_http (kein "3000" in der Datei);
+      # infra/ports.yaml sagt ebenfalls 8000. Realitaet (Compose + ports.yaml) gewinnt, Registry folgt.
+      note: MCP Orchestrator Server — Port 3000 war stale (Registry folgte hier bisher nicht der Realitaet, s. reconcile-baseline C4:8000, dort nun gegenstandslos)
     domain: Developer Platform
     rich:
       name: mcp-hub
@@ -1112,7 +1170,8 @@ repos:
       deployed: false
       url: https://drifttales.app
       type: django
-      lifecycle: production
+      lifecycle: frozen
+      notes: "Ruhend seit 2026-09-23 (Owner-Wort 'p3 ruhend', #3456): App aus (travel-beat#95/#98), Runner offline, deployed: false. Der ADR-Drift-Detektor (dev-hub#374) überspringt frozen-Repos."
       tenancy_mode: subdomain
       demo_fixture: false
       dockerfile: docker/Dockerfile

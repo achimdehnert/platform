@@ -37,6 +37,20 @@ def _kein_echter_anker(monkeypatch, tmp_path):
     monkeypatch.setattr(tb, "REGISTRY_DATEI", tmp_path / "keine-registry.json")
 
 
+@pytest.fixture(autouse=True)
+def _keine_echte_straenge_cache(monkeypatch, tmp_path):
+    """Kein Test liest/schreibt die echte `~/.claude/todo-straenge-cache.json`.
+
+    `gruppiere_straenge()` ruft `straenge.zuordnen()`, das den Cache VOR jedem
+    Modell-Aufruf prueft — auch im reinen Rueckfall-Pfad. Ohne diese
+    Umlenkung haenge jeder Test am Home des Rechners (dieselbe Falle wie
+    `_kein_echter_anker` oben).
+    """
+    import straenge
+
+    monkeypatch.setattr(straenge, "CACHE_DATEI", tmp_path / "keine-straenge-cache.json")
+
+
 def vorgang(**kw) -> dict:
     grund = {
         "konto": "iil",
@@ -524,6 +538,17 @@ class TestVerlaufsZiele:
         html_out = tb.detail(v, mail_basis="https://mail.example", basis="")
         assert "keine Mail verknuepft" not in html_out
         assert "href='https://mail.example/a/hnu-inbox-164379'" in html_out
+
+
+def test_should_link_back_to_the_list_from_a_thread_page():
+    """Jede aufgerufene Seite traegt den Weg zu ihrer Herkunft (Owner 2026-09-10)."""
+    v = vorgang(thread_key="Rueckweg")
+    lokal = tb.detail(v, mail_basis="https://mail.example", basis="")
+    assert '<nav class="rueckweg"><a href="/">' in lokal
+    entfernt = tb.detail(
+        v, mail_basis="https://mail.example", basis="https://todo.example/"
+    )
+    assert '<a href="https://todo.example/">' in entfernt
 
 
 def test_should_ignore_an_absolute_mail_ref_from_the_ledger():
@@ -1279,61 +1304,116 @@ class TestZusammenfassung:
         assert tb.zusammenfassung({}) == []
 
 
-class TestStrangSchluessel:
-    def test_should_key_on_a_quoted_subject(self):
-        t = tb.zerlege_eintrag(
-            '2026-09-01 (/mailcheck): Firma Muster meldet sich zu "Angebot '
-            'Fristenmanagement" — Rueckfrage zur Laufzeit.'
-        )
-        assert tb.strang_schluessel(t) == "angebot fristenmanagement"
+class TestOrdneChronologisch:
+    """K1 (platform#3175): Reihenfolge nach Datum, nicht nach Nummer/Einfuegung."""
 
-    def test_should_normalise_reply_prefixes_onto_the_same_subject(self):
-        t = tb.zerlege_eintrag(
-            '2026-09-02 (/mailcheck): Antwort zu "AW: Angebot Fristenmanagement" '
-            "eingetroffen."
-        )
-        assert tb.strang_schluessel(t) == "angebot fristenmanagement"
-
-    def test_should_fall_back_to_the_event_without_a_subject(self):
-        t = tb.zerlege_eintrag("2026-08-20 13:41 GESENDET (Owner): Angebot raus.")
-        assert tb.strang_schluessel(t) == "GESENDET"
-
-    def test_should_fall_back_to_sonstiges_without_subject_or_event(self):
-        t = tb.zerlege_eintrag("erst dies")
-        assert tb.strang_schluessel(t) == "Sonstiges"
-
-
-class TestGruppiereStraenge:
     def _t(self, roh: str) -> dict:
         return tb.zerlege_eintrag(roh)
 
-    def test_should_sort_straenge_newest_first(self):
+    def test_should_order_by_date_despite_scrambled_numbering(self):
         eintraege = [
-            (1, self._t('2026-08-20 (/mailcheck): "Angebot Muster" Start.')),
-            (2, self._t("2026-08-21 TELEFONAT (Owner): M. Beispiel ruft an.")),
-            (3, self._t('2026-08-22 (/mailcheck): "Angebot Muster" Rueckfrage.')),
+            (1, self._t("2026-08-26 (/mailcheck): Alt eingefuegt.")),
+            (2, self._t("2026-08-13 (/mailcheck): Frueher, aber spaeter notiert.")),
+            (3, self._t("2026-08-22 (/mailcheck): Dazwischen.")),
         ]
+        geordnet = tb.ordne_chronologisch(eintraege, neueste_zuerst=True)
+        assert [n for n, _ in geordnet] == [1, 3, 2]
+
+    def test_should_reverse_for_the_oldest_first_view(self):
+        eintraege = [
+            (1, self._t("2026-08-26 (/mailcheck): Alt eingefuegt.")),
+            (2, self._t("2026-08-13 (/mailcheck): Frueher, aber spaeter notiert.")),
+        ]
+        geordnet = tb.ordne_chronologisch(eintraege, neueste_zuerst=False)
+        assert [n for n, _ in geordnet] == [2, 1]
+
+    def test_should_break_ties_on_the_same_date_by_number(self):
+        eintraege = [
+            (5, self._t("2026-08-20 (/mailcheck): Zuerst notiert.")),
+            (2, self._t("2026-08-20 (/mailcheck): Zuerst gezaehlt.")),
+        ]
+        geordnet = tb.ordne_chronologisch(eintraege, neueste_zuerst=True)
+        assert [n for n, _ in geordnet] == [5, 2]
+
+    def test_should_push_undated_entries_to_the_end_regardless_of_direction(self):
+        eintraege = [
+            (1, self._t("kein Datum in der Kopfzeile.")),
+            (2, self._t("2026-08-13 (/mailcheck): Datiert.")),
+        ]
+        assert [n for n, _ in tb.ordne_chronologisch(eintraege, True)] == [2, 1]
+        assert [n for n, _ in tb.ordne_chronologisch(eintraege, False)] == [2, 1]
+
+
+class TestGruppiereStraenge:
+    """Die Zuordnung Eintrag→Strang kommt jetzt von `straenge.zuordnen()` (LLM
+    statt Regex, platform#3175 K2) — hier per Attrappe (`monkeypatch`) fest
+    verdrahtet, damit die Gruppierungs-/Sortierlogik ohne Netz geprueft wird."""
+
+    def _t(self, roh: str) -> dict:
+        return tb.zerlege_eintrag(roh)
+
+    def test_should_sort_straenge_by_the_newest_date(self, monkeypatch):
+        eintraege = [
+            (1, self._t("2026-08-20 (/mailcheck): Angebot Muster Start.")),
+            (2, self._t("2026-08-21 TELEFONAT (Owner): M. Beispiel ruft an.")),
+            (3, self._t("2026-08-22 (/mailcheck): Angebot Muster Rueckfrage.")),
+        ]
+        monkeypatch.setattr(
+            tb,
+            "zuordnen",
+            lambda v, e: {1: "Angebot Muster", 2: "Notizen", 3: "Angebot Muster"},
+        )
         straenge = tb.gruppiere_straenge(eintraege)
         # Der Angebot-Strang traegt den juengsten Eintrag ueberhaupt (#3) — er
-        # steht darum vor dem TELEFONAT-Strang, dessen einziger Eintrag (#2)
+        # steht darum vor dem Notizen-Strang, dessen einziger Eintrag (#2)
         # aelter ist.
-        assert [s for s, _ in straenge] == ["angebot muster", "TELEFONAT"]
+        assert [s for s, _ in straenge] == ["Angebot Muster", "Notizen"]
 
-    def test_should_keep_a_single_card_strand_as_its_own_strand(self):
+    def test_should_keep_a_single_card_strand_as_its_own_strand(self, monkeypatch):
         eintraege = [(1, self._t("2026-08-20 TELEFONAT (Owner): Kurzer Anruf."))]
+        monkeypatch.setattr(tb, "zuordnen", lambda v, e: {1: "Notizen"})
         straenge = tb.gruppiere_straenge(eintraege)
         assert len(straenge) == 1
         assert len(straenge[0][1]) == 1
 
-    def test_should_show_the_newest_card_first_within_a_strand(self):
+    def test_should_show_the_newest_card_first_within_a_strand(self, monkeypatch):
         eintraege = [
-            (1, self._t('2026-08-20 (/mailcheck): "Angebot Muster" Start.')),
-            (2, self._t('2026-08-21 (/mailcheck): "Angebot Muster" Zwischenstand.')),
-            (3, self._t('2026-08-22 (/mailcheck): "Angebot Muster" Abschluss.')),
+            (1, self._t("2026-08-20 (/mailcheck): Angebot Muster Start.")),
+            (2, self._t("2026-08-21 (/mailcheck): Angebot Muster Zwischenstand.")),
+            (3, self._t("2026-08-22 (/mailcheck): Angebot Muster Abschluss.")),
         ]
+        monkeypatch.setattr(
+            tb,
+            "zuordnen",
+            lambda v, e: {
+                1: "Angebot Muster",
+                2: "Angebot Muster",
+                3: "Angebot Muster",
+            },
+        )
         straenge = tb.gruppiere_straenge(eintraege)
         [(_, karten)] = straenge
         assert [nummer for nummer, _ in karten] == [3, 2, 1]
+
+    def test_should_sort_cards_within_a_strand_by_date_not_number(self, monkeypatch):
+        """K1: die Karten-Reihenfolge folgt dem Datum, auch wenn die Nummer es
+        (durch vertauschte Einfuegung) anders nahelegt."""
+        eintraege = [
+            (1, self._t("2026-08-26 (/mailcheck): Alt eingefuegt.")),
+            (2, self._t("2026-08-13 (/mailcheck): Frueher, aber spaeter notiert.")),
+        ]
+        monkeypatch.setattr(tb, "zuordnen", lambda v, e: {1: "X", 2: "X"})
+        [(_, karten)] = tb.gruppiere_straenge(eintraege)
+        assert [nummer for nummer, _ in karten] == [1, 2]
+
+    def test_should_fall_back_to_one_strand_without_a_classifier(self):
+        """Ohne Attrappe/Modell (Standardfall in Tests): EIN Strang, keine Ausnahme."""
+        eintraege = [
+            (1, self._t("2026-08-20 (/mailcheck): Erstes.")),
+            (2, self._t("2026-08-21 (/mailcheck): Zweites.")),
+        ]
+        straenge = tb.gruppiere_straenge(eintraege, {"thread_key": "Mein Vorgang"})
+        assert [s for s, _ in straenge] == ["Mein Vorgang"]
 
 
 class TestAlsListe:
@@ -1420,17 +1500,9 @@ class TestVerlaufAlsStraenge:
         assert "<ol>" not in seite
 
 
-def test_should_show_strang_title_in_original_case_without_prefix():
-    t = tb.zerlege_eintrag(
-        '2026-09-01 (/mailcheck): Firma Muster, Betreff "AW: Angebot Fristenmanagement" vom 01.09.: liegt vor.'
-    )
-    assert tb.strang_schluessel(t) == "angebot fristenmanagement"
-    assert tb.strang_anzeige(t) == "Angebot Fristenmanagement"
-
-
-def test_should_fall_back_to_event_for_strang_display():
-    t = tb.zerlege_eintrag("2026-09-01 GESENDET (Owner): Antwort raus.")
-    assert tb.strang_anzeige(t) == tb.strang_schluessel(t)
+# Die Anzeige-Titel-Regeln (AW:-Praefix weg, Original-Schreibweise des
+# thread_key) pruefen jetzt tools/tests/test_todo_board_straenge.py gegen
+# `straenge._validiere` — dort entsteht der Titel, nicht mehr hier per Regex.
 
 
 class TestKenntnisSpur:

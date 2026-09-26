@@ -44,6 +44,16 @@ ALLOWLIST: dict[str, str] = {
     # Fixture-Schluessel im synthetischen Evidenzpaket (test_future_readiness_score.py) — der Test liest die
     # Datei nicht, er nennt nur ihren Namen als Dateiexistenz-Marker.
     ".github/CODEOWNERS": "Fixture-Schluessel, keine Testeingabe (future_readiness_score)",
+    # 2026-09-10 (#3015, K4): test_betrieb_backlog_check.py liest diese beiden
+    # echten Akten als Gegenprobe. Der `pull_request`-Trigger von
+    # tools-tests.yml traegt bewusst KEINEN paths-Filter (#1414 — der Job
+    # laeuft auf jedem PR, sonst bliebe er auf PRs ohne Treffer dauerhaft
+    # "pending"), deckt den Fall also bereits ab. Nur der `push`-paths-Filter
+    # (Direktpush an main, ausserhalb des PR-Gates) hat die Luecke. Workflows
+    # anzufassen war fuer diesen Auftrag explizit ausgenommen — Nachtrag als
+    # Owner-Entscheid offen, siehe PR-Text.
+    "docs/betrieb/mailcheck.md": "PR-Gate laeuft ueber pull_request ohne paths-Filter (#1414); push-paths-Luecke bewusst nicht behoben, Workflows ausserhalb des Auftrags #3015",
+    "docs/betrieb/todo-liste.md": "PR-Gate laeuft ueber pull_request ohne paths-Filter (#1414); push-paths-Luecke bewusst nicht behoben, Workflows ausserhalb des Auftrags #3015",
 }
 
 

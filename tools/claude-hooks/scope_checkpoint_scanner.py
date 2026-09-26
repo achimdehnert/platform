@@ -19,8 +19,20 @@ beschrieben, lief ein Prod-/Publish-Schritt) — die ist sichtbar, egal ob
 jemand den Mund aufmacht. Der Wortlaut wird erst danach geprueft, und zwar
 als ERFUELLUNG, nicht als Ausloeser.
 
-DREI FEHLERFORMEN, GETRENNT GEMELDET
+VIER FEHLERFORMEN, GETRENNT GEMELDET
 ------------------------------------
+D ``prod-frage-ohne-checkpoint`` (Rev 9, 2026-09-25) — die Antwort BITTET um ein
+                        Prod-Wort (Zeile mit Freigabe-Bitte UND Deploy/Prod/
+                        Publish/Release/Rollout), und in der Sitzung ist noch
+                        kein Checkpoint gefallen. A–C messen Tool-Evidenz und
+                        kommen deshalb erst NACH dem Schritt. Rueckfall aus Retro
+                        02b7f5 (platform#3545 §5a, Owner „12 go"): der Owner gab
+                        „25 go" fuer einen Merge mit Prod-Deploy und klickte selbst
+                        — ohne Tool-Evidenz der Sitzung feuerte A erst 22 min
+                        spaeter an einem ganz anderen Ausloeser. Die Frage nach
+                        dem Wort ist der letzte Moment, an dem der Checkpoint
+                        VOR der Wirkung liegt. Bloßes „mergen" zaehlt bewusst
+                        nicht: Merges in Repos ohne Deploy sind Alltag.
 A ``kein-checkpoint``   Bedingung erfuellt, in der ganzen Sitzung kein
                         Checkpoint ausgesprochen. Das ist der x10-Fehler,
                         fuer den Rev 1 blind war.
@@ -44,14 +56,31 @@ Aussage.
 
 Fehlerform C misst deshalb den Stand ZUM ZEITPUNKT des letzten Checkpoints und
 vergleicht ihn mit dem Jetzt. Sie feuert bei zwei Wachstumsarten:
-  * ``NACHWACHS_SCHWELLE`` zusaetzliche beschriebene Repos seit dem Checkpoint
-    (2 statt 1 — ein einzelnes Nachbar-Repo ist Alltag, zwei sind ein Sprung),
+  * ein beschriebenes Repo, das der Checkpoint NICHT deckt (Rev 8, s. u.),
   * der erste Prod-/Publish-Schritt NACH einem Checkpoint, der ohne Prod
     abgelegt wurde. Die Hausregel nennt Prod ausdruecklich eigenstaendig neben
     dem dritten Repo; ein Checkpoint ueber Repo-Zahlen deckt ihn nicht.
 Die Entprellung haengt an der beobachteten Reichweite, nicht an der Sitzung:
 jeder neue Wachstumsstand meldet einmal. Eine Entprellung „einmal pro Sitzung"
 waere hier dieselbe Falle eine Ebene hoeher.
+
+WARUM REV 8 (Gate rueckfaellig, Retro 2026-09-24 e911bf Befund #5)
+------------------------------------------------------------------
+Rev 5 verglich ZAHLEN: Repos jetzt minus Repos beim letzten Checkpoint, Schwelle
+2. Im Realfall nannte der Checkpoint (07:43Z) sechs Repos und stellte „weitere
+Repos" unter ein neues Owner-Wort; beschrieben (Write/Edit/git) hatte die
+Sitzung davon erst vier — den Rest erledigten Hintergrund-Agenten. Als um 13:37Z
+cad-hub als siebtes Repo dazukam, rechnete der Scanner 5 - 4 = 1 < 2 und blieb
+stumm, obwohl das Repo in keinem Checkpoint stand. Die Repo-Erkennung ueber den
+Worktree-Pfad war dabei korrekt — die Ursache lag im Vergleich.
+
+Rev 8 vergleicht deshalb MENGEN: gedeckt ist ein Repo, das beim letzten
+Checkpoint schon beschrieben war ODER in einem Checkpoint-Text namentlich steht.
+Jedes beschriebene Repo ausserhalb dieser Deckung macht den Checkpoint ueberholt
+— schon das erste, denn genau das hatte der Checkpoint unter Vorbehalt gestellt.
+Die alte Begruendung fuer die Schwelle 2 („Zielrepo plus platform ist Alltag")
+traegt unter Mengen nicht mehr: beide sind beim Checkpoint bereits beschrieben
+und damit gedeckt.
 
 MESSGROESSE FUER "DRITTES REPO"
 -------------------------------
@@ -95,24 +124,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import gate_hits  # noqa: E402  (haengt am sys.path oben)
 from artefakt_budget import _PROD  # noqa: E402  (dieselbe Prod-Definition)
+from evidence_claim_scanner import _last_turn_blocks  # noqa: E402
 
 GATE_HEADER = {
     "slug": "scope-checkpoint-not-durably-recorded",
     "mode": "advisory",
     "owner": "achim",
-    "last_drill_pass": "2026-08-19",
+    "last_drill_pass": "2026-09-25",
     "evidence": "tools/claude-hooks/tests/test_scope_checkpoint_scanner.py",
 }
 
 # Ab wie vielen beschriebenen Repos die Pflicht entsteht (Hausregel: das dritte).
 REPO_SCHWELLE = 3
-
-#: Rev 5: um wie viele Repos die Reichweite nach einem Checkpoint wachsen darf,
-#: bevor der Checkpoint verfaellt. 2, nicht 1: ein einzelnes weiteres Repo ist in
-#: diesem Setup Alltag (das Zielrepo plus platform), zwei sind ein Sprung. Der
-#: Realfall lag bei +2 (risk-hub und ein drittes) auf einen einmal abgelegten
-#: Checkpoint.
-NACHWACHS_SCHWELLE = 2
 
 # Der Checkpoint-Moment, wie er real formuliert wird. In Rev 2 ist das die
 # ERFUELLUNG, nicht der Ausloeser — deshalb darf er grosszuegig bleiben: ein
@@ -170,9 +193,17 @@ _WIRKUNGS_FLAGGE = re.compile(
 #: `session-retro-2026-09-09-doc-hub-a6edc6.md` Befund 11.
 #: Bewusst eng: nur das An- und Abschalten fremder Prozesse und Dienste. `docker compose
 #: up/down` auf den eigenen Stack ist Alltag und faellt absichtlich nicht darunter.
+#:
+#: Rev 6 (2026-09-14, Retro b7822e B7): das Muster verlangte `systemctl` DIREKT
+#: gefolgt vom Verb und uebersah damit jede Option davor — real:
+#: `systemctl --user enable --now todo-x.timer` auf dem als Prod deklarierten
+#: todo-board-Host lief durch, ohne den Checkpoint auszuloesen. `(?:\s+--?[\w-]+
+#: (?:=\S+)?)*` laesst beliebig viele Optionen (`--user`, `-l`, `--type=service`, …)
+#: zwischen `systemctl` und dem Verb zu, ohne die Verb-Liste selbst zu erweitern —
+#: `status`/`is-active`/`list-timers`/`cat` bleiben unveraendert unerkannt.
 _FREMDE_RESSOURCE = re.compile(
     r"\bkill\s+(?:-\w+\s+)?\d{2,}\b|\bpkill\b|\bkillall\b"
-    r"|\bsystemctl\s+(?:stop|restart|disable|mask|enable|start)\b"
+    r"|\bsystemctl(?:\s+--?[\w-]+(?:=\S+)?)*\s+(?:stop|restart|disable|mask|enable|start)\b"
     r"|\bdocker\s+(?:kill|stop)\s+\S",
     re.I,
 )
@@ -180,6 +211,31 @@ _FREMDE_RESSOURCE = re.compile(
 # Durables Artefakt (unveraendert aus Rev 1, nur sitzungsweit ausgewertet).
 _DURABLE_CMD = re.compile(r"gh\s+(?:pr|issue)\s+(?:comment|create|edit)", re.I)
 _DURABLE_FILE = re.compile(r"docs/|AGENT_HANDOVER|KONZ-|ledger|\.claude/boards/", re.I)
+
+#: Fehlerform D (Rev 9): eine Zeile der letzten Antwort, die um ein Wort bittet UND
+#: einen Prod-Begriff nennt. Beide Signale muessen in DERSELBEN Zeile stehen — ein
+#: Board-Item traegt Bitte und Wirkung zusammen; ueber Zeilen hinweg waere jede
+#: Antwort mit „Deploy" irgendwo und einem 🟢 irgendwo ein Treffer.
+_PROD_WORT = re.compile(
+    r"\b(?:deploy\w*|prod(?:uktion|uction)?\b|publish\w*|release\w*|rollout)", re.I
+)
+#: Bewusst ohne das Substantiv „Freigabe" und ohne ein nacktes „go": im Replay der
+#: Realsitzung 02b7f5 trafen beide Erklaerprosa („der Freigabe-Vermerk wurde gesperrt"),
+#: keine Bitte. Uebrig bleiben die Formen, mit denen ein Board-Item um ein Wort bittet.
+_WORT_BITTE = re.compile(
+    r"🟢|\bdein(?:e)?\s+(?:Zug|Wort|Klick)\b|\bfreigeben\b|\b\d+\s+go\b",
+    re.I,
+)
+
+
+def prod_frage(text: str) -> str:
+    """Die erste Zeile, die um ein Prod-Wort bittet, oder ''."""
+    for zeile in text.splitlines():
+        if _PROD_WORT.search(zeile) and _WORT_BITTE.search(zeile):
+            return zeile.strip()
+    return ""
+
+
 _DURABLE_TOOL_PREFIXES = (
     "mcp__github__create_issue",
     "mcp__github__add_issue_comment",
@@ -271,6 +327,16 @@ def _repos_aus_ausgabe(text: str) -> set[str]:
     return _repos_aus_kommando(text[:_AUSGABE_MAX])
 
 
+def im_checkpoint_genannt(repo: str, texte: list[str]) -> bool:
+    """Steht ``repo`` als ganzes Wort in einem der Checkpoint-Texte? (Rev 8)
+
+    Die Grenzen schliessen Bindestrich und Wortzeichen ein: ``cad-hub`` ist in
+    „cad-hub-legacy" NICHT genannt, ``hub`` nicht in „risk-hub".
+    """
+    muster = re.compile(rf"(?<![\w-]){re.escape(repo)}(?![\w-])", re.I)
+    return any(muster.search(t) for t in texte)
+
+
 def _text_aus_ergebnis(block: dict) -> str:
     """Ergebnistext eines ``tool_result``-Blocks — Liste oder String."""
     inhalt = block.get("content")
@@ -291,8 +357,12 @@ def sammle_evidenz(transcript_path: Path) -> dict:
         "fremde_ressource": "",
         # Rev 5: Stand ZUM ZEITPUNKT des LETZTEN Checkpoints. None = es gab
         # keinen. Fehlerform C vergleicht diesen Stand mit dem Jetzt.
+        # Rev 8: eine MENGE statt einer Zahl (s. Modulkopf „WARUM REV 8").
         "repos_bei_checkpoint": None,
         "prod_bei_checkpoint": False,
+        # Rev 8: voller Text jedes Checkpoint-Blocks — die darin genannten Repos
+        # gelten als gedeckt, auch wenn die Sitzung sie selbst nie beschrieb.
+        "checkpoint_texte": [],
     }
     # Reihenfolge zaehlt: ein durables Artefakt BELEGT den Checkpoint nur,
     # wenn es nach ihm entstand. Ohne diese Kopplung genuegte irgendein
@@ -336,10 +406,11 @@ def sammle_evidenz(transcript_path: Path) -> dict:
                             checkpoint_bei = schritt
                         # Fehlerform C haengt am LETZTEN: sie fragt, ob die
                         # Reichweite seit der juengsten Aussage gewachsen ist.
-                        ergebnis["repos_bei_checkpoint"] = len(
+                        ergebnis["repos_bei_checkpoint"] = set(
                             ergebnis["repos_beschrieben"]
                         )
                         ergebnis["prod_bei_checkpoint"] = bool(ergebnis["prod"])
+                        ergebnis["checkpoint_texte"].append(text)
                     continue
 
                 if typ == "tool_result":
@@ -443,6 +514,31 @@ def main() -> int:
         return 0
 
     ev = sammle_evidenz(Path(transcript_path))
+    session = event.get("session_id", "")
+
+    # Fehlerform D (Rev 9) VOR allem anderen: sie braucht keine Tool-Evidenz, weil
+    # sie genau den Moment fassen soll, bevor es welche gibt.
+    letzter_text, _, _ = _last_turn_blocks(transcript_path)
+    frage = prod_frage(letzter_text)
+    if (
+        frage
+        and not ev["checkpoint_text"]
+        and not CHECKPOINT_PATTERNS.search(letzter_text)
+        and not _schon_gemeldet(session, "prod-frage-ohne-checkpoint")
+    ):
+        _merken(session, "prod-frage-ohne-checkpoint")
+        gate_hits.notiere(
+            GATE_HEADER["slug"], frage[:200], turn="prod-frage", session=session,
+            modus="advisory",
+        )  # fmt: skip
+        _melde(
+            "🧭 scope-checkpoint: diese Antwort bittet um ein Prod-Wort ("
+            f"„{frage[:120]}“) — in der Sitzung ist aber noch kein Scope-Checkpoint "
+            "gefallen. Den gewachsenen Scope JETZT mitspiegeln, im selben Board, "
+            "bevor der Owner antwortet; danach ist die Wirkung schon da. (Gate "
+            "scope-checkpoint-not-durably-recorded Rev 9, Fehlerform D, advisory.)"
+        )
+        return 0
     repos = sorted(ev["repos_beschrieben"])
     ausloeser = []
     if len(repos) >= REPO_SCHWELLE:
@@ -454,7 +550,6 @@ def main() -> int:
     if not ausloeser:
         return 0  # keine Pflicht entstanden
 
-    session = event.get("session_id", "")
     grund = " + ".join(ausloeser)
 
     if not ev["checkpoint_text"]:
@@ -475,18 +570,22 @@ def main() -> int:
         return 0
 
     if ev["durables_artefakt"]:
-        # Fehlerform C (Rev 5): Checkpoint da, Artefakt da — aber die Reichweite
-        # ist seither gewachsen. `zuwachs`/`prod_neu` sind ausdruecklich getrennt,
-        # weil die Hausregel Prod eigenstaendig neben der Repo-Zahl fuehrt.
-        stand = ev["repos_bei_checkpoint"]
-        zuwachs = len(repos) - stand if stand is not None else 0
+        # Fehlerform C (Rev 5, Repo-Teil Rev 8): Checkpoint da, Artefakt da — aber
+        # die Reichweite ist seither gewachsen. `neu`/`prod_neu` sind ausdruecklich
+        # getrennt, weil die Hausregel Prod eigenstaendig neben den Repos fuehrt.
+        gedeckt = ev["repos_bei_checkpoint"] or set()
+        neu = [
+            r
+            for r in repos
+            if r not in gedeckt and not im_checkpoint_genannt(r, ev["checkpoint_texte"])
+        ]
         prod_neu = ev["prod"] and not ev["prod_bei_checkpoint"]
-        if zuwachs >= NACHWACHS_SCHWELLE or prod_neu:
+        if neu or prod_neu:
             gruende = []
-            if zuwachs >= NACHWACHS_SCHWELLE:
+            if neu:
                 gruende.append(
-                    f"{zuwachs} weitere Repos seit dem Checkpoint "
-                    f"(damals {stand}, jetzt {len(repos)}: {', '.join(repos)})"
+                    f"{len(neu)} weitere Repos seit dem Checkpoint, die er nicht "
+                    f"nennt ({', '.join(neu)}; jetzt {len(repos)}: {', '.join(repos)})"
                 )
             if prod_neu:
                 gruende.append("erster Prod-/Publish-Schritt NACH dem Checkpoint")
@@ -494,7 +593,7 @@ def main() -> int:
             # Wachstumsstand meldet einmal. Sonst waere Fehlerform C selbst
             # wieder ein Melder, der nach dem ersten Mal verstummt — genau der
             # Fehler, gegen den sie gebaut ist.
-            form = f"reichweite-gewachsen:{len(repos)}:{int(ev['prod'])}"
+            form = f"reichweite-gewachsen:{','.join(neu)}:{int(ev['prod'])}"
             if _schon_gemeldet(session, form):
                 return 0
             _merken(session, form)
@@ -511,7 +610,7 @@ def main() -> int:
                 + ". Ein Checkpoint gilt fuer die Reichweite, die er beschreibt; "
                 "waechst sie weiter, gehoert der gewachsene Stand erneut gespiegelt "
                 "und durabel festgehalten. (Gate "
-                "scope-checkpoint-not-durably-recorded Rev 5, Fehlerform C, advisory.)"
+                "scope-checkpoint-not-durably-recorded Rev 8, Fehlerform C, advisory.)"
             )
             return 0
         return 0

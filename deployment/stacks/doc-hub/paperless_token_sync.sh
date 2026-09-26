@@ -10,6 +10,21 @@
 #
 # Der Wert wird nie ausgegeben — nur Laenge, Pruefsumme und das Ergebnis eines Testabrufs.
 set -u
+
+# Toleranter Leser (bare UND NAME=WERT, platform#3129) — die lokale Datei wird
+# nie selbst gelesen, auch nicht zum Pruefsummen-Vergleich. Das Skript laeuft
+# auch als Kopie unter ~/bin, deshalb mehrere Fundorte + Uebersteuerung.
+for kandidat in \
+  "${SECRET_LESEN:-}" \
+  "$(cd "$(dirname "$0")/../../.." 2>/dev/null && pwd)/tools/secret_lesen.sh" \
+  "$HOME/github/platform/tools/secret_lesen.sh"; do
+  [ -n "$kandidat" ] && [ -x "$kandidat" ] && LESER="$kandidat" && break
+done
+if [ -z "${LESER:-}" ]; then
+  echo "ABBRUCH: secret_lesen.sh nicht gefunden (SECRET_LESEN=<pfad> setzen)"
+  exit 1
+fi
+
 HOST="root@88.198.191.108"
 ZIEL="$HOME/.secrets/paperless_api_token"
 TMP="$(mktemp)"
@@ -25,8 +40,12 @@ if [ "$LAENGE" -ne 40 ]; then
   exit 1
 fi
 
-NEU=$(sha256sum < "$TMP" | cut -c1-12)
-ALT=$(sha256sum < "$ZIEL" 2>/dev/null | cut -c1-12)
+# Beide Pruefsummen ueber den WERT, nicht ueber den Dateiinhalt: sonst meldet
+# der Vergleich eine Drift, sobald die lokale Datei auf NAME=WERT umgestellt
+# ist (Stufe 3) — und wuerde sie stillschweigend wieder flach schreiben.
+NEU=$(printf '%s' "$(tr -d '\r\n' < "$TMP")" | sha256sum | cut -c1-12)
+ALT=$(printf '%s' "$("$LESER" "$ZIEL" 2>/dev/null)" | sha256sum | cut -c1-12)
+[ -f "$ZIEL" ] || ALT=""
 echo "Prod   : 40 Zeichen, Pruefsumme $NEU"
 echo "lokal  : Pruefsumme ${ALT:-keine Datei}"
 [ "$NEU" = "$ALT" ] && { echo "identisch — nichts zu tun"; exit 0; }

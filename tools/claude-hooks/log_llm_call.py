@@ -45,14 +45,44 @@ _DB_HOST_PORT_DB = "127.0.0.1:15435/orchestrator_mcp"
 _DB_USER = "orchestrator"
 
 
+def _passwort_lesen() -> str:
+    """Passwort-Datei lesen — bare UND ``NAME=WERT`` (platform#3129).
+
+    Dieser Hook laeuft auch als verteilte Kopie unter ``~/.claude/hooks/``,
+    wo der Repo-Pfad nicht relativ zu ``__file__`` liegt. Deshalb zwei
+    Fundorte und ein Rueckfall auf den rohen Inhalt: ein Hook darf an einer
+    fehlenden Bibliothek nicht sterben, er wuerde sonst jeden LLM-Aufruf
+    mitreissen.
+    """
+    try:
+        # leser-ausnahme: Netz fuer die verteilte Hook-Kopie ohne Repo — der
+        # tolerante Leser wird unten zuerst versucht.
+        roh = _DB_PASSWORD_FILE.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+    for wurzel in (
+        Path(__file__).resolve().parents[2],
+        Path.home() / "github" / "platform",
+    ):
+        if not (wurzel / "infra" / "lib" / "secrets.py").is_file():
+            continue
+        sys.path.insert(0, str(wurzel))
+        try:
+            from infra.lib.secrets import secret_wert  # noqa: PLC0415
+
+            return secret_wert(_DB_PASSWORD_FILE)
+        except ImportError:
+            break
+        except ValueError:
+            return ""
+    return roh.strip()
+
+
 def _resolve_db_url() -> str | None:
     url = os.environ.get("ORCHESTRATOR_DB_URL")
     if url:
         return url
-    try:
-        password = _DB_PASSWORD_FILE.read_text(encoding="utf-8").strip()
-    except OSError:
-        password = ""
+    password = _passwort_lesen()
     if password:
         from urllib.parse import quote
 

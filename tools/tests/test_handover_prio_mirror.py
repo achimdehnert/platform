@@ -234,3 +234,75 @@ def test_should_stay_quiet_without_origin_main_ref(tmp_path: Path) -> None:
     out = _run(_real_repo(tmp_path))
     assert WARN_MARKER not in out
     assert "Preview-Tunnel starten" in out
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# #1944 K6: offene Faeden aus docs/handover.d, gelesen aus origin/main
+# ─────────────────────────────────────────────────────────────────────────────
+
+FRAGMENT_TOOL = Path(__file__).resolve().parents[1] / "agent-handover" / "fragments.py"
+FRAGMENT = """---
+session_id: fremd
+erstellt: 2026-09-16T08:00:00Z
+titel: "Parallelsitzung"
+---
+
+## Offen
+
+- Fragment-Faden — https://github.com/example/nichtda/issues/7
+"""
+
+
+def _run_ohne_gh(repo: Path, tmp_path: Path) -> str:
+    """Hook ohne Netz: ein `gh`, das scheitert, macht jeden Status "unbekannt"."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "gh").write_text("#!/bin/sh\nexit 1\n")
+    (bin_dir / "gh").chmod(0o755)
+    import os
+
+    env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"}
+    return subprocess.run(
+        ["bash", str(HOOK)],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=env,
+    ).stdout
+
+
+def _repo_mit_fragment_tool(tmp_path: Path) -> Path:
+    repo = _real_repo(tmp_path)
+    ziel = repo / "tools" / "agent-handover" / "fragments.py"
+    ziel.parent.mkdir(parents=True)
+    ziel.write_text(FRAGMENT_TOOL.read_text(encoding="utf-8"), encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "tool")
+    return repo
+
+
+def test_should_mirror_open_threads_from_fragments_on_origin_main(
+    tmp_path: Path,
+) -> None:
+    repo = _repo_mit_fragment_tool(tmp_path)
+    frag = "docs/handover.d/2026-09-16T08-00-00Z-fremd.md"
+    (repo / "docs" / "handover.d").mkdir(parents=True)
+    _advance_origin(repo, touch=frag, content=FRAGMENT)
+    # Arbeitsbaum kennt das Fragment nicht — der Hook muss es trotzdem zeigen.
+    assert not (repo / frag).exists()
+    out = _run_ohne_gh(repo, tmp_path)
+    assert "Fragment-Faden" in out
+    assert "docs/handover.d (Sitzungs-Fragmente)" in out
+    # Die kuratierte Prio bleibt dahinter sichtbar.
+    assert "Preview-Tunnel starten" in out
+    assert out.index("Fragment-Faden") < out.index("Preview-Tunnel starten")
+
+
+def test_should_keep_curated_source_when_no_fragments_exist(tmp_path: Path) -> None:
+    repo = _repo_mit_fragment_tool(tmp_path)
+    _git(
+        repo, "update-ref", "refs/remotes/origin/main", _git(repo, "rev-parse", "HEAD")
+    )
+    out = _run_ohne_gh(repo, tmp_path)
+    assert "Quelle: AGENT_HANDOVER.md (kuratiert)" in out

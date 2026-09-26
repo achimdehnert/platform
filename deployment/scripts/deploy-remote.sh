@@ -137,11 +137,18 @@ if ! $SKIP_BACKUP; then
         mkdir -p "$BACKUP_DIR"
         BACKUP_FILE="${BACKUP_DIR}/pre_deploy_$(date +%Y%m%d_%H%M%S).sql.gz"
         log "Creating DB backup..."
-        if docker exec "$DB_CONTAINER" pg_dumpall -U "${POSTGRES_USER:-postgres}" 2>/dev/null | gzip > "$BACKUP_FILE"; then
+        BACKUP_ERR="${BACKUP_FILE%.sql.gz}.err"
+        # DB-User aus der Umgebung des DB-Containers, nicht des Host-Skripts: hier ist
+        # POSTGRES_USER nie gesetzt, der Fallback `postgres` fehlt in Repos mit eigenem
+        # Superuser (apo-hub: 12/12 Deploys ohne Backup, platform#3159).
+        if docker exec "$DB_CONTAINER" sh -c 'pg_dumpall -U "${POSTGRES_USER:-postgres}"' 2>"$BACKUP_ERR" | gzip > "$BACKUP_FILE"; then
+            rm -f "$BACKUP_ERR"
             info "Backup: ${BACKUP_FILE} ($(du -h "$BACKUP_FILE" | cut -f1))"
             audit "backup" "ok" "$BACKUP_FILE"
         else
-            warn "DB backup failed — continuing (non-blocking)"
+            warn "DB backup failed — continuing (non-blocking): $(head -c 300 "$BACKUP_ERR" 2>/dev/null | tr '\n' ' ')"
+            audit "backup" "failed" "$BACKUP_FILE"
+            rm -f "$BACKUP_FILE" "$BACKUP_ERR"
         fi
         ls -1t "${BACKUP_DIR}"/pre_deploy_*.sql.gz 2>/dev/null | tail -n +11 | xargs rm -f 2>/dev/null || true
     else

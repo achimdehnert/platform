@@ -19,12 +19,16 @@ Nutzung:
     # Alle Secrets auf einen Blick:
     python -m infra.lib.secrets
 
+    # Eine Secret-DATEI direkt lesen (bare oder NAME=WERT):
+    from infra.lib.secrets import secret_wert, secret_bytes
+
 Referenz: ADR-157, ADR-156 §8
 """
 
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -145,13 +149,126 @@ REGISTRY: dict[str, dict] = {
 }
 
 
+# ─── Toleranter Leser: bare UND NAME=WERT ─────────────────────
+# Anlass (2026-09-13): eine Secret-Datei ohne ``NAME=WERT``-Form wurde per
+# ``. datei`` gesourced — die Shell fuehrte den nackten Wert als Kommando aus
+# und schrieb ihn in die eigene Fehlermeldung. Der Weg heraus ist die
+# ``NAME=WERT``-Form fuer alle Dateien (Stufe 3). Damit die Umstellung nicht
+# reihenweise Leser bricht, muss VORHER jeder Leser BEIDE Formen verstehen —
+# das ist diese Funktion. Sie ist die einzige Stelle, die eine Secret-Datei
+# interpretiert; niemand liest mehr selbst ``read_text().strip()``.
+
+#: Ein Variablenname in Shell-/Env-Schreibweise. Bewusst streng: ein nackter
+#: Wert mit ``=`` darin (base64-Auffuellung!) darf NICHT als ``NAME=WERT``
+#: durchgehen.
+_NAME_MUSTER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
+
+
+def _zeilen(text: str) -> list[str]:
+    """Nicht-leere Zeilen ohne ``#``-Kommentare."""
+    return [z for z in text.splitlines() if z.strip() and not z.strip().startswith("#")]
+
+
+def _entklammere(wert: str) -> str:
+    """Beidseitig gleiche Anfuehrungszeichen entfernen, sonst unveraendert."""
+    wert = wert.strip()
+    if len(wert) >= 2 and wert[0] == wert[-1] and wert[0] in ("'", '"'):
+        return wert[1:-1]
+    return wert
+
+
+def ist_kv_zeile(name: str, wert: str) -> bool:
+    """True wenn ``name=wert`` als ``NAME=WERT``-Variable zaehlt.
+
+    Sonderregel: ein alphanumerischer nackter Wert mit ``=``-Auffuellung
+    (``ABC=`` / ``ABC==``) ist KEINE leere Variable, sondern base64-Padding
+    eines bare-Werts — im Zweifel bare, damit sich fuer bestehende Dateien
+    nichts aendert. Einzige Stelle, die diese Entscheidung trifft: ``_kv_paare``
+    hier UND ``tools/secrets_pruefen.py::erkenne_form`` verwenden sie, damit
+    Leser und Melder nie auseinanderlaufen (Refs #3155).
+    """
+    if not _NAME_MUSTER.match(name.strip()):
+        return False
+    wert = _entklammere(wert)
+    return bool(wert) and set(wert) != {"="}
+
+
+def _kv_paare(text: str) -> list[tuple[str, str]] | None:
+    """``[(NAME, WERT), …]`` wenn ALLE Inhaltszeilen KV-Form haben, sonst None.
+
+    ``None`` heisst: bare — der ganze Inhalt ist der Wert.
+    """
+    zeilen = _zeilen(text)
+    if not zeilen:
+        return None
+    paare: list[tuple[str, str]] = []
+    for zeile in zeilen:
+        name, trenner, wert = zeile.strip().partition("=")
+        if not trenner or not ist_kv_zeile(name, wert):
+            return None
+        paare.append((name.strip(), _entklammere(wert)))
+    return paare
+
+
+def secret_wert(pfad: Path | str, name: str | None = None) -> str:
+    """Wert einer Secret-Datei — versteht ``bare`` und ``NAME=WERT``.
+
+    * ``bare`` (ganze Datei = Wert): ``inhalt.strip()``, exakt wie frueher.
+    * genau EINE ``NAME=WERT``-Zeile (Kommentare/Leerzeilen davor erlaubt):
+      der Teil hinter dem ersten ``=``, ohne beidseitig gleiche
+      Anfuehrungszeichen.
+    * mehrere Variablen: ``name=`` waehlt aus; ohne ``name`` ``ValueError``.
+
+    Der Wert wird nie geloggt oder ausgegeben — nur zurueckgegeben.
+    """
+    text = Path(pfad).read_text(encoding="utf-8")
+    return _waehle(_kv_paare(text), text, name, pfad)
+
+
+def secret_bytes(pfad: Path | str, name: str | None = None) -> bytes:
+    """Wie :func:`secret_wert`, liefert aber Bytes (Schluesselmaterial).
+
+    Der Umweg ueber ``latin-1`` ist verlustfrei (Byte ↔ Zeichen 1:1) und
+    haelt auch Werte aus, die kein gueltiges UTF-8 sind.
+    """
+    roh = Path(pfad).read_bytes()
+    paare = _kv_paare(roh.decode("latin-1"))
+    if paare is None:
+        # bare: auf Byte-Ebene trimmen — ``str.strip()`` wuerde auch Zeichen
+        # wie 0xA0 abschneiden, die in Schluesselmaterial Nutzlast sind.
+        return roh.strip()
+    return _waehle(paare, "", name, pfad).encode("latin-1")
+
+
+def _waehle(
+    paare: list[tuple[str, str]] | None,
+    text: str,
+    name: str | None,
+    pfad: Path | str,
+) -> str:
+    if paare is None:
+        return text.strip()
+    if name is not None:
+        for eig_name, wert in paare:
+            if eig_name == name:
+                return wert
+        raise ValueError(f"Variable {name} steht nicht in {pfad}")
+    if len(paare) > 1:
+        namen = ", ".join(sorted(n for n, _ in paare))
+        raise ValueError(f"mehrere Variablen — Name angeben ({pfad}: {namen})")
+    return paare[0][1]
+
+
 def _read_file(path: Path) -> str:
-    """Read secret file, return stripped content."""
+    """Read secret file, return its value (bare oder ``NAME=WERT``).
+
+    ``ValueError`` (mehrere Variablen) wird nicht abgefangen: ein
+    stilles ``""`` sieht aus wie „Secret fehlt" und schickt die Suche in die
+    naechste Quelle, statt die Datei zu melden, die eine Auswahl braucht.
+    """
     try:
         if path.exists():
-            return path.read_text(
-                encoding="utf-8",
-            ).strip()
+            return secret_wert(path)
     except (OSError, PermissionError):
         pass
     return ""

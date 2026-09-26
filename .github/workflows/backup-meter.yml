@@ -102,7 +102,20 @@ jobs:
             --drills-dir docs/runbooks/restore-drills \
             --enforce-drill \
             ${{ steps.snap.outputs.args }} \
-            --report /tmp/backup-meter-report.md
+            --report /tmp/backup-meter-report.md \
+            --ergebnis-datei melder-ergebnis/backup.json
+
+      # platform#2944: die Faehigkeit `--ergebnis-datei` war gebaut, aber kein
+      # Aufrufer uebergab sie -- der Melder mass und verschwand. Ohne diese Zeile
+      # hat die Lesefunktion nichts zu lesen, egal wie gut sie verdrahtet ist.
+      - name: "Melder-Ergebnis hochladen"
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: melder-ergebnis-backup
+          path: melder-ergebnis/backup.json
+          if-no-files-found: warn
+          retention-days: 30
 
       - name: "Issue bei Verletzung (Label backup-violation)"
         if: steps.meter.outputs.violations != '0' && steps.meter.outputs.violations != ''

@@ -1,0 +1,51 @@
+{
+  "slug": "worktree-midsession-accumulation",
+  "mode": "process",
+  "owner": "achim",
+  "module": [
+    "tools/worktree-reaper.py",
+    "tools/claude-hooks/hygiene_melder.py"
+  ],
+  "drill": [
+    "tools/tests/test_worktree_reaper.py",
+    "tools/claude-hooks/tests/test_hygiene_melder.py",
+    "tools/tests/test_session_ende_checks.py"
+  ],
+  "built": "2026-06-01",
+  "ref": "platform#1650 Nachmessung 2026-08-10 / ADR-233 / Umbau platform Retro 8d6869",
+  "note": "Bestand seit cf9ccb48 (Reaper raeumt gemergte+cleane Session-Worktrees, via repo-session.sh reap + session-start 0.4.5), war aber nie registriert. Registriert 2026-08-12. | 2026-08-20 UMGEBAUT (Retro 8d6869, gate_wirkung.py meldete RUECKFAELLIG, 2 Vorkommen nach dem Bau): der Reaper lief nur fuer das Start-Repo. Worktrees entstehen mitten in der Sitzung und werden oft fremd gemergt — der naechste Start betraf dann ein anderes Repo. Zwei Aenderungen: (1) `repo-session.sh reap --alle` raeumt jedes Repo mit Lease, verdrahtet in session_start_checks.sh Phase 0.4.5. (2) Karenzregel im Reaper — die Lease-vor-Merge-Reihenfolge aus #1866 bleibt, gilt aber nicht mehr sieben Tage: ist der Baum sauber, sein PR gemergt und seit 12h (--karenz-stunden) kein Commit gefallen, wird geraeumt. Die eigentliche Ursache des Rueckfalls war (2), nicht (1): gemessen am 2026-08-20 hielt 'Lease aktiv bis +7 Tage' JEDEN gemergten Baum.",
+  "revised": "2026-09-14",
+  "revision_note": "UMBAU 2026-09-07 (platform#2374, Gate rueckfaellig x3). Das Gate hing an EINEM Modul mit der falschen Messgroesse. Der Reaper misst und entfernt richtig, aber er haelt einen gemergten Baum bewusst zurueck: aktives Lease plus Karenzfrist (12 h), damit niemandem der Boden weggezogen wird. Das ist richtig fuer das ENTFERNEN und falsch fuer das MELDEN. Der Melder daneben (hygiene_melder, SessionStart) zaehlte bis hierhin ABGELAUFENE Leases -- eine Sieben-Tage-Uhr. Die Fehlform spielt sich in Minuten ab: Retro fdd368 (17 Baeume eines Tages ungeraeumt), m1zgqt #14 (zwei Leases nach dem Merge nicht geschlossen), 0f59ce #8 (6 Baeume gemergter PRs offen bis zur Retro) -- alle drei mit GUELTIGEM Lease, fuer die alte Klasse also unsichtbar. Neu misst der Melder dieselbe Wahrheit ohne Karenz und ohne Lease-Uhr: PR gemergt und Baum noch da. Die Merge-Erkennung wird aus dem Reaper IMPORTIERT, nicht nachgebaut. Zwei Fallen beim Bau, beide durch einen echten Lauf gefunden: (a) das Lease traegt nur den nackten Repo-NAMEN ('wedding-hub'), `gh --repo wedding-hub` scheitert -- 85 Leases, 85x 'unknown', 0 Befunde, 3,8 s; der Owner kommt jetzt aus `git remote get-url origin` im Baum. (b) 'unknown' zaehlt seither als NICHT BEURTEILBAR und wird mitgemeldet, nicht als 'in Ordnung' verbucht. Nach der Reparatur: 46 gemergte Baeume offen; mit dem Frischefenster von 3 Tagen (aeltere sind Bestand und Sache des reap-Laufs) 23 Befunde in 12,9 s, innerhalb des Sitzungsstart-Budgets. Der echte Merge-MOMENT bleibt ein Owner-Zug: ein PostToolUse-Hook auf `gh pr merge` braucht eine Zeile in ~/.claude/settings.json, ausserhalb dieses Repos -- gefuehrt als Kandidat `worktree-end-on-merge`. · UMBAU 2026-09-14 (Retro docs/retros/session-retro-2026-09-14-platform-oqu6Z6.md (platform#3156) §5a / Befund #21, M11, Owner-Entscheid 'g5a bestaetigt' (Kapitaens-Kanal, 2026-09-14); Gate rueckfaellig x2, letzter 2026-09-14). Ausgang: `git worktree list` zeigte 13 Baeume, zwei mit dem Git-eigenen Etikett `prunable`, einige Wochen alt; der Melder zeigte an, gehandelt hat niemand, und Runner-Phase E.8 stand auf SKIP ('raeumt der naechste Sitzungsstart'). Neu als erzwungener Schritt des Sitzungsendes (tools/session_ende_checks.sh E.8 `worktree-hygiene`): `git worktree prune` wird ausgefuehrt (entfernt nur Eintraege ohne Verzeichnis), und jeder verknuepfte Baum, dessen letzter Commit UND dessen Anlage (HEAD-Datei im Verwaltungsverzeichnis) aelter als 14 Tage sind (`SESSION_ENDE_WORKTREE_MAX_TAGE`), ist FAIL — ausser mit Grund in `<gitdir>/behalten` (ausserhalb des Baums, nicht versehentlich committbar). Einschraenkung der Retro bleibt: viele Baeume stammen aus anderen Sitzungen; das FAIL zwingt zur Entscheidung (entfernen oder begruendet behalten), nicht zum Loeschen fremder Arbeit.",
+  "faengt": [
+    {
+      "fall": "Baum der endenden Sitzung wird trotz aktiver Lease abgeraeumt",
+      "probe": "sitzungsende"
+    },
+    {
+      "fall": "geteilter Baum mit laufender git-Operation bleibt stehen",
+      "probe": "index.lock"
+    },
+    {
+      "fall": "Arbeitsbaum eines bereits gemergten PR ist noch offen (Retro 0f59ce #8)",
+      "probe": "merged"
+    },
+    {
+      "fall": "Merge-Zustand nicht beurteilbar wird nicht als 'in Ordnung' gewertet",
+      "probe": "unknown"
+    },
+    {
+      "fall": "verwaister Verwaltungseintrag (prunable) bleibt nach dem Sitzungsende stehen (Retro oqu6Z6 #21)",
+      "probe": "prunable"
+    },
+    {
+      "fall": "verknuepfter Baum ueber der Altersgrenze ohne Grund bleibt stehen (Retro oqu6Z6 #21)",
+      "probe": "older_than_the_age_limit"
+    }
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-06-01",
+  "positivkontrolle": {
+    "ref": "tools/tests/test_session_ende_checks.py -- test_should_fail_on_a_worktree_older_than_the_age_limit (Baum mit 60 Tage altem Commit und Anlage -> E.8 FAIL mit 'wt-alt(60d)', frischer Baum daneben nicht genannt) und test_should_prune_an_orphaned_worktree_entry (geloeschtes Verzeichnis -> vorher 'prunable', nachher nicht); beide gegen den Runner von origin/main gefahren am 2026-09-14 rot. Negativkontrolle: alter Baum mit <gitdir>/behalten -> PASS.",
+    "datum": "2026-09-14"
+  }
+}

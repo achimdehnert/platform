@@ -903,6 +903,125 @@ def index_suche(**kriterien) -> list[dict]:
         raise SystemExit("FEHLER: Index lieferte kein JSON")
 
 
+def index_suche_batch(anfragen: list[dict]) -> list[list[dict]]:
+    """Mehrere Index-Abfragen in EINER SSH-Verbindung — ruft ``suche.py --batch``.
+
+    Ergebnis: je Anfrage die Trefferliste (ohne Deckung), in derselben
+    Reihenfolge wie ``anfragen``. Bewusst eine eigene, injizierbare Funktion
+    wie ``index_suche`` — der einzige Ort mit Aussenkontakt fuer den
+    gebuendelten Weg, ohne den bisherigen Einzelweg anzufassen.
+    """
+    import subprocess
+
+    if not anfragen:
+        return []
+    hier = Path(__file__).resolve().parent
+    befehl = [sys.executable, str(hier / "suche.py"), "--batch", "-"]
+    fertig = subprocess.run(
+        befehl,
+        input=json.dumps(anfragen, ensure_ascii=False),
+        capture_output=True,
+        text=True,
+    )
+    if fertig.returncode != 0:
+        raise SystemExit(
+            f"FEHLER: Batch-Index-Abfrage fehlgeschlagen — {fertig.stderr[:300]}"
+        )
+    try:
+        ergebnisse = json.loads(fertig.stdout)
+    except json.JSONDecodeError:
+        raise SystemExit("FEHLER: Index (Batch) lieferte kein JSON")
+    nach_index = {e.get("index"): e.get("treffer") or [] for e in ergebnisse}
+    return [nach_index.get(i, []) for i in range(len(anfragen))]
+
+
+def _such_schluessel(kriterien: dict) -> tuple:
+    return tuple(sorted((k, str(v)) for k, v in kriterien.items() if v))
+
+
+def suche_gebuendelt(
+    ledger: dict,
+    anker: dict | None,
+    links: dict | None,
+    konversation=None,
+    batch=None,
+):
+    """``suche(**kriterien)`` fuer ``--pruefe`` gebuendelt statt je Vorgang vorladen.
+
+    platform#3067: ``--pruefe`` rief ``suche.py`` bis zu 75x je Lauf auf, jeder
+    Aufruf bootete auf dev-hub ein neues Django (2-6,6s gemessen 2026-09-10).
+    Diese Funktion ersetzt das durch ZWEI gebuendelte Rundreisen statt vieler
+    einzelner — **nicht eine**, und das ist eine bewusste Grenze, keine halbe
+    Umsetzung:
+
+    * **Runde 1** fragt fuer jeden ``erledigt``-Vorgang dessen Betreff ab
+      (``vorgang["thread_key"]`` — direkt aus dem Ledger lesbar, keine
+      Netzabfrage noetig, um zu wissen, wonach gefragt wird).
+    * Mit Runde 1 im Cache laeuft ``strang_aufloesen``/``strang_fuer``
+      **unveraendert** ein zweites Mal (Priming), um zu ermitteln, welche
+      Straenge Runde 2 braucht (``suche(strang=...)``) — reine Rechnung auf
+      bereits vorliegenden Daten, keine Netzabfrage. Live-Konversationen
+      (IMAP/Graph) werden dabei ueber ``konversation`` ebenfalls gecacht, damit
+      der Priming-Lauf sie nicht ein zweites Mal live abfragt.
+    * **Runde 2** holt die daraus ermittelten Straenge gebuendelt nach.
+
+    Der Grund, warum es zwei statt eine Rundreise bleiben: Welchen Strang
+    Runde 2 braucht, verraet erst die Antwort von Runde 1 (der Index kennt die
+    Strang-Kennung, der Vorgang im Ledger nicht) — das liesse sich nur durch
+    Verdopplung der Zuordnungslogik aus ``strang_fuer`` hier vermeiden, und
+    genau das soll unveraendert bleiben (Vorgabe platform#3067 Punkt 2). Von
+    75 auf 2 Rundreisen ist der Teil des Gewinns, der ohne dieses Risiko zu
+    haben ist.
+
+    Der zurueckgegebene ``suche``-Aufruf bedient ``pruefe_posteingang``
+    danach ausschliesslich aus dem Cache — fehlt eine Abfrage dort doch (sollte
+    fuer ``erledigt``-Vorgaenge nicht vorkommen), holt er sie einzeln nach,
+    korrekt, aber wieder mit einer Rundreise.
+    """
+    batch = batch or index_suche_batch
+    cache: dict[tuple, list[dict]] = {}
+    konv_cache: dict[tuple[str, str], list[dict]] = {}
+
+    def gepuffert(**kriterien) -> list[dict]:
+        schluessel = _such_schluessel(kriterien)
+        if schluessel not in cache:
+            cache[schluessel] = (batch([kriterien]) or [[]])[0]
+        return cache[schluessel]
+
+    def konv_gepuffert(konto: str, message_id: str) -> list[dict]:
+        schluessel = (konto, message_id)
+        if schluessel not in konv_cache:
+            konv_cache[schluessel] = konversation(konto, message_id)
+        return konv_cache[schluessel]
+
+    konv = konv_gepuffert if konversation is not None else None
+    vorgaenge = [
+        v for v in ledger.get("vorgaenge") or [] if v.get("bucket") == "erledigt"
+    ]
+
+    # Runde 1: Betreff direkt aus dem Ledger, keine Vorbedingung.
+    runde1 = [
+        {"begriff": betreff}
+        for v in vorgaenge
+        if (betreff := (v.get("thread_key") or "").strip())
+    ]
+    for anfrage, ergebnis in zip(runde1, batch(runde1) if runde1 else [], strict=True):
+        cache[_such_schluessel(anfrage)] = ergebnis
+
+    # Priming: dieselbe, unveraenderte Aufloesung wie im echten Lauf — jetzt
+    # komplett aus dem Cache bedient — nur um zu sehen, welche Straenge
+    # Runde 2 braucht.
+    runde2 = []
+    for v in vorgaenge:
+        strang = strang_aufloesen(v, gepuffert, konv, anker, links)
+        if strang and strang.quelle == BETREFF and strang.kennung:
+            runde2.append({"strang": strang.kennung})
+    for anfrage, ergebnis in zip(runde2, batch(runde2) if runde2 else [], strict=True):
+        cache[_such_schluessel(anfrage)] = ergebnis
+
+    return gepuffert, konv
+
+
 def strang_bericht(
     zeilen: list[Zeile],
     ledger: dict,
@@ -1680,9 +1799,17 @@ def main() -> None:
         # noch etwas liegt, nicht wohin es gehoerte. Deshalb auch nur die
         # Quellordner in der Konversationssuche — drei Rundreisen statt
         # zweiundvierzig je Vorgang, damit `make boards` das taeglich aushaelt.
+        #
+        # Index-Abfragen kommen gebuendelt (platform#3067): `suche_gebuendelt`
+        # laedt die bis zu 75 Einzelabfragen in zwei Rundreisen vor, bevor
+        # `pruefe_posteingang` unveraendert dieselbe Aufloesung durchlaeuft —
+        # jetzt ausschliesslich aus dem Cache bedient.
         with Konversationen(nur_quellordner=True) as konversation:
+            suche, konversation_gebuendelt = suche_gebuendelt(
+                ledger, anker_daten, links_daten, konversation
+            )
             zaehler, quellen, veraltet, kein_anker = pruefe_posteingang(
-                ledger, index_suche, konversation, anker_daten, links_daten
+                ledger, suche, konversation_gebuendelt, anker_daten, links_daten
             )
         print(pruefe_bericht(zaehler, quellen, veraltet, kein_anker))
         sys.exit(1 if sum(zaehler.values()) else 0)

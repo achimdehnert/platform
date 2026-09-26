@@ -1,0 +1,14 @@
+[Unit]
+Description=Strang-Cache des todo-boards nachziehen (platform#3175)
+Documentation=https://github.com/achimdehnert/platform/issues/3175
+
+[Service]
+Type=oneshot
+ExecStart=%h/github/platform/tools/todo_board/vorwaermen.sh
+Nice=10
+IOSchedulingClass=idle
+# Exit 1 bei mindestens einem fehlgeschlagenen Vorgang — der Dienst steht dann
+# als 'failed' in 'systemctl --user --failed', die Ausgabe nennt den ersten Fehler.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=todo-straenge

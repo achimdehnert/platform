@@ -323,6 +323,86 @@ class TestBefundeSerien:
         assert sa.befunde_serien([a, b], stunden=24) == []
 
 
+def _pr(nummer, autor, zustand, mergedat, pfad, hunks, repo="achimdehnert/platform"):
+    datei = {"path": pfad}
+    if hunks is not None:
+        datei["hunks"] = hunks
+    return {
+        "number": nummer,
+        "repo": repo,
+        "author": {"login": autor},
+        "state": zustand,
+        "mergedAt": mergedat,
+        "files": [datei],
+    }
+
+
+class TestBefundeSerienFuerPr:
+    def test_should_flag_overlapping_hunks_against_another_open_pr(self):
+        """POSITIVKONTROLLE 2026-09-10: #3034 (bereits heute gemergt) und
+        #3042 (offen) beruehren test_todo_board.py an ueberlappenden Zeilen
+        (467-531 vs 526-542)."""
+        prs = [
+            _pr(
+                3042,
+                "achimdehnert",
+                "OPEN",
+                None,
+                "tools/tests/test_todo_board.py",
+                [[467, 531]],
+            ),
+            _pr(
+                3034,
+                "achimdehnert",
+                "MERGED",
+                "2026-09-10T08:00:00Z",
+                "tools/tests/test_todo_board.py",
+                [[526, 542]],
+            ),
+        ]
+        befunde = sa.befunde_serien_fuer_pr(3042, prs, heute="2026-09-10")
+        assert len(befunde) == 1
+        assert befunde[0]["art"] == "befund"
+        assert "#3034" in befunde[0]["text"] and "#3042" in befunde[0]["text"]
+
+    def test_should_report_clean_line_when_hunks_are_disjoint(self):
+        """GEGENPROBE (Pflicht-Falsifikation): disjunkte Bereiche sind kein
+        Befund, aber eine eigene Zeile belegt, dass geprueft wurde."""
+        prs = [
+            _pr(10, "achimdehnert", "OPEN", None, "tools/x.py", [[1, 10]]),
+            _pr(11, "achimdehnert", "OPEN", None, "tools/x.py", [[50, 60]]),
+        ]
+        ergebnis = sa.befunde_serien_fuer_pr(10, prs, heute="2026-09-10")
+        assert [e["art"] for e in ergebnis] == ["sauber"]
+        assert "disjunkte Bereiche — kein Befund" in ergebnis[0]["text"]
+
+    def test_should_compare_only_the_named_pr_via_eingabe(self, tmp_path, capsys):
+        """--pr mit --eingabe vergleicht NUR den benannten PR — ein dritter PR
+        desselben Autors auf einer anderen Datei bleibt aussen vor."""
+        daten = {
+            "prs": [
+                _pr(10, "achimdehnert", "OPEN", None, "tools/x.py", [[1, 10]]),
+                _pr(11, "achimdehnert", "OPEN", None, "tools/x.py", [[5, 15]]),
+                _pr(12, "achimdehnert", "OPEN", None, "tools/y.py", [[1, 10]]),
+            ]
+        }
+        pfad = tmp_path / "eingabe.json"
+        pfad.write_text(json.dumps(daten), encoding="utf-8")
+        rc = sa.main(["--eingabe", str(pfad), "--pr", "10", "--heute", "2026-09-10"])
+        out = capsys.readouterr().out
+        assert rc == 1
+        assert "#11" in out and "#12" not in out
+
+    def test_should_stay_clean_without_a_second_pr_of_the_same_author(self):
+        """(d) Ziel-PR ohne zweiten PR desselben Autors → kein Befund."""
+        prs = [_pr(10, "achimdehnert", "OPEN", None, "tools/x.py", [[1, 10]])]
+        assert sa.befunde_serien_fuer_pr(10, prs, heute="2026-09-10") == []
+
+    def test_should_ignore_pr_not_found_in_the_population(self):
+        prs = [_pr(10, "achimdehnert", "OPEN", None, "tools/x.py", [[1, 10]])]
+        assert sa.befunde_serien_fuer_pr(999, prs, heute="2026-09-10") == []
+
+
 class TestBereicheUeberlappen:
     def test_should_detect_touching_ranges(self):
         assert sa.bereiche_ueberlappen([(1, 10)], [(10, 12)]) is True
@@ -442,3 +522,159 @@ class TestGhSchicht:
             assert "nicht verfuegbar" in str(exc)
         else:
             raise AssertionError("GhFehler erwartet")
+
+    def test_should_request_head_ref_name_in_the_pr_list(self):
+        assert "headRefName" in sa.PR_FELDER.split(",")
+
+
+# ─────────────── Sitzungsabgrenzung --sitzung (platform#2234) ────────────────
+#
+# Realfall 2026-09-24 (Retro #3543 Befund #2): der kontoweite Lauf ergab
+# `RESULT: BEFUND 35`; die Runner-Zelle zeigte eine davon. Das eigene
+# platform#3469 (aus #3489, `Refs #3469`, Issue OPEN) war nicht sichtbar.
+
+SITZUNG = "e911bf49-94e1-4b4c-86ed-f4a4337ba501"
+EIGENER_BRANCH = "session/2026-09-24/achim-dehnert/gate-nachzug"
+REPO = "achimdehnert/platform"
+
+
+def _flut() -> dict:
+    """34 fremde Befunde (Parallelsitzungen) + der eigene #3489 → #3469."""
+    prs, issues = [], []
+    for i in range(34):
+        pr_nr, iss_nr = 3400 + i, 3300 + i
+        prs.append(
+            {
+                "number": pr_nr,
+                "state": "MERGED",
+                "repo": REPO,
+                "files": [],
+                "headRefName": f"session/2026-09-24/achim-dehnert/fremd-{i}",
+                "body": f"Refs #{iss_nr}",
+            }
+        )
+        issues.append({"number": iss_nr, "state": "OPEN", "body": "", "repo": REPO})
+    prs.append(
+        {
+            "number": 3489,
+            "state": "MERGED",
+            "repo": REPO,
+            "files": [],
+            "headRefName": EIGENER_BRANCH,
+            "body": "Refs #3469",
+        }
+    )
+    issues.append({"number": 3469, "state": "OPEN", "body": "", "repo": REPO})
+    texte = [
+        {
+            "quelle": f"{REPO}#{p['number']}",
+            "repo": REPO,
+            "nummer": p["number"],
+            "body": p["body"],
+        }
+        for p in prs
+    ]
+    return {"prs": prs, "issues": issues, "texte": texte, "pr_zustaende": {}}
+
+
+def _leases(tmp_path, claude_session: str | None = SITZUNG):
+    d = tmp_path / "leases"
+    d.mkdir()
+    lease = {"session_id": "l1", "repo": "platform", "branch": EIGENER_BRANCH}
+    if claude_session is not None:
+        lease["claude_session"] = claude_session
+    (d / "l1.json.closed").write_text(json.dumps(lease), encoding="utf-8")
+    return str(d)
+
+
+class TestSitzungsabgrenzung:
+    def _eingabe(self, tmp_path) -> str:
+        pfad = tmp_path / "flut.json"
+        pfad.write_text(json.dumps(_flut()), encoding="utf-8")
+        return str(pfad)
+
+    def test_should_reproduce_the_flood_without_session_option(self, tmp_path, capsys):
+        """Ausgangslage: kontoweit 35 Befunde — das Verhalten ohne Option bleibt."""
+        assert sa.main(["--eingabe", self._eingabe(tmp_path), "--issues"]) == 1
+        assert "RESULT: BEFUND 35" in capsys.readouterr().out
+
+    def test_should_isolate_own_issue_among_34_foreign_findings(self, tmp_path, capsys):
+        """Positivkontrolle: mit --sitzung bleibt genau platform#3469 uebrig."""
+        rc = sa.main(
+            [
+                "--eingabe",
+                self._eingabe(tmp_path),
+                "--issues",
+                "--repo",
+                REPO,
+                "--sitzung",
+                SITZUNG[:8],
+                "--lease-dir",
+                _leases(tmp_path),
+            ]
+        )
+        aus = capsys.readouterr().out
+        assert rc == 1
+        assert "RESULT: BEFUND 1 " in aus
+        assert "KURZ: platform#3469" in aus
+
+    def test_should_be_clean_when_own_issue_is_closed(self, tmp_path, capsys):
+        """Gegenprobe: #3469 geschlossen → sauber, trotz 34 fremder Befunde."""
+        daten = _flut()
+        daten["issues"][-1]["state"] = "CLOSED"
+        pfad = tmp_path / "flut.json"
+        pfad.write_text(json.dumps(daten), encoding="utf-8")
+        rc = sa.main(
+            [
+                "--eingabe",
+                str(pfad),
+                "--issues",
+                "--repo",
+                REPO,
+                "--sitzung",
+                SITZUNG,
+                "--lease-dir",
+                _leases(tmp_path),
+            ]
+        )
+        assert rc == 0
+        assert "RESULT: OK" in capsys.readouterr().out
+
+    def test_should_not_give_all_clear_when_session_is_not_assignable(
+        self, tmp_path, capsys
+    ):
+        rc = sa.main(
+            [
+                "--eingabe",
+                self._eingabe(tmp_path),
+                "--repo",
+                REPO,
+                "--sitzung",
+                SITZUNG[:8],
+                "--lease-dir",
+                _leases(tmp_path, claude_session=None),
+            ]
+        )
+        aus = capsys.readouterr().out
+        assert rc == 0
+        assert "RESULT: HINWEIS 0 (sitzung-nicht-zuordenbar:" in aus
+        assert "RESULT: OK" not in aus
+
+    def test_should_fetch_per_branch_when_session_is_given(self, tmp_path, monkeypatch):
+        aufrufe = []
+
+        def gh_stub(argumente, timeout=60):
+            aufrufe.append(argumente)
+            return "[]"
+
+        monkeypatch.setattr(sa, "_gh", gh_stub)
+        sa.sammle_via_gh(
+            REPO, "@me", "2026-09-24", mit_hunks=False, branches=[EIGENER_BRANCH]
+        )
+        assert aufrufe[0][aufrufe[0].index("--head") + 1] == EIGENER_BRANCH
+        assert "--author" not in aufrufe[0]
+
+    def test_should_keep_only_session_prs_and_their_texts(self):
+        daten = sa.auf_branches_begrenzen(_flut(), [EIGENER_BRANCH])
+        assert [p["number"] for p in daten["prs"]] == [3489]
+        assert [t["nummer"] for t in daten["texte"]] == [3489]

@@ -22,3 +22,28 @@
 - repo: chat-hub
   ziel: chat-verify-init
   grund: "Prod-Zugriff — legt per docker exec einen echten Matrix-Nutzer an einem laufenden Homeserver an, dieselbe Begruendung wie chat-verify."
+
+# platform: vier Ziele (platform#3472, Session-Start 2026-09-24 #3471).
+# Das Werkzeug matcht Kommandotext; ein Make-Ziel, dessen Pruefung in CI unter
+# anderem Namen laeuft, braucht den Verzicht MIT dem Ort, an dem sie laeuft.
+
+- repo: platform
+  ziel: boards-check
+  grund: "Braucht das lokale Mail-Ledger ~/.claude/mail-vorgaenge.json (bewusst nicht im Repo, Mandantendaten). Der erste CI-Lauf (PR #3480, 2026-09-24) brach mit 'Ledger fehlt — erst /mailcheck laufen lassen' ab. K1-Beleg #2592 gilt damit lokal auf der Dev-Maschine, wo der Mail-Agent laeuft."
+
+- repo: platform
+  ziel: check-push
+  grund: "Lokaler Spiegel der Push-Gates. Drei der vier laufen in CI direkt: check_registry_view_readers.py (registry-consistency.yml, tools-tests.yml), publish_gate_invariant.sh (validate-workflows.yml, pypi-fleet-health.yml), check_publish_gate.py (pypi-gate-meter.yml). Das vierte, tools/checks/mandantendaten_gate.py diff, vergleicht gegen Quellen, die bewusst NICHT im Repo liegen (~/.claude/mail-vorgaenge.json, Paperless) — laut eigenem Docstring ein lokaler Riegel, den CI nicht fuehren kann."
+
+- repo: platform
+  ziel: workflow-lint
+  grund: "Convenience-Preflight laut Makefile (KEIN Hard-Gate). yamllint und actionlint laufen in CI direkt in validate-workflows.yml mit denselben Configs; das Make-Ziel spiegelt sie nur lokal."
+
+- repo: platform
+  ziel: lint-tenancy
+  grund: "Teilmenge von lint-registry: validate_tenancy.py laeuft in registry-lint.yml ueber make lint-registry (seit #3505, 2026-09-24). Ein zweiter Aufruf per make lint-tenancy wuerde dieselbe Pruefung doppelt fahren; Session-Start 0.7.26 meldete das Ziel nach dem Umbau als einzigen Rest (platform#3472)."
+
+# platform#3477: der lint-registry-Verzicht ist behoben (0 Inkonsistenzen,
+# .github/workflows/registry-lint.yml laeuft jetzt `make lint-registry` statt
+# `make lint-tenancy`) und deshalb entfernt — kein Eintrag mehr fuer `ziel:
+# lint-registry` hier.

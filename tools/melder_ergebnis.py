@@ -43,7 +43,7 @@ def _jetzt() -> datetime:
 
 
 def schreibe(
-    pfad: Path,
+    pfad: Path | str,
     melder: str,
     ergebnis: Any,
     *,
@@ -66,6 +66,7 @@ def schreibe(
         "werkzeug_version": werkzeug_version,
         "ergebnis": ergebnis,
     }
+    pfad = Path(pfad)
     pfad.parent.mkdir(parents=True, exist_ok=True)
     pfad.write_text(
         json.dumps(daten, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
@@ -75,7 +76,7 @@ def schreibe(
 
 
 def lies(
-    pfad: Path,
+    pfad: Path | str,
     *,
     max_alter_tage: int = MAX_ALTER_TAGE,
     jetzt: datetime | None = None,
@@ -87,9 +88,13 @@ def lies(
     offen lassen. Ein kaputtes Ergebnis als "rot" zu werten waere schlimmer als
     es zu ignorieren — es wuerde einen Mangel behaupten, den niemand gemessen hat.
     """
+    # Ein Pfad kommt aus einer Kommandozeile, einer Umgebungsvariablen oder einem
+    # Konfigurationswert — dort ist er eine Zeichenkette. Die erste echte
+    # Verwendung ausserhalb der Tests (platform#2944, Verdrahtung der Melder) fiel
+    # genau darueber: die Tests reichten ausschliesslich `Path`-Objekte herein.
     try:
-        daten = json.loads(pfad.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+        daten = json.loads(Path(pfad).read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
         return None
     if not isinstance(daten, dict) or daten.get("schema") != SCHEMA:
         return None

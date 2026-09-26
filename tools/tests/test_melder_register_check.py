@@ -24,7 +24,7 @@ RUNNER_AUSSCHNITT = """
 record "0.0 env+banner" "PASS" "..."
 record "0.7.4 prio-referenzen" "WARN" "..." "$TARGET_REPO"
 record "0.7.6 leseflaeche" "PASS" "..."
-record "0.7.7 gate-wirkung" "WARN" "..."
+record "0.7.8 zeitplan-wache" "WARN" "..."
 """
 
 
@@ -48,12 +48,12 @@ def test_should_load_register_entries_from_yaml(tmp_path):
     pfad = tmp_path / "melder-register.yaml"
     pfad.write_text(
         "melder:\n"
-        "  - phase: \"0.0 env+banner\"\n"
+        '  - phase: "0.0 env+banner"\n'
         "    leser: UNBENANNT\n"
         "    wiedervorlage_tage: 14\n"
         "    praezision_min: 0.6\n"
         "    mindest_laeufe: 5\n"
-        "    runbook: \"0.R#0.0\"\n",
+        '    runbook: "0.R#0.0"\n',
         encoding="utf-8",
     )
     register = mrc.lade_register(pfad)
@@ -70,7 +70,7 @@ def test_should_extract_phase_ids_from_runner_excerpt(tmp_path):
         "0.0 env+banner",
         "0.7.4 prio-referenzen",
         "0.7.6 leseflaeche",
-        "0.7.7 gate-wirkung",
+        "0.7.8 zeitplan-wache",
     }
 
 
@@ -84,9 +84,9 @@ def test_should_return_empty_set_when_runner_missing(tmp_path):
 def test_should_detect_runner_phase_without_register_entry():
     """Positivkontrolle: eine Runner-Phase OHNE Register-Zeile MUSS als fehlend auftauchen."""
     register = [_register(phase="0.7.6 leseflaeche", leser="Agent selbst")]
-    runner_phasen = {"0.7.6 leseflaeche", "0.7.7 gate-wirkung"}
+    runner_phasen = {"0.7.6 leseflaeche", "0.7.8 zeitplan-wache"}
     fehlend, unbenannt, karteileiche = mrc.register_pruefen(register, runner_phasen)
-    assert fehlend == ["0.7.7 gate-wirkung"]
+    assert fehlend == ["0.7.8 zeitplan-wache"]
     assert unbenannt == []
     assert karteileiche == []
 
@@ -95,12 +95,12 @@ def test_should_count_unbenannt_entries():
     """Positivkontrolle: ein Eintrag mit leser: UNBENANNT MUSS gezaehlt werden."""
     register = [
         _register(phase="0.7.6 leseflaeche", leser="Agent selbst"),
-        _register(phase="0.7.7 gate-wirkung", leser="UNBENANNT"),
+        _register(phase="0.7.8 zeitplan-wache", leser="UNBENANNT"),
     ]
-    runner_phasen = {"0.7.6 leseflaeche", "0.7.7 gate-wirkung"}
+    runner_phasen = {"0.7.6 leseflaeche", "0.7.8 zeitplan-wache"}
     fehlend, unbenannt, karteileiche = mrc.register_pruefen(register, runner_phasen)
     assert fehlend == []
-    assert unbenannt == ["0.7.7 gate-wirkung"]
+    assert unbenannt == ["0.7.8 zeitplan-wache"]
     assert karteileiche == []
 
 
@@ -127,12 +127,12 @@ def test_should_report_ok_when_register_and_runner_match():
 
 def test_should_combine_missing_and_unbenannt_in_kurz_bericht_with_nonzero_exit():
     register = [_register(phase="0.7.6 leseflaeche", leser="UNBENANNT")]
-    runner_phasen = {"0.7.6 leseflaeche", "0.7.7 gate-wirkung"}
+    runner_phasen = {"0.7.6 leseflaeche", "0.7.8 zeitplan-wache"}
     text, rc = mrc.kurz_bericht(register, runner_phasen)
     assert rc == 1
     assert "2 Melder ohne Leser" in text
     assert "0.7.6 leseflaeche" in text
-    assert "0.7.7 gate-wirkung" in text
+    assert "0.7.8 zeitplan-wache" in text
 
 
 def test_should_report_karteileiche_separately_in_kurz_bericht():
@@ -205,7 +205,14 @@ def test_should_not_downgrade_melder_at_or_above_threshold():
 def test_should_write_and_clear_downgrade_tsv(tmp_path):
     ziel = tmp_path / "state" / "melder-herabgestuft.tsv"
     mrc.schreibe_herabstufung_tsv(
-        [{"phase": "0.7.4 prio-referenzen", "quote": 0.4, "laeufe": 5, "datum": "2026-09-02"}],
+        [
+            {
+                "phase": "0.7.4 prio-referenzen",
+                "quote": 0.4,
+                "laeufe": 5,
+                "datum": "2026-09-02",
+            }
+        ],
         ziel,
     )
     zeile = ziel.read_text(encoding="utf-8").strip()
@@ -225,16 +232,27 @@ def test_should_exclude_verankerte_and_verzichtete_findings():
     heute = date(2026, 9, 2)
     daten = [
         {
-            "id": "a::platform", "phase": "a", "repo": "platform",
-            "erstmals": "2026-08-01", "artefakt": None, "verzicht": None,
+            "id": "a::platform",
+            "phase": "a",
+            "repo": "platform",
+            "erstmals": "2026-08-01",
+            "artefakt": None,
+            "verzicht": None,
         },
         {
-            "id": "b::platform", "phase": "b", "repo": "platform",
-            "erstmals": "2026-08-01", "artefakt": "https://example.invalid/1", "verzicht": None,
+            "id": "b::platform",
+            "phase": "b",
+            "repo": "platform",
+            "erstmals": "2026-08-01",
+            "artefakt": "https://example.invalid/1",
+            "verzicht": None,
         },
         {
-            "id": "c::platform", "phase": "c", "repo": "platform",
-            "erstmals": "2026-08-01", "artefakt": None,
+            "id": "c::platform",
+            "phase": "c",
+            "repo": "platform",
+            "erstmals": "2026-08-01",
+            "artefakt": None,
             "verzicht": {"grund": "bewusst", "am": "2026-08-05"},
         },
     ]
@@ -247,8 +265,12 @@ def test_should_exclude_findings_within_the_grace_period():
     heute = date(2026, 9, 2)
     daten = [
         {
-            "id": "frisch::platform", "phase": "x", "repo": "platform",
-            "erstmals": "2026-08-30", "artefakt": None, "verzicht": None,
+            "id": "frisch::platform",
+            "phase": "x",
+            "repo": "platform",
+            "erstmals": "2026-08-30",
+            "artefakt": None,
+            "verzicht": None,
         }
     ]
     assert mrc.ohne_entscheidung_liste(daten, 14, heute) == []
@@ -257,7 +279,15 @@ def test_should_exclude_findings_within_the_grace_period():
 def test_should_render_block_header_with_count_and_empty_case():
     assert mrc.ohne_entscheidung_block([], 14) == "⏳ ohne Entscheidung > 14 d: keiner"
     text = mrc.ohne_entscheidung_block(
-        [{"phase": "a", "repo": "platform", "alter_tage": 32, "erstmals": "2026-08-01"}], 14
+        [
+            {
+                "phase": "a",
+                "repo": "platform",
+                "alter_tage": 32,
+                "erstmals": "2026-08-01",
+            }
+        ],
+        14,
     )
     assert "⏳ ohne Entscheidung > 14 d (1):" in text
     assert "a [platform] — 32 d alt, erstmals 2026-08-01" in text

@@ -442,9 +442,87 @@ def test_should_flag_when_two_more_repos_written_after_checkpoint(
     assert "2 weitere Repos seit dem Checkpoint" in kontext
 
 
-def test_should_not_flag_a_single_additional_repo(tmp_path, monkeypatch, capsys):
-    # Ein einzelnes Nachbar-Repo ist Alltag (Zielrepo + platform) — die Schwelle
-    # ist bewusst 2, sonst gewoehnt das Gate das Weghoeren an.
+# --- Rev 8 (Retro 2026-09-24 e911bf Befund #5): Mengen statt Zahlen ----------
+#
+# Realfall: der Checkpoint nannte sechs Repos und stellte „weitere Repos" unter
+# ein neues Owner-Wort; beschrieben hatte die Sitzung davon erst vier. Das siebte
+# Repo (cad-hub, per repo-session-Worktree) ergab 5 - 4 = 1 < Schwelle 2 — stumm.
+
+_WT = "/home/devuser/.repo-session/worktrees"
+
+_REALFALL_VOR_CHECKPOINT = [
+    _zeile_bash(
+        f"cd {_WT}/platform/2026-09-24-x && git commit -m a", cwd="/home/devuser"
+    ),
+    _zeile_edit("/home/devuser/github/risk-hub/NEXT.md"),
+    _zeile_bash("git -C /home/devuser/github/ttz-hub commit -m b"),
+]
+
+_REALFALL_CHECKPOINT = _zeile_text(
+    "Scope-Checkpoint, wie die Hausregel verlangt: die Sitzung hat platform, "
+    "risk-hub, ttz-hub, iil-adrfw, mcp-hub und news-hub beruehrt. Nicht "
+    "freigegeben ohne neues Wort: weitere Repos."
+)
+
+
+def test_should_flag_first_edit_in_a_repo_the_checkpoint_did_not_name(
+    tmp_path, monkeypatch, capsys
+):
+    # POSITIVKONTROLLE Rev 8 am Realfall e911bf: ein genanntes Repo (news-hub)
+    # kommt nach dem Checkpoint dazu, dann ein ungenanntes (cad-hub) ueber den
+    # Worktree-Pfad. Unter Rev 5 war das 5 - 3 = 2 bzw. im Realfall 5 - 4 = 1.
+    p = _transcript(
+        tmp_path,
+        [
+            *_REALFALL_VOR_CHECKPOINT,
+            _REALFALL_CHECKPOINT,
+            _ARTEFAKT,
+            _zeile_edit("/home/devuser/github/news-hub/app/a.py"),
+            _zeile_edit(f"{_WT}/cad-hub/2026-09-24-kd/klickdummy/shell.html"),
+        ],
+    )
+    rc, antwort = _run(monkeypatch, capsys, p)
+    assert rc == 0
+    kontext = _kontext(antwort)
+    assert "Fehlerform C" in kontext
+    assert (
+        "1 weitere Repos seit dem Checkpoint, die er nicht nennt (cad-hub;" in kontext
+    )
+    assert "news-hub;" not in kontext
+
+
+def test_should_not_flag_a_new_repo_the_checkpoint_named(tmp_path, monkeypatch, capsys):
+    # GEGENPROBE: dasselbe Wachstum, aber das neue Repo steht im Checkpoint —
+    # dann hat der Owner es bereits gesehen, der Checkpoint ist nicht ueberholt.
+    p = _transcript(
+        tmp_path,
+        [
+            *_REALFALL_VOR_CHECKPOINT,
+            _REALFALL_CHECKPOINT,
+            _ARTEFAKT,
+            _zeile_edit("/home/devuser/github/news-hub/app/a.py"),
+            _zeile_edit(f"{_WT}/mcp-hub/2026-09-24-y/app/b.py"),
+        ],
+    )
+    _, antwort = _run(monkeypatch, capsys, p)
+    assert _kontext(antwort) == ""
+
+
+def test_should_not_count_a_longer_repo_name_as_named():
+    # Wortgrenze inkl. Bindestrich: „cad-hub-legacy" nennt cad-hub NICHT.
+    texte = ["Scope-Checkpoint: cad-hub-legacy und risk-hub"]
+    assert not scanner.im_checkpoint_genannt("cad-hub", texte)
+    assert not scanner.im_checkpoint_genannt("hub", texte)
+    assert scanner.im_checkpoint_genannt("risk-hub", texte)
+
+
+def test_should_flag_a_single_unnamed_repo_after_checkpoint(
+    tmp_path, monkeypatch, capsys
+):
+    # Bis Rev 7 hiess dieser Drill „not_flag_a_single_additional_repo" (Schwelle
+    # 2). Genau diese Ausnahme war der Rueckfall e911bf: ein einzelnes Repo, das
+    # der Checkpoint nicht nennt, IST ein Sprung. Zielrepo + platform sind beim
+    # Checkpoint bereits beschrieben und damit gedeckt (s. naechster Drill).
     p = _transcript(
         tmp_path,
         [
@@ -452,6 +530,25 @@ def test_should_not_flag_a_single_additional_repo(tmp_path, monkeypatch, capsys)
             _CHECKPOINT,
             _ARTEFAKT,
             _zeile_edit("/home/devuser/github/meiki-hub/app/a.py"),
+        ],
+    )
+    _, antwort = _run(monkeypatch, capsys, p)
+    assert "Fehlerform C" in _kontext(antwort)
+
+
+def test_should_not_flag_further_writes_in_repos_written_before_checkpoint(
+    tmp_path, monkeypatch, capsys
+):
+    # Der Alltag, fuer den Rev 5 die Schwelle 2 hatte: weiterarbeiten in Repos,
+    # die der Checkpoint schon als beschrieben vorfand — auch ohne sie zu nennen.
+    p = _transcript(
+        tmp_path,
+        [
+            *DREI_REPOS,
+            _CHECKPOINT,
+            _ARTEFAKT,
+            _zeile_edit("/home/devuser/github/platform/tools/x.py"),
+            _zeile_edit("/home/devuser/github/dev-hub/app/z2.py"),
         ],
     )
     _, antwort = _run(monkeypatch, capsys, p)
@@ -544,7 +641,9 @@ def test_should_flag_enabling_a_service_on_a_foreign_host():
 
 
 def test_should_flag_starting_a_service_on_a_foreign_host():
-    treffer = scanner._FREMDE_RESSOURCE.search("ssh hetzner-prod 'systemctl start doc-hub-splitter'")
+    treffer = scanner._FREMDE_RESSOURCE.search(
+        "ssh hetzner-prod 'systemctl start doc-hub-splitter'"
+    )
     assert treffer is not None
 
 
@@ -556,3 +655,96 @@ def test_should_not_flag_reading_a_service_state():
         "systemctl cat doc-hub-splitter.service",
     ):
         assert scanner._FREMDE_RESSOURCE.search(harmlos) is None, harmlos
+
+
+# --- Rev 6 (2026-09-14, Retro b7822e B7): Optionen VOR dem Verb -------------
+#
+# Realfall: `systemctl --user enable --now todo-x.timer` auf dem als Prod
+# deklarierten todo-board-Host loeste den Checkpoint nicht aus — Rev 5 kannte
+# nur `systemctl <verb>` ohne Optionen dazwischen.
+
+
+def test_should_flag_systemctl_user_enable_with_option_before_verb():
+    treffer = scanner._FREMDE_RESSOURCE.search(
+        "systemctl --user enable --now todo-x.timer"
+    )
+    assert treffer is not None
+
+
+def test_should_still_not_flag_status_with_option_before_verb():
+    """`status` steht nicht in der Verb-Liste — bleibt unerkannt, auch mit Option davor."""
+    assert (
+        scanner._FREMDE_RESSOURCE.search("systemctl --user status todo-x.timer") is None
+    )
+
+
+def test_should_still_flag_ssh_prefixed_case_from_rev5():
+    """Bestehender Rev-5-Fall (ssh-Praefix, kein Optionen-vor-Verb-Fall) bleibt erkannt."""
+    treffer = scanner._FREMDE_RESSOURCE.search(
+        "ssh hetzner-prod 'systemctl enable --now doc-hub-splitter.timer'"
+    )
+    assert treffer is not None
+
+
+# --- Fehlerform D (Rev 9): Frage nach einem Prod-Wort ohne Checkpoint -------
+# Realfall Retro 02b7f5 (2026-09-24): Board-Zeile bat um „25 go" fuer einen Merge
+# mit Prod-Deploy; der Owner klickte selbst, Tool-Evidenz gab es nie.
+
+_OWNER = {"type": "user", "message": {"content": "25 go 26 go"}}
+_PROD_BITTE = (
+    "- **[25]** 🟢 Merge von #383 mit Prod-Deploy von dev-hub freigeben · du — "
+    "https://github.com/achimdehnert/dev-hub/pull/383"
+)
+
+
+def test_should_fire_form_d_when_answer_asks_for_prod_word_without_checkpoint(
+    tmp_path, monkeypatch, capsys
+):
+    path = _transcript(tmp_path, [_OWNER, _zeile_text(_PROD_BITTE)])
+    _, antwort = _run(monkeypatch, capsys, path)
+    assert "Fehlerform D" in _kontext(antwort)
+
+
+def test_should_stay_silent_on_form_d_when_checkpoint_spoken_in_same_answer(
+    tmp_path, monkeypatch, capsys
+):
+    text = "Scope-Checkpoint: wir sind jetzt 2 Repos und einen Prod-Schritt weiter.\n"
+    path = _transcript(tmp_path, [_OWNER, _zeile_text(text + _PROD_BITTE)])
+    _, antwort = _run(monkeypatch, capsys, path)
+    assert "Fehlerform D" not in _kontext(antwort)
+
+
+def test_should_stay_silent_on_form_d_when_checkpoint_fell_earlier_in_session(
+    tmp_path, monkeypatch, capsys
+):
+    frueher = _zeile_text(
+        "Scope-Checkpoint: Scope ist gewachsen, ist das noch gewollt?"
+    )
+    path = _transcript(tmp_path, [frueher, _OWNER, _zeile_text(_PROD_BITTE)])
+    _, antwort = _run(monkeypatch, capsys, path)
+    assert "Fehlerform D" not in _kontext(antwort)
+
+
+def test_should_stay_silent_on_form_d_for_plain_merge_request(
+    tmp_path, monkeypatch, capsys
+):
+    text = "- **[11]** 🟢 PR #3552 und #3553 mergen · platform · du"
+    path = _transcript(tmp_path, [_OWNER, _zeile_text(text)])
+    _, antwort = _run(monkeypatch, capsys, path)
+    assert antwort == {}
+
+
+def test_should_stay_silent_on_form_d_when_signals_sit_in_different_lines(
+    tmp_path, monkeypatch, capsys
+):
+    text = "Der Deploy lief gestern durch.\n- **[3]** 🟢 Bericht lesen · du"
+    path = _transcript(tmp_path, [_OWNER, _zeile_text(text)])
+    _, antwort = _run(monkeypatch, capsys, path)
+    assert antwort == {}
+
+
+def test_should_report_form_d_only_once_per_session(tmp_path, monkeypatch, capsys):
+    path = _transcript(tmp_path, [_OWNER, _zeile_text(_PROD_BITTE)])
+    _run(monkeypatch, capsys, path)
+    _, zweite = _run(monkeypatch, capsys, path)
+    assert "Fehlerform D" not in _kontext(zweite)

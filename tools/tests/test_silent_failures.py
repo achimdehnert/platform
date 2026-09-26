@@ -225,3 +225,97 @@ def test_should_flag_error_turned_into_a_number(tmp_path):
 def test_should_leave_a_plain_script_alone(tmp_path):
     datei = _sh(tmp_path, "ruhig.sh", "#!/bin/bash\nset -euo pipefail\necho hallo\n")
     assert csf.pruefe_shell(datei) == []
+
+
+# ── Ausweitung 2026-09-14 (Retro oqu6Z6 §5a, M4): Outputs als WERT ─────────────
+# Realfall `.github/workflows/handover-append-only.yml`: der weichgestellte
+# Token-Schritt war begruendet, seine Outputs flossen aber nicht in ein `if:`,
+# sondern als `GH_TOKEN: ${{ steps.app_token.outputs.token || … }}` in den
+# Schritt, der das Gate-Urteil faellt. Der Lint meldete „kein stiller
+# Fehlschlag", obwohl ein Ausfall still zum Fallback wurde.
+
+_REALFALL_WERT = f"""
+name: Handover append-only
+on: pull_request
+jobs:
+  auslagerung:
+    runs-on: ubuntu-latest
+    steps:
+      # Kurzlebiger App-Token; ohne App faellt der Job auf GITHUB_TOKEN zurueck
+      # und meldet Fremd-Refs dann als "nicht ermittelbar".
+      - id: app_token
+        name: App-Token
+        {WEICH}
+        uses: actions/create-github-app-token@v3
+      - name: Auslagerung pruefen
+        env:
+          GH_TOKEN: ${{{{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}}}
+        run: python3 scripts/checks/handover_auslagerung_check.py
+"""
+
+
+def test_should_flag_soft_step_whose_outputs_feed_the_gate_step_as_value(tmp_path):
+    """Positivkontrolle am Realfall: Begruendung vorhanden, Fehlerpfad fehlt."""
+    wf = _schreibe(tmp_path, "handover-append-only.yml", _REALFALL_WERT)
+    funde = csf.pruefe_datei(wf)
+    assert [f.art for f in funde] == ["Absturz bleibt still"], [str(f) for f in funde]
+    assert "als Wert" in funde[0].text
+
+
+def test_should_accept_value_consumption_when_the_outcome_is_handled(tmp_path):
+    """Negativkontrolle: derselbe Workflow mit Ausfall-Schritt bleibt still."""
+    mit_pfad = _REALFALL_WERT.replace(
+        "      - name: Auslagerung pruefen\n",
+        "      - name: App-Token-Ausfall melden\n"
+        "        if: ${{ steps.app_token.outcome == 'failure' }}\n"
+        "        run: exit 1\n"
+        "      - name: Auslagerung pruefen\n",
+    )
+    wf = _schreibe(tmp_path, "gut.yml", mit_pfad)
+    assert csf.pruefe_datei(wf) == []
+
+
+def test_should_flag_outputs_passed_on_as_job_outputs_without_outcome(tmp_path):
+    """Job-`outputs` tragen den Wert in andere Jobs — derselbe stille Fallback."""
+    wf = _schreibe(
+        tmp_path,
+        "job_outputs.yml",
+        f"""
+name: Weitergabe
+on: push
+jobs:
+  messen:
+    runs-on: ubuntu-latest
+    outputs:
+      zahl: ${{{{ steps.meter.outputs.zahl }}}}
+    steps:
+      # Weichgestellt, damit der Push nicht rot wird.
+      - id: meter
+        {WEICH}
+        run: echo "zahl=3" >> "$GITHUB_OUTPUT"
+""",
+    )
+    assert any(f.art == "Absturz bleibt still" for f in csf.pruefe_datei(wf))
+
+
+def test_should_not_flag_a_soft_step_whose_outputs_nobody_reads(tmp_path):
+    """Negativkontrolle: begruendet weichgestellt, Outputs ungenutzt — kein Fund."""
+    wf = _schreibe(
+        tmp_path,
+        "ungenutzt.yml",
+        f"""
+name: Ungenutzt
+on: push
+jobs:
+  a:
+    runs-on: ubuntu-latest
+    steps:
+      # Weichgestellt: reiner Hinweis-Schritt, niemand liest seine Outputs.
+      - id: hinweis
+        {WEICH}
+        run: echo hallo
+      - name: weiter
+        run: echo weiter
+""",
+    )
+    assert csf.pruefe_datei(wf) == []

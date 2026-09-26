@@ -55,7 +55,7 @@ NICHT_PROD = ("staging", "dev", "test", "ci", "local", "example")
 # Vokabular kommt aus tools/betriebsstatus.py — dieselbe Quelle wie fuer den
 # Erreichbarkeits- und den TLS-Melder (#2586 K5).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from betriebsstatus import ERKLAERT  # noqa: E402
+from betriebsstatus import ERKLAERT, wirksamer_status  # noqa: E402
 
 
 class Unpruefbar(Exception):
@@ -120,13 +120,17 @@ def zuordnung_aus_ports(ports_yaml: dict) -> dict[str, str]:
 
 
 def erklaerte_container(ports_yaml: dict) -> dict[str, str]:
-    """Containername -> Grundwort, fuer Dienste, die absichtlich nicht laufen."""
+    """Containername -> Grundwort, fuer Dienste, die absichtlich nicht laufen.
+
+    Nur solange die ``betriebsstatus``-Deklaration gilt (#3507) — danach ist der
+    Container wieder ein Waisen-Kandidat.
+    """
     dienste = ports_yaml.get("services", ports_yaml)
     erklaert: dict[str, str] = {}
-    for eintrag in dienste.values():
+    for dienst, eintrag in dienste.items():
         eintrag = eintrag or {}
         name = eintrag.get("container_name")
-        status = eintrag.get("betriebsstatus", "aktiv")
+        status = wirksamer_status(dienst, eintrag)
         if name and status in ERKLAERT:
             erklaert[name] = status
     return erklaert
@@ -146,12 +150,12 @@ def erklaerte_repos(ports_yaml: dict) -> dict[str, str]:
     """
     dienste = ports_yaml.get("services", ports_yaml)
     je_repo: dict[str, set[str]] = {}
-    for eintrag in dienste.values():
+    for dienst, eintrag in dienste.items():
         eintrag = eintrag or {}
         repo = eintrag.get("repo")
         if not repo:
             continue
-        status = eintrag.get("betriebsstatus", "aktiv")
+        status = wirksamer_status(dienst, eintrag)  # #3507: nur mit gueltigem Ablauf
         je_repo.setdefault(str(repo).split("/")[-1], set()).add(status)
 
     erklaert: dict[str, str] = {}

@@ -1,7 +1,7 @@
 ---
 concept_id: KONZ-platform-010
 title: ~/shared als echtes Wegwerf-Element — Benötigtes an durablen SSoT-Orten sichern
-pipeline_status: idea
+pipeline_status: stale   # 2026-09-16: Fristen-Triage (Owner-Regel: idea, review_by verstrichen, >30 Tage unberuehrt) — Re-open jederzeit mit neuem review_by
 tier: T2
 owner: achim-dehnert
 spec_refs: []

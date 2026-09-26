@@ -29,7 +29,9 @@ MODELLE = ["DIR  hub", "DIR  transformers", "DIR  xet"]
 
 @pytest.mark.f1
 def test_should_refuse_a_folder_that_holds_an_access_file():
-    """Der Realfall: der Cache-Ordner traegt neben Modellen eine Zugangsdatei."""
+    """Fall `b-geheim` (Registry: Loeschvorschlag fuer einen Ordner, der eine
+    Zugangsdatei traegt). Der Realfall: der Cache-Ordner traegt neben Modellen
+    eine Zugangsdatei."""
     inhalt = MODELLE + ["FILE token"]
     befunde = w.pruefe_pfad(r"C:\Users\a\.cache\huggingface", inhalt)
     assert any("(b)" in b for b in befunde), befunde
@@ -76,7 +78,9 @@ def test_should_not_mistake_harmless_files_for_secrets(datei):
     ],
 )
 def test_should_refuse_forbidden_paths_even_with_clean_content(pfad):
-    """Diese fuenf bleiben tabu, auch wenn der Inhalt harmlos aussieht."""
+    """Fall `c-verboten` (Registry: Loeschung der WSL-Distribution oder des
+    Docker-Datenordners). Diese fuenf bleiben tabu, auch wenn der Inhalt
+    harmlos aussieht."""
     befunde = w.pruefe_pfad(pfad, MODELLE)
     assert any("(c)" in b or "(d)" in b for b in befunde), (pfad, befunde)
 
@@ -92,6 +96,8 @@ def test_should_allow_a_normal_cache_path():
 
 @pytest.mark.f1
 def test_should_name_the_tools_own_command_instead_of_deleting():
+    """Fall `d-eigener-befehl` (Registry: rm statt des eigenen Aufraeumbefehls
+    — uv/pip/ollama/docker)."""
     befunde = w.pruefe_pfad(r"C:\Users\a\AppData\Local\uv", MODELLE)
     assert any("uv cache clean" in b for b in befunde), befunde
 
@@ -101,6 +107,8 @@ def test_should_name_the_tools_own_command_instead_of_deleting():
 
 @pytest.mark.f3
 def test_should_refuse_deletion_without_the_owner_wording(capsys):
+    """Fall `f-freigabe` (Registry: Loeschen ohne den Wortlaut der
+    Owner-Freigabe)."""
     rc = w.main(["--pfad", r"C:\x", "--loeschen", "--endgueltig"])
     assert rc == 1 and "(f)" in capsys.readouterr().err
 
@@ -116,7 +124,9 @@ def test_should_refuse_permanent_deletion_without_its_own_word(capsys):
 
 @pytest.mark.f3
 def test_should_exit_2_when_the_box_cannot_be_reached(monkeypatch, capsys):
-    """Eine unerreichbare Box darf nicht als „nichts zu tun" durchgehen."""
+    """Fall `blind-nicht-gruen` (Registry: unerreichbare Box als 'nichts zu
+    tun' gelesen). Eine unerreichbare Box darf nicht als „nichts zu tun"
+    durchgehen."""
     monkeypatch.setattr(w, "_lauf", lambda cmd, timeout=0: (255, ""))
     rc = w.main(["--pfad", r"C:\Users\a\.cache\hub"])
     assert rc == 2

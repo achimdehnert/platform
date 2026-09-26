@@ -9,13 +9,14 @@ amends: []
 related: ["ADR-057-platform-test-strategy.md", "ADR-058-platform-test-taxonomy.md"]
 implementation_status: partial
 implementation_evidence:
-  - ".github/actions/gitleaks-scan/action.yml — shared #198-hardened scan (history/dir/sdist modes)"
-  - ".github/actions/resolve-install-extra/action.yml — wrong-extra fail-loud guard"
-  - ".github/workflows/_ci-pypi.yml — library CI reusable (lint/secret/build/test-matrix/security)"
-  - ".github/workflows/_ci-python.yml — secrets-scan rewired to the shared action"
+  - "path: .github/actions/gitleaks-scan/action.yml — shared #198-hardened scan (history/dir/sdist modes)"
+  - "path: .github/actions/resolve-install-extra/action.yml — wrong-extra fail-loud guard"
+  - "path: .github/workflows/_ci-pypi.yml — library CI reusable (lint/secret/build/test-matrix/security); Kanon seit #2103 in iilgmbh/shared-ci"
+  - "path: iilgmbh/shared-ci:.github/workflows/_ci-python.yml — secrets-scan Job nutzt die shared gitleaks-scan Action (platform-Kopie retired via #1437)"
   - "Pre-publish binding gate wired into publish-iil-testkit/-codeguard/-ingest, publish-platform-context, publish-packages (3 prod jobs + testpypi)"
-  - ".github/workflows/pypi-ci-adoption-gate.yml — weekly adoption meter + tracking issue"
-  - "Live-verified (PR #199): gitleaks-scan success on iil-testkit + iil-promptfw throwaway branches (deleted)"
+  - "path: .github/workflows/pypi-ci-adoption-gate.yml — weekly adoption meter + tracking issue"
+  - "pr: platform#199 — live-verified: gitleaks-scan success on iil-testkit + iil-promptfw throwaway branches (deleted)"
+  - "pr: platform#2103 — Amendment: _ci-pypi-Kanon nach iilgmbh/shared-ci"
 ---
 
 # Library CI reusable (`_ci-pypi.yml`) with a mandatory blocking secret-scan for all PyPI-published packages

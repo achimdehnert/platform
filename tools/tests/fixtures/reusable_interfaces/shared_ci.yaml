@@ -1,0 +1,90 @@
+# Schnittstellen-Snapshot der shared-ci-Reusables, die platform-Templates aufrufen
+# (#3406). Gelesen von tools/tests/test_template_reusable_inputs.py — der Test laeuft
+# offline, darum steht hier nur der `workflow_call`-Vertrag (Input-/Secret-Namen +
+# required), nicht der Workflow selbst.
+#
+# Schluessel = exakt der `uses:`-String im Template (Pfad@Tag). Wer einen Pin im
+# Template hebt, muss den neuen Tag hier nachtragen — sonst schlaegt der Test fehl,
+# und das ist gewollt: der Vertrag am neuen Tag ist dann ungeprueft.
+#
+# Nachmessen (Quelle, 2026-09-23):
+#   gh api "repos/iilgmbh/shared-ci/contents/.github/workflows/<datei>?ref=<tag>" \
+#     -H "Accept: application/vnd.github.raw"
+#   → on.workflow_call.inputs / .secrets, je Name das Feld `required`.
+
+iilgmbh/shared-ci/.github/workflows/_ci-python.yml@v1.0.14:
+  inputs:
+    required: []
+    optional:
+      - python_version
+      - coverage_threshold
+      - requirements_file
+      - test_requirements_file
+      - django_settings_module
+      - skip_tests
+      - enable_security_scan
+      - run_contract_tests
+      - platform_context_version
+      - pytest_workers
+      - run_migrations
+      - ruff_version
+      - enable_qm_gate
+      - runs_on
+      - src_dir
+      - postgres_image
+      - lint_soft_fail
+      - migrations_smoke
+  secrets:
+    required: []
+    optional: [PROJECT_PAT]
+
+iilgmbh/shared-ci/.github/workflows/_deploy-hetzner.yml@v1.1.18:
+  inputs:
+    required: [app_name, deploy_path, health_url]
+    optional:
+      - compose_file
+      - env_file
+      - image_tag
+      - web_service
+      - environment
+      - health_check_retries
+      - health_check_interval
+      - enable_rollback
+      - run_migrations
+      - skip_backup
+      - notify_slack
+      - extra_deploy_args
+  secrets:
+    required: [HETZNER_HOST, HETZNER_USER, HETZNER_SSH_KEY]
+    optional:
+      - SLACK_WEBHOOK_URL
+      - SOPS_AGE_KEY
+      - PROJECT_PAT
+      - CF_ACCESS_CLIENT_ID
+      - CF_ACCESS_CLIENT_SECRET
+
+iilgmbh/shared-ci/.github/workflows/_deploy-unified.yml@v1.1.18:
+  inputs:
+    required: [app_name, app_path]
+    optional:
+      - health_check_url
+      - image_tag_override
+      - target_environment
+      - dockerfile_path
+      - import_smoke
+      - notify_discord
+      - runs_on
+      - deploy_runs_on
+  secrets:
+    required: []
+    optional:
+      - DEPLOY_SSH_KEY
+      - DEPLOY_HOST
+      - DEPLOY_USER
+      - DEPLOY_SSH_FINGERPRINT
+      - STAGING_SSH_KEY
+      - STAGING_HOST
+      - STAGING_USER
+      - STAGING_SSH_FINGERPRINT
+      - DISCORD_WEBHOOK
+      - PROJECT_PAT

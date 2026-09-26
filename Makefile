@@ -7,7 +7,7 @@
 #
 # =============================================================================
 
-.PHONY: help menu boards boards-check kette aufraeumen test lint setup windsurf-clean windsurf-status windsurf-force
+.PHONY: help menu boards boards-check kette aufraeumen test lint betrieb-check sevdesk-rechnungslauf sevdesk-zahlungsabgleich sevdesk-kostenabgleich sevdesk-belegbeschaffung setup windsurf-clean windsurf-status windsurf-force
 
 # Default target
 .DEFAULT_GOAL := help
@@ -34,13 +34,22 @@ kette: ## Mail-/Todo-Kette pruefen (Postfach -> Ledger -> Vorhersage -> Board ->
 	@python3 tools/mail_agent/kettencheck.py
 
 boards: ## Mail-Action-Board und Todo-Board neu bauen (beide Ausgaben)
+	@echo $$(date +%s) > /tmp/.mailcheck-boards-start-$$PPID
 	@python3 tools/mail_agent/board.py --pruefe
 	@python3 tools/mail_agent/eintrag_anker.py --kurz || echo "  (Verankerung uebersprungen — Postfach nicht erreichbar)"
-	@python3 tools/mail_agent/ablage_erledigt.py --pruefe || echo "  (Melder: offene Posteingangs-Mails ODER Postfach nicht erreichbar — Zeilen oben lesen)"
+	@ABLAGE_TMP=/tmp/.mailcheck-ablage-pruefe-$$PPID.txt; \
+	python3 tools/mail_agent/ablage_erledigt.py --pruefe >"$$ABLAGE_TMP" 2>&1; ABLAGE_RC=$$?; \
+	cat "$$ABLAGE_TMP"; \
+	[ "$$ABLAGE_RC" = "0" ] || echo "  (Melder: offene Posteingangs-Mails ODER Postfach nicht erreichbar — Zeilen oben lesen)"
 	@python3 tools/mail_agent/faelligkeit.py --schreibe >/dev/null || echo "  (Faelligkeit uebersprungen — Mail-Index nicht erreichbar)"
 	@python3 tools/mail_agent/eintrag_mails.py --schreibe | tail -1 || echo "  (Eintrag-Mail-Zuordnung uebersprungen — Mail-Index nicht erreichbar)"
+	@python3 tools/mail_agent/alterung.py --schreibe | tail -3
 	@python3 tools/mail_agent/board.py --render --nach $(HOME)/.claude/mail-action-board.md
 	@python3 tools/todo_board/todo_board.py build
+	@ABLAGE_TMP=/tmp/.mailcheck-ablage-pruefe-$$PPID.txt; \
+	python3 tools/mail_agent/messjournal.py --schreiben --anwendung alle --ablage-ausgabe "$$ABLAGE_TMP" --gestartet $$(cat /tmp/.mailcheck-boards-start-$$PPID) $(if $(MODELL),--modell $(MODELL),) || { echo "  (Messjournal uebersprungen)"; true; }; \
+	rm -f "$$ABLAGE_TMP" /tmp/.mailcheck-boards-start-$$PPID
+	@python3 tools/mail_agent/verfallsmelder.py || true
 
 boards-check: ## K1-Beleg (#2592): beide Renderer zweimal mit festem Stichtag bauen, byteweise vergleichen
 	@T=$$(mktemp -d) && D=$$(date +%F) && \
@@ -152,11 +161,30 @@ test: ## CI-Test-Suite — SSoT: tools-tests.yml ruft exakt dieses Target (retro
 		tests/test_render_staging.py \
 		tests/doc_profile_check/ \
 		tools/claude-hooks/tests/ \
+		tools/print_agent/tests/ \
 		agents/tests/ \
 		-q
 
 lint: ## Ruff über tools/ + scripts/ (ehrlich: schlägt bei Lint-Schuld fehl)
 	@ruff check tools/ scripts/
+
+betrieb-check: ## K4 (#3015): Backlog-Vorschlag ohne Gegenrede/Alternative wird abgewiesen
+	@python3 tools/betrieb_backlog_check.py --block
+
+rausch-kandidaten: ## Absender ohne Vorgang und ohne Regel (30 Tage) vorschlagen
+	@python3 tools/mail_agent/rausch_kandidaten.py
+
+sevdesk-rechnungslauf: ## #3102: Dry-Run des Vormonats-Rechnungslaufs (liest, schreibt nichts)
+	@python3 tools/sevdesk/rechnungslauf.py --monat --dry-run
+
+sevdesk-zahlungsabgleich: ## K4 (#3102): offene Bankeingaenge/Rechnungen abgleichen, Mahnkandidaten anzeigen (read-only)
+	@python3 tools/sevdesk/zahlungsabgleich.py
+
+sevdesk-kostenabgleich: ## K7 (#3102): Bankabgaenge gegen offene Belege abgleichen, Kontovorschlag (read-only)
+	@python3 tools/sevdesk/kostenabgleich.py
+
+sevdesk-belegbeschaffung: ## K9 (#3102): fehlende Lieferantenbelege aus dem Postfach holen — Vorschau, legt nichts an
+	@python3 tools/sevdesk/belegbeschaffung.py
 
 # =============================================================================
 # DEPLOYMENT (Platzhalter für zukünftige Erweiterung)

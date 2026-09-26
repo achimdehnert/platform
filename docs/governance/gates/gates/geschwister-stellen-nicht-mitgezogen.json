@@ -1,0 +1,32 @@
+{
+  "slug": "geschwister-stellen-nicht-mitgezogen",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": "tools/geschwister_stellen_check.py",
+  "drill": "tools/tests/test_geschwister_stellen_check.py",
+  "built": "2026-09-07",
+  "ref": "platform#2234 Zeile 1/9, platform#2374",
+  "covers": [
+    "partial-fix-not-generalized-to-sibling-artifacts",
+    "new-format-gate-no-existing-file-sweep"
+  ],
+  "note": "Deckt den Slug mit den meisten offenen Vorkommen (x12) und den, der dieselbe Wurzel hat: eine neue Regel wird nur vorwaerts angewandt, der Bestand bleibt stehen. Mechanik ueber den PR-Diff: fuer jede im Diff ENTFERNTE Zeile werden in der neuen Fassung derselben Datei sehr aehnliche Zeilen gesucht (>=0.90 nach Whitespace-Normalisierung), die NICHT mitgeaendert wurden. Realfall a84f71 Befund 1: ein Default-Flip in record() wurde nur an den WARN-Zweigen nachgezogen, zwei fast identische PASS-Zweige blieben stehen und etikettierten fremde Repos weiter als 'platform'. Vier Deckel halten die Fehlalarmquote unten, alle an 150 echten Commits geeicht: hoechstens 2 Zwillinge (drei und mehr sind eine Tabelle, nicht ein vergessener Fix), Zeilen unter 25 Zeichen raus, Zeilen ohne Klammer und ohne Zuweisung raus (Daten-/Port-/Registry-Zeilen), Test- und Fixture-Dateien raus. Ungefiltert feuerte er auf 18 von 150 Commits, gefiltert auf 7 (10 Zeilen) -- in allen zehn stand neben der stehengebliebenen Zeile die fast gleiche, tatsaechlich geaenderte. Was er NICHT sieht: semantische Geschwister in anderen Dateien; das bleibt Judgment.",
+  "faengt": [
+    {
+      "fall": "geaenderte Stelle, deren fast identische Geschwister in derselben Datei stehenblieben (a84f71 #1)",
+      "probe": "sibling"
+    },
+    {
+      "fall": "wiederholte Datenzeilen sind Struktur, kein vergessener Fix",
+      "probe": "table"
+    }
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-09-07",
+  "expires": "2026-10-31",
+  "expires_note": "blocking oder gestrichen bis dahin - Owner-Entscheid E4 (platform#2606).",
+  "positivkontrolle": {
+    "ref": "tools/tests/test_geschwister_stellen_check.py::TestPositivkontrolleRealfallA::test_should_report_the_two_untouched_sibling_branches - Fixture mit vier fast identischen record()-Zweigen, zwei geaendert; die zwei stehengebliebenen PASS-Zweige werden gemeldet (Realfall a84f71 (a)). Gegenprobe test_should_be_clean_when_all_four_branches_were_changed bleibt gruen, ebenso der Tabellen-Deckel (test_should_stay_silent_on_table_like_structures).",
+    "datum": "2026-09-07"
+  }
+}

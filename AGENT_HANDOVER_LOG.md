@@ -3529,3 +3529,94 @@ Der Chat-Rundlauf blieb unbelegt: die Werkzeugliste der Sitzung ist starr.
 Zwei Owner-Ergaenzungen: Mail inhaltlich beantworten ist als Dienst-Kandidat mit
 Entwurfs-Gate eingeordnet (zweite Welle), und chat-hub darf kuenftig iil-assist-hub heissen.
 
+
+
+## 2026-09-10 (nachmittags) — Scan-Strecke geschlossen, Archiv aufgeraeumt
+
+**Scan-Strecke** ([doc-hub#3](https://github.com/achimdehnert/doc-hub/issues/3), geschlossen): der Melder deckt jetzt drei Faelle ab — liegt zu lange (Exit 1), verschwindet ohne Dokument (Exit 4), Aufnahme scheitert (Exit 5, [#3017](https://github.com/achimdehnert/platform/pull/3017)); eine Dublette meldet sichtbar, aber stumm ([#3029](https://github.com/achimdehnert/platform/pull/3029)). **Nicht** ueber `full_audit` auf der Samba-Freigabe — der Weg blieb nach der Vier-Neustarts-Episode zurueckgebaut. Exit 4 hat erstmals an einem echten Ereignis gefeuert ([#3026](https://github.com/achimdehnert/platform/issues/3026), aufgeklaert).
+
+**Archiv aufgeraeumt** (Owner-Auftrag „Vorschlaege zur Optimierung"): ohne Besitzer 546 -> 0, ohne Absender 1149 -> 829, Titel nur Scannernummer 244 -> 91, Absender 30 -> 49, Stichwoerter 114 -> 99. Ursachen: das Ablage-Skript suchte ein Konto `achim`, das es nie gab; und 28 gepflegte Suchbegriffe standen auf „automatisch", wo der Klassifikator bei 30 Absendern auf 211 Beispielen nichts liefert (Gegenprobe ueber Stichwoerter liefert Treffer). Die Skript-Aenderungen liegen NUR auf prod (`/opt/doc-hub/scripts/auto-title.py`, Sicherung `.bak-20260910`) — bekannte Luecke.
+
+**Zwei eigene Fehler, behoben:** `docker exec` ohne `-u paperless` legte 153 Dateien als root an (Suchindex + Ablage), danach scheiterte jeder Einzug und ein echter Scan blieb liegen. Und `scan-melder.yml` schrieb seinen Marker mit Leerzeichen, waehrend `cron_melder_check.py` exakt `ROT-IST-BEFUND` sucht — er wirkte dort nie. Beides in [#3055](https://github.com/achimdehnert/platform/pull/3055), zusammen mit dem woechentlichen Rueckstau-Melder (Posteingang 331, Pruefstapel 57, meldet nur Wachstum).
+
+**Zugang:** Access-Liste fuer `docs.iil.pet` traegt jetzt Firmen- und Hochschul-Adresse plus zwei weitere Personen. Analysen und Rueckweg-Listen liegen in `~/shared/docs-hub/`; offen bleibt [doc-hub#18](https://github.com/achimdehnert/doc-hub/issues/18) (zwei Konten anderer Personen).
+
+**Zielzustand:** erreicht fuer alle freigegebenen Punkte. **SA-4:** 0 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen.
+
+## 2026-09-11 (vormittags) — Go-Liste, Gateway-Transport gemessen, netcup gekuendigt
+
+Die Sitzung begann als Session-Start mit 16 Runner-Befunden und einer Go-Liste des Owners.
+Sechs Punkte ausgefuehrt (zwei Merges, zwei Dienst-Neustarts, Journal-Anker, risk-hub-Prod),
+zwei vom Freigabe-Filter geblockt und per `!` an den Owner uebergeben. netcup ist gekuendigt:
+Runner geloescht, Host in hosts.yaml als ehemalig gefuehrt — der Push haengt an einem
+vorbestehenden Audit-Befund (todo-board), fuer den ein Ausnahme-Wort fehlt.
+
+Das Sitzungsziel (Chat- und App-Funktionen, iil-assist) endete mit dem ersten echten Messwert:
+der Gateway erreicht keinen Hub. Kein SSH im Container, kein Zugang prod → prod-b, Routing-Datei
+nicht gemountet. Die Tests hatten den Transport gemockt. Entscheidungsvorlage mit drei Wegen in
+#3011, Empfehlung Dienst-Route je Hub mit Access-Dienst-Token. Eine Memory-Datei dazu
+(„deployt heisst nicht Transport begehbar"), eine Ergaenzung zur autoMode-Regel-Falle.
+
+Zwei Werkzeugbefunde: `repo-session.sh start` gibt den Pfad nicht als letzte Zeile aus
+(`tail -1` traf eine PR-Zeile); beide Worktrees der Sitzung waren am Morgen entfernt, obwohl
+ein PR offen und Commits ungepusht waren — Branches blieben, Ursache offen.
+
+**Fremder Blick (0h):** Abnahme-Agent — fünf von fünf Kriterien erfuellt, je mit Beleg aus
+mcp-hub#264, #3011 und #3071; Grauton D2-Status behoben. Clear-Haerte-Agent — drei Luecken
+(0h-Ergebnis nur angekuendigt, Sitzungs-ID ohne dauerhaften Anker, Faeden 22/24 ohne Link),
+alle im selben Zug geschlossen. Anker: pgvector `session:platform:20260911:577a8b8c`,
+Outline-Lesson `…-ZqOAZ2fog7`, Konzept `…-spbZ8iixmq`, Worktree-Befund platform#3089.
+
+
+## 2026-09-13 — sevdesk-Belegstrecke K9, EDV-Rechnungen fortgeschrieben, Eigenbelege
+
+Sitzungsziel (Owner): „arbeiten mit sevdesk optimieren — Belege aus IIL-Account holen, aus den
+Dienstleister-Domains holen, zuordnen, Verbuchung vorbereiten". Gebaut als K9 in #3102:
+`belegbeschaffung.py` mit Register, Postfach- und Ablage-Weg, Mandanten-Routing, Dedup ueber
+beide Bestaende, Steuer aus dem PDF (vier PRs, alle unter SA-M gemergt). Echtlauf legte 20
+Entwuerfe an; dazu 11 Scribd-Eigenbelege und 9 IIL-Eingangsbelege fuer EDV-Rechnungen.
+
+EDV → IIL: Monatspaket war bis November 2025 abgerechnet, neun Monatsentwuerfe angelegt; der
+Versand per API blieb am Freigabe-Filter haengen (auch das Ablegen des Skripts) — der Owner
+sendete selbst, acht von neun. Fuenf 2025er-Rechnungen sind unbezahlt.
+
+Drei Werkzeugbefunde: Merge-502 mit Commit auf main (#3117, per REST geschlossen);
+`ruff format --check` per Pipe maskiert; Subagent-Commit mit erfundener Issue-Nummer.
+Owner-Entscheide des Tages (Konten, Mandanten, Scribd) liegen im lokalen Register und in der
+Memory-Datei `project_sevdesk_invoice_pipeline`. Fremder Blick (0h): Ergebnis unten.
+
+**Fremder Blick (0h):** Abnahme-Agent — 6 von 7 K9-Kriterien ERFUELLT mit Beleg (Register,
+PDF-Felder, status 50 fest, Idempotenz, Listen, Out of Scope), Massstab NICHT ERFUELLT: der
+Echtlauf-Kommentar nannte Rohzahlen statt des Anteils gegen die 17 Lieferanten-Abgaenge;
+nachgetragen als 2/17 (beide vorbestehend, Belegquelle fehlt). Clear-Haerte-Agent — Frage 1 JA
+(Zielabgleich und Bibliocad-Konto widerspruechlich), Fragen 2/3 NEIN; fuenf Luecken benannt,
+alle im selben Zug geschlossen (Issue-Kommentar, Memory, dieser Absatz). Sitzungs-ID
+b5c8d6c1, pgvector `session:platform:20260913:20260913-b5c8d6c1`, Outline-Lesson
+`2026-09-13-merge-502-…-s2mpZVEXNR`, Konzept `sevdesk-routinen-…-HKE7rEpwyY` aktualisiert.
+
+## 2026-09-13 (abends) — EDV-Konto abgeglichen, Buchungslaeufe, Vorzeichen-Fehler repariert
+
+Nach dem Session-Ende vom Mittag ging es mit dem EDV-Konto weiter: 94 Abgaenge ohne Beleg,
+Register um Mail-, Portal- und Privat-Wege ergaenzt, 71 EDV-Entwuerfe (Mail, Ablage, Paperless-
+Tankbelege, 14 ohne Dokument wie die Handbuchungen). Fuenf PRs (#3131, #3133, #3134, #3136,
+#3138), alle unter SA-M gemergt, jeweils CI-Ergebnis vor dem Merge gelesen.
+
+Eigener Fehler: der erste echte Buchungslauf uebergab den Zahlbetrag positiv — sevdesk erwartet
+ihn bei Ausgaben negativ; 25 Belege standen auf teilbezahlt mit doppeltem Offenbetrag. Sofort
+gemeldet, per resetToOpen + Neubuchung repariert, jeder Beleg verifiziert; Fix im Werkzeug mit
+Vorzeichen-Test; Regel im Memory: erste Echtbuchung eines Schreibpfads an EINEM Beleg.
+Danach IIL: ein Beleg einzeln, dann fuenf weitere. Gesamt 31 Zuordnungen gebucht.
+Anker: pgvector `session:platform:20260913:20260913-b5c8d6c1` (Mittag), Issue-Kommentar #3102.
+
+## 2026-09-14 — Auftrag #3149: Secret-Leser Fleet, Groq rotiert, Gate-Revisionen, Räume (Sitzung 0117JBQX)
+
+Mailcheck 13.09. (97 Vorgänge, 6 neu, Ablage 7, Rausch-Regeln 66 → 225 Mails abgelegt), V1–V10 gebaut und gemergt, #3015 geschlossen und nach Retro-Befund zu K3 wieder geöffnet, Akte korrigiert (news-hub#51), erneut geschlossen. Groq-Schlüssel: Leck durch Sourcing einer bare-Datei, Owner rotiert, Verteilskript mit gepinnten Image-Tags und Schutz gegen Stack-Neuerzeugung; Variablenkonflikt im ersten Lauf, zweiter Lauf vollständig; Canary 200, Tageslauf 4 Themen, alte Schlüssel 401. S2: toleranter Leser platform #3141, 10 Fleet-PRs, Nachzügler, Schlüsseldateien bare 56 → 0, Hooks neu verteilt. Retro deep #3156 fand stillen Fehler in 5 Kopien → Fixture #3157 + 9 Kopien; Staging-Gate fing Startabbruch (risk-hub#753) und minio-Pull (#754). Gate-Revisionen #3160. Matrix: Räume zusammengelegt, Termine integriert mit Kalender anlegen/löschen (chat-hub#93, platform#3163); doppelte Raum-Session beendet → chat-hub#94. Worktree-Aufräumen per Datum traf fremde Worktrees; fsck-Positivkontrolle zeigte blinden deutschen Filter; nichts verloren (#3164). Zwei alte fremde Worktrees mit ungesicherter Arbeit behalten (Grund in `<gitdir>/behalten`).
+Anker: pgvector `session:platform:20260914:0117jbqx`; Outline-Lessons 2026-09-13 (Sourcing-Leck, Deploy vor Build) und 2026-09-14 (Worktree/fsck, Settings-Pfad-Fehler).
+
+## 2026-09-14 (nachmittags) — Räume zusammengelegt, Zeitungs-Vertiefung live (Sitzung d8da3b26)
+
+Session-Start fand drei Owner-Zurufe im Auftragsraum (Antwort-Entwürfe, ein Ledger-Kurzbefehl); verankert als #3150/#3151, Sortierer-Lücken als #3152. Owner-Frage nach überlappenden Räumen → Zusammenlegung zu „Achim / Lotse" (chat-hub#90/#91, platform#3154), Umhängen auf dem Host, Briefing-Erstlauf im neuen Raum. Antwort-Entwürfe geschrieben, vom Owner gesendet; Kapitel 4+5 einer Masterthesis gelesen, Feedback auf Owner-Korrektur auf eine Seite gekürzt (Schreibstil-Beobachtung #3162).
+
+Morgen-Zeitung: Owner-Frage nach Vertiefung je Beitrag → gebaut in news-hub (#56, #58, #59): Datenmodell, Web-Knopf, Timer, Chat-Kommandos, Quellen-Links; Review fand Analyse aus reinen Überschriften, nachgebessert (Auszüge Pflicht). Dabei entdeckt: news.iil.pet ohne Zugriffsschutz → Cloudflare Access angelegt (news-hub#54). Probe in Prod: 8 Quellen, 191 Wörter. Chat-Vollmacht im Raum-Brief (chat-hub#95), Sperre gegen Doppel-Sessions (chat-hub#94/#96). news-hub-Haupt-Tree aktualisiert, 15 Tage alter Stand auf Branch gesichert (#53, Anker in #33).
+
+Eigene Fehler: `cd` in gelöschten Worktree lief im platform-Haupt-Tree weiter (Guard fing den Wechsel, leerer Branch gelöscht); Access-Status aus Code-Kommentar übernommen statt geprüft; unbegründeter Freigabe-Vermerk in #3162 (vor Merge entfernt); zwei unnötige Merge-Rückfragen (Memory `feedback_no_unnecessary_approval_when_solution_is_known` ergänzt).

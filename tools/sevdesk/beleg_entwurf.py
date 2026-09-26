@@ -16,41 +16,95 @@ Werkzeug macht sie dauerhaft:
 - Konto NUR bei eindeutigem ``GET /AccountDatev``-Treffer auf die NUMMER; ohne
   ``--konto`` bleibt das Feld leer (kein Raten — 🌀 6310-statt-6837-Realfall).
 - ``taxRule`` nested (Update 2.0); ``taxType`` würde stillschweigend verworfen.
+  Bekannt sind 9 (Vorsteuer), 10 (ohne Vorsteuerabzug), 12/13 (Reverse Charge
+  Drittland, mit/ohne Vorsteuerabzug) und 14 (Reverse Charge EU).
 - Dedup über ``description`` (= Rechnungsnummer/-kennung) gegen den Bestand: existiert
   ein Beleg mit identischer description, wird NICHT erneut angelegt (K5 Idempotenz).
 
-    python3 tools/sevdesk/beleg_entwurf.py --pdf r.pdf --lieferant "Groq LLC" \
-        --datum 2026-08-06 --brutto 12.34 --steuer 0.00 --beschreibung GROQ-2026-08 \
-        --taxrule 12 [--konto 6837]
+    python3 tools/sevdesk/beleg_entwurf.py --pdf r.pdf --lieferant "Beispiel LLC" \
+        --datum 2026-08-06 --brutto 12.34 --steuer 0.00 --beschreibung BEISPIEL-2026-08 \
+        --taxrule 12 [--konto 6837] [--mandant edv]
+
+``--mandant iil|edv`` (Standard iil, auch per ``SEVDESK_MANDANT``) wählt den
+sevdesk-Zugang über ``mandant.py`` — Rechnungen, die auf die zweite Firma
+lauten, gehören in deren Mandanten und waren vorher gar nicht anlegbar
+(#3112). Der Kontenhilfe-Cache liegt je Mandant getrennt.
+
+## Erweiterungen K6 (platform#3102) — Vorschlag statt Raten, Validierung, Messung
+
+Alle vier Punkte sind Zusatzoptionen; ein Aufruf ohne sie verhält sich exakt wie oben.
+
+- ``--konto-vorschlag``: schlägt bis zu drei Konten vor (Regeln aus
+  ``~/.claude/sevdesk-konten.json`` zuerst, dann ``GET /ReceiptGuidance/forExpense``
+  über Wortüberschneidung mit der Beschreibung — lokal gecacht 30 Tage unter
+  ``~/.claude/sevdesk-receipt-guidance.json``). **Der Vorschlag setzt nie selbst ein
+  Konto** — ohne ``--konto`` bleibt das Feld wie bisher leer, der Vorschlag steht nur
+  in Ausgabe und Journal. Owner bestätigt über ``--konto``.
+- Ist ``--konto`` gesetzt, prüft ``GET /ReceiptGuidance/forAccountNumber``, ob das Konto
+  existiert und die gewählte ``--taxrule`` dort erlaubt ist; sonst Abbruch außer
+  ``--trotzdem``.
+- Dedup-Softcheck: zusätzlich zur harten description-Prüfung ein Warnhinweis bei
+  gleichem Bruttobetrag + gleichem Datum (+ gleichem Lieferanten, falls angegeben)
+  unter den letzten 500 Belegen — Dauerrechnungen mit gleichem Betrag sind legitim,
+  darum nur Warnung; ``--strikt`` macht daraus einen Abbruch.
+- ``--dry-run``: alle Prüfungen/Vorschläge laufen, es wird nichts hochgeladen oder
+  angelegt (kein POST). ``--auswertung [N]``: legt nichts an, liest stattdessen
+  ``~/.claude/sevdesk-belege-journal.jsonl`` und gibt die Trefferquote
+  Vorschlag-1 / Vorschlag-in-Top-3 über die letzten N Läufe aus (K6-Messpunkt).
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
+import re
 import sys
+import time
+from datetime import date, datetime, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from mandant import STANDARD_MANDANT, mandant_argument  # noqa: E402
+from mandant import client as mandant_client  # noqa: E402
+import paperless  # noqa: E402
+
 API = "https://my.sevdesk.de/api/v1"
-TOKEN_DATEI = Path.home() / ".secrets" / "sevdesk_api_token"
+
+#: Personenbezogene Kontenzuordnung des Owners — NIE ins Repo, Vorlage daneben.
+KONTEN_DATEI = Path.home() / ".claude" / "sevdesk-konten.json"
+#: Lokaler Cache für GET /ReceiptGuidance/forExpense (ein API-Call pro Tag reicht).
+GUIDANCE_CACHE = Path.home() / ".claude" / "sevdesk-receipt-guidance.json"
+GUIDANCE_MAX_ALTER_TAGE = 30
+#: Messjournal (K6) — Beschreibung nur gehasht, nie im Klartext.
+JOURNAL_DATEI = Path.home() / ".claude" / "sevdesk-belege-journal.jsonl"
+#: Wörter kürzer als das zählen nicht als Treffer gegen eine Kontobezeichnung.
+WORT_MIN_LAENGE = 4
 
 #: GET /TaxRule, verifiziert 2026-07-28: 9 = Vorsteuerabziehbare Aufwendungen ·
 #: 12 = Reverse Charge §13b Abs. 2 Drittland · 14 = Reverse Charge §13b Abs. 1 EU.
-TAXRULES_BEKANNT = {"1", "9", "12", "14"}
+#: Ergänzt 2026-09-13 (im Mandanten edv per GET /TaxRule geprüft):
+#: 10 = Nicht vorsteuerabziehbare Aufwendungen — für Eigenbelege ohne
+#: Vorsteuerausweis (Anbieter stellt keine Rechnung, der Beleg stammt aus dem
+#: Transaktionsverlauf) · 13 = Reverse Charge ohne Vorsteuerabzug.
+#: Ergänzt 2026-09-16 (#3271, ReceiptGuidance/forAccountNumber 2100 im Mandanten
+#: iil): 16 = Nicht steuerbar — einzige erlaubte Regel für 2100 Privatentnahmen,
+#: z. B. der Privatanteil einer Sammelüberweisung.
+TAXRULES_BEKANNT = {"1", "9", "10", "12", "13", "14", "16"}
 
 
-def token_lesen(pfad: Path = TOKEN_DATEI) -> str:
-    """Datei ist KEY=WERT — die ganze Zeile als Header gibt 401 bei gültigem Token."""
-    roh = pfad.read_text(encoding="utf-8").strip()
-    return roh.split("=", 1)[1] if "=" in roh else roh
+def _client(mandant: str = STANDARD_MANDANT):
+    """httpx.Client für den gewählten Mandanten (#3112).
 
-
-def _client():
-    import httpx
-
-    return httpx.Client(
-        base_url=API, headers={"Authorization": token_lesen()}, timeout=30
-    )
+    Der Zugang liegt seit dieser Änderung **nur noch** in ``mandant.py`` —
+    vorher las dieses Werkzeug die IIL-Token-Datei selbst, und genau das machte
+    Belege der zweiten Firma unanlegbar. Der Standard bleibt ``iil``, damit die
+    Schwesterwerkzeuge (``rechnungslauf.py``, ``zahlungsabgleich.py``,
+    ``rechnung_entwurf.py``), die ``_client()`` ohne Argument rufen, sich
+    unverändert verhalten.
+    """
+    return mandant_client(mandant)
 
 
 def konto_aufloesen(client, nummer: str) -> dict | None:
@@ -66,17 +120,375 @@ def konto_aufloesen(client, nummer: str) -> dict | None:
     return {"id": treffer[0]["id"], "objectName": "AccountDatev"}
 
 
-def duplikat(client, beschreibung: str) -> str | None:
-    """Bestehenden Beleg mit identischer description finden (Bestand, neueste 500)."""
+def kostenstellen_laden(client) -> list[dict]:
+    r = client.get("/CostCentre", params={"limit": 200})
+    r.raise_for_status()
+    return r.json()["objects"]
+
+
+def kostenstelle_aufloesen(client, name: str) -> dict | None:
+    """CostCentre zum NAMEN (oder ``name id``) — eindeutig oder gar nicht, nie raten.
+
+    Owner-Konvention 2026-09-21: Kostenstellen heissen wie die Paperless-Tags
+    (``macan``, ``x4``, ``8er``), damit die Zuordnung Namensgleichheit ist und
+    keine Mapping-Tabelle braucht.
+    """
+    k = paperless.kostenstelle_aus_tags([name], kostenstellen_laden(client))
+    if k is None:
+        print(
+            f"⚠ Kostenstelle '{name}': kein eindeutiger CostCentre-Treffer — Feld bleibt leer."
+        )
+        return None
+    return {"id": k["id"], "objectName": "CostCentre"}
+
+
+KATEGORIE_LIEFERANT = 2  # GET /Category objectType=Contact: 2 Lieferant, 3 Kunde
+
+
+def kontakt_finden(client, name: str) -> dict | None:
+    """Kontakt zum Lieferantennamen — Teilstring in beide Richtungen, Gross/Klein
+    egal; genau ein Treffer oder None (nie raten)."""
+    r = client.get("/Contact", params={"limit": 1000, "depth": 1})
+    r.raise_for_status()
+    such = _dedup_schluessel(name)
+    treffer = []
+    for k in r.json()["objects"]:
+        kn = _dedup_schluessel(k.get("name") or "")
+        if kn and (such in kn or kn in such):
+            treffer.append(k)
+    return treffer[0] if len(treffer) == 1 else None
+
+
+def kontakt_anlegen(client, name: str, bankdaten: dict) -> dict:
+    """Legt einen Lieferanten-Kontakt an (#3342) — mit IBAN/BIC/USt-ID/Steuernr.,
+    soweit im Rechnungstext gefunden. Ohne Kontakt kann sevdesk den Beleg nicht
+    aus der Oberflaeche heraus bezahlen (Bankverbindung leer)."""
+    daten = {
+        "name": name,
+        "category": {"id": KATEGORIE_LIEFERANT, "objectName": "Category"},
+        "status": 100,
+    }
+    if bankdaten.get("iban"):
+        daten["bankAccount"] = bankdaten["iban"]
+    if bankdaten.get("bic"):
+        daten["bankNumber"] = bankdaten["bic"]
+    if bankdaten.get("ustid"):
+        daten["vatNumber"] = bankdaten["ustid"]
+    if bankdaten.get("steuernummer"):
+        daten["taxNumber"] = bankdaten["steuernummer"]
+    r = client.post("/Contact", json=daten)
+    r.raise_for_status()
+    return r.json()["objects"]
+
+
+def konto_validieren(client, konto: str, taxrule: str) -> tuple[bool, str]:
+    """Prüft Konto + taxRule gegen GET /ReceiptGuidance/forAccountNumber.
+
+    Kein Ersatz für ``konto_aufloesen`` (das bleibt die Quelle für die
+    AccountDatev-ID) — dies ist die zusätzliche fachliche Prüfung: existiert das
+    Konto laut Guidance, und passt die gewählte Steuerregel dazu.
+
+    Zwei Formabweichungen der sevdesk-Antwort, beide per Echtprobe 2026-09-12
+    belegt (K6-Fix, platform#3102) — der alte Code nahm eine Liste von Dicts
+    mit ``allowedTaxRules`` als Liste von Dicts an und warf AttributeError:
+    - ``objects`` ist bei genau einem Treffer ein EINZELNES Dict, keine Liste
+      (Konten 6035/6110/6837 real geprüft) — ``for o in objekte`` iterierte
+      sonst über die Dict-KEYS (Strings) statt über das Objekt selbst.
+    - ``allowedTaxRules`` kann Dicts (``{"id": 9, ...}``, real beobachtet) ODER
+      einfache String/Int-IDs enthalten — beide Formen werden akzeptiert.
+    """
+    r = client.get("/ReceiptGuidance/forAccountNumber", params={"accountNumber": konto})
+    if r.status_code == 422:
+        return False, f"Konto {konto}: sevdesk kennt dieses Konto nicht (422)."
+    r.raise_for_status()
+    objekte = r.json().get("objects") or []
+    if isinstance(objekte, dict):
+        objekte = [objekte]
+    if not objekte:
+        return False, f"Konto {konto}: keine ReceiptGuidance-Daten gefunden."
+    erlaubt = {
+        str(regel["id"]) if isinstance(regel, dict) else str(regel)
+        for o in objekte
+        for regel in (o.get("allowedTaxRules") or [])
+    }
+    if str(taxrule) not in erlaubt:
+        return False, (
+            f"Konto {konto}: taxRule {taxrule} laut ReceiptGuidance nicht erlaubt "
+            f"(erlaubt: {sorted(erlaubt)})."
+        )
+    return True, ""
+
+
+def beleg_bestand(client) -> list[dict]:
+    """Letzte 500 Belege — Grundlage für Dedup (description) und Softcheck."""
     r = client.get(
         "/Voucher",
         params={"limit": 500, "offset": 0, "order[create]": "desc", "embed": ""},
     )
     r.raise_for_status()
-    for v in r.json()["objects"]:
-        if (v.get("description") or "").strip() == beschreibung:
+    return r.json()["objects"]
+
+
+#: Ab dieser Länge gilt eine Kennung als für sich sprechend genug, um als
+#: Teilstring einer fremden Beschreibung einen Dedup-Treffer zu rechtfertigen.
+#: Darunter bleibt es beim exakten Vergleich — "0025" steckt sonst in jeder
+#: zweiten Beschreibung.
+NUMMER_MIN_TEILSTRING = 6
+
+
+def _dedup_schluessel(text: str) -> str:
+    """Vergleichsform einer Beschreibung: klein, ohne Leerraum."""
+    return re.sub(r"\s+", "", (text or "")).lower()
+
+
+def duplikat(belege: list[dict], beschreibung: str) -> str | None:
+    """Bestehenden Beleg zur selben Rechnung finden (harter Dedup, K5).
+
+    Der exakte Vergleich allein greift zu kurz: im Bestand stehen gewachsene
+    Beschreibungen wie "<Anbieter> Invoice <Nummer> — <Zeitraum>", während
+    dieses Werkzeug nur die nackte Nummer schreibt. Die Rechnung ist dieselbe,
+    der Vergleich scheiterte — und legte einen zweiten Beleg an (#3118).
+    Deshalb zählt ab ``NUMMER_MIN_TEILSTRING`` Zeichen auch, wenn die eine
+    Kennung in der anderen steckt; kurze Kennungen bleiben beim exakten
+    Vergleich, sonst trifft "0025" die halbe Ablage.
+    """
+    ziel = _dedup_schluessel(beschreibung)
+    for v in belege:
+        vorhanden = _dedup_schluessel(v.get("description"))
+        if not ziel or not vorhanden:
+            continue
+        if vorhanden == ziel:
+            return v["id"]
+        if len(ziel) < NUMMER_MIN_TEILSTRING:
+            continue
+        if ziel in vorhanden:
+            return v["id"]
+        # Gegenrichtung nur fuer echte Kennungen: eine Beschreibung, die nur
+        # aus einem Wort besteht ("scribd"), steckt in JEDER Eigenbeleg-Kennung
+        # desselben Anbieters — 13 falsche Dubletten am 2026-09-13.
+        if (
+            len(vorhanden) >= NUMMER_MIN_TEILSTRING
+            and any(ch.isdigit() for ch in vorhanden)
+            and vorhanden in ziel
+        ):
             return v["id"]
     return None
+
+
+def dedup_softcheck(
+    belege: list[dict], brutto: float, datum: str, lieferant: str | None
+) -> str | None:
+    """Warnt bei gleichem Bruttobetrag + Datum (+ Lieferant) unter anderer description.
+
+    Dauerrechnungen mit identischem Betrag sind legitim — deshalb nur ein Warnhinweis,
+    kein automatischer Abbruch (den erzwingt ausschließlich ``--strikt``).
+    """
+    for v in belege:
+        try:
+            gross = round(float(v.get("sumGross") or 0), 2)
+        except (TypeError, ValueError):
+            continue
+        if gross != brutto:
+            continue
+        if (v.get("voucherDate") or "")[:10] != datum:
+            continue
+        if lieferant:
+            bestand_lieferant = (v.get("supplierName") or "").strip().lower()
+            if bestand_lieferant != lieferant.strip().lower():
+                continue
+        return v["id"]
+    return None
+
+
+def guidance_cache_pfad(mandant: str = STANDARD_MANDANT) -> Path:
+    """Cache-Datei je Mandant; ``iil`` behält den bisherigen Pfad (kein
+    unnötiger Neuaufbau eines gültigen Caches). Der Kontenrahmen ist je
+    Mandant ein anderer — ein gemeinsamer Cache schlüge dem zweiten Mandanten
+    die Konten des ersten vor."""
+    if mandant == STANDARD_MANDANT:
+        return GUIDANCE_CACHE
+    return GUIDANCE_CACHE.with_name(f"{GUIDANCE_CACHE.stem}-{mandant}.json")
+
+
+def regeln_laden(pfad: Path) -> list[dict]:
+    """Owner-Kontenzuordnung (Lieferant/Beschreibung → Konto) — Vorlage im Repo,
+    echte Datei personenbezogen unter ``~/.claude`` (nie ins Repo)."""
+    if not pfad.exists():
+        return []
+    try:
+        daten = json.loads(pfad.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+    return daten.get("regeln") or []
+
+
+def guidance_laden(
+    client,
+    cache_pfad: Path,
+    max_alter_tage: int = GUIDANCE_MAX_ALTER_TAGE,
+    heute: date | None = None,
+) -> list[dict]:
+    """GET /ReceiptGuidance/forExpense, lokal gecacht (Alter > max_alter_tage → neu)."""
+    heute = heute or date.today()
+    if cache_pfad.exists():
+        try:
+            cache = json.loads(cache_pfad.read_text(encoding="utf-8"))
+            alter = (heute - date.fromisoformat(cache["datum"])).days
+            if alter <= max_alter_tage:
+                return cache["objects"]
+        except (json.JSONDecodeError, KeyError, ValueError):
+            pass
+    r = client.get("/ReceiptGuidance/forExpense")
+    r.raise_for_status()
+    objekte = r.json().get("objects") or []
+    cache_pfad.parent.mkdir(parents=True, exist_ok=True)
+    cache_pfad.write_text(
+        json.dumps(
+            {"datum": heute.isoformat(), "objects": objekte}, ensure_ascii=False
+        ),
+        encoding="utf-8",
+    )
+    return objekte
+
+
+#: Rechtsformen etc. — stehen in praktisch jedem Lieferantennamen und wären sonst ein
+#: Treffer gegen JEDE Kontobezeichnung, die zufällig dasselbe Wort enthält (Echtprobe
+#: 2026-09-12: "gmbh" aus "Synthetik-Test GmbH" traf "... GmbH-Gesellschafter").
+STOPWOERTER = {"gmbh", "mbh", "haftungsbeschraenkt"}
+
+
+def _woerter(text: str) -> set[str]:
+    return {
+        w
+        for w in re.findall(r"[a-zäöüß]+", text.lower())
+        if len(w) >= WORT_MIN_LAENGE and w not in STOPWOERTER
+    }
+
+
+def vorschlaege(
+    lieferant: str, beschreibung: str, regeln: list[dict], guidance: list[dict]
+) -> list[dict]:
+    """Bis zu drei Kontovorschläge: Regel-Treffer zuerst, dann Guidance über Wortmatch.
+
+    Setzt NIE selbst ein Konto — reine Entscheidungshilfe für den Owner.
+    """
+    haystack = f"{lieferant} {beschreibung}".lower()
+    ergebnis: list[dict] = []
+    gesehene_konten: set[str] = set()
+
+    for regel in regeln:
+        muster = regel.get("muster", "")
+        if not muster or not re.search(muster, haystack):
+            continue
+        konto = str(regel.get("konto", "")).strip()
+        if not konto or konto in gesehene_konten:
+            continue
+        begruendung = f"Regel '{muster}' trifft"
+        if regel.get("anmerkung"):
+            begruendung += f" ({regel['anmerkung']})"
+        ergebnis.append(
+            {
+                "konto": konto,
+                "bezeichnung": regel.get("bezeichnung", ""),
+                "quelle": "Regel",
+                "begruendung": begruendung,
+            }
+        )
+        gesehene_konten.add(konto)
+        if len(ergebnis) >= 3:
+            return ergebnis
+
+    woerter = _woerter(f"{lieferant} {beschreibung}")
+    if woerter:
+        kandidaten = []
+        for obj in guidance:
+            name = str(obj.get("accountName", ""))
+            beschr = str(obj.get("description", ""))
+            treffer = woerter & _woerter(f"{name} {beschr}")
+            if not treffer:
+                continue
+            konto = str(obj.get("accountNumber", "")).strip()
+            if not konto or konto in gesehene_konten:
+                continue
+            kandidaten.append((len(treffer), konto, name, sorted(treffer)))
+        kandidaten.sort(key=lambda t: (-t[0], t[1]))
+        for _, konto, name, treffer_woerter in kandidaten:
+            if len(ergebnis) >= 3:
+                break
+            ergebnis.append(
+                {
+                    "konto": konto,
+                    "bezeichnung": name,
+                    "quelle": "Guidance",
+                    "begruendung": f"Kontobezeichnung enthält {', '.join(treffer_woerter)}",
+                }
+            )
+            gesehene_konten.add(konto)
+
+    return ergebnis
+
+
+def _journal_zeile(
+    args,
+    *,
+    konto_gesetzt: bool,
+    vorschlaege_liste: list[dict],
+    dedup_treffer: str | None,
+    dauer_s: float,
+) -> dict:
+    vorschlag_konten = [v["konto"] for v in vorschlaege_liste]
+    return {
+        "zeit": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "mandant": getattr(args, "mandant", STANDARD_MANDANT),
+        "beschreibung_hash": hashlib.sha256(
+            args.beschreibung.encode("utf-8")
+        ).hexdigest()[:16],
+        "konto_gesetzt": konto_gesetzt,
+        "vorschlaege": vorschlag_konten,
+        "vorschlag_treffer_1": bool(args.konto)
+        and bool(vorschlag_konten)
+        and args.konto == vorschlag_konten[0],
+        "vorschlag_top3": bool(args.konto) and args.konto in vorschlag_konten,
+        "taxrule": args.taxrule,
+        "dedup_treffer": dedup_treffer,
+        "dauer_s": round(dauer_s, 3),
+    }
+
+
+def journal_schreiben(zeile: dict, pfad: Path) -> None:
+    pfad.parent.mkdir(parents=True, exist_ok=True)
+    with pfad.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(zeile, ensure_ascii=False) + "\n")
+
+
+def auswertung_text(pfad: Path, n: int | None) -> str:
+    """K6-Messpunkt: Trefferquote Vorschlag-1 / Vorschlag-in-Top-3 über die letzten N."""
+    if not pfad.exists():
+        return "Kein Journal vorhanden — noch kein Lauf protokolliert."
+    zeilen = [
+        json.loads(z)
+        for z in pfad.read_text(encoding="utf-8").splitlines()
+        if z.strip()
+    ]
+    if n is not None:
+        zeilen = zeilen[-n:]
+    vergleichbar = [
+        z for z in zeilen if z.get("konto_gesetzt") and z.get("vorschlaege")
+    ]
+    basis = len(vergleichbar)
+    if basis == 0:
+        return (
+            f"Keine vergleichbaren Läufe (Konto gesetzt UND Vorschlag vorhanden) "
+            f"unter {len(zeilen)} Journal-Zeilen."
+        )
+    treffer_1 = sum(1 for z in vergleichbar if z.get("vorschlag_treffer_1"))
+    treffer_top3 = sum(1 for z in vergleichbar if z.get("vorschlag_top3"))
+    return (
+        f"Basis: {basis} vergleichbare Läufe von {len(zeilen)} Journal-Zeilen.\n"
+        f"Vorschlag-1-Trefferquote: {treffer_1}/{basis} ({treffer_1 / basis:.0%})\n"
+        f"Vorschlag-in-Top-3-Trefferquote: {treffer_top3}/{basis} "
+        f"({treffer_top3 / basis:.0%})"
+    )
 
 
 def _dd_mm_yyyy(iso: str) -> str:
@@ -85,7 +497,16 @@ def _dd_mm_yyyy(iso: str) -> str:
     return f"{t_}.{m}.{j}"
 
 
+def _kontakt_anzeige(args, kontakt, kontakt_neu: bool, bankdaten: dict) -> dict | None:
+    if not getattr(args, "kontakt", False):
+        return None
+    if kontakt:
+        return {"id": kontakt["id"], "name": kontakt.get("name"), "neu": False}
+    return {"name": args.lieferant, "neu": True, "bankdaten": sorted(bankdaten)}
+
+
 def anlegen(args) -> int:
+    start = time.monotonic()
     brutto = round(float(args.brutto), 2)
     steuer = round(float(args.steuer), 2)
     netto = round(brutto - steuer, 2)
@@ -96,23 +517,146 @@ def anlegen(args) -> int:
         print(f"ABBRUCH: taxRule {args.taxrule} nicht in {sorted(TAXRULES_BEKANNT)}.")
         return 2
 
-    client = _client()
-    vorhanden = duplikat(client, args.beschreibung)
+    # getattr statt args.mandant: ``belegbeschaffung.py`` baut den Namespace
+    # selbst zusammen und darf dabei ein Feld weglassen, ohne hier zu brechen.
+    mandant = getattr(args, "mandant", STANDARD_MANDANT)
+    client = _client(mandant)
+    kostenstelle = None
+    if getattr(args, "kostenstelle", None):
+        kostenstelle = kostenstelle_aufloesen(client, args.kostenstelle)
+        if kostenstelle is None:
+            print(
+                "ABBRUCH: Kostenstelle unbekannt — in sevdesk anlegen oder Tag korrigieren."
+            )
+            return 2
+    kontakt = None
+    kontakt_neu = False
+    if getattr(args, "kontakt", False):
+        kontakt = kontakt_finden(client, args.lieferant)
+        kontakt_neu = kontakt is None
+    bankdaten = getattr(args, "bankdaten", None) or {}
+    belege = beleg_bestand(client)
+
+    vorhanden = duplikat(belege, args.beschreibung)
     if vorhanden:
         print(
-            f"DUPLIKAT: description '{args.beschreibung}' existiert als Beleg {vorhanden} — nichts angelegt."
+            f"DUPLIKAT: description '{args.beschreibung}' existiert als Beleg "
+            f"{vorhanden} — nichts angelegt."
+        )
+        journal_schreiben(
+            _journal_zeile(
+                args,
+                konto_gesetzt=False,
+                vorschlaege_liste=[],
+                dedup_treffer=vorhanden,
+                dauer_s=time.monotonic() - start,
+            ),
+            JOURNAL_DATEI,
         )
         return 0
 
-    pdf = Path(args.pdf)
-    up = client.post(
-        "/Voucher/Factory/uploadTempFile",
-        files={"file": (pdf.name, pdf.read_bytes(), "application/pdf")},
-    )
-    up.raise_for_status()
-    intern = up.json()["objects"]["filename"]
+    weich_treffer = dedup_softcheck(belege, brutto, args.datum, args.lieferant or None)
+    if weich_treffer:
+        meldung = (
+            f"Beleg {weich_treffer}: gleicher Bruttobetrag {brutto:.2f} EUR am "
+            f"gleichen Datum {args.datum}"
+            + (" mit gleichem Lieferanten" if args.lieferant else "")
+            + " — Dauerrechnungen mit gleichem Betrag sind legitim, darum nur Warnung."
+        )
+        if args.strikt:
+            print(f"ABBRUCH (--strikt): {meldung}")
+            journal_schreiben(
+                _journal_zeile(
+                    args,
+                    konto_gesetzt=False,
+                    vorschlaege_liste=[],
+                    dedup_treffer=weich_treffer,
+                    dauer_s=time.monotonic() - start,
+                ),
+                JOURNAL_DATEI,
+            )
+            return 2
+        print(f"WARNUNG: {meldung}")
 
-    konto = konto_aufloesen(client, args.konto) if args.konto else None
+    vorschlaege_liste: list[dict] = []
+    if args.konto_vorschlag:
+        guidance = guidance_laden(client, guidance_cache_pfad(mandant))
+        regeln = regeln_laden(KONTEN_DATEI)
+        vorschlaege_liste = vorschlaege(
+            args.lieferant, args.beschreibung, regeln, guidance
+        )
+        if vorschlaege_liste:
+            print("Kontovorschläge (Bestätigung nötig — nie automatisch gesetzt):")
+            for i, v in enumerate(vorschlaege_liste, 1):
+                print(
+                    f"  {i}. Konto {v['konto']} ({v['bezeichnung']}) — "
+                    f"{v['begruendung']} [{v['quelle']}]"
+                )
+        else:
+            print("Kontovorschlag: keine Treffer (Regel/Guidance) — Konto bleibt leer.")
+
+    konto = None
+    if args.konto:
+        ok, fehler = konto_validieren(client, args.konto, args.taxrule)
+        if not ok:
+            if args.trotzdem:
+                print(f"WARNUNG (--trotzdem): {fehler}")
+            else:
+                print(f"ABBRUCH: {fehler}")
+                journal_schreiben(
+                    _journal_zeile(
+                        args,
+                        konto_gesetzt=False,
+                        vorschlaege_liste=vorschlaege_liste,
+                        dedup_treffer=weich_treffer,
+                        dauer_s=time.monotonic() - start,
+                    ),
+                    JOURNAL_DATEI,
+                )
+                return 2
+        konto = konto_aufloesen(client, args.konto)
+
+    if args.dry_run:
+        print(
+            json.dumps(
+                {
+                    "dry_run": True,
+                    "beschreibung": args.beschreibung,
+                    "brutto": f"{brutto:.2f}",
+                    "taxrule": args.taxrule,
+                    "konto": args.konto or "LEER (nicht zugeordnet — Owner)",
+                    "kostenstelle": getattr(args, "kostenstelle", None),
+                    "kontakt": _kontakt_anzeige(args, kontakt, kontakt_neu, bankdaten),
+                    "vorschlaege": vorschlaege_liste,
+                },
+                ensure_ascii=False,
+            )
+        )
+        journal_schreiben(
+            _journal_zeile(
+                args,
+                konto_gesetzt=bool(konto),
+                vorschlaege_liste=vorschlaege_liste,
+                dedup_treffer=weich_treffer,
+                dauer_s=time.monotonic() - start,
+            ),
+            JOURNAL_DATEI,
+        )
+        return 0
+
+    if kontakt_neu:
+        kontakt = kontakt_anlegen(client, args.lieferant, bankdaten)
+
+    intern = None
+    if not getattr(args, "ohne_dokument", False):
+        pdf = Path(args.pdf)
+        up = client.post(
+            "/Voucher/Factory/uploadTempFile",
+            files={"file": (pdf.name, pdf.read_bytes(), "application/pdf")},
+        )
+        up.raise_for_status()
+        intern = up.json()["objects"]["filename"]
+
     steuersatz = round(steuer / netto * 100, 0) if netto and steuer else 0.0
     daten = {
         "voucher[objectName]": "Voucher",
@@ -144,11 +688,18 @@ def anlegen(args) -> int:
         "voucherPosSave[0][sumTax]": f"{steuer:.2f}",
         "voucherPosSave[0][sumGross]": f"{brutto:.2f}",
         "voucherPosSave[0][comment]": args.lieferant,
-        "filename": intern,
     }
+    if intern:
+        daten["filename"] = intern
     if konto:
         daten["voucherPosSave[0][accountDatev][id]"] = str(konto["id"])
         daten["voucherPosSave[0][accountDatev][objectName]"] = "AccountDatev"
+    if kostenstelle:
+        daten["voucher[costCentre][id]"] = str(kostenstelle["id"])
+        daten["voucher[costCentre][objectName]"] = "CostCentre"
+    if kontakt:
+        daten["voucher[supplier][id]"] = str(kontakt["id"])
+        daten["voucher[supplier][objectName]"] = "Contact"
 
     r = client.post("/Voucher/Factory/saveVoucher", data=daten)
     r.raise_for_status()
@@ -161,31 +712,116 @@ def anlegen(args) -> int:
                 "beschreibung": args.beschreibung,
                 "brutto": f"{brutto:.2f}",
                 "konto": args.konto or "LEER (nicht zugeordnet — Owner)",
+                "kostenstelle": getattr(args, "kostenstelle", None),
+                "kontakt": _kontakt_anzeige(args, kontakt, kontakt_neu, bankdaten),
             },
             ensure_ascii=False,
         )
     )
+    journal_schreiben(
+        _journal_zeile(
+            args,
+            konto_gesetzt=bool(konto),
+            vorschlaege_liste=vorschlaege_liste,
+            dedup_treffer=weich_treffer,
+            dauer_s=time.monotonic() - start,
+        ),
+        JOURNAL_DATEI,
+    )
     return 0
+
+
+def paperless_anwenden(args, p: argparse.ArgumentParser) -> None:
+    """Fuellt ``pdf``, ``mandant``, ``kostenstelle`` aus einem Paperless-Dokument —
+    nur, wo der Aufrufer nichts Explizites gesetzt hat (Flag > Tag)."""
+    dok = paperless.dokument(args.paperless)
+    tags = dok.get("tags", [])
+    explizit_mandant = "--mandant" in sys.argv or "SEVDESK_MANDANT" in os.environ
+    if not explizit_mandant:
+        m = paperless.mandant_aus_tags(tags)
+        if m is None:
+            p.error(
+                f"Paperless {args.paperless}: kein eindeutiger Mandanten-Tag (edv/iil) in {tags}"
+            )
+        args.mandant = m
+    if not args.kostenstelle:
+        k = paperless.kostenstelle_aus_tags(
+            tags, kostenstellen_laden(_client(args.mandant))
+        )
+        if k:
+            args.kostenstelle = k["name"]
+    if not args.pdf and not getattr(args, "ohne_dokument", False):
+        ziel = Path(os.environ.get("TMPDIR", "/tmp")) / "sevdesk-paperless"
+        args.pdf = str(paperless.pdf_holen(dok, ziel))
+    # Ein Beleg aus Paperless soll aus sevdesk heraus bezahlbar sein (#3342):
+    # Kontakt immer, Bankdaten aus dem OCR-Text.
+    args.kontakt = True
+    args.bankdaten = paperless.bankdaten_aus_text(dok.get("content") or "")
+    print(
+        json.dumps(
+            {
+                "paperless": dok["id"],
+                "titel": dok.get("title"),
+                "tags": tags,
+                "mandant": args.mandant,
+                "kostenstelle": args.kostenstelle,
+                "pdf": args.pdf,
+                "bankdaten": {
+                    k: (v[:4] + "…") if k == "iban" else v
+                    for k, v in args.bankdaten.items()
+                },
+            },
+            ensure_ascii=False,
+        )
+    )
 
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("--pdf", required=True)
-    p.add_argument("--lieferant", required=True)
-    p.add_argument("--datum", required=True, help="YYYY-MM-DD (Rechnungsdatum)")
-    p.add_argument("--brutto", required=True)
+    mandant_argument(p)
+    p.add_argument("--pdf")
+    p.add_argument(
+        "--paperless",
+        type=int,
+        metavar="DOK_ID",
+        help="Paperless-Dokument als Quelle: PDF wird geholt, Tags edv/iil -> Mandant, "
+        "Tag mit Kostenstellen-Namen -> --kostenstelle (explizite Flags gewinnen)",
+    )
+    p.add_argument(
+        "--kontakt",
+        action="store_true",
+        help="Lieferanten-Kontakt suchen (Teilstring) oder anlegen und am Beleg verknuepfen; "
+        "bei --paperless immer an (Bankdaten aus dem Rechnungstext)",
+    )
+    p.add_argument(
+        "--kostenstelle",
+        help="sevdesk-Kostenstelle (Name wie der Paperless-Tag, z.B. macan); muss existieren",
+    )
+    p.add_argument(
+        "--ohne-dokument",
+        action="store_true",
+        dest="ohne_dokument",
+        help="Beleg ohne Dokument anlegen — Abo ohne Rechnung, Buchung wie die "
+        "Handbuchungen des Owners (Owner-Wort je Anbieter noetig); --pdf entfaellt",
+    )
+    p.add_argument("--lieferant")
+    p.add_argument("--datum", help="YYYY-MM-DD (Rechnungsdatum)")
+    p.add_argument("--brutto")
     p.add_argument(
         "--steuer",
-        required=True,
         help="enthaltene USt in EUR (0.00 bei Reverse Charge)",
     )
     p.add_argument(
         "--beschreibung",
-        required=True,
         help="Rechnungsnummer/eindeutige Kennung (Dedup-Schlüssel)",
     )
     p.add_argument(
-        "--taxrule", default="9", help="9 DE-Vorsteuer · 12 Drittland RC · 14 EU RC"
+        "--taxrule",
+        default="9",
+        help=(
+            "9 DE-Vorsteuer · 10 ohne Vorsteuerabzug · 12 Drittland RC · "
+            "13 RC ohne Vorsteuerabzug · 14 EU RC · 16 nicht steuerbar (2100 Privat)"
+        ),
     )
     p.add_argument(
         "--konto",
@@ -202,7 +838,59 @@ def main() -> int:
         default="",
         help="optional: fester Kurs (propertyExchangeRate); ohne Angabe setzt sevdesk den Stichtagskurs selbst",
     )
-    return anlegen(p.parse_args())
+    p.add_argument(
+        "--konto-vorschlag",
+        action="store_true",
+        dest="konto_vorschlag",
+        help="bis zu 3 Kontovorschläge ausgeben (Regeln + ReceiptGuidance) — setzt nie selbst ein Konto",
+    )
+    p.add_argument(
+        "--trotzdem",
+        action="store_true",
+        help="Validierung von --konto (ReceiptGuidance) ignorieren und trotzdem anlegen",
+    )
+    p.add_argument(
+        "--strikt",
+        action="store_true",
+        help="Dedup-Softcheck (Betrag+Datum+Lieferant) bricht ab statt nur zu warnen",
+    )
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        dest="dry_run",
+        help="alle Prüfungen/Vorschläge laufen, es wird nichts hochgeladen oder angelegt",
+    )
+    p.add_argument(
+        "--auswertung",
+        nargs="?",
+        const="alle",
+        default=None,
+        metavar="N",
+        help="legt nichts an — gibt die Vorschlag-Trefferquote der letzten N Journal-Läufe aus (ohne N: alle)",
+    )
+    args = p.parse_args()
+
+    if args.paperless:
+        paperless_anwenden(args, p)
+
+    if args.auswertung is not None:
+        n = None if args.auswertung == "alle" else int(args.auswertung)
+        print(auswertung_text(JOURNAL_DATEI, n))
+        return 0
+
+    pflicht = {
+        "--pdf": args.pdf or args.ohne_dokument,
+        "--lieferant": args.lieferant,
+        "--datum": args.datum,
+        "--brutto": args.brutto,
+        "--steuer": args.steuer,
+        "--beschreibung": args.beschreibung,
+    }
+    fehlend = [name for name, wert in pflicht.items() if not wert]
+    if fehlend:
+        p.error(f"the following arguments are required: {', '.join(fehlend)}")
+
+    return anlegen(args)
 
 
 if __name__ == "__main__":

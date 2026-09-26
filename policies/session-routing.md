@@ -4,6 +4,45 @@
 **Trigger words:** session, opus, sonnet, /fast, /model, session model,
 welcher modus, which mode, claude code modus
 
+## Standard-Sitzungsmodell (Owner-Entscheid 2026-09-16)
+
+<!-- standard-session-model: claude-opus-5 -->
+
+**Das Standard-Modell einer Claude-Code-Sitzung ist T4 · Claude Opus 5**
+(`claude-opus-5`). Wer ohne bewusste Wahl startet, startet hier. Das ist keine
+neue Richtung, sondern die Fortschreibung dessen, was diese Policy seit dem
+2026-07-08 ohnehin sagt: die oberste Stufe ist ausdrücklich **kein** Default,
+und T4 trägt Orchestrierung, schwere Einzel-Repo-Arbeit und Design-Review.
+Hoch auf T5 geht es nur auf einen der benannten Auslöser, runter auf T3/T2
+sobald der anspruchsvolle Teil erledigt ist.
+
+**Warum die Zeile maschinenlesbar ist.** `tools/modellwechsel_check.py` braucht
+eine Antwort auf „womit fahren wir?". Vor diesem Eintrag leitete es die Antwort
+aus der **Mehrheit** der `assessed_with`-Köpfe aller Policy-Dateien ab — und
+vermischte damit zwei verschiedene Fragen:
+
+| | Frage | Antwort |
+|---|---|---|
+| (a) | `assessed_with` je Regel | „gegen welches Modell wurde **diese Regel** zuletzt geprüft?" — bewusst gestaffelt, eigene `reassess_by`-Frist (KONZ-038 D4) |
+| (b) | `standard-session-model` | „womit fahren wir?" — **eine** Tatsache, hier erklärt |
+
+Die Mehrheit über (a) als Antwort auf (b) zu nehmen, erzeugte einen Dauerbefund:
+zwölf Köpfe trugen `claude-fable-5`, die Sitzungen liefen auf `claude-opus-5`,
+und der Session-Start meldete seit dem 2026-09-03 bei **jedem** Lauf MAJOR,
+ohne dass etwas passiert wäre. Ein Melder, der immer feuert, meldet nichts mehr.
+
+**Was das NICHT bedeutet.** Die zwölf Köpfe bleiben auf `claude-fable-5` stehen
+— sie sind ehrlich: diese Regeln wurden unter Fable bewertet und haben ihre
+eigene Frist. Ein Massen-Flip hätte behauptet, zwölf Regeln seien unter Opus
+nachgeprüft worden; geprüft wurde an diesem Tag nur die Smoke-Kalibrierung.
+Der Rückstand steht ab jetzt als `nachzug=N/M` in derselben Zeile und wandert
+regelweise über das Ritual (`docs/governance/model-rebaseline-runbook.md` §3),
+nicht in einem Zug.
+
+**Ein Wechsel des Standards ist ein Owner-Entscheid** und ändert genau diese
+eine Zeile. Danach `bash tools/refresh_pinned_policies.sh` — der Check liest
+die **ausgelieferte** Kopie unter `~/.claude/policies/`, nicht das Repo.
+
 ## Rule
 
 Claude Code session-level model choice should follow the same tier-discipline
@@ -189,3 +228,10 @@ Do not nag.
   table keeps its historical `claude-opus-4-7` rows unchanged.
 - 2026-09-03: Aufgabenklasse→Tier-Tabelle (maschinenlesbar) + SessionStart-Hook
   `fable_delegation_reminder.sh` (#2750 K2/K3).
+- 2026-09-16: **Standard-Sitzungsmodell erklärt: T4 · Claude Opus 5**
+  (Owner-Entscheid). Neuer maschinenlesbarer Marker `standard-session-model`,
+  gelesen von `tools/modellwechsel_check.py`. Damit trennt der Modellwechsel-
+  Check „womit fahren wir?" von „gegen welches Modell wurde diese Regel zuletzt
+  geprüft?" und hört auf, den seit 2026-09-03 unveränderten Abstand bei jedem
+  Session-Start als MAJOR zu melden. Die `assessed_with`-Köpfe bleiben
+  unverändert; ihr Rückstand erscheint als `nachzug=N/M`.

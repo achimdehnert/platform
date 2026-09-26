@@ -143,6 +143,9 @@ infra:
     port: 8001
     server: prod
     note: "LLM Gateway — internal only"
+    betriebsstatus: stillgelegt
+    betriebsstatus_grund: "Entscheid 2026-09-23 (mcp-hub#285, vom Owner delegiert in platform#3256). llm_gateway und mcp_hub_grafana liefen auf prod nicht mehr (0 Container/Images/Volumes auf prod, prod-b, odoo), sie waren vom Haupt-Deploy als Waisen entfernt worden, und niemand hat es bemerkt. Kein lebender Verbraucher: einzig bfagent/docker-compose.prod.yml deklariert den Dienst, bfagent ist eingefroren und laeuft nirgends. grafana.iil.pet liefert das odoo-Host-Grafana (KONZ-platform-055). Overlay, Build-Workflow, Dockerfile und grafana/ entfernt (mcp-hub#286). Das Paket llm_gateway bleibt fuer die Prod-Timer (task_descriptions). Host-Reste in /opt/mcp-hub werden archiviert, siehe #285."
+    repo: achimdehnert/mcp-hub
 
   gpu-ollama:
     port: 11434
@@ -152,7 +155,7 @@ infra:
     betriebsstatus: blockiert
     betriebsstatus_grund: >
       Die GPU-Box laeuft nach Owner-Entscheid 2026-08-31 nur auf Zuruf (Wake-on-LAN,
-      hosts.yaml `betrieb: auf_zuruf`). Der Name antwortet deshalb nur, wenn das Geraet
+      Deklaration `auf_zuruf` in governance/deklarationen.json). Der Name antwortet deshalb nur, wenn das Geraet
       an ist — ein 502 ist dann kein Ausfall. Der Erreichbarkeits-Melder wuerde ihn
       sonst in jeder Sitzung als tot melden.
     note: >
@@ -184,6 +187,33 @@ infra:
 # ═══════════════════════════════════════════════════════════════════════════════
 services:
 
+  schreib-hub:
+    prod: 11436
+    staging: 11436
+    dev: 11436
+    container_name: schreib_hub_web
+    domain_prod: schreib-hub.iil.pet
+    betriebsstatus: blockiert
+    betriebsstatus_grund: "Repo am 2026-09-12 angelegt (SchreibAssist-Host, meiki-lra); noch kein Code, kein Deploy — Prod erst nach Hosting-Entscheid wie frist-hub; schreib-hub.iil.pet hat bewusst keinen DNS-Eintrag"
+    note: "meiki-lra · SchreibAssist-Host (Schreiben aus Vorlagen) — Skelett, prod blockiert"
+  post-hub:
+    prod: 11435
+    staging: 11435
+    dev: 11435
+    container_name: post_hub_web
+    domain_prod: post-hub.iil.pet
+    betriebsstatus: blockiert
+    betriebsstatus_grund: "Repo am 2026-09-11 angelegt (PostAssist-Host, meiki-lra); noch kein Code, kein Deploy — Prod erst nach Hosting-Entscheid wie frist-hub; post-hub.iil.pet hat bewusst keinen DNS-Eintrag"
+    note: "meiki-lra · PostAssist-Host (Posteingang) — Skelett, prod blockiert"
+  buerger-hub:
+    prod: 11437
+    staging: 11437
+    dev: 11437
+    container_name: buerger_hub_web
+    domain_prod: buerger-hub.iil.pet
+    betriebsstatus: blockiert
+    betriebsstatus_grund: "Repo am 2026-09-24 angelegt (Bürgerverzeichnis-Dienst je Haus, core:ADR-003, meiki-lra); Staging auf dem Dev-Desktop nur loopback mit synthetischem Bestand (meiki-hub#494 K3); Prod blockiert wie post-/schreib-/frist-hub; buerger-hub.iil.pet hat bewusst keinen DNS-Eintrag"
+    note: "meiki-lra · Bürgerverzeichnis-Dienst (BuergerAssist) — ein Dienst je Haus, prod blockiert"
   frist-hub:
     prod: 8111
     staging: 8111
@@ -438,9 +468,9 @@ services:
                                # cloudflared-Restart trifft dort alle Routen.
     container_name: apo_hub_web
     domain_prod: apo.iil.pet
-    note: "GEFUNDEN 2026-07-10: in keiner Registry erfasst, obwohl seit ≥2 Tagen live (nginx-vhost apo.iil.pet.conf vorhanden). Apocenna-Nachfolgeplattform."
     repo: achimdehnert/apo-hub
     note: >
+      GEFUNDEN 2026-07-10: in keiner Registry erfasst, obwohl seit ≥2 Tagen live (nginx-vhost apo.iil.pet.conf vorhanden). Apocenna-Nachfolgeplattform.
       Laeuft seit 2026-09-02 15:56 UTC auf prod-b — am Knoten geprueft 2026-09-04: drei
       Container (web/proxy/tunnel) Up 46 h, web healthy, localhost:8120/healthz und
       /api/health beide HTTP 200. betriebsstatus ist damit `aktiv` (Vorgabe, kein Grund
@@ -624,7 +654,7 @@ services:
     container_name: decks_hub_web
     domain_prod: decks-hub.iil.pet
     repo: achimdehnert/decks-hub
-    note: "Statisches Slidev-Deck → nginx (ADR-253 Schiene 1) — kein Django/DB. Health: /healthz/. LIVE seit 2026-07-10; deploy.yml triggert auf push:main, also deployt JEDER main-Merge nach Prod (kein Staging, obwohl hier 8112 steht). Deckt sich mit canonical.yaml deployed:true."
+    note: "Statisches Slidev-Deck → nginx (ADR-253 Schiene 1) — kein Django/DB. Health: /healthz/. LIVE seit 2026-07-10; deploy.yml triggert auf push:main, also deployt JEDER main-Merge nach Prod (kein Staging, obwohl hier 8112 steht). Deckt sich mit canonical.yaml deployed:true. Seit 2026-09-10 hinter Cloudflare Access (Owner-Weisung: Decks sind nicht oeffentlich, Verteilung persoenlich) — Anwendung decks-hub.iil.pet, Bypass nur /healthz. Erreichbarkeits-Melder sieht deshalb 302 statt 200; das ist kein Befund."
   # ── dev-desktop-Workloads (164, 2026-08-30) ────────────────────────────────
   # Vier Dienste mit oeffentlichen Namen liefen auf dem Dev-Desktop, ohne dass eine
   # SoT sie kannte. Sie stehen hier als `blockiert`: der Auflage-Check (hosts_audit)
@@ -664,6 +694,27 @@ services:
       - rtc-chat.iil.pet
       - app-chat.iil.pet
     repo: iilgmbh/chat-hub                # deploy/ (Repo 2026 nach iilgmbh uebertragen, alter Pfad leitet um)
+  lotse-raum:
+    prod: null                      # kein Listener — Matrix-Client, nur ausgehend
+    staging: null
+    dev: null
+    prod_host: dev-desktop
+    container_name: null            # Raum-Sitzung (claude + chat_lotse.py watch) und systemd --user Zeitgeber lotse-briefing, lotse-auftrag-wache, lotse-vorlesen
+    domain_prod: null
+    domain_staging: null
+    repo: iilgmbh/chat-hub          # deploy/chat_lotse.py, deploy/raum-sessions/achim/
+    betriebsstatus: aktiv
+    betriebsstatus_grund: >
+      Lotse im Raum "Achim / Lotse" (chat-hub#48, KONZ-platform-059 Auftragsraum,
+      KONZ-platform-060 Stimme). Zweites Geraet des Lotsen-Kontos mit eigenem
+      Krypto-Store unter ~/.local/share/chat-hub/lotse-achim — deshalb an den
+      dev-desktop gebunden. Bestandteile ohne Port: STT faster-whisper `small`
+      (CPU, deploy/stt.py) und TTS Piper `de_DE-thorsten-medium` (CPU,
+      deploy/tts.py, chat-hub#117); keine Route zur gx10, gemessen 2026-09-22.
+      Kein Container, kein Ingress. Laeuft auf dem dev-desktop per benannter,
+      befristeter Ausnahme in hosts.yaml (Owner-Wort 2026-09-22, bis 2026-12-01,
+      derselbe Fall wie mail-links, platform#2507). Bis 2026-09-22 in keiner SoT
+      deklariert.
   robo-twin:
     prod: 8790
     staging: 8790
@@ -733,6 +784,31 @@ services:
       Port 8000 liegt im Band 8000-8019 (Infra-APIs); auf gx10 frei, die
       Belegung auf gpu-box (ComfyUI) ist ein anderer Knoten.
 
+  kev-decisions:
+    prod: null
+    staging: null
+    dev: 8009
+    prod_host: gx10
+    container_name: null            # systemd-Unit `kev.service` in der WSL-Ubuntu, kein Container
+    domain_prod: null
+    domain_staging: null
+    repo: achimdehnert/platform
+    betriebsstatus: aktiv
+    betriebsstatus_grund: >
+      Entscheidungsmodell `jaredpalmer/kev-4b` fuer die Messreihe aus
+      platform#3337, serviert ueber die System-One-Schnittstelle als
+      systemd-Nutzerdienst `kev.service` (Linger aktiv, ueberlebt Neustart).
+      Bindet ausschliesslich auf 127.0.0.1 — kein Ingress, auch nicht aus wg0,
+      deshalb kein prod-Port und keine Domain.
+      Umgezogen am 2026-09-21 von der gpu-box hierher (Owner-Frage "wieso 4090
+      und nicht gx10?"). Der Knoten ist der erklaerte Inferenzknoten; die
+      4090 traegt daneben den CI-Runner ci-gpu und hat nur 24 GB. Freigegeben
+      wurden dort 21 GB (22 -> 3,4 GB belegt).
+      Speicherlage nach dem Umzug, gemessen: kev haelt 18,2 GB. Der Knoten
+      traegt ausserdem vLLM (37,5 GB), ollama, embedder und whisper-server —
+      121 GB gesamt, 68 belegt, 53 verfuegbar. Unified Memory: `frei` und
+      `verfuegbar` weichen stark ab, die 53 sind die belastbare Zahl.
+      Vor grossen Trainingslaeufen anhalten: `systemctl --user stop kev`.
   gpu-ollama:
     prod: 11434
     staging: null
@@ -742,12 +818,35 @@ services:
     domain_prod: gpu.iil.pet        # Tunnel laeuft auf prod, nicht auf der Box
     domain_staging: null
     repo: achimdehnert/platform
-    betriebsstatus: aktiv
+    betriebsstatus: blockiert        # wie der infra:-Eintrag oben — die Box laeuft nur auf Zuruf
     betriebsstatus_grund: >
       ollama auf der RTX-4090-Box, veroeffentlicht ueber gpu.iil.pet hinter
       Cloudflare Access (Owner-Entscheid 2026-09-02, platform#2486 Punkt 2).
       Nachgetragen 2026-09-08 aus demselben Grund wie `ollama`: die Ausnahme
       `gpu-ollama` in hosts.yaml war ohne diesen Eintrag unlesbar fuer den Melder.
+      Seit 2026-09-24 `blockiert` statt `aktiv` (platform#3471, #3115): die GPU-Box
+      laeuft nach Owner-Entscheid 2026-08-31 nur auf Zuruf (Deklaration
+      `auf_zuruf`, governance/deklarationen.json), der Origin hinter dem Tunnel hat keinen messbaren
+      TLS-Port — `origin_tls_melder.py` las hier `aktiv`, mass ins Leere und
+      meldete 41 Sitzungsstarts lang "nicht-messbar", obwohl der infra:-Eintrag
+      derselben Datei laengst `blockiert` sagte. Zwei Eintraege, ein Dienst: #3422.
+
+  mcp-hub:
+    prod: 8000
+    staging: null                   # Singleton, kein Staging (deploy.yml erzwingt production)
+    dev: 8000
+    prod_host: prod
+    container_name: mcp_hub_orchestrator_http
+    domain_prod: orchestrator.iil.pet
+    domain_staging: null
+    repo: achimdehnert/mcp-hub      # orchestrator_mcp/, Deploy via _deploy-unified
+    betriebsstatus: aktiv
+    betriebsstatus_grund: >
+      Schluessel = app_name aus mcp-hub deploy.yml, damit der Deploy-Preflight
+      ihn prueft statt als Scope-Luecke durchzuwinken (mcp-hub#279). Am Knoten
+      2026-09-23 gegengeprueft: Projekt mcp-hub = orchestrator_http, db, rag,
+      Listener 127.0.0.1:8000 und :15435 (DB). vllm:8000 liegt auf gx10, nicht
+      auf prod. llm_gateway/Grafana (llm-mcp) laufen NICHT auf prod.
 
   rag-mcp:
     prod: 8200
@@ -778,11 +877,22 @@ services:
     domain_staging: null
     domain_aliases:
       - lotse.iil.pet
-      - todo.iil.pet
     repo: achimdehnert/platform     # tools/mail_agent/mail_link_server.py (#3015)
     betriebsstatus: blockiert
     betriebsstatus_grund: "laeuft auf dev-desktop gegen auflage.prod_container=false (Owner-Entscheid ADR-257/ADR-292). Bis 2026-08-30 in keiner SoT — unsichtbar fuer jeden Melder. Deklariert als blockiert (platform#2507, Owner-Go 164): deklarieren/umziehen/stoppen je Zeile noch offen; blockiert = laeuft, aber ohne Deploy-Recht und ausserhalb der Erreichbarkeits-Pruefung."
 
+
+  todo-board:
+    prod: 8789
+    staging: 8789
+    dev: 8789
+    prod_host: dev-desktop
+    container_name: null                  # systemd --user todo-board.service (Loopback), Tunnel cloudflared-mail-links
+    domain_prod: todo.iil.pet
+    domain_staging: null
+    repo: achimdehnert/platform     # tools/todo_board/todo_board.py (#3015 K3, Befund 4)
+    betriebsstatus: blockiert
+    betriebsstatus_grund: "Arbeitsliste aus dem Vorgangs-Ledger, laeuft wie mail-links auf dev-desktop gegen auflage.prod_container=false (Owner-Entscheid ADR-257/ADR-292); bis 2026-09-10 in keiner SoT — todo.iil.pet war als Alias von mail-links (8787) gefuehrt, der Tunnel leitet aber auf 8789. blockiert = laeuft, aber ohne Deploy-Recht und ausserhalb der Erreichbarkeits-Pruefung (platform#3015)."
   # --- Reconcile-Drift #2506, Triage 2026-09-07: real laufende, bislang nicht
   # deklarierte Infra-Ports (C4). `prod_host` ist ein Skalar (kein Listen-Feld,
   # geprueft gegen alle bestehenden Eintraege) — Dienste auf zwei Hosts bekommen

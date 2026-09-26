@@ -11,13 +11,14 @@ amends:
   - ADR-102-cloudflare-dns-cdn-migration.md
   - ADR-157-staging-production-split-and-port-governance.md  # 2. Amendment nach Inline-Amendment 2026-04-16
 related:
+  - ADR-292-two-lane-deployment-six-host-standard.md  # begrenzt die Reichweite des Backend-Teils (2026-09-16)
   - ADR-106-port-audit.md
   - ADR-021-unified-deployment-pattern.md
   - ADR-156-reliable-deployment-pipeline.md
   - ADR-164-port-strategy-conflict-free-dev-staging-prod.md
-implementation_status: none
+implementation_status: partial  # 2026-09-16: Edge (Tunnel, DNS, SSL) live seit 2026-05-14; Backend-Teil durch ADR-292 Lane G auf risk-hub + meiki/frist begrenzt, s. Changelog
 staleness_months: 6
-last_reviewed: 2026-05-13
+last_reviewed: 2026-09-16
 drift_check_paths:
   - infra/ports.yaml
   - infra/cloudflared-tunnels.yaml
@@ -34,6 +35,20 @@ amends_check: ADR-102, ADR-157
 -->
 
 ---
+
+## 0. Reichweite seit ADR-292 (Nachtrag 2026-09-16, Owner-Entscheid E3 in #3226)
+
+Der **Edge-Teil** dieses ADR — zweiter Cloudflare-Tunnel, CNAME-Umstellung der
+Staging-Hosts, Universal SSL, Origin-IP versteckt — ist seit 2026-05-14 live
+(PR #136, #139; E2E-Befund in #142). Der **Backend-Teil** (Nginx-Block und
+Staging-Container je Hub auf `staging-dedicated`) war in #142 als P0 für sechs
+Hubs offen. Er wird **nicht** für alle Hubs umgesetzt: ADR-292 (Two-Lane
+Deployment, 2026-08) beschränkt `staging-dedicated` auf **Preprod nur für Lane G**
+(risk-hub, meiki/frist); `infra/hosts.yaml` führt das als Auflage
+`nur_dienste: [risk-hub, frist-hub, dev-hub]`. coach-hub ist stillgelegt
+(#1314, #2480). Für Lane-S-Hubs gibt es damit keinen Staging-Backend-Anspruch
+mehr; die Subdomain-Konvention und der Tunnel gelten weiter. #142 ist deshalb
+als überholt geschlossen, nicht als erledigt.
 
 ## 1. Context and Problem Statement
 
@@ -584,6 +599,7 @@ Compliance dieses ADRs ist erreicht, wenn alle folgenden Checks grün sind:
 
 | Datum | Autor | Änderung |
 |-------|-------|----------|
+| 2026-09-16 | Achim Dehnert + Claude Code | Nachtrag §0: Reichweite des Backend-Teils durch ADR-292 Lane G auf risk-hub + meiki/frist begrenzt; `implementation_status: partial` (Edge live, Backend nur Lane G); #142 als überholt geschlossen (Owner-Entscheid E3, #3226) |
 | 2026-05-13 | Achim Dehnert + Cascade | Initial — Proposed |
 | 2026-05-13 | Achim Dehnert + Cascade | Review-Findings F-1 … F-9 eingearbeitet: Ist/Soll-Trennung in §1.3-1.5 (Pilot risk-hub verifiziert, Port-Drift dokumentiert), Option B Contras ehrlich, Edge-Cert/Origin-TLS-Spalten präzisiert, Apex-CNAME-Flattening, ports.yaml-Schema bewusst nicht erweitert, `infra/cloudflared-tunnels.yaml` als Konstanten-Datei, R-04 Cert-Error-Realität, Phase-0 mit Bestandsaufnahme + Container-Migration |
 | 2026-05-13 | Achim Dehnert + Cascade | Out-of-the-Box Review Findings R-1 … R-10 + Coverage-Lücken eingearbeitet: §1.1 SSL-Cert-Scope präzise (2-SAN-Cert-Erklärung), §1.4 als Drift-Inventar mit Quell-Belegen, neuer §1.4.1 Multi-Tenant-Wildcard, neuer §4.1.1 mit ACM-Selective-Strategie, §4.2 Origin-TLS spiegelt Pilot-Realität (HTTP statt HTTPS), Option A Contras um Doppel-Ops + Track-Record erweitert, Option B Pro "single daemon" ergänzt, neue Risiken R-05/R-06, §4.7 Tunnel-Credential-Rotation + Cookie-Scope, §5.2.1 12-Mo-Kostenvergleich, §5.2.2 Operational Concerns (Observability/Failure-Mode/Rollback), Q-02/Q-03 entschieden, Q-06 Multi-Tenant-Audit, §7 Phase 5 mit Rollback + Cookie-Scope-Check + Uptime-Kuma |

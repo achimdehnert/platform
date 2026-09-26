@@ -16,8 +16,8 @@ ai_sparring_by:
     role: adversarial-review
     summary: "Externes LLM (Runde 2) auf ADR-289: Verdikt ueberarbeiten. Kern: das ADR wiederholt den Fehler, den es an ADR-241 diagnostiziert (eine belegte Entscheidung an drei unfertige gebunden); ungestellte Frage warum ADR-241 sechs Wochen nicht gebaut wurde; Kapazitaetsargument gegen Option B und D gegenlaeufig verwendet; ADR-257-Lehre nur auf R3 statt auch auf R2 angewandt; Append-only ist unterverkauft (SFTP kann es nicht erzwingen, rest-server schon). Tag-Tabelle Paragraph 11."
 related: [ADR-059, ADR-098, ADR-142, ADR-157, ADR-164, ADR-248, ADR-257]
-implementation_status: none
-last_reviewed: 2026-09-08
+implementation_status: partial
+last_reviewed: 2026-09-24
 staleness_months: 6
 tags: [infrastructure, hosts, backup, disaster-recovery, provider-diversity, netcup, object-storage]
 ---
@@ -287,7 +287,78 @@ Host existiert. R2 und R4 bleiben unverändert zurückgestellt.
 **Offen:** `infra/hosts.yaml` führt den netcup-Block samt
 `hosts_runners: [netcup-ci, netcup-ci-2, netcup-ci-3]` (drei — registriert waren vier). Der
 Block gehört auf den Ist-Stand gezogen, sobald entschieden ist, ob der Vertrag endet.
-Getrackt in achimdehnert/platform#2956.
+Getrackt in achimdehnert/platform#2956. **Erledigt 2026-09-10:** netcup ist gekündigt (Owner),
+Block nach `ehemalige_hosts:` (#3093), Runner-Registrierungen gelöscht.
+
+### 3.1b Revision 2 + 3 (2026-09-24) — netcup gekündigt, 17 Nächte ohne Offsite, Ziel = vorhandene Storage Box
+
+**Auslöser, gemessen (achimdehnert/platform#3475, K1):** Der Offsite-Lauf endet auf **beiden**
+Prod-Hosts seit dem 08.09. jede Nacht mit `connection refused` gegen das gekündigte Ziel —
+letzter Snapshot 2026-09-07 03:30. Das Umstellskript aus #2968 ist gemergt, aber nie
+angewendet, weil es weder Bucket noch S3-Schlüssel gibt. `prod-b` trägt acht Postgres-Container
+und **keine** lokale Dump-Schicht; mit dem toten Offsite ist der Host seit 17 Tagen ungesichert
+(Ausnahme `chat-hub-backup.timer`). Der einzige geplante Frische-Leser (`backup-meter.yml`)
+wurde am 07.09. abgeschaltet (R2, #2506) — einen Tag vor dem Ausfall; der benannte Ersatz
+(Flottenbild-Timer) schreibt nicht (#3486).
+
+**Revision 2 (Vormittag) hatte §3.1a bestätigt** — Hetzner Object Storage Helsinki mit Object
+Lock (Doku gelesen 2026-09-24: Lock nur beim Anlegen, Modi `GOVERNANCE`/`COMPLIANCE`, Preis mit
+Monatsdeckel ≈ 1 TB inklusive). **Revision 3 (Mittag) ersetzt das Ziel** nach Owner-Frage und
+Owner-Wort „Storage Box go": Es existiert bereits eine bezahlte **Hetzner Storage Box** (Projekt
+11326866, Box 601177) — genau das Ziel, das ADR-241 Option B am 2026-06-21 akzeptiert hatte,
+bevor §3.1a (netcup) und Option E es überholten. Object Storage wäre ein zweiter Vertrag
+(≈ 5 €/Monat) für eine Eigenschaft, die die Storage Box mit anderen Mitteln liefert:
+
+| Eigenschaft | Storage Box (vorhanden) | Object Storage (verworfen) |
+|---|---|---|
+| Schutz vor Löschung durch den sichernden Host | **automatische Snapshots**, unter `/.zfs/snapshot` nur lesbar, löschbar nur in der Console (Owner-Login) | Object Lock je Objekt |
+| Trennung prod / prod-b | Unterkonto je Host mit eigenem Verzeichnis (bis 100 je Box) | Bucket-Policy je Schlüssel |
+| Retention / Prune | `restic forget --prune` läuft normal | Konflikt mit Lock, Messlauf nötig |
+| Prüfung von außen | Unterkonto **read-only** für den Meter | S3-Schlüssel immer projektweit voll |
+| Kosten zusätzlich | 0 € | ≈ 5 €/Monat |
+| Schwäche | Snapshots zählen zur Quote; BX11 hält 10 Stände | Zusatzvertrag, Lock irreversibel |
+
+Datenmenge heute: 39 GB Volumes prod + 13 GB prod-b, dazu Dumps — gegen 1 TB Box-Kapazität
+unkritisch, auch mit Snapshots.
+
+**Was diese Revision ändert oder schärft — nummeriert, damit §5 darauf zeigen kann:**
+
+1. **Eine Box, zwei Unterkonten.** `prod` und `prod-b` sichern in je ein eigenes
+   Unterkonto/Verzeichnis derselben Box (`sftp:<unterkonto>@<box>.your-storagebox.de:/`,
+   SSH-Schlüssel je Host, Port 23), zusätzlich getrennt über `--host`. Ein kompromittierter
+   Host erreicht das Verzeichnis des anderen nicht. prod-b bekommt **keine** eigene lokale
+   Dump-Schicht — der Offsite-`pg_dumpall` ist die Dump-Schicht.
+2. **Unveränderlichkeit = Snapshot-Plan, Retention = restic.** Automatische Snapshots
+   **täglich**, alle Slots der Box (BX11: 10 Stände ≈ 10 Tage Rückweg gegen Löschung durch
+   den Host). restic-Policy `--keep-daily 7 --keep-weekly 4 --keep-monthly 6`, `forget --prune`
+   **wöchentlich von prod** — mit SFTP ohne Lock-Konflikt. Der Append-only-Beweis aus §8 Nr. 4
+   wird zum **Snapshot-Beweis**: eine Datei im Repo löschen, im jüngsten Snapshot unter
+   `/.zfs/snapshot` muss sie noch liegen. Das Löschkonzept (#2504) bleibt: personenbezogene
+   Daten dürfen nicht länger im Repo liegen, als Snapshot-Fenster plus Retention es zulassen.
+3. **Schlüssel-Hygiene.** Kein Passwort auf den Hosts: je Host ein SSH-Schlüsselpaar
+   (`/root/.ssh/id_ed25519`, prod vorhanden, prod-b am 2026-09-24 angelegt), öffentlicher Teil
+   im Unterkonto. Ein drittes, **read-only** Unterkonto für dev-desktop (Meter, Drill). Der
+   restic-Schlüssel (`restic-repo.pass`) bleibt — sonst werden alte Snapshots unlesbar. Box-
+   Verwaltung über die Hetzner-API mit projektgebundenem Token (`~/.secrets/`, Inventarzeile;
+   das alte Token ist tot, #3496).
+4. **Dead-Man's-Switch statt Journal.** Snapshot-Frische wird täglich **außerhalb** der
+   gesicherten Hosts geprüft (dev-desktop, Schlüssel aus `~/.secrets`), Ergebnis geht bei
+   Snapshot > 26 h über den belegten Alarmweg (0.7.21), nicht nur ins Befund-Journal. Der
+   `schedule` von `backup-meter.yml` kommt zurück, sobald das Ziel steht (#3486). Ein
+   „NICHT messbar" der Klasse INFRA ruht künftig höchstens 3 Tage.
+5. **Gleicher Anbieter — benannt, nicht kaschiert.** Provider-Diversität ist mit Option E
+   aufgegeben (§3.1a). Zweite Kopie bei einem Dritten (S3 + Object Lock, EU) ist **erwogen und
+   zurückgestellt** — Treiber: erster Konto- oder Abrechnungsvorfall bei Hetzner, oder
+   personenbezogene Daten mit Aufbewahrungspflicht im Repo.
+6. **Lokale Schichten nachziehen, nicht vermehren.** Sieben App-Crons mit ≈ 80 GB auf prod
+   (#3484) und ≈ 25 verwaiste Volumes (#3485) werden konsolidiert, sobald der Offsite-Lauf
+   grün ist — nicht vorher, damit keine Schicht wegfällt, bevor die nächste steht.
+
+**Gates (Owner, ausdrücklich):** API-Token für das Projekt der Box (Gate 3, Owner erzeugt).
+Umstellung je Host über `deployment/scripts/offsite-auf-storagebox-umstellen.sh` = Prod-Eingriff
+(Gate 2), je Host ein Wort. Unterkonten, Snapshot-Plan, Skript, Melder, Drill laufen autonom.
+`offsite-auf-objectstorage-umstellen.sh` (#2968) bleibt als Rückfalloption liegen, wird nicht
+angewendet.
 
 ---
 
@@ -388,16 +459,24 @@ Feuerübung** — sonst gilt für das neue Backup dieselbe Blindheit wie für da
 |---|---|---|---|
 | 0 — Host in SoT | ✅ Abgeschlossen | 2026-07-30 | `infra/hosts.yaml`, PR #1560 |
 | 1 — Grundinstallation | ✅ Abgeschlossen | 2026-07-30 | `netcup-bootstrap.sh`; rollenneutral, greift der Entscheidung nicht vor |
-| 2 — **AVV mit netcup** | ⬜ Ausstehend | – | **Vorbedingung für Phase 5.** Braucht Datum + Aufwandsschätzung, sonst Platzhalter vor offener Datenlücke |
-| 3 — Kosten/Laufzeit offenlegen | ⬜ Ausstehend | – | ⚠ Phase 1 lief bereits vorher — zulässig, weil rollenneutral, aber vor Phase 5 zwingend (Option E bleibt sonst nicht vergleichbar) |
-| 4 — Speicherbudget erheben (§4.3) | ⬜ Ausstehend | – | drei Zahlen; danach eigenes Dateisystem für das Repository |
-| 5 — `rest-server --append-only` + Provisionierung | ⬜ Ausstehend | – | der fehlende Schritt aus ADR-241 |
-| 6 — risk-hub inkl. MinIO sichern | ⬜ Ausstehend | – | dringlichster Einzelfix |
-| 7 — `mcp_hub_pgdata` sichern | ⬜ Ausstehend | – | kein Backup-Skript vorhanden |
-| 8 — Alarm-Zustellung + Snapshot-Frische (§4.5) | ⬜ Ausstehend | – | **vor** Phase 9; netcup-unabhängig, in Stunden baubar |
-| 9 — Feuerübung G3 (Cross-Host) | ⬜ Ausstehend | – | erst danach gilt R1 als belegt |
+| 2 — **AVV mit netcup** | ⛔ Entfallen | 2026-09-10 | netcup gekündigt; AVV-Frage wandert zu Hetzner (bereits Vertragspartner, Zusatz Object Storage prüfen) |
+| 3 — Kosten/Laufzeit offenlegen | ⛔ Entfallen | 2026-09-24 | durch §3.1b ersetzt: Datenmenge 52 GB, Kontingent ≈ 1 TB, Preis mit Monatsdeckel |
+| 4 — Speicherbudget erheben (§4.3) | ✅ Abgeschlossen | 2026-09-24 | 39 GB prod + 13 GB prod-b Volumes; ≈ 80 GB lokale Dumps zusätzlich (#3484) |
+| 5 — `rest-server --append-only` + Provisionierung | ⛔ Entfallen | 2026-09-08 | ersetzt durch Object Lock (§3.1a); Provisionierung = E1–E3 unten |
+| 6 — risk-hub inkl. MinIO sichern | 🟡 Teilweise | 2026-08-25 | lokal täglich 02:00 (`/opt/risk-hub/scripts/backup.sh`, Drill 25.08.); offsite erst mit E3 |
+| 7 — `mcp_hub_pgdata` sichern | 🟡 Teilweise | 2026-08-31 | im `pg_dumpall`-Lauf des Offsite-Skripts enthalten — wirksam erst mit E3 |
+| 8 — Alarm-Zustellung + Snapshot-Frische (§4.5) | ⛔ **Rückschritt** | 2026-09-07 | Meter-`schedule` entfernt, Ersatz läuft nicht → **E5**, [#3486](https://github.com/achimdehnert/platform/issues/3486) |
+| 9 — Feuerübung G3 (Cross-Host) | ⬜ Ausstehend | – | → **E6**; bisher nur Same-Host-Drills (25.08., 30.08.) |
 | 10 — ADR-241 Statuszeile | ⬜ Ausstehend | – | `amended_by: ADR-289` + `implementation_status: partial`, sobald dieses ADR `accepted` ist |
 | 11 — ADR-157 amendieren | ⬜ Ausstehend | – | 3-Server-Architektur vs. sechs reale Hosts — eigener Vorgang, [#1564](https://github.com/achimdehnert/platform/issues/1564) |
+| **E1 — API-Token + Unterkonten + Snapshot-Plan** | ✅ Abgeschlossen | 2026-09-24 | Owner-Token (Read → RW) direkt nach `~/.secrets/`; per API Unterkonten `u618904-sub1` (Home `prod`) und `u618904-sub2` (Home `prod-b`), SSH an, nicht extern; **Snapshot-Plan täglich 05:00 UTC, 10 Slots**; Host-Schlüssel per SFTP in `/home/.ssh/authorized_keys` der Unterkonten. `meter`-Unterkonto (read-only) **zurückgestellt** bis E5. Box: BX11, **fsn1**, `u618904.your-storagebox.de` |
+| E2 — Token übernehmen | ✅ Abgeschlossen | 2026-09-24 | `hetzner_cloud_token` durch das neue Token ersetzt (gleiches Projekt, `GET /v1/servers` 200), Inventar #3523 gemergt, alter Wert als `.bak-…-tot` (#3496) |
+| E3 — prod umstellen | ✅ Abgeschlossen | 2026-09-24 12:40 UTC | `offsite-auf-storagebox-umstellen.sh` (#3518): vier Tore grün, Repo `sftp:storagebox-offsite:/home/restic` initialisiert, erster Lauf: **15 Snapshots** (13 pgdump, 1 volumes, 1 config), 13,9 GiB. Rückweg: `/root/offsite-backup-env-backups/offsite-backup.env.vor-2026-09-24` |
+| E4 — prod-b umstellen | ✅ Abgeschlossen | 2026-09-24 12:34 UTC | dasselbe Skript, Unterkonto `sub2`: **10 Snapshots** (8 pgdump, 1 volumes, 1 config), 26 MiB — erste Offsite-Kopie der acht prod-b-Datenbanken seit dem 07.09. |
+| E5 — Dead-Man's-Switch + Meter-Schedule | 🟡 Teilweise | 2026-09-24 | `backup_deckung.py` liest je Host das eigene Repo (#3528) und misst wieder: **prod 0 / prod-b 0 UNGEDECKT, Exit 0** (K3/K4). Offen: Alarmweg + Meter-`schedule` ([#3486](https://github.com/achimdehnert/platform/issues/3486)); der Meter liest nur prods Repo und braucht dieselbe Je-Host-Logik |
+| E6 — Cross-Host-Drill G3 | 🟡 Teilweise | 2026-09-24 | Same-Host-Drill gegen das neue Ziel bestanden: `risk_hub_db` 352 = 352 Zeilen, RTO 30 s ([#3551](https://github.com/achimdehnert/platform/pull/3551), `docs/runbooks/restore-drills/2026-09-24-risk-hub.md`). Offen: derselbe Drill von einem dritten Host (dev-desktop), Zeit messen |
+| E7 — Snapshot-Beweis + Prune | 🟡 Teilweise | 2026-09-25 | Erster automatischer Box-Snapshot laut API 05:17 UTC, Plan täglich 05:00 mit 10 Slots ([#3475](https://github.com/achimdehnert/platform/issues/3475#issuecomment-5827444165)). Offen: Lösch-Positivkontrolle (ZFS-Sichtbarkeit ist aus, Owner-Entscheid) und `restic prune` — `forget` läuft nächtlich, `prune` fehlt ([#3475](https://github.com/achimdehnert/platform/issues/3475#issuecomment-5827451396)) |
+| E8 — lokale Schichten konsolidieren | ⬜ Ausstehend | – | erst nach E3/E4 grün: [#3484](https://github.com/achimdehnert/platform/issues/3484), [#3485](https://github.com/achimdehnert/platform/issues/3485) |
 
 ---
 
@@ -509,6 +588,8 @@ Feuerübung** — sonst gilt für das neue Backup dieselbe Blindheit wie für da
 | 2026-07-30 | Achim Dehnert | Phase 1 + Random-IOPS-Messung abgeschlossen; Grundinstallation als `netcup-bootstrap.sh` ins IaC gespiegelt. |
 | 2026-07-30 | Achim Dehnert | **Interner adversarialer Review:** R2-Treiber falsifiziert (§1.3) — der Prod-Uptime-Canary existierte und meldete nach 16 Minuten. |
 | 2026-07-30 | Achim Dehnert | **Zwei externe Reviews (§11) → Zusammenschnitt.** Entscheidungsinhalt auf **R1 + Negativ-Regel** reduziert; Monitoring, CI-Runner und DR-Standby als „erwogen, zurückgestellt" mit auslösendem Treiber (§3.2). Acht Sachfehler korrigiert (u.a. die nicht propagierte Falsifikation in §3/§6.1, das gegenläufig verwendete Kapazitätsargument, die unbelegte AVV-Ausnahme für Metriken/Logs, fehlende Mengenwerte, Nürnberg als gemeinsame Region). Zehn fachlich stärkere Lösungen übernommen (Allowlist statt Denylist, Disk-Trennung vor **jedem** Mitbewohner, Dead-Man's-Switch in dritter Domäne, `rest-server --append-only` als eigentliches Argument, Cross-Host-Restore). Optionen E und F ergänzt, Option D rehabilitiert. |
+| 2026-09-24 | Achim Dehnert | **§3.1b Revision 3 — Ziel ist die vorhandene Storage Box, nicht Object Storage.** Owner-Frage („wir haben Storage Box bereits … benötigen wir dann S3?") und Owner-Wort „Storage Box go". Vergleichstabelle in §3.1b; Unveränderlichkeit über täglichen Snapshot-Plan statt Object Lock, Trennung über Unterkonten je Host, Retention über `restic forget --prune`; Verwaltung per Hetzner-API mit neuem projektgebundenem Token (altes tot, #3496). E1–E4/E7 in §5 umgeschrieben; `offsite-auf-objectstorage-umstellen.sh` bleibt Rückfalloption. |
+| 2026-09-24 | Achim Dehnert | **§3.1b Revision 2 + §5 neu geschnitten.** Anlass: netcup gekündigt (10.09.), 17 Nächte ohne Offsite auf prod **und** prod-b, prod-b ohne lokale Dump-Schicht, Frische-Melder am 07.09. abgeschaltet. Zielbild bestätigt (Hetzner Object Storage hel1, Object Lock `COMPLIANCE`), sechs Schärfungen: ein Bucket für beide Hosts, Retention 30 d zum Lock passend mit Prune-Messlauf, projektgebundene Schlüssel mit Escrow, Dead-Man's-Switch außerhalb der Hosts, gleiche-Anbieter-Schwäche benannt, lokale Schichten erst nach grünem Offsite konsolidieren. Phasen 2/3/5 entfallen, 8 als Rückschritt markiert, E1–E8 ergänzt. Messung: achimdehnert/platform#3475 (K1). |
 | 2026-07-30 | Achim Dehnert | **§1.2 neu — die entscheidende Ursachenklärung.** Recherche auf die Review-Frage „warum lag ADR-241 sechs Wochen?" ergab: es lag **nicht** brach. Der restic-Wrapper, der Meter und die Soll-Liste wurden am Accept-Tag gebaut (#620/#622); es fehlt allein die Repository-Provisionierung — und die war **durch das Ziel blockiert**. Das widerlegt den stärksten externen Einwand (AD-8: „kein Bestandteil war durch das Ziel blockiert") und macht R1 zur Provisionierung statt zum Neubau. Zugleich Anlass für #1567: der Meter meldete sechs Wochen grün über leerer Sicherung. |
 
 ---

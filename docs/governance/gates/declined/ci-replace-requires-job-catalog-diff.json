@@ -1,0 +1,7 @@
+{
+  "slug": "ci-replace-requires-job-catalog-diff",
+  "decided": "2026-08-12",
+  "owner": "achim",
+  "ref": "platform#1650 Owner-Entscheid 2026-08-12",
+  "reason": "Seltener, manueller Vorgang (CI-Umbau, wenige Male/Jahr). Eine Automatik muesste 'ersetzt statt ergaenzt' semantisch erkennen — unscharf. Die Review-Pflicht auf .github/** (CODEOWNERS-Perimeter, vom Ruleset-Waechter bewacht) deckt den Vorgang ab."
+}
