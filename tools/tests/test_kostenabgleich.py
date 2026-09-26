@@ -728,3 +728,393 @@ def test_should_raise_when_foreign_currency_sum_changed_after_save():
     }
     with pytest.raises(RuntimeError, match="veraendert"):
         ka.entwurf_buchen(c, beleg)
+
+
+# ── Stufe "intern": Beleg ohne Dokument nach Regel (Bausteine 1/2/5, 2026-09-17) ──
+
+
+class _SevdeskIntern(_Sevdesk):
+    """Erweiterter Fake: AccountDatev, ReceiptGuidance/forAccountNumber,
+    saveVoucher (legt Beleg an), bookAmount mit Typ/Betrag-Mitschrift."""
+
+    def __init__(self, tx, belege, guidance, konten=None, erlaubt=None):
+        super().__init__(tx, belege, guidance)
+        self.konten = konten or {"6110": "4120", "6855": "4285", "2100": "2838"}
+        self.erlaubt = erlaubt or {"6110": ["9"], "6855": ["9"], "2100": ["16"]}
+        self.angelegt: list[dict] = []
+        self.buchungen: list[dict] = []
+        self._naechste = 900
+
+    def handler(self, request: httpx.Request) -> httpx.Response:
+        pfad = request.url.path
+        if request.method == "GET" and pfad.endswith("/AccountDatev"):
+            raise AssertionError(
+                "GET /AccountDatev listet nur 100 aktive Konten (2100 fehlt) — "
+                "Konto-ID kommt aus ReceiptGuidance/forAccountNumber"
+            )
+        if request.method == "GET" and pfad.endswith(
+            "/ReceiptGuidance/forAccountNumber"
+        ):
+            nr = request.url.params.get("accountNumber")
+            if nr not in self.erlaubt:
+                return httpx.Response(200, json={"objects": []})
+            # sevdesk liefert bei einem Treffer ein Dict statt Liste (#3109);
+            # accountDatevId ist die einzige verlaessliche Quelle fuer die Konto-ID
+            return httpx.Response(
+                200,
+                json={
+                    "objects": {
+                        "accountNumber": nr,
+                        "accountDatevId": int(self.konten[nr]),
+                        "allowedTaxRules": [{"id": int(r)} for r in self.erlaubt[nr]],
+                    }
+                },
+            )
+        if request.method == "POST" and pfad.endswith("/Voucher/Factory/saveVoucher"):
+            form = dict(kv.split("=", 1) for kv in request.read().decode().split("&"))
+            from urllib.parse import unquote_plus
+
+            form = {unquote_plus(k): unquote_plus(v) for k, v in form.items()}
+            self._naechste += 1
+            beleg = {
+                "id": str(self._naechste),
+                "status": "100",
+                "sumGross": float(form["voucherPosSave[0][sumGross]"]),
+                "paidAmount": "0",
+                "form": form,
+            }
+            self.belege[beleg["id"]] = beleg
+            self.angelegt.append(beleg)
+            return httpx.Response(200, json={"objects": {"voucher": beleg}})
+        if request.method == "PUT" and "/bookAmount" in pfad:
+            beleg_id = pfad.split("/Voucher/")[1].split("/")[0]
+            payload = json.loads(request.read().decode())
+            self.buchungen.append({"beleg_id": beleg_id, **payload})
+            beleg = self.belege[beleg_id]
+            beleg["paidAmount"] = float(beleg["paidAmount"] or 0) + abs(
+                payload["amount"]
+            )
+            if (
+                abs(float(beleg["paidAmount"]) - float(beleg["sumGross"])) <= 0.01
+                or payload["type"] == "O"
+            ):
+                beleg["status"] = "1000"
+                beleg["paidAmount"] = beleg["sumGross"]
+            self.gebuchte_ids.append(beleg_id)
+            return httpx.Response(200, json={"objects": beleg})
+        return super().handler(request)
+
+
+def _konten(tmp_path, regeln: list[dict]) -> Path:
+    pfad = tmp_path / "sevdesk-konten.json"
+    pfad.write_text(json.dumps({"regeln": regeln}), encoding="utf-8")
+    return pfad
+
+
+REGEL_SOZIALVERS = {
+    "muster": "knappschaft|rentenversicherung",
+    "konto": "6110",
+    "bezeichnung": "Sozialvers.-Beiträge",
+    "beleg": "ohne_dokument",
+    "taxrule": "9",
+    "steuersatz": 0,
+    "lieferant": "Knappschaft-Bahn-See",
+    "beschreibung": "Sozialversicherung Beitrag",
+    "autonom": True,
+}
+REGEL_KONTOABSCHLUSS = {
+    "muster": "abschluss per",
+    "konto": "6855",
+    "bezeichnung": "Kontoführung",
+    "beleg": "ohne_dokument",
+    "klasse": "kontoabschluss_paar",
+    "ust_muster": r"umsatzsteuer auf eur ([\d.,]+)-? abrechnung per",
+    "taxrule": "9",
+    "lieferant": "Bank – Kontoführung",
+    "beschreibung": "Kontoabschluss",
+    "autonom": True,
+}
+
+
+def test_should_create_and_book_intern_voucher_when_rule_has_mandate(
+    monkeypatch, tmp_path
+):
+    sevdesk = _SevdeskIntern(
+        [
+            _tx(
+                "t1",
+                "2026-03-27",
+                -215.46,
+                "Deutsche Rentenversicherung KBS",
+                "BEITRAG 0326",
+            )
+        ],
+        [],
+        [],
+    )
+    konten = _konten(tmp_path, [REGEL_SOZIALVERS])
+    code = _lauf(monkeypatch, sevdesk, konten, tmp_path, ["--buchen", "--ja", "--json"])
+    assert code == 0
+    assert len(sevdesk.angelegt) == 1
+    form = sevdesk.angelegt[0]["form"]
+    assert form["voucher[status]"] == "100"
+    assert form["voucher[supplierName]"] == "Knappschaft-Bahn-See"
+    assert form["voucher[description]"] == "Sozialversicherung Beitrag 03/2026"
+    assert form["voucher[taxRule][id]"] == "9"
+    assert form["voucherPosSave[0][accountDatev][id]"] == "4120"
+    assert form["voucherPosSave[0][sumGross]"] == "215.46"
+    assert form["voucherPosSave[0][sumTax]"] == "0.00"
+    (b,) = sevdesk.buchungen
+    assert b["type"] == "FULL_PAYMENT" and b["amount"] == -215.46
+    assert b["date"] == "27.03.2026"  # Zahldatum = Umsatzdatum, nicht --heute
+    assert b["checkAccountTransaction"]["id"] == "t1"
+
+
+def test_should_list_intern_but_not_book_without_mandate(monkeypatch, tmp_path, capsys):
+    sevdesk = _SevdeskIntern(
+        [_tx("t1", "2026-03-27", -215.46, "Knappschaft-Bahn-See", "BEITRAG 0326")],
+        [],
+        [],
+    )
+    regel = dict(REGEL_SOZIALVERS, autonom=False)
+    konten = _konten(tmp_path, [regel])
+    code = _lauf(monkeypatch, sevdesk, konten, tmp_path, ["--buchen", "--ja", "--json"])
+    daten = json.loads(capsys.readouterr().out)
+    assert code == 2
+    assert daten["kennzahlen"]["intern"] == 1
+    assert daten["kennzahlen"]["intern_ohne_mandat"] == 1
+    assert "Mandat fehlt" in daten["intern"][0]["grund"]
+    assert sevdesk.angelegt == [] and sevdesk.buchungen == []
+
+
+def test_should_not_treat_partial_sammelueberweisung_as_intern(
+    monkeypatch, tmp_path, capsys
+):
+    regel = dict(REGEL_SOZIALVERS, muster="sammel", nur_betraege=[850.0])
+    sevdesk = _SevdeskIntern(
+        [_tx("t1", "2026-03-27", -901.18, "", "SEPA Sammel-Ueberweisung")], [], []
+    )
+    konten = _konten(tmp_path, [regel])
+    _lauf(monkeypatch, sevdesk, konten, tmp_path, ["--buchen", "--ja", "--json"])
+    daten = json.loads(capsys.readouterr().out)
+    assert daten["kennzahlen"]["intern"] == 0
+    assert daten["beleg_fehlt"][0]["grund"].startswith("Regel 6110: NUR TEILWEISE")
+    assert sevdesk.angelegt == []
+
+
+def test_should_refuse_intern_booking_when_tax_rule_not_allowed(
+    monkeypatch, tmp_path, capsys
+):
+    regel = dict(
+        REGEL_SOZIALVERS, konto="6110", taxrule="1"
+    )  # 1 = USt-pflichtige Umsaetze
+    sevdesk = _SevdeskIntern(
+        [_tx("t1", "2026-03-27", -215.46, "Knappschaft-Bahn-See", "BEITRAG 0326")],
+        [],
+        [],
+    )
+    konten = _konten(tmp_path, [regel])
+    code = _lauf(monkeypatch, sevdesk, konten, tmp_path, ["--buchen", "--ja"])
+    out = capsys.readouterr().out
+    assert code == 3 and "Steuerregel 1 laut ReceiptGuidance nicht erlaubt" in out
+    assert sevdesk.angelegt == [] and sevdesk.buchungen == []
+
+
+def test_should_refuse_intern_booking_for_account_without_guidance(
+    monkeypatch, tmp_path, capsys
+):
+    """7600 Koerperschaftsteuer hat keine ReceiptGuidance — nicht belegbuchbar."""
+    regel = dict(REGEL_SOZIALVERS, konto="7600", muster="koerpst")
+    sevdesk = _SevdeskIntern(
+        [_tx("t1", "2026-03-27", -123.43, "Finanzamt", "KOERPST 1VJ.26")], [], []
+    )
+    konten = _konten(tmp_path, [regel])
+    code = _lauf(monkeypatch, sevdesk, konten, tmp_path, ["--buchen", "--ja"])
+    out = capsys.readouterr().out
+    assert code == 3 and "Konto 7600: keine ReceiptGuidance" in out
+    assert sevdesk.angelegt == []
+
+
+def test_should_book_deactivated_privatentnahme_account_via_guidance_id(
+    monkeypatch, tmp_path
+):
+    """2100 fehlt in GET /AccountDatev (deactivated), ReceiptGuidance kennt die ID 2838."""
+    regel = {
+        "muster": "spotify",
+        "konto": "2100",
+        "bezeichnung": "Privatentnahme",
+        "beleg": "ohne_dokument",
+        "taxrule": "16",
+        "beschreibung": "Privatentnahme",
+        "autonom": True,
+    }
+    sevdesk = _SevdeskIntern(
+        [
+            _tx(
+                "t1",
+                "2026-08-20",
+                -21.99,
+                "PayPal Europe",
+                "1052/PP.1321.PP/. Spotify AB, Ihr Einkauf bei Spotify AB",
+            )
+        ],
+        [],
+        [],
+    )
+    konten = _konten(tmp_path, [regel])
+    code = _lauf(monkeypatch, sevdesk, konten, tmp_path, ["--buchen", "--ja"])
+    assert code == 0
+    form = sevdesk.angelegt[0]["form"]
+    assert form["voucherPosSave[0][accountDatev][id]"] == "2838"
+    assert form["voucher[taxRule][id]"] == "16"
+    assert form["voucher[supplierName]"] == "Spotify AB"
+
+
+def test_should_write_log_per_booking_so_abort_keeps_earlier_entries(
+    monkeypatch, tmp_path
+):
+    """Abbruch bei Position 2 (7600 ohne Guidance) — Position 1 steht trotzdem im Log."""
+    sevdesk = _SevdeskIntern(
+        [
+            _tx("t1", "2026-03-27", -215.46, "Knappschaft-Bahn-See", "BEITRAG 0326"),
+            _tx("t2", "2026-03-28", -123.43, "Finanzamt", "KOERPST 1VJ.26"),
+        ],
+        [],
+        [],
+    )
+    konten = _konten(
+        tmp_path,
+        [REGEL_SOZIALVERS, dict(REGEL_SOZIALVERS, konto="7600", muster="koerpst")],
+    )
+    monkeypatch.setattr(ka, "LOG_VERZEICHNIS", tmp_path)
+    code = _lauf(monkeypatch, sevdesk, konten, tmp_path, ["--buchen", "--ja"])
+    assert code == 3
+    log = json.loads((tmp_path / "sevdesk-kostenabgleich-2026-04-15.json").read_text())
+    assert [e["umsatz_id"] for e in log] == ["t1"] and log[0]["ausgefuehrt"] is True
+
+
+def test_should_book_kontoabschluss_pair_as_one_voucher_with_two_partial_payments(
+    monkeypatch, tmp_path
+):
+    sevdesk = _SevdeskIntern(
+        [
+            _tx("g1", "2026-02-28", -25.30, "", "ABSCHLUSS PER 28.02.2026"),
+            # Bank-Tippfehler „per 30.02.2026" — Zuordnung ueber die Basis 25,30
+            _tx(
+                "u1",
+                "2026-04-12",
+                -4.81,
+                "",
+                "19% Umsatzsteuer auf EUR 25,30- Abrechnung per 30.02.2026 von Konto 1",
+            ),
+            _tx("g2", "2026-03-31", -21.30, "", "ABSCHLUSS PER 31.03.2026"),
+        ],
+        [],
+        [],
+    )
+    konten = _konten(tmp_path, [REGEL_KONTOABSCHLUSS])
+    code = _lauf(monkeypatch, sevdesk, konten, tmp_path, ["--buchen", "--ja", "--json"])
+    assert code == 2  # g2 wartet noch auf seine USt-Zeile
+    assert len(sevdesk.angelegt) == 1
+    form = sevdesk.angelegt[0]["form"]
+    assert form["voucherPosSave[0][sumNet]"] == "25.30"
+    assert form["voucherPosSave[0][sumTax]"] == "4.81"  # Bankzeile 1:1, nicht gerechnet
+    assert form["voucherPosSave[0][sumGross]"] == "30.11"
+    assert form["voucherPosSave[0][taxRate]"] == "19"
+    assert form["voucher[description]"] == "Kontoabschluss 02/2026"
+    typen = [
+        (b["type"], b["amount"], b["checkAccountTransaction"]["id"], b["date"])
+        for b in sevdesk.buchungen
+    ]
+    assert typen == [
+        ("N", -25.30, "g1", "28.02.2026"),
+        ("N", -4.81, "u1", "12.04.2026"),
+    ]
+
+
+def test_should_hold_fee_without_ust_line_and_report_it(monkeypatch, tmp_path, capsys):
+    sevdesk = _SevdeskIntern(
+        [_tx("g2", "2026-03-31", -21.30, "", "ABSCHLUSS PER 31.03.2026")], [], []
+    )
+    konten = _konten(tmp_path, [REGEL_KONTOABSCHLUSS])
+    _lauf(monkeypatch, sevdesk, konten, tmp_path, ["--buchen", "--ja", "--json"])
+    daten = json.loads(capsys.readouterr().out)
+    assert (
+        daten["intern"][0]["grund"] == "Regel 6855: wartet auf die USt-Zeile der Bank"
+    )
+    assert daten["intern"][0]["buchbar"] is False
+    assert sevdesk.angelegt == []
+
+
+def test_should_not_pair_when_ust_is_not_19_percent_of_fee():
+    abgaenge = [
+        _tx("g1", "2026-02-28", -25.30, "", "ABSCHLUSS PER 28.02.2026"),
+        _tx(
+            "u1",
+            "2026-04-12",
+            -9.99,
+            "",
+            "19% Umsatzsteuer auf EUR 25,30- Abrechnung per 28.02.2026",
+        ),
+    ]
+    paare = ka.kontoabschluss_paare(abgaenge, [REGEL_KONTOABSCHLUSS])
+    assert paare == {"_ust_ids": set()}
+
+
+# ── Toleranz: Cent-Rundung und Fremdwaehrung → Typ O (Baustein 2) ────────────
+
+
+def test_should_match_voucher_one_cent_off_and_book_with_type_o(monkeypatch, tmp_path):
+    sevdesk = _SevdeskIntern(
+        [_tx("t1", "2026-04-20", -134.00, "Hetzner Online GmbH")],
+        [_beleg("v1", "2026-04-16", 133.99, "Hetzner")],
+        [],
+    )
+    konten = _konten(tmp_path, [])
+    code = _lauf(monkeypatch, sevdesk, konten, tmp_path, ["--buchen", "--ja"])
+    assert code == 0
+    (b,) = sevdesk.buchungen
+    assert b["type"] == "O" and b["amount"] == -134.00  # Bankbetrag, nicht Belegbetrag
+
+
+def test_should_match_usd_voucher_within_exchange_tolerance(
+    monkeypatch, tmp_path, capsys
+):
+    beleg = dict(_beleg("v1", "2026-08-03", 156.83, "GitHub, Inc."), currency="USD")
+    sevdesk = _SevdeskIntern(
+        [
+            _tx(
+                "t1",
+                "2026-08-05",
+                -164.71,
+                "PayPal Europe",
+                "1050/PP.6820.PP/. GitHub, Inc., Ihr Einkauf bei GitHub",
+            )
+        ],
+        [beleg],
+        [],
+    )
+    konten = _konten(tmp_path, [])
+    code = _lauf(monkeypatch, sevdesk, konten, tmp_path, ["--buchen", "--ja", "--json"])
+    daten = json.loads(capsys.readouterr().out)
+    assert code == 0
+    assert daten["beleg_vorhanden"][0]["kursdifferenz"] == 7.88
+    assert "Typ O" in daten["beleg_vorhanden"][0]["grund"]
+    (b,) = sevdesk.buchungen
+    assert b["type"] == "O" and b["amount"] == -164.71
+
+
+def test_should_not_match_eur_voucher_outside_cent_tolerance(
+    monkeypatch, tmp_path, capsys
+):
+    sevdesk = _SevdeskIntern(
+        [_tx("t1", "2026-08-05", -164.71, "Hoster GmbH")],
+        [_beleg("v1", "2026-08-03", 156.83, "Hoster GmbH")],  # EUR, 5 % daneben
+        [],
+    )
+    konten = _konten(tmp_path, [])
+    _lauf(monkeypatch, sevdesk, konten, tmp_path, ["--json"])
+    daten = json.loads(capsys.readouterr().out)
+    assert (
+        daten["kennzahlen"]["beleg_fehlt"] == 1 and daten["kennzahlen"]["sicher"] == 0
+    )

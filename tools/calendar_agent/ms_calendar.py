@@ -1,14 +1,35 @@
 #!/usr/bin/env python3
 """Microsoft-365-Kalender-Anbindung (Weg B, Owner-Entscheid 2026-07-17) — Lese-Zugriff
-über Microsoft Graph mit Geräte-Anmeldung (Device-Code-Flow).
+über Microsoft Graph mit Geräte-Anmeldung (Device-Code-Flow); zusätzlich Anlegen und
+Löschen von Terminen im EIGENEN Kalender (Stufe A, Owner-Wort 2026-07-18 / 2026-09-14).
 
 Charta-Eigenschaften (KONZ-025):
 - KEINE Passwörter — Anmeldung einmalig interaktiv im Browser des Kapitäns (MFA-fest);
   gespeichert werden nur Zugangs-/Refresh-Token (chmod 600), Werte erscheinen nie in stdout.
-- Nur Lese-Scope (Calendars.Read). Schreiben/Löschen von Terminen ist nicht implementiert.
+- Schreib-Scope nur für den EIGENEN Kalender (Calendars.ReadWrite). Einladungen an Dritte
+  (Stufe B) sind bewusst nicht gebaut — --create setzt nie Teilnehmer, --delete löscht nie
+  fremde/geteilte/Serien-Termine (Schutzregeln unten, hart, ohne Ausnahme über --yes).
 - Maschinen-Gate: läuft nur, wo ~/.claude/calendar.env existiert (Capability-Profil).
 - Termine enthalten Daten Dritter (Art. 3.2): Ausgaben sind für den Kapitäns-Kanal,
   nie für Memory/Repo-Übernahme.
+
+Aufrufe (Auszug):
+  --list TAGE [--ids]
+      Termine der nächsten N Tage. Mit --ids zusätzlich je Graph-Termin: eine Kennung
+      (letzte 12 Zeichen der Graph-id), teilnehmer=N und organisator=ja/nein, sowie
+      "serie" bei Serienterminen. ICS-Termine (HNU) haben keine Kennung, markiert als
+      "nur lesen".
+  --create --subject … --start 'YYYY-MM-DD HH:MM' --end 'YYYY-MM-DD HH:MM' [--yes]
+      Termin im EIGENEN Kalender anlegen — nie Teilnehmer (Stufe A).
+  --delete KENNUNG [--account KONTO] [--tage N] [--yes]
+      Termin per Kennung (aus --list --ids) löschen. Die Kennung wird über ein
+      Listenfenster (Default 60 Tage, --tage N) eindeutig zur Graph-id aufgelöst — 0
+      oder >1 Treffer beenden mit Exit 2. Vor dem Löschen: Gate-Anzeige (Betreff, Start,
+      Ende, Konto), ohne --yes Rückfrage. Schutzregeln (hart, Exit 3, keine Ausnahme):
+        a) Termin hat weitere Teilnehmer      → würde Absagen an Dritte senden.
+        b) eigenes Konto ist nicht Organisator → fremde Einladung.
+        c) Konto läuft über ICS-Abo (HNU)      → nur lesbar.
+        d) Serientermin (seriesMaster/occurrence/exception bzw. seriesMasterId gesetzt).
 
 Konfiguration ~/.claude/calendar.env:
   GRAPH_ACCOUNTS=achim.dehnert@iil.gmbh,achim.dehnert@hnu.de
@@ -77,6 +98,10 @@ class _Requests:
         return _http(
             "POST", url, headers=headers, data=data, json_body=json, timeout=timeout
         )
+
+    @staticmethod
+    def delete(url, *, headers=None, timeout=30):
+        return _http("DELETE", url, headers=headers, timeout=timeout)
 
 
 requests = _Requests()
@@ -335,16 +360,53 @@ def cmd_status(cfg: dict) -> None:
         )
 
 
-def cmd_list(cfg: dict, days: int) -> None:
+# $select-Feldliste für /me/calendarView — gemeinsam für --list und die
+# Kennungs-Auflösung von --delete (id/attendees/isOrganizer/type/seriesMasterId
+# werden für die Schutzregeln UND die --ids-Anzeige gebraucht).
+_GRAPH_SELECT = (
+    "id,subject,start,end,location,isOnlineMeeting,isAllDay,"
+    "attendees,isOrganizer,type,seriesMasterId"
+)
+
+
+def _fetch_calendar_view(tok: str, start: dt.datetime, end: dt.datetime) -> _Resp:
+    url = (
+        "https://graph.microsoft.com/v1.0/me/calendarView"
+        f"?startDateTime={start.strftime('%Y-%m-%dT%H:%M:%S')}Z"
+        f"&endDateTime={end.strftime('%Y-%m-%dT%H:%M:%S')}Z"
+        "&$orderby=start/dateTime&$top=50"
+        f"&$select={_GRAPH_SELECT}"
+    )
+    return requests.get(
+        url,
+        headers={
+            "Authorization": f"Bearer {tok}",
+            "Prefer": f'outlook.timezone="{TIMEZONE}"',
+        },
+        timeout=30,
+    )
+
+
+def _is_series(ev: dict) -> bool:
+    return ev.get("type", "singleInstance") != "singleInstance" or bool(
+        ev.get("seriesMasterId")
+    )
+
+
+def _account_tag(acc: str) -> str:
+    return (
+        "IIL"
+        if "iil" in acc
+        else ("HNU" if "hnu" in acc else acc.split("@")[1][:3].upper())
+    )
+
+
+def cmd_list(cfg: dict, days: int, show_ids: bool = False) -> None:
     start = dt.datetime.now(dt.timezone.utc)
     end = start + dt.timedelta(days=days)
     rows = []
     for acc in cfg["accounts"]:
-        tag = (
-            "IIL"
-            if "iil" in acc
-            else ("HNU" if "hnu" in acc else acc.split("@")[1][:3].upper())
-        )
+        tag = _account_tag(acc)
         ipath = ics_path(cfg, acc)
         if ipath.exists():
             try:
@@ -358,7 +420,10 @@ def cmd_list(cfg: dict, days: int) -> None:
                         if allday
                         else s.strftime("%Y-%m-%d %H:%M") + "–" + e.strftime("%H:%M")
                     )
-                    rows.append((s.isoformat(), f"[{tag}] {when}  {title}{extras}"))
+                    line = f"[{tag}] {when}  {title}{extras}"
+                    if show_ids:
+                        line += "  nur lesen"
+                    rows.append((s.isoformat(), line))
             except Exception as exc:
                 print(
                     f"({acc}: Abo-Link-Abruf fehlgeschlagen — {type(exc).__name__})",
@@ -372,26 +437,7 @@ def cmd_list(cfg: dict, days: int) -> None:
                 file=sys.stderr,
             )
             continue
-        tag = (
-            "IIL"
-            if "iil" in acc
-            else ("HNU" if "hnu" in acc else acc.split("@")[1][:3].upper())
-        )
-        url = (
-            "https://graph.microsoft.com/v1.0/me/calendarView"
-            f"?startDateTime={start.strftime('%Y-%m-%dT%H:%M:%S')}Z"
-            f"&endDateTime={end.strftime('%Y-%m-%dT%H:%M:%S')}Z"
-            "&$orderby=start/dateTime&$top=50"
-            "&$select=subject,start,end,location,isOnlineMeeting,organizer,isAllDay"
-        )
-        r = requests.get(
-            url,
-            headers={
-                "Authorization": f"Bearer {tok}",
-                "Prefer": f'outlook.timezone="{TIMEZONE}"',
-            },
-            timeout=30,
-        )
+        r = _fetch_calendar_view(tok, start, end)
         if r.status_code != 200:
             print(
                 f"({acc}: Abruf fehlgeschlagen HTTP {r.status_code})", file=sys.stderr
@@ -407,12 +453,17 @@ def cmd_list(cfg: dict, days: int) -> None:
                 else (f" · {loc}" if loc else "")
             )
             when = s[:10] + " ganztags" if ev.get("isAllDay") else f"{s}–{e}"
-            rows.append(
-                (
-                    ev["start"]["dateTime"],
-                    f"[{tag}] {when}  {ev.get('subject', '(ohne Titel)')}{extras}",
+            line = f"[{tag}] {when}  {ev.get('subject', '(ohne Titel)')}{extras}"
+            if show_ids:
+                kennung = ev.get("id", "")[-12:]
+                n_att = len(ev.get("attendees") or [])
+                organisator = "ja" if ev.get("isOrganizer", True) else "nein"
+                serie = " serie" if _is_series(ev) else ""
+                line += (
+                    f"  id={kennung} teilnehmer={n_att} "
+                    f"organisator={organisator}{serie}"
                 )
-            )
+            rows.append((ev["start"]["dateTime"], line))
     if not rows:
         print("Keine Termine im Zeitraum (oder keine Konten angemeldet).")
         return
@@ -486,6 +537,90 @@ def cmd_create(cfg: dict, account: str, args) -> None:
     )
 
 
+def resolve_kennung(events: list[dict], kennung: str) -> list[dict]:
+    """Alle Termine aus `events`, deren Graph-id auf KENNUNG endet (Suffix-Match)."""
+    return [ev for ev in events if ev.get("id", "").endswith(kennung)]
+
+
+def cmd_delete(cfg: dict, account: str, args) -> None:
+    if account not in cfg["accounts"]:
+        sys.exit(f"FEHLER: {account} steht nicht in GRAPH_ACCOUNTS")
+    if ics_path(cfg, account).exists():
+        print("FEHLER: HNU ist nur lesbar — nicht gelöscht.", file=sys.stderr)
+        sys.exit(3)
+    tok = get_access_token(cfg, account)
+    if not tok:
+        sys.exit(f"FEHLER: {account} nicht angemeldet — erst: --login {account}")
+
+    days = args.tage
+    start = dt.datetime.now(dt.timezone.utc)
+    end = start + dt.timedelta(days=days)
+    r = _fetch_calendar_view(tok, start, end)
+    if r.status_code != 200:
+        sys.exit(
+            f"FEHLER: Abruf fehlgeschlagen HTTP {r.status_code} — Kennung nicht aufgelöst."
+        )
+    matches = resolve_kennung(r.json().get("value", []), args.delete)
+    if len(matches) == 0:
+        print(
+            f"FEHLER: Kennung '{args.delete}' im {days}-Tage-Fenster nicht gefunden.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    if len(matches) > 1:
+        print(
+            f"FEHLER: Kennung '{args.delete}' ist nicht eindeutig "
+            f"({len(matches)} Treffer im {days}-Tage-Fenster).",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    ev = matches[0]
+
+    # Schutzregeln (hart, Exit 3) — keine Ausnahme über --yes.
+    if ev.get("attendees"):
+        print(
+            "FEHLER: würde Absagen an Dritte senden — nicht gelöscht.",
+            file=sys.stderr,
+        )
+        sys.exit(3)
+    if not ev.get("isOrganizer", True):
+        print("FEHLER: fremde Einladung — nicht gelöscht.", file=sys.stderr)
+        sys.exit(3)
+    if _is_series(ev):
+        print("FEHLER: Serientermin — nicht gelöscht.", file=sys.stderr)
+        sys.exit(3)
+
+    subject = ev.get("subject", "(ohne Titel)")
+    start_disp = ev["start"]["dateTime"][:16].replace("T", " ")
+    end_disp = ev["end"]["dateTime"][:16].replace("T", " ")
+    print("Zu löschen im EIGENEN Kalender:")
+    print(f"  Wann:    {start_disp} – {end_disp}  ({TIMEZONE})")
+    print(f"  Betreff: {subject}")
+    print(f"  Konto:   {account}")
+    if not args.yes:
+        try:
+            if input("Löschen? [j/N] ").strip().lower() not in ("j", "ja", "y", "yes"):
+                sys.exit("Abgebrochen — nichts gelöscht.")
+        except EOFError:
+            sys.exit("Kein --yes und keine Eingabe möglich — abgebrochen.")
+
+    r = requests.delete(
+        f"https://graph.microsoft.com/v1.0/me/events/{ev['id']}",
+        headers={"Authorization": f"Bearer {tok}"},
+        timeout=30,
+    )
+    if r.status_code == 403:
+        sys.exit(
+            "FEHLER: nur Lese-Recht vorhanden — bitte einmal neu anmelden (--login "
+            f"{account}), damit das erweiterte Schreib-Recht erteilt wird."
+        )
+    if r.status_code not in (200, 202, 204):
+        sys.exit(
+            f"FEHLER: Löschen fehlgeschlagen HTTP {r.status_code} — {r.text[:200]}"
+        )
+    print(f"gelöscht: {subject} {start_disp}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     g = ap.add_mutually_exclusive_group(required=True)
@@ -502,6 +637,14 @@ def main() -> None:
         action="store_true",
         help="Termin im EIGENEN Kalender anlegen (Stufe A, keine Einladung an Dritte)",
     )
+    g.add_argument(
+        "--delete",
+        metavar="KENNUNG",
+        help=(
+            "Termin per Kennung (aus --list --ids) im EIGENEN Kalender löschen — "
+            "Schutzregeln greifen hart, siehe Kopf-Docstring"
+        ),
+    )
     ap.add_argument("--account", help="Zielkonto (Default: erstes in GRAPH_ACCOUNTS)")
     ap.add_argument("--subject", help="Betreff (bei --create)")
     ap.add_argument("--start", help="Start 'YYYY-MM-DD HH:MM' (Europe/Berlin)")
@@ -509,7 +652,24 @@ def main() -> None:
     ap.add_argument("--location", help="Ort (optional)")
     ap.add_argument("--note", help="Notiz im Termin-Text (optional)")
     ap.add_argument(
-        "--yes", action="store_true", help="ohne Rückfrage anlegen (Gate-Anzeige aus)"
+        "--ids",
+        action="store_true",
+        help=(
+            "bei --list: Kennung, teilnehmer=N, organisator=ja/nein und ggf. "
+            "'serie' zusätzlich anzeigen (ICS-Termine: 'nur lesen')"
+        ),
+    )
+    ap.add_argument(
+        "--tage",
+        type=int,
+        default=60,
+        metavar="N",
+        help="Listenfenster für die Kennungs-Auflösung von --delete (Default 60)",
+    )
+    ap.add_argument(
+        "--yes",
+        action="store_true",
+        help="ohne Rückfrage anlegen/löschen (Gate-Anzeige aus)",
     )
     args = ap.parse_args()
     try:
@@ -522,13 +682,15 @@ def main() -> None:
     elif args.status:
         cmd_status(cfg)
     elif args.today:
-        cmd_list(cfg, 1)
+        cmd_list(cfg, 1, args.ids)
     elif args.create:
         if not (args.subject and args.start and args.end):
             ap.error("--create braucht --subject, --start und --end")
         cmd_create(cfg, args.account or cfg["accounts"][0], args)
+    elif args.delete:
+        cmd_delete(cfg, args.account or cfg["accounts"][0], args)
     else:
-        cmd_list(cfg, args.list)
+        cmd_list(cfg, args.list, args.ids)
 
 
 if __name__ == "__main__":

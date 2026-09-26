@@ -55,7 +55,14 @@ def get_secret(name: str, env_var: str | None = None) -> str | None:
     if val:
         return val
     path = Path.home() / ".secrets" / name.lower()
-    return path.read_text().strip() if path.exists() else None
+    if not path.exists():
+        return None
+    # Toleranter Leser (bare + NAME=WERT, platform#3129) statt read_text().strip();
+    # Repo-Wurzel liegt zwei Ebenen ueber .github/scripts/.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from infra.lib.secrets import secret_wert  # noqa: PLC0415
+
+    return secret_wert(path)
 
 
 # ---------------------------------------------------------------------------
@@ -453,7 +460,7 @@ Do NOT suggest style improvements or minor wording changes. Only structural and 
     issues_match = re.search(r"ISSUES:\n(.*)", response, re.DOTALL)
     issues_text = issues_match.group(1).strip() if issues_match else response
 
-    print(f"  README quality issues found — creating GitHub issue")
+    print("  README quality issues found — creating GitHub issue")
     print(issues_text)
 
     if dry_run:

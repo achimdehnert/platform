@@ -1,0 +1,19 @@
+{
+  "slug": "model-change-detection",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": "tools/claude-hooks/model_change_detector.sh",
+  "drill": "tools/claude-hooks/tests/test_model_change_detector.py",
+  "built": "2026-08-02",
+  "ref": "KONZ-038 D7",
+  "faengt": [
+    {
+      "fall": "Modellwechsel zwischen zwei Sitzungen",
+      "probe": "modell"
+    }
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-08-02",
+  "expires": "2026-10-31",
+  "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
+}

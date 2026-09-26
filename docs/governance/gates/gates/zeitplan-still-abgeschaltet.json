@@ -1,0 +1,20 @@
+{
+  "slug": "zeitplan-still-abgeschaltet",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": "tools/zeitplan_wach.py",
+  "drill": "tools/tests/test_zeitplan_wach.py",
+  "built": "2026-08-20",
+  "ref": "platform#2114",
+  "note": "GitHub schaltet schedule-Trigger nach 60 Tagen Repo-Inaktivitaet ab. infra-deploy lief dadurch drei Wochen ohne Datenbank-Backup, ohne dass ein Check rot wurde.",
+  "faengt": [
+    {
+      "fall": "schedule-Workflow von GitHub still deaktiviert",
+      "probe": "disabled"
+    }
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-08-20",
+  "expires": "2026-10-31",
+  "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
+}

@@ -29,6 +29,22 @@
 #                       Urteile erholen koennen, nicht ewig an alten Fehlalarmen
 #                       haengen bleiben. Weniger als MIN_URTEILE=3 Urteile SEIT
 #                       der Nullstellung heisst "NICHT bewertbar", nicht WARN.
+#   zielgebunden        OPTIONAL, bool. Default false (= flottenweit, bisheriges
+#                       Verhalten). true nur fuer Phasen, deren `repo`-Spalte der
+#                       Runner mit `$TARGET_REPO` fuellt und die deshalb je Lauf
+#                       NUR das eine Zielrepo dieses Laufs melden koennen (Quelle:
+#                       `grep -n 'record "0' tools/session_start_checks.sh | grep
+#                       TARGET_REPO`). Fuer eine solche Phase heilt
+#                       tools/befund_journal.py einen Eintrag nur, wenn der Lauf
+#                       dasselbe Zielrepo hatte wie der Eintrag — sonst loescht
+#                       ein Lauf mit TARGET_REPO=robo-lab einen Befund, den nur
+#                       TARGET_REPO=platform je erreichen konnte, und `laeufe`/
+#                       `erstmals`/`entscheiden_bis`/Anker gehen verloren (#3470,
+#                       Realfall: 0.7.4 prio-referenzen + 0.7.26 ci-deckung fuer
+#                       platform verschwanden durch einen parallelen robo-lab-
+#                       Lauf). Flottenweite Melder (z.B. 0.7 deploy-scan, 0.7.12
+#                       prod-wirkung, 0.7.16 origin-tls) sehen in jedem Lauf
+#                       mehrere fremde Repos zugleich und bleiben false.
 #
 # Karteileichen (Eintrag ohne passende Runner-Phase) und fehlende Eintraege
 # (Runner-Phase ohne Register-Zeile) meldet tools/melder_register_check.py --kurz.
@@ -72,6 +88,7 @@ melder:
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.4.1"
+    zielgebunden: true  # record() traegt hier ueberall "$TARGET_REPO" (#3470)
 
   - phase: "0.4.2 adr-schema"
     # Zeile 290 session_start_checks.sh: WARN nur wenn `iil-adrfw` fehlt — Fix ist ein pip-install, mechanische Agent-Handlung.
@@ -98,11 +115,12 @@ melder:
     runbook: "0.R#0.4.5"
 
   - phase: "0.4 parallel-sessions"
-    leser: "Agent selbst — read-only weiterarbeiten, NICHT stashen/switchen (GUARD, ADR-233)"
+    leser: "Agent selbst — nur Zahl, kein Befund: parallele Sessions sind der Normalfall (#1944 K8)"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.4"
+    zielgebunden: true  # record() traegt hier ueberall "$TARGET_REPO" (#3470)
 
   - phase: "0.4 repo-sync"
     leser: "Agent selbst — read-only weiterarbeiten, NICHT stashen/switchen (GUARD, ADR-233)"
@@ -282,6 +300,7 @@ melder:
     runbook: "0.R#0.7.4"
     # PR #2890: Folge-PR / "ist zu" / Fenster-Kappung
     geschaerft_am: "2026-09-07"
+    zielgebunden: true  # record() traegt hier ueberall "$TARGET_REPO" (#3470)
 
   - phase: "0.7.5 hook-dist"
     # Zeile 611 session_start_checks.sh: WARN nur wenn die eingebaute Selbstheilung (cc-skill-dist/generate.py) fehlschlaegt — Ursache pruefen/manuell verteilen ist Agent-Handlung, kein Owner-Entscheid.
@@ -297,13 +316,6 @@ melder:
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.7.6"
-
-  - phase: "0.7.7 gate-wirkung"
-    leser: "/session-ende Phase 0f (Checkliste 17) → /session-retro Phase 4 Punkt 5a"
-    wiedervorlage_tage: 14
-    praezision_min: 0.6
-    mindest_laeufe: 5
-    runbook: "0.R#0.7.7"
 
   - phase: "0.7.8 zeitplan-wache"
     # Zeile 678 session_start_checks.sh: WARN meldet von GitHub still abgeschaltete `schedule`-Trigger — Reaktivierung per `gh workflow enable` ist mechanische Agent-Handlung.
@@ -358,9 +370,29 @@ melder:
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.7.24"
+  - phase: "0.7.27 sichtbarkeits-drift"
+    leser: "Session-Start-Board → Agent (Konsument auf iilgmbh/shared-ci bzw. Release umhaengen, Frist erneuern); Owner nur fuer den Flip selbst (K5: 7 Tage 0/0/1/0, platform#3234)"
+    wiedervorlage_tage: 7
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.27"
+  - phase: "0.7.28 gpu-leerlauf"
+    # Nachgetragen mit #3400: die Phase stand seit platform#3352 im Runner, aber ohne Register-Eintrag (melder_register_check --kurz: "1 Melder ohne Leser"). Leser aus session-start.md Zeile 96.
+    leser: "Session-Start-Board → Agent (Zweck des Dienstes klaeren oder anhalten, `systemctl --user stop <unit>`)"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.28"
+  - phase: "0.7.29 container-speicher"
+    leser: "Session-Start-Board → Agent (FEHLER oom_kill: Ursache im Container klaeren; WARN anon > 70 %: Limit-Anhebung als IaC-PR vorschlagen); Owner fuer jeden Prod-Schritt (mem_limit, Neustart) — Entscheid gotenberg 2026-09-30 (platform#3400)"
+    wiedervorlage_tage: 7
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.29"
   - phase: "0.7.26 ci-deckung"
     leser: "Session-Start-Board → Agent (Ziel gedeckt/verzichtet nachziehen, dann `make <ziel>` in den Workflow oder Grund in governance/ci-deckung-verzicht.yaml); Owner bei Scope-Fragen ueber Repo-Grenzen"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.7.26"
+    zielgebunden: true  # record() traegt hier ueberall "$TARGET_REPO" (#3470)

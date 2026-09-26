@@ -12,12 +12,30 @@ import sys
 from datetime import date
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import befund_journal as bj  # noqa: E402
 import speicher_melder as sm  # noqa: E402
 
 GB = 1_000_000_000
 HEUTE = date(2026, 8, 25)
+
+
+@pytest.fixture(autouse=True)
+def _deklarationen(tmp_path, monkeypatch):
+    """Nie die echte `governance/deklarationen.json` — jede Test-Deklaration
+    liegt unter tmp_path (#3495 V2)."""
+    pfad = tmp_path / "deklarationen.json"
+    monkeypatch.setenv("BEFUND_DEKLARATIONEN_DATEI", str(pfad))
+    return pfad
+
+
+def _auf_zuruf(pfad: Path, host: str, gueltig_bis: str) -> None:
+    bj.setze_deklaration(
+        host, "auf_zuruf", "Owner-Entscheid (Test)", gueltig_bis, pfad=pfad
+    )
 
 
 def _punkte(host: str, mount: str, *avail_gb_by_day: tuple[str, float]) -> list[dict]:
@@ -169,6 +187,72 @@ def test_should_name_an_unreachable_host_and_not_call_it_green():
 def test_should_be_blind_when_no_host_answers():
     e = sm.bewerte({"prod": None, "prod-b": None}, [], HEUTE)
     assert e["blind"] and "NICHT messbar" in sm.kurzzeile(e)
+
+
+# --- Deklaration auf_zuruf (platform#3471, #3364, #3495 V2) -------------------
+
+
+def test_should_call_an_unreachable_on_call_host_asleep_not_unreachable(
+    _deklarationen,
+):
+    """gpu-box: Deklaration `auf_zuruf` + unerreichbar → `schlaeft`, kein WARN."""
+    _auf_zuruf(_deklarationen, "gpu-box", "2026-12-31")
+    e = sm.bewerte(
+        {"prod": _messung("prod", "/", 300, 270)["prod"], "gpu-box": None},
+        [],
+        HEUTE,
+    )
+    assert e["schlaeft"] == ["gpu-box"]
+    assert e["unerreichbar"] == []
+    assert not e["blind"]
+    zeile = sm.kurzzeile(e)
+    assert "schlaeft: gpu-box" in zeile
+    assert "WARN" not in zeile
+
+
+def test_should_still_warn_for_unreachable_hosts_without_declaration(_deklarationen):
+    """Gegenprobe: ein Host ohne Deklaration `auf_zuruf` bleibt WARN wie bisher."""
+    _auf_zuruf(_deklarationen, "gpu-box", "2026-12-31")
+    e = sm.bewerte(
+        {"prod": _messung("prod", "/", 300, 270)["prod"], "prod-b": None},
+        [],
+        HEUTE,
+    )
+    assert e["unerreichbar"] == ["prod-b"]
+    assert e["schlaeft"] == []
+    assert "nicht erreichbar: prod-b" in sm.kurzzeile(e)
+    assert "schlaeft" not in sm.kurzzeile(e)
+
+
+def test_should_measure_an_on_call_host_normally_when_reachable(_deklarationen):
+    """Ist die gpu-box erreichbar, wird sie wie jeder andere Host gemessen."""
+    _auf_zuruf(_deklarationen, "gpu-box", "2026-12-31")
+    e = sm.bewerte(_messung("gpu-box", "/", 150, 36), [], HEUTE)
+    assert e["schlaeft"] == [] and e["unerreichbar"] == []
+    assert e["platten"][0]["host"] == "gpu-box"
+
+
+def test_should_warn_again_when_auf_zuruf_declaration_expired_yesterday(
+    _deklarationen,
+):
+    """Positivkontrolle #3495 V2: Ablauf einen Tag vor `heute` → der Host ist
+    wieder `unerreichbar` (WARN), nicht mehr `schlaeft`."""
+    _auf_zuruf(_deklarationen, "gpu-box", "2026-08-24")  # HEUTE = 2026-08-25
+    e = sm.bewerte(
+        {"prod": _messung("prod", "/", 300, 270)["prod"], "gpu-box": None},
+        [],
+        HEUTE,
+    )
+    assert e["unerreichbar"] == ["gpu-box"]
+    assert e["schlaeft"] == []
+    assert "nicht erreichbar: gpu-box" in sm.kurzzeile(e)
+
+
+def test_should_still_sleep_on_the_last_valid_day(_deklarationen):
+    """Grenze: am Tag `gueltig_bis` selbst wirkt die Deklaration noch."""
+    _auf_zuruf(_deklarationen, "gpu-box", "2026-08-25")
+    e = sm.bewerte({"gpu-box": None, "prod": None}, [], HEUTE)
+    assert e["schlaeft"] == ["gpu-box"]
 
 
 def test_should_exit_2_when_blind(tmp_path, capsys):

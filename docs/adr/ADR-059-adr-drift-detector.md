@@ -7,9 +7,11 @@ consulted: –
 informed: –
 implementation_status: implemented
 implementation_evidence:
-  - "dev-hub/apps/adr_lifecycle/: ADR Model, Sync-Service, Drift-Checker"
-  - "tasks.py: sync_adrs_from_github (hourly), run_drift_detector (weekly Mon 06:00)"
-  - "services.py: run_drift_check() mit Staleness + Status-Drift Erkennung"
+  - "path: dev-hub:apps/adr_lifecycle/models.py — ADR Model (Sync-Ziel der techdocs-ADRs)"
+  - "path: dev-hub:apps/adr_lifecycle/services.py — run_drift_check() mit Staleness + Status-Drift Erkennung"
+  - "path: dev-hub:apps/adr_lifecycle/tasks.py — sync_adrs_from_github (hourly), run_drift_detector (weekly Mon 06:00)"
+  - "test: dev-hub:apps/adr_lifecycle/tests/test_drift_detector.py"
+  - "test: dev-hub:apps/adr_lifecycle/tests/test_drift_check.py"
   - "AgentRun-Tracking in agents_dashboard (flagged/cleared/total)"
   - "5 GitHub-Repos konfiguriert (platform, travel-beat, bfagent, risk-hub, weltenhub)"
 ---

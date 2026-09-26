@@ -13,8 +13,16 @@ mkdir -p "$OUT"
 STAMP=$(date -u +%Y-%m-%d)
 python3 "$PLATFORM/tools/flottenbild.py" --out "$OUT/flottenbild-$STAMP.html" --json "$OUT/flottenbild-$STAMP.json"
 rc=$?
-ln -sfn "flottenbild-$STAMP.html" "$OUT/latest.html"
-ln -sfn "flottenbild-$STAMP.json" "$OUT/latest.json"
+# latest.* nur auf einen Stand zeigen lassen, der wirklich geschrieben wurde. Am
+# 2026-09-23 brach flottenbild.py ab (rc=1, keine Dateien), die Symlinks wurden
+# trotzdem umgehaengt — und zeigten ins Leere; der Sitzungsstart (0.7.22) las
+# daraufhin "kein Flottenbild" statt des noch vorhandenen Vortagesstands.
+if [ -s "$OUT/flottenbild-$STAMP.json" ]; then
+  ln -sfn "flottenbild-$STAMP.html" "$OUT/latest.html"
+  ln -sfn "flottenbild-$STAMP.json" "$OUT/latest.json"
+else
+  echo "flottenbild: rc=$rc, keine Ausgabe fuer $STAMP — latest.* bleibt auf dem Vortag" >&2
+fi
 # 30 Tage behalten — das ist die Historie, die K3 (Vorhersage) braucht und die es
 # vor dem 2026-08-30 nirgends gab.
 find "$OUT" -name 'flottenbild-*.json' -mtime +30 -delete

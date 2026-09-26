@@ -93,8 +93,12 @@ def token_lesen(mandant: str = STANDARD_MANDANT) -> str:
             f"ABBRUCH: Zugang fuer Mandant '{mandant}' fehlt — erwartete Datei: {pfad}"
         )
         sys.exit(3)
-    roh = pfad.read_text(encoding="utf-8").strip()
-    return roh.split("=", 1)[1].strip() if "=" in roh else roh
+    # Einziger Leser fuer Secret-Dateien — versteht bare UND NAME=WERT
+    # (platform#3129).
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from infra.lib.secrets import secret_wert  # noqa: PLC0415
+
+    return secret_wert(pfad)
 
 
 def client(mandant: str = STANDARD_MANDANT):

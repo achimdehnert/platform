@@ -34,6 +34,24 @@ Heilung und Abdeckungsluecken sind bewusst verschieden behandelt:
     Abdeckungsluecke wie eine Heilung aussehen — der teuerste Fehler, den ein
     Melder-Gedaechtnis machen kann.
 
+Heilung ist ausserdem an dasselbe Zielrepo gebunden, wo eine Phase je Lauf nur
+EIN Repo kennen kann (#3470, gemessen 2026-09-24): Ein Lauf mit
+`TARGET_REPO=platform` legte `0.7.26 ci-deckung::platform` an; ein PARALLELER
+Lauf mit `TARGET_REPO=robo-lab` sah dieselbe Phase in seinem eigenen Lauf
+"geurteilt" und loeschte den platform-Eintrag, obwohl er dessen Zielrepo nie
+erreichen konnte — `laeufe`, `erstmals`, `entscheiden_bis` und ein gesetzter
+Anker gingen verloren. Ob eine Phase pro Lauf nur ein Repo melden kann
+(`$TARGET_REPO` in `tools/session_start_checks.sh`, z.B. 0.4 parallel-sessions,
+0.4.1 reflex, 0.7.4 prio-referenzen, 0.7.26 ci-deckung) oder flottenweit mehrere
+Repos in jedem Lauf sieht (0.7 deploy-scan, 0.7.12 prod-wirkung, 0.7.16
+origin-tls, …), steht je Phase in `governance/melder-register.yaml` als
+`zielgebunden: true|false` (Default `false` = flottenweit, bisheriges
+Verhalten). Fuer eine zielgebundene Phase heilt ein Eintrag nur, wenn der Lauf
+dasselbe Zielrepo hatte wie der Eintrag; alles andere heilt weiterhin, sobald
+seine Phase lief und es nicht mehr meldet. Fehlt einer gelaufenen Phase der
+Register-Eintrag, gilt derselbe Default (flottenweit) — mit einer Warnzeile im
+Bericht, statt die Luecke stillschweigend zu schliessen.
+
 Zustand liegt lokal (`~/.claude/befund-journal.json`), nicht im Repo: die Notizen
 tragen Ausschnitte des eigenen Laufs und sind maschinengebunden — dieselbe Grenze
 wie bei `gate_hits.py` (Charta Art. 2).
@@ -46,10 +64,16 @@ Kommandos:
   --verankert ID URL       Artefakt im Zielrepo hinterlegen.
   --verzichtet ID GRUND    Bewusst nicht verfolgen — mit Grund, sonst zaehlt es nicht.
   --beleg ID ...           Kommando, Ausgabe, Knoten, Positivkontrolle an einen Befund haengen.
+  --fix ID --pr URL --wirkung "<Satz>" [--messung YYYY-MM-DD]
+                           Fix in Arbeit vermerken: PR, erwartete Wirkung, Messdatum.
   --bericht --json         Dieselben Daten maschinenlesbar — fuer eine Leseflaeche
                            ausserhalb dieser Maschine (KONZ-054 E2).
   --praezision --json      Trefferquote je Melder maschinenlesbar (#2690 K3) —
                            Basis fuer tools/melder_register_check.py --herabstufung.
+  --deklaration ZIEL --art ART --grund "<Satz>" --gueltig-bis YYYY-MM-DD [--quelle TEXT]
+                           Ausnahme mit Ablauf setzen (#3495 V2) — ZIEL ist Host,
+                           Dienst oder Journal-Schluessel.
+  --gilt ZIEL [--art ART]  Exit 0, wenn eine gueltige Deklaration wirkt (#3507).
 
 Seit 2026-08-30 (KONZ-platform-054 E2) drei Dinge mehr, alle aus derselben Messung:
     17 Befunde offen, 0 verankert, 12 ohne Frist — und 7 davon waren platform-eigene
@@ -62,6 +86,74 @@ Seit 2026-08-30 (KONZ-platform-054 E2) drei Dinge mehr, alle aus derselben Messu
     (3) Ein Befund traegt Kommando, Ausgabe, Knoten und Positivkontrolle, wenn der
         Melder sie liefert. Ohne sie muss der Leser jede Zeile selbst nachmessen —
         und dann spart der Melder nichts (Maintainer-2028-Einwand zu KONZ-054).
+
+Seit 2026-09-24 (#3495 V4) ein viertes Feld: Fix in Arbeit. Der Advocatus-Diabolus-
+Befund L2 (Kommentar in #3471) stellte fest, dass das Journal keine laufende
+Reparatur kennt — eine neue Sitzung sieht dieselbe WARN-Zeile und fixt sie ein
+zweites Mal. Real passiert: #3465 und #3466 fixten unabhaengig voneinander
+denselben Befund, weil keine Sitzung sehen konnte, dass die andere schon dabei
+war. `--fix ID --pr URL --wirkung "<Satz>" [--messung DATUM]` haengt PR,
+erwartete Wirkung und ein Messdatum an einen Befund; `--bericht` zeigt die Zeile,
+und liegt das Messdatum in der Vergangenheit, waehrend der Eintrag weiterhin im
+Journal steht (Phase hat ihn nicht geheilt), markiert der Bericht ihn als
+ueberfaellig — dieselbe Ruhe-vs-laut-Mechanik wie bei
+`entscheiden_bis`, nur fuer den laufenden Fix statt fuer den Erstbefund.
+
+Seit 2026-09-24 (#3495 V2) Deklarationen — Ausnahmen mit Pflicht-Ablaufdatum:
+    Der Sonderfall "Knoten mit `betrieb: auf_zuruf` ist unerreichbar -> schlaeft,
+    kein Befund" war fuenfmal gebaut (`flottenbild.py`, `speicher_melder.py`,
+    `reconcile_registry_live.py`, `host_datei_drift.py`, `deploy-script-drift.sh`),
+    jede Kopie las `infra/hosts.yaml` selbst, und keine kannte ein Ende — eine
+    Ausnahme ohne Ablauf ist eine Dauerausnahme (Advocatus-Diaboli-Befund E1a,
+    #3471). Jetzt gibt es EINE Lesefunktion, ``deklarationen_fuer(ziel, heute,
+    art)``, und alle Melder fragen nur sie. Arten: ``DEKLARATIONS_ARTEN``. Ein
+    Eintrag ohne ``gueltig_bis`` ist ungueltig und wirkt nicht; ein abgelaufener
+    wirkt nicht und steht im Bericht als ``⏰ Deklaration abgelaufen`` — der
+    Melder meldet den Knoten ab dem Tag danach wieder.
+
+    Quelle ist ``governance/deklarationen.json`` im Repo, nicht die lokale
+    Journal-Datei. Grund: `reconcile_registry_live.py` laeuft taeglich auf dem
+    Prod-Runner (`.github/workflows/registry-live-reconcile.yml`), wo es kein
+    `~/.claude/befund-journal.json` gibt — laege die Deklaration nur lokal, kaeme
+    dort `C0:gpu-box` zurueck, genau der Fund, den #3479 abgestellt hat. Eine
+    Deklaration ist ausserdem eine Owner-Entscheidung und kein Laufausschnitt; sie
+    traegt nichts, was nach Charta Art. 2 lokal bleiben muss, und wird wie jede
+    Entscheidung per PR sichtbar. `infra/hosts.yaml` fuehrt das Feld `betrieb:
+    auf_zuruf` nicht mehr, der Knoten-Eintrag nennt nur die Herkunft; ein Test
+    (`test_should_not_declare_auf_zuruf_in_hosts_yaml`) haelt das Feld dort fern,
+    damit keine zweite Quelle nachwaechst. Gesetzt wird mit
+    `--deklaration ZIEL --art ART --grund "<Satz>" --gueltig-bis YYYY-MM-DD`.
+
+Seit 2026-09-24 (#3507, V2-Rest) lesen alle vier Arten ueber ``deklarationen_fuer()``:
+    * ``auf_zuruf`` — wie oben (flottenbild, speicher, reconcile, host_datei_drift,
+      deploy-script-drift) und neu die Cloudflare-Gegenprobe
+      (`tools/cf_access/gegenprobe.sh` fragt ``--gilt GERAET --art auf_zuruf``;
+      der von Hand gesetzte Schalter ``URSPRUNG_DARF_SCHLAFEN`` ist entfallen).
+    * ``stundung`` — die Eintraege aus `infra/reconcile-baseline.yaml` stehen
+      jetzt in `governance/deklarationen.json` (Ziel = Drift-ID, z. B. ``C4:8000``);
+      die YAML ist geloescht. Abgelaufen heisst: der Fund zaehlt wieder als NEU
+      (Exit 1) plus eine ``[ABGELAUFEN]``-Zeile — nicht mehr Exit 2 fuer den ganzen
+      Lauf, der am 2026-08-08 vier weitere Funde verdeckt hatte (#1857).
+    * ``betriebsstatus`` — Wert und Grund bleiben in `infra/ports.yaml`
+      (Vokabular an EINER Stelle, `tools/betriebsstatus.py`; auch
+      `deploy_preflight.py` und `flottenbild.py` lesen den Wert). Die Deklaration
+      traegt NUR den Ablauf: ``betriebsstatus.wirksamer_status()`` behandelt einen
+      nicht-aktiven Dienst ohne gueltige Deklaration als ``aktiv``, die Melder
+      (erreichbarkeit, origin_tls, waisen, deploy_wirkung) melden ihn dann wieder.
+      Keine zweite Wahrheit: der Status steht an einer Stelle, das Ablaufdatum an
+      einer anderen, und keiner der beiden Werte steht doppelt.
+    * ``verzicht`` — der Verzicht bleibt am Befund im lokalen Journal
+      (``--verzichtet``: Laufausschnitt, Charta Art. 2); sein Ablauf ist die
+      ``wiedervorlage``. ``deklarationen_fuer(..., journal=daten)`` liest ihn als
+      Deklaration mit; ``verzicht_gilt()`` ist die einzige Stelle, die fragt, ob
+      ein Verzicht noch traegt. Ein abgelaufener Verzicht holt den Befund zurueck
+      ins Gate (``--offen-cross-repo``) — bis #3507 zaehlte er dort unbefristet.
+
+    Dazu das Feld ``verankert_am`` (#3507, Folgepunkt aus #3506): ``--verankert``,
+    ``--verzichtet`` und ``--falsch`` setzen es auf den Tag der Entscheidung;
+    ``--bericht --json`` liefert es. `tools/session_start_delta.py` rechnet die
+    [INFRA]-Ruhe ab diesem Datum und braucht seine Zustandsdatei nur noch fuer
+    Alt-Eintraege ohne Datum.
 """
 
 from __future__ import annotations
@@ -71,7 +163,7 @@ import importlib.util
 import json
 import os
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 
@@ -186,6 +278,13 @@ INFRA_PHASEN = (
 #: beides haette jeden neuen Befund zum Schweigen gebracht.
 FRIST_ENTSCHEIDUNG_TAGE = 7
 
+#: Default-Messfrist in Tagen fuer ``--fix``, wenn ``--messung`` fehlt (#3495 V4).
+#: Sieben, aus demselben Grund wie bei ``FRIST_ENTSCHEIDUNG_TAGE``: eine
+#: Arbeitswoche ist genug Zeit fuer den naechsten Runner-Lauf, der die Wirkung
+#: pruefen kann, und kurz genug, dass ein liegengebliebener Fix nicht monatelang
+#: als "in Arbeit" gilt.
+FRIST_FIX_MESSUNG_TAGE = 7
+
 #: Beleg-Felder je Befund (KONZ-054 E2). Optional — aber ein Befund ohne sie ist
 #: fuer den Leser um 03:00 eine Behauptung, kein Befund.
 BELEG_FELDER = ("knoten", "kommando", "ausgabe", "positivkontrolle")
@@ -197,6 +296,250 @@ def _heute() -> str:
 
 def _frist(tage: int) -> str:
     return (datetime.now(timezone.utc) + timedelta(days=tage)).date().isoformat()
+
+
+# ── Deklarationen (#3495 V2) ─────────────────────────────────────────────────
+
+#: Arten einer Deklaration. `auf_zuruf`: Knoten laeuft planmaessig nur auf Zuruf,
+#: Unerreichbarkeit ist kein Befund. `verzicht`: Befund bewusst nicht verfolgt.
+#: `stundung`: Befund bekannt, Behebung terminiert. `betriebsstatus`: Dienst
+#: planmaessig nicht aktiv (Vokabular `tools/betriebsstatus.py`).
+DEKLARATIONS_ARTEN = ("auf_zuruf", "verzicht", "stundung", "betriebsstatus")
+
+#: Relativ zur Repo-Wurzel. Warum im Repo und nicht lokal: Modul-Docstring,
+#: Abschnitt "Deklarationen".
+DEKLARATIONEN_REL = Path("governance") / "deklarationen.json"
+
+_DEKLARATIONEN_HINWEIS = (
+    "Verwaltet von tools/befund_journal.py --deklaration (#3495 V2). "
+    "Jeder Eintrag braucht gueltig_bis; gelesen wird nur ueber deklarationen_fuer()."
+)
+
+
+def _deklarationen_pfad(pfad: Path | None = None) -> Path:
+    """Explizit > ``$BEFUND_DEKLARATIONEN_DATEI`` > Repo-Datei.
+
+    Die Umgebungsvariable wird bei JEDEM Aufruf gelesen, nicht beim Import —
+    Tests und Werkzeuge ohne eigenen Pfad-Parameter (``reconcile_registry_live``)
+    lenken sie so auf eine Fixture um.
+    """
+    if pfad is not None:
+        return Path(pfad)
+    env = os.environ.get("BEFUND_DEKLARATIONEN_DATEI")
+    if env:
+        return Path(env)
+    return Path(__file__).resolve().parent.parent / DEKLARATIONEN_REL
+
+
+#: ``quelle`` der aus dem lokalen Journal abgeleiteten Verzicht-Deklarationen.
+JOURNAL_QUELLE = "befund-journal (lokal, --verzichtet)"
+
+
+def _journal_verzichte(journal: dict | None) -> list[dict]:
+    """Verzichte am Befund als Deklarationen — der Ablauf ist die ``wiedervorlage``.
+
+    Kein zweites Datum: ``--verzichtet`` setzt ``wiedervorlage``, und genau das ist
+    ``gueltig_bis``. Ein Alt-Verzicht ohne ``wiedervorlage`` ist damit ungueltig
+    und wirkt nicht — die sichere Richtung (Befund statt Schweigen).
+    """
+    aus = []
+    for fid, e in sorted(((journal or {}).get("befunde") or {}).items()):
+        v = e.get("verzicht") if isinstance(e, dict) else None
+        if not isinstance(v, dict):
+            continue
+        aus.append(
+            {
+                "ziel": fid,
+                "art": "verzicht",
+                "grund": str(v.get("grund") or ""),
+                "gesetzt_am": v.get("am"),
+                "gueltig_bis": e.get("wiedervorlage"),
+                "quelle": JOURNAL_QUELLE,
+            }
+        )
+    return aus
+
+
+def lade_deklarationen(
+    pfad: Path | None = None, journal: dict | None = None
+) -> list[dict]:
+    """Alle Eintraege, auch ungueltige und abgelaufene — fuer den Bericht.
+
+    Eine fehlende oder kaputte Datei ergibt ``[]``: dann gilt keine Ausnahme, und
+    die Melder melden laut. Das ist die sichere Richtung — eine verlorene
+    Deklaration erzeugt einen Befund, nie ein Schweigen.
+
+    ``journal`` (die geladenen Journal-Daten) haengt die Verzichte am Befund an
+    (#3507). Ohne Angabe nur die Repo-Datei — der Prod-Runner hat kein Journal,
+    und eine versteckte Disk-Lesung machte die Funktion in Tests unberechenbar.
+    """
+    try:
+        daten = json.loads(_deklarationen_pfad(pfad).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        daten = {}
+    liste = daten.get("deklarationen") if isinstance(daten, dict) else None
+    if not isinstance(liste, list):
+        liste = []
+    return [d for d in liste if isinstance(d, dict)] + _journal_verzichte(journal)
+
+
+def deklarations_fehler(d: dict) -> str | None:
+    """Warum dieser Eintrag nicht wirken darf — oder ``None``, wenn er gueltig ist."""
+    if d.get("art") not in DEKLARATIONS_ARTEN:
+        return (
+            f"art '{d.get('art')}' unbekannt (erlaubt: {', '.join(DEKLARATIONS_ARTEN)})"
+        )
+    if not str(d.get("ziel") or "").strip():
+        return "ziel fehlt"
+    if not str(d.get("grund") or "").strip():
+        return "grund fehlt"
+    bis = str(d.get("gueltig_bis") or "").strip()
+    if not bis:
+        return "gueltig_bis fehlt — ohne Ablauf waere es eine Dauerausnahme"
+    try:
+        date.fromisoformat(bis)
+    except ValueError:
+        return f"gueltig_bis '{bis}' ist kein Datum YYYY-MM-DD"
+    return None
+
+
+def _tag(heute: str | date | None) -> str:
+    if isinstance(heute, date):
+        return heute.isoformat()
+    return heute or _heute()
+
+
+def deklarationen_fuer(
+    ziel: str,
+    heute: str | date | None = None,
+    art: str | None = None,
+    pfad: Path | None = None,
+    journal: dict | None = None,
+) -> list[dict]:
+    """DIE Lesefunktion: gueltige, nicht abgelaufene Deklarationen fuer ``ziel``.
+
+    ``ziel`` ist ein Host (Schluessel in `infra/hosts.yaml`), ein Dienst, eine
+    Drift-ID (``stundung``) oder ein Journal-Schluessel. ``art`` filtert (z. B.
+    ``"auf_zuruf"``). Am Tag ``gueltig_bis`` wirkt die Deklaration noch, am Tag
+    danach nicht mehr. Ungueltige Eintraege (ohne Ablauf, unbekannte Art) wirken
+    nie. ``journal`` bezieht die Verzichte am Befund ein (``lade_deklarationen``).
+    """
+    tag = _tag(heute)
+    return [
+        d
+        for d in lade_deklarationen(pfad, journal)
+        if str(d.get("ziel", "")).strip() == ziel
+        and (art is None or d.get("art") == art)
+        and deklarations_fehler(d) is None
+        and tag <= date.fromisoformat(str(d["gueltig_bis"]).strip()).isoformat()
+    ]
+
+
+def setze_deklaration(
+    ziel: str,
+    art: str,
+    grund: str,
+    gueltig_bis: str,
+    quelle: str = "",
+    pfad: Path | None = None,
+    heute: str | None = None,
+) -> dict:
+    """Deklaration anlegen oder ersetzen (Schluessel: ziel + art).
+
+    Wirft ``ValueError`` bei einem ungueltigen Eintrag und ``OSError``, wenn die
+    Datei nicht geschrieben werden kann.
+    """
+    neu = {
+        "ziel": ziel.strip(),
+        "art": art,
+        "grund": grund.strip(),
+        "quelle": quelle.strip(),
+        "gesetzt_am": heute or _heute(),
+        "gueltig_bis": gueltig_bis.strip(),
+    }
+    fehler = deklarations_fehler(neu)
+    if fehler:
+        raise ValueError(fehler)
+    liste = [
+        d
+        for d in lade_deklarationen(pfad)
+        if not (str(d.get("ziel", "")).strip() == neu["ziel"] and d.get("art") == art)
+    ]
+    liste.append(neu)
+    liste.sort(key=lambda d: (str(d.get("ziel", "")), str(d.get("art", ""))))
+    p = _deklarationen_pfad(pfad)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(
+        json.dumps(
+            {"hinweis": _DEKLARATIONEN_HINWEIS, "deklarationen": liste},
+            ensure_ascii=False,
+            indent=1,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return neu
+
+
+def deklarations_zeilen(
+    deklarationen: list[dict], heute: str | None = None
+) -> list[str]:
+    """Bericht-Zeilen: eine Summe fuer die aktiven, je eine Zeile fuer abgelaufene
+    und ungueltige — die leisen Ausnahmen sind genau die, die man sehen muss."""
+    tag = _tag(heute)
+    aktiv, abgelaufen, kaputt = [], [], []
+    for d in deklarationen:
+        fehler = deklarations_fehler(d)
+        if fehler:
+            kaputt.append((d, fehler))
+        elif tag > date.fromisoformat(str(d["gueltig_bis"]).strip()).isoformat():
+            abgelaufen.append(d)
+        else:
+            aktiv.append(d)
+    zeilen = []
+    if aktiv:
+        naechste = min(aktiv, key=lambda d: str(d["gueltig_bis"]))
+        zeilen.append(
+            f"  {len(aktiv)} Deklaration(en) aktiv, nächste Fälligkeit "
+            f"{naechste['gueltig_bis']} ({naechste['ziel']} [{naechste['art']}])"
+        )
+    for d in abgelaufen:
+        if d.get("quelle") == JOURNAL_QUELLE:
+            verlaengern = f"--verzichtet '{d['ziel']}' '<Grund>' [--frist TAGE]"
+        else:
+            verlaengern = (
+                f"--deklaration '{d['ziel']}' --art {d['art']} "
+                "--grund '<Satz>' --gueltig-bis YYYY-MM-DD"
+            )
+        zeilen.append(
+            f"  ⏰ Deklaration abgelaufen: {d['ziel']} [{d['art']}] gueltig bis "
+            f"{d['gueltig_bis']} — wirkt nicht mehr, die Melder melden wieder. "
+            f"Verlaengern: {verlaengern}"
+        )
+    for d, fehler in kaputt:
+        zeilen.append(
+            f"  ⚠ Deklaration ungueltig ({fehler}): {d.get('ziel') or '?'} "
+            f"[{d.get('art') or '?'}] — wirkt nicht"
+        )
+    return zeilen
+
+
+def verzicht_gilt(
+    eintrag: dict, heute: str | None = None, fid: str | None = None
+) -> bool:
+    """Traegt ein Verzicht diesen Befund HEUTE noch? — nur ueber ``deklarationen_fuer``.
+
+    Zwei Quellen, eine Frage: der Verzicht am Befund (lokales Journal, Ablauf =
+    ``wiedervorlage``) und ein ``verzicht`` in `governance/deklarationen.json`
+    fuer denselben Schluessel. Abgelaufen = wirkungslos (#3507).
+    """
+    fid = fid or fingerabdruck(
+        str(eintrag.get("phase", "")), str(eintrag.get("repo", ""))
+    )
+    return bool(
+        deklarationen_fuer(fid, heute, "verzicht", journal={"befunde": {fid: eintrag}})
+    )
 
 
 def ruhezustand(eintrag: dict, heute: str) -> str:
@@ -293,7 +636,80 @@ def _zeilen_lesen(text: str) -> list[dict]:
     return saetze
 
 
-def aufnehmen(saetze: list[dict], daten: dict) -> list[str]:
+#: So viele Heilungen je Fingerabdruck bleiben im Verlauf. Mehr braucht die
+#: Frage "haelt die Reparatur kuerzer als die davor?" nicht, und das Journal
+#: waechst nicht unbegrenzt.
+HEILUNGEN_MAX = 10
+
+
+def _tage(von: str, bis: str) -> int | None:
+    try:
+        return (date.fromisoformat(str(bis)) - date.fromisoformat(str(von))).days
+    except ValueError:
+        return None
+
+
+def wiederkehr(verlauf: list[dict], heute: str) -> dict | None:
+    """Wie lange hielt die letzte Heilung — und hielt sie kuerzer als die davor?
+
+    Vorbild ist die Anthropic-Messung zur Test-Impact-Analyse (Blog, 2026): drei
+    Flicken am selben Dienst hielten 70, dann 29, dann unter einen Tag. Der
+    schrumpfende Abstand war das Fruehzeichen fuer den Architekturbruch, lange
+    bevor ein einzelner Ausfall es war. Bis hierher loeschte die Heilung den
+    Eintrag samt Vorgeschichte (``aufnehmen``), und derselbe Befund kam jedes Mal
+    als "neu" zurueck — der Abstand war nicht messbar.
+
+    ``verlauf`` ist ``daten["heilungen"][fid]``, aelteste zuerst. Haltedauer einer
+    Heilung = vom Tag der Heilung bis zum naechsten ``erstmals``; fuer die letzte
+    Heilung also bis ``heute``.
+    """
+    if not verlauf:
+        return None
+    letzte = verlauf[-1]
+    hielt = _tage(letzte.get("geheilt", ""), heute)
+    vorher = None
+    if len(verlauf) >= 2:
+        vorher = _tage(verlauf[-2].get("geheilt", ""), letzte.get("erstmals", ""))
+    return {
+        "anzahl": len(verlauf),
+        "zuletzt_geheilt": letzte.get("geheilt"),
+        "fix_pr": letzte.get("fix_pr"),
+        "hielt_tage": hielt,
+        "vorher_tage": vorher,
+        "kuerzer": hielt is not None and vorher is not None and hielt < vorher,
+    }
+
+
+def _wiederkehr_zeile(e: dict) -> str:
+    w = e.get("wiederkehr") or {}
+    fix = f" nach Fix {w['fix_pr']}" if w.get("fix_pr") else ""
+    vorher = (
+        f" (vorher {w['vorher_tage']} Tage)" if w.get("vorher_tage") is not None else ""
+    )
+    trend = (
+        " ↘ haelt kuerzer — Ursache statt Flicken pruefen" if w.get("kuerzer") else ""
+    )
+    return (
+        f"{w.get('anzahl')}. Rueckkehr, Heilung{fix} hielt "
+        f"{w.get('hielt_tage')} Tage{vorher}{trend}"
+    )
+
+
+def _zielgebunden(phase: str, by_phase: dict[str, dict]) -> bool | None:
+    """``zielgebunden``-Flag der Phase aus dem Register, oder ``None`` wenn kein
+    Eintrag existiert (Aufrufer entscheidet dann per Default + Warnung, #3470)."""
+    eintrag = by_phase.get(phase)
+    if eintrag is None:
+        return None
+    return bool(eintrag.get("zielgebunden", False))
+
+
+def aufnehmen(
+    saetze: list[dict],
+    daten: dict,
+    lauf_repo: str = "",
+    register: list[dict] | None = None,
+) -> list[str]:
     """Journal fortschreiben und die Alters-Zeilen zurueckgeben.
 
     Regeln, in dieser Reihenfolge:
@@ -302,10 +718,22 @@ def aufnehmen(saetze: list[dict], daten: dict) -> list[str]:
       - WARN ohne dieses Repo -> Eintrag der Phase fuer nicht mehr genannte Repos heilen.
       - Phase gar nicht dabei -> Eintrag bleibt unveraendert stehen (Abdeckungsluecke,
                                  keine Heilung — er altert aber auch nicht weiter).
+
+    ``lauf_repo`` ist das Zielrepo DIESES Laufs (`--repo`/`$TARGET_REPO`). Eine
+    Phase, die im Register (`governance/melder-register.yaml`) als
+    ``zielgebunden: true`` gefuehrt wird, heilt nur, wenn ihr Eintrag dasselbe
+    Repo traegt wie ``lauf_repo`` — sonst konnte DIESER Lauf das Zielrepo des
+    Eintrags gar nicht erreichen und "geurteilt" haette nur wegen eines fremden
+    Repos (#3470). ``register`` ist wie bei ``praezision()`` ein reiner
+    Parameter, keine versteckte Disk-Lesung: ohne Angabe gilt ``[]`` — jede
+    Phase dann ohne Register-Eintrag, also Default flottenweit (unveraendertes
+    Verhalten fuer Aufrufer, die den Parameter nicht kennen).
     """
     befunde = daten.setdefault("befunde", {})
+    heilungen = daten.setdefault("heilungen", {})
     heute = _heute()
     gelaufene_phasen = {s["phase"] for s in saetze}
+    by_phase = _mrc.register_zuordnung(register or [])
     # Fingerabdruecke, ueber die diese Phase KEIN Urteil faellen konnte.
     ungeprueft: set[str] = {
         fingerabdruck(s["phase"], r) for s in saetze for r in s.get("ungeprueft", [])
@@ -335,6 +763,15 @@ def aufnehmen(saetze: list[dict], daten: dict) -> list[str]:
                     "entscheiden_bis": _frist(FRIST_ENTSCHEIDUNG_TAGE),
                     **belege,
                 }
+                w = wiederkehr(heilungen.get(fid, []), heute)
+                if w:
+                    befunde[fid]["wiederkehr"] = w
+                    # Sofort laut, nicht erst ab ALT_AB_LAEUFEN: die Rueckkehr
+                    # selbst ist das Signal, nicht ihr Alter.
+                    meldungen.append(
+                        f"  🔁 WIEDERKEHR {satz['phase']} · Repo {repo} — "
+                        + _wiederkehr_zeile(befunde[fid])
+                    )
                 continue
             eintrag["laeufe"] = int(eintrag.get("laeufe", 0)) + 1
             eintrag["zuletzt"] = heute
@@ -348,15 +785,40 @@ def aufnehmen(saetze: list[dict], daten: dict) -> list[str]:
             eintrag.update(belege)
 
     # Heilung: nur fuer Phasen, die in DIESEM Lauf tatsaechlich geurteilt haben —
-    # und nur fuer Repos, die diese Phase auch erreichen konnte.
+    # und nur fuer Repos, die diese Phase auch erreichen konnte. Fuer eine
+    # zielgebundene Phase heisst "erreichen konnte" zusaetzlich: der Lauf hatte
+    # dasselbe Zielrepo wie der Eintrag (#3470) — sonst heilt ein Lauf mit
+    # TARGET_REPO=robo-lab einen Befund, den nur TARGET_REPO=platform je sehen
+    # konnte, und `laeufe`/`erstmals`/`entscheiden_bis`/Anker gehen verloren.
+    ungeregistrierte_phasen: set[str] = set()
     for fid in list(befunde):
         eintrag = befunde[fid]
-        if (
-            eintrag.get("phase") in gelaufene_phasen
+        phase = eintrag.get("phase")
+        if not (
+            phase in gelaufene_phasen
             and fid not in noch_gemeldet
             and fid not in ungeprueft
         ):
-            del befunde[fid]
+            continue
+        zg = _zielgebunden(phase, by_phase)
+        if zg is None:
+            ungeregistrierte_phasen.add(phase)
+            zg = False
+        if zg and eintrag.get("repo") != lauf_repo:
+            continue  # zielgebunden, aber fremdes Zielrepo -> keine Heilung
+        # Die Heilung loescht den Eintrag, der Verlauf bleibt NEBEN den Befunden
+        # (dieselbe Begruendung wie bei ``urteile``) — sonst kaeme jede Rueckkehr
+        # als "neu" an und der Abstand zwischen Reparaturen waere nicht messbar.
+        verlauf = heilungen.setdefault(fid, [])
+        verlauf.append(
+            {
+                "erstmals": eintrag.get("erstmals"),
+                "geheilt": heute,
+                "fix_pr": (eintrag.get("fix") or {}).get("pr"),
+            }
+        )
+        del verlauf[:-HEILUNGEN_MAX]
+        del befunde[fid]
 
     ruhend = []
     for fid, e in sorted(befunde.items(), key=lambda kv: -int(kv[1].get("laeufe", 0))):
@@ -391,6 +853,12 @@ def aufnehmen(saetze: list[dict], daten: dict) -> list[str]:
             f"  ⏸ {len(ruhend)} Befund(e) ruhen bis zur Wiedervorlage "
             f"(naechste {naechste}) — Vollbild: tools/befund_journal.py --bericht"
         )
+    if ungeregistrierte_phasen:
+        meldungen.append(
+            f"  ⚠ {len(ungeregistrierte_phasen)} Phase(n) ohne Eintrag in "
+            "governance/melder-register.yaml — Heilung default flottenweit "
+            "(zielgebunden unbekannt): " + ", ".join(sorted(ungeregistrierte_phasen))
+        )
     return meldungen
 
 
@@ -419,6 +887,14 @@ def urteile_dazu(daten: dict, fid: str, urteil: str, grund: str) -> dict | None:
             "phase": (eintrag or {}).get("phase") or fid.split("::")[0],
             "repo": (eintrag or {}).get("repo") or (fid.split("::") + ["-"])[1],
             "urteil": urteil,
+            # Der BEURTEILTE Text, nicht die Begruendung des Urteils. `grund`
+            # entsteht NACH dem Urteil und nennt es meist mit — als Eingabe fuer
+            # eine spaetere Auswertung verraet er die Antwort. `eingabe` ist das,
+            # was der Melder gemeldet hat, bevor jemand darauf geschaut hat.
+            # Ohne dieses Feld sind die Urteile Etiketten ohne Gegenstand: die
+            # 51 Urteile bis zum 2026-09-21 lassen sich nicht mehr zuordnen,
+            # weil ihre Meldetexte nirgends mitgeschrieben wurden (#3337).
+            "eingabe": (eintrag or {}).get("letzte_note"),
             "grund": grund,
             "datum": _heute(),
         }
@@ -426,6 +902,40 @@ def urteile_dazu(daten: dict, fid: str, urteil: str, grund: str) -> dict | None:
     if eintrag is not None:
         eintrag["urteil"] = urteil
     return eintrag
+
+
+#: Urteil fuer einen Befund, dessen Phase aus dem Runner gestrichen wurde. Weder
+#: echt noch falsch — `praezision()` zaehlt es deshalb nicht mit.
+URTEIL_ENTFALLEN = "entfallen"
+
+
+def entfalle(daten: dict, fid: str, grund: str, runner_phasen: set[str]) -> str | None:
+    """Befund einer gestrichenen Phase schliessen; Fehlertext oder None.
+
+    Ein Eintrag heilt nur, wenn seine Phase im Lauf urteilt. Eine aus dem Runner
+    gestrichene Phase urteilt nie mehr, ihr Eintrag bliebe fuer immer offen —
+    der einzige Ausweg war bisher ein Direkteingriff in die Journal-Datei (#3569
+    K1, Anlass `0.7.7 gate-wirkung::platform`). Deshalb:
+
+    - **nur** fuer Phasen, die der Runner nicht mehr kennt. Solange eine Phase
+      laeuft, ist `--entfallen` kein Weg, einen lebenden Befund stummzuschalten —
+      dafuer gibt es `--echt`/`--falsch`/`--verankert`/`--verzichtet`.
+    - leere Phasenmenge (Runner nicht lesbar) = Ablehnung, nicht Freibrief.
+    - die Urteils-Historie behaelt eine Zeile, erst dann faellt der Eintrag weg.
+    """
+    eintrag = daten.get("befunde", {}).get(fid)
+    if eintrag is None:
+        return f"Kein Befund mit ID {fid}"
+    if not runner_phasen:
+        return "Runner-Phasen nicht lesbar — ohne sie ist nicht belegbar, dass die Phase gestrichen ist"
+    if eintrag["phase"] in runner_phasen:
+        return (
+            f"Phase '{eintrag['phase']}' laeuft noch im Runner — "
+            "--echt/--falsch/--verankert/--verzichtet statt --entfallen"
+        )
+    urteile_dazu(daten, fid, URTEIL_ENTFALLEN, grund)
+    del daten["befunde"][fid]
+    return None
 
 
 def _geschaerft_je_phase(register: list[dict]) -> dict[str, str]:
@@ -535,8 +1045,10 @@ def _cross_repo_offen(daten: dict, eigenes_repo: str) -> list[tuple[str, dict]]:
         Knoten, und zwar unabhaengig davon, unter welchem Repo er gefuehrt wird.
         Bis 2026-08-30 fielen genau diese durch die Eigen-Repo-Ausnahme.
     Lokale Zustaende (dirty Arbeitsbaum, `0.4 repo-sync`) bleiben draussen.
+    Ein Verzicht zaehlt nur, solange er gilt (``verzicht_gilt``, #3507).
     """
     offen = []
+    heute = _heute()
     for fid, e in sorted(daten.get("befunde", {}).items()):
         repo = str(e.get("repo", "-"))
         phase = str(e.get("phase", ""))
@@ -544,18 +1056,32 @@ def _cross_repo_offen(daten: dict, eigenes_repo: str) -> list[tuple[str, dict]]:
         infra = phase in INFRA_PHASEN
         if not (fremd or infra):
             continue
-        if e.get("artefakt") or e.get("verzicht"):
+        if e.get("artefakt") or verzicht_gilt(e, heute, fid):
             continue
         offen.append((fid, e))
     return offen
 
 
 def ueberfaellig(eintrag: dict, heute: str) -> bool:
-    """Entscheidungsfrist verstrichen, ohne dass verankert oder verzichtet wurde."""
+    """Entscheidungsfrist verstrichen, ohne dass verankert oder (gueltig) verzichtet wurde."""
     frist = eintrag.get("entscheiden_bis")
-    if not frist or eintrag.get("artefakt") or eintrag.get("verzicht"):
+    if not frist or eintrag.get("artefakt") or verzicht_gilt(eintrag, heute):
         return False
     return heute > str(frist)
+
+
+def fix_ueberfaellig(eintrag: dict, heute: str) -> bool:
+    """Messdatum eines laufenden Fixes verstrichen, waehrend der Eintrag noch im Journal steht.
+
+    Der Befund heilt (verschwindet) ohnehin, sobald seine Phase ihn nicht mehr
+    meldet — dann gibt es keinen Eintrag mehr, an dem diese Funktion etwas
+    pruefen koennte. Diese Pruefung setzt also voraus, dass der Aufrufer bereits
+    einen Eintrag in der Hand haelt, dessen ``fix.messung`` in der Vergangenheit liegt.
+    """
+    fix = eintrag.get("fix")
+    if not fix or not fix.get("messung"):
+        return False
+    return heute > str(fix["messung"])
 
 
 def bericht_json(daten: dict, eigenes_repo: str) -> list[dict]:
@@ -581,21 +1107,34 @@ def bericht_json(daten: dict, eigenes_repo: str) -> list[dict]:
                 "note": e.get("letzte_note"),
                 "artefakt": e.get("artefakt"),
                 "verzicht": e.get("verzicht"),
+                "verzicht_gilt": verzicht_gilt(e, heute, fid),
+                # Tag der letzten Entscheidung (--verankert/--verzichtet/--falsch,
+                # #3507) — session_start_delta.py rechnet die [INFRA]-Ruhe ab hier.
+                "verankert_am": e.get("verankert_am"),
                 "wiedervorlage": e.get("wiedervorlage"),
                 "ruhezustand": ruhezustand(e, heute),
                 "entscheiden_bis": e.get("entscheiden_bis"),
                 "ueberfaellig": ueberfaellig(e, heute),
                 "urteil": e.get("urteil"),
+                "fix": e.get("fix"),
+                "fix_ueberfaellig": fix_ueberfaellig(e, heute),
+                "wiederkehr": e.get("wiederkehr"),
                 **{f: e.get(f) for f in BELEG_FELDER},
             }
         )
     return aus
 
 
-def bericht(daten: dict, eigenes_repo: str) -> str:
+def bericht(
+    daten: dict, eigenes_repo: str, deklarationen: list[dict] | None = None
+) -> str:
+    """``deklarationen`` (aus ``lade_deklarationen()``) haengt die Deklarations-
+    Zeilen an; ``None`` laesst den Bericht wie vor #3495 V2."""
+    dekl = deklarations_zeilen(deklarationen or [])
+    anhang = ("\n\nDeklarationen:\n" + "\n".join(dekl)) if dekl else ""
     befunde = daten.get("befunde", {})
     if not befunde:
-        return "Journal leer — keine offenen Befunde."
+        return "Journal leer — keine offenen Befunde." + anhang
     zeilen = [f"{len(befunde)} offene(r) Befund(e):", ""]
     for fid, e in sorted(
         befunde.items(), key=lambda kv: (kv[1].get("repo", ""), kv[0])
@@ -605,6 +1144,7 @@ def bericht(daten: dict, eigenes_repo: str) -> str:
             if e.get("artefakt")
             else (
                 f"Verzicht ({e['verzicht'].get('grund', '')})"
+                + ("" if verzicht_gilt(e, _heute(), fid) else " ⏰ abgelaufen")
                 if e.get("verzicht")
                 else "OHNE Artefakt"
             )
@@ -619,7 +1159,9 @@ def bericht(daten: dict, eigenes_repo: str) -> str:
         frist = ""
         if ueberfaellig(e, _heute()):
             frist = f" · ⏰ Entscheidung seit {e.get('entscheiden_bis')} ueberfaellig"
-        elif e.get("entscheiden_bis") and not (e.get("artefakt") or e.get("verzicht")):
+        elif e.get("entscheiden_bis") and not (
+            e.get("artefakt") or verzicht_gilt(e, _heute(), fid)
+        ):
             frist = f" · entscheiden bis {e.get('entscheiden_bis')}"
         beleg = ""
         if e.get("kommando"):
@@ -628,10 +1170,20 @@ def bericht(daten: dict, eigenes_repo: str) -> str:
                 beleg += f" → {e['ausgabe']}"
         elif not e.get("kommando"):
             beleg = "\n      (ohne Beleg — Kommando/Knoten fehlen, --beleg nachtragen)"
+        fix_zeile = ""
+        if e.get("fix"):
+            fx = e["fix"]
+            fix_zeile = (
+                f"\n      🔧 Fix in Arbeit: {fx.get('pr')} — {fx.get('wirkung')} "
+                f"(Messung {fx.get('messung')})"
+            )
+            if fix_ueberfaellig(e, _heute()):
+                fix_zeile += "\n      ⏰ Fix-Messung überfällig"
+        rueck = f"\n      🔁 {_wiederkehr_zeile(e)}" if e.get("wiederkehr") else ""
         zeilen.append(
             f"  {fid}{fremd}{infra}\n"
             f"      {e.get('laeufe', 0)} Laeufe · erstmals {e.get('erstmals', '?')} · "
-            f"zuletzt {e.get('zuletzt', '?')} · {stand}{ruhe}{frist}{beleg}"
+            f"zuletzt {e.get('zuletzt', '?')} · {stand}{ruhe}{frist}{beleg}{fix_zeile}{rueck}"
         )
     offen = _cross_repo_offen(daten, eigenes_repo)
     zeilen.append("")
@@ -644,7 +1196,7 @@ def bericht(daten: dict, eigenes_repo: str) -> str:
         zeilen.append(
             "RESULT: OK — kein Fremd-Repo- oder Infra-Befund ohne Artefakt oder Verzicht."
         )
-    return "\n".join(zeilen)
+    return "\n".join(zeilen) + anhang
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -655,6 +1207,48 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--beleg", metavar="ID", help="Beleg-Felder an einen Befund haengen")
     for feld in BELEG_FELDER:
         p.add_argument(f"--{feld}", default=None, help=f"mit --beleg: {feld}")
+    p.add_argument(
+        "--fix", metavar="ID", help="Fix in Arbeit setzen (mit --pr und --wirkung)"
+    )
+    p.add_argument("--pr", default=None, help="mit --fix: PR-URL")
+    p.add_argument(
+        "--wirkung", default=None, help="mit --fix: erwartete Wirkung als Satz"
+    )
+    p.add_argument(
+        "--messung",
+        default=None,
+        metavar="DATUM",
+        help=f"mit --fix: Messdatum YYYY-MM-DD (Default: +{FRIST_FIX_MESSUNG_TAGE} Tage)",
+    )
+    p.add_argument(
+        "--deklaration",
+        metavar="ZIEL",
+        help="Deklaration setzen: Host, Dienst oder Journal-Schluessel "
+        "(mit --art, --grund, --gueltig-bis)",
+    )
+    p.add_argument(
+        "--gilt",
+        metavar="ZIEL",
+        help="Exit 0, wenn fuer ZIEL eine gueltige Deklaration (--art) wirkt, "
+        "sonst Exit 1 — fuer Shell-Aufrufer wie tools/cf_access/gegenprobe.sh",
+    )
+    p.add_argument("--art", choices=DEKLARATIONS_ARTEN, help="mit --deklaration")
+    p.add_argument("--grund", default=None, help="mit --deklaration: Grund als Satz")
+    p.add_argument(
+        "--gueltig-bis",
+        default=None,
+        metavar="DATUM",
+        help="mit --deklaration: Pflicht",
+    )
+    p.add_argument(
+        "--quelle", default="", help="mit --deklaration: Herkunft (Issue, Datei)"
+    )
+    p.add_argument(
+        "--deklarationen",
+        type=Path,
+        default=None,
+        help=f"Deklarations-Datei (Default: {DEKLARATIONEN_REL})",
+    )
     p.add_argument("--offen-cross-repo", action="store_true")
     p.add_argument("--verankert", nargs=2, metavar=("ID", "URL"))
     p.add_argument(
@@ -662,6 +1256,18 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument(
         "--falsch", nargs=2, metavar=("ID", "GRUND"), help="Fehlalarm des Melders"
+    )
+    p.add_argument(
+        "--entfallen",
+        nargs=2,
+        metavar=("ID", "GRUND"),
+        help="Befund einer aus dem Runner gestrichenen Phase schliessen",
+    )
+    p.add_argument(
+        "--runner",
+        type=Path,
+        default=_mrc.DEFAULT_RUNNER,
+        help="mit --entfallen: Runner-Skript, dessen Phasen gelten",
     )
     p.add_argument("--praezision", action="store_true", help="Trefferquote je Melder")
     p.add_argument("--kurz", action="store_true", help="eine Zeile fuer den Runner")
@@ -685,11 +1291,30 @@ def main(argv: list[str] | None = None) -> int:
     )
     a = p.parse_args(argv)
 
+    if a.gilt:
+        # Vor dem Journal-Laden: die Frage betrifft nur die Repo-Deklarationen,
+        # ein Shell-Aufrufer soll nicht an einer lokalen Datei haengen.
+        treffer = deklarationen_fuer(a.gilt, art=a.art, pfad=a.deklarationen)
+        if treffer:
+            d = treffer[0]
+            print(
+                f"gilt: {d['ziel']} [{d['art']}] bis {d['gueltig_bis']} — {d['grund']}"
+            )
+            return 0
+        print(f"keine gueltige Deklaration fuer {a.gilt} [{a.art or '*'}]")
+        return 1
+
     pfad = Path(a.datei) if a.datei else JOURNAL
     daten = lade(pfad)
 
     if a.aufnehmen:
-        meldungen = aufnehmen(_zeilen_lesen(sys.stdin.read()), daten)
+        # Registry nur hier geladen (main-Zeitpunkt) — dieselbe Trennung wie bei
+        # --praezision: aufnehmen() bleibt ohne Angabe deterministisch (Tests,
+        # andere Aufrufer), nur der CLI-Pfad sieht das echte zielgebunden-Feld.
+        register = _mrc.lade_register(a.register)
+        meldungen = aufnehmen(
+            _zeilen_lesen(sys.stdin.read()), daten, lauf_repo=a.repo, register=register
+        )
         sichere(daten, pfad)
         for m in meldungen:
             print(m)
@@ -722,8 +1347,72 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
 
+    if a.fix:
+        e = daten.get("befunde", {}).get(a.fix)
+        if e is None:
+            print(f"Kein Befund mit ID {a.fix}", file=sys.stderr)
+            return 2
+        if not a.pr or not a.wirkung:
+            print("--fix braucht --pr und --wirkung.", file=sys.stderr)
+            return 2
+        messung = a.messung or _frist(FRIST_FIX_MESSUNG_TAGE)
+        e["fix"] = {
+            "pr": a.pr,
+            "wirkung": a.wirkung,
+            "messung": messung,
+            "gesetzt_am": _heute(),
+        }
+        sichere(daten, pfad)
+        print(f"Fix in Arbeit: {a.fix} -> {a.pr} · Messung {messung}")
+        return 0
+
+    if a.deklaration:
+        if not (a.art and a.grund and a.gueltig_bis):
+            print(
+                "--deklaration braucht --art, --grund und --gueltig-bis — "
+                "ohne Ablauf keine Deklaration.",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            if date.fromisoformat(a.gueltig_bis.strip()).isoformat() < _heute():
+                print(
+                    f"--gueltig-bis {a.gueltig_bis} liegt in der Vergangenheit.",
+                    file=sys.stderr,
+                )
+                return 2
+            d = setze_deklaration(
+                a.deklaration,
+                a.art,
+                a.grund,
+                a.gueltig_bis,
+                quelle=a.quelle,
+                pfad=a.deklarationen,
+            )
+        except ValueError as exc:
+            print(f"Deklaration ungueltig: {exc}", file=sys.stderr)
+            return 2
+        except OSError as exc:
+            print(f"Deklaration nicht geschrieben: {exc}", file=sys.stderr)
+            return 2
+        print(
+            f"Deklaration gesetzt: {d['ziel']} [{d['art']}] gueltig bis "
+            f"{d['gueltig_bis']} — {d['grund']}"
+        )
+        return 0
+
     if a.bericht and a.json:
         print(json.dumps(bericht_json(daten, a.repo), ensure_ascii=False, indent=1))
+        return 0
+
+    if a.entfallen:
+        fid, grund = a.entfallen
+        fehler = entfalle(daten, fid, grund, _mrc.lade_runner_phasen(a.runner))
+        if fehler:
+            print(fehler, file=sys.stderr)
+            return 2
+        sichere(daten, pfad)
+        print(f"{URTEIL_ENTFALLEN}: {fid} — {grund}")
         return 0
 
     if a.echt or a.falsch:
@@ -751,7 +1440,10 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 print(f"Kein Befund mit ID {fid}", file=sys.stderr)
                 return 2
-        urteile_dazu(daten, fid, urteil, text)
+        eintrag = urteile_dazu(daten, fid, urteil, text)
+        if urteil == "falsch" and eintrag is not None:
+            # Fehlalarm = Entscheidung gefallen; Anker-Datum fuer die Delta-Ruhe (#3507).
+            eintrag["verankert_am"] = _heute()
         sichere(daten, pfad)
         print(f"{urteil}: {fid} — {text}")
         return 0
@@ -795,6 +1487,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Kein Befund mit ID {fid}", file=sys.stderr)
             return 2
         e["artefakt"] = url
+        e["verankert_am"] = _heute()  # #3507 — Delta rechnet die Ruhe ab hier
         tage = a.frist if a.frist is not None else FRIST_VERANKERT_TAGE
         e["wiedervorlage"] = _frist(tage)
         e["ruht_note"] = e.get("letzte_note")
@@ -814,6 +1507,7 @@ def main(argv: list[str] | None = None) -> int:
             print("Verzicht ohne Grund zaehlt nicht.", file=sys.stderr)
             return 2
         e["verzicht"] = {"grund": grund.strip(), "am": _heute()}
+        e["verankert_am"] = _heute()  # #3507
         tage = a.frist if a.frist is not None else FRIST_VERZICHT_TAGE
         e["wiedervorlage"] = _frist(tage)
         e["ruht_note"] = e.get("letzte_note")
@@ -869,7 +1563,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    print(bericht(daten, a.repo))
+    print(
+        bericht(daten, a.repo, deklarationen=lade_deklarationen(a.deklarationen, daten))
+    )
     return 0
 
 

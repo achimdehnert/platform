@@ -234,3 +234,28 @@ class TestMainWarnDegradesUnresolvableOwner:
         assert rc == 0
         assert "Fallback auf --org explicit-org" in out
         assert "debug-repo: grün" in out
+
+
+def test_should_skip_repos_that_ports_yaml_declares_shut_down(tmp_path, monkeypatch):
+    """coach-hub: seit 2026-08-30 stillgelegt, der Monitor eskalierte trotzdem weiter."""
+    ports = tmp_path / "ports.yaml"
+    ports.write_text(
+        "services:\n"
+        "  coach-hub:\n    repo: coach-hub\n    betriebsstatus: stillgelegt\n"
+        "  risk-hub:\n    repo: risk-hub\n    betriebsstatus: aktiv\n",
+        encoding="utf-8",
+    )
+    assert dfm.stillgelegte_repos(str(ports)) == {"coach-hub"}
+    monkeypatch.setattr(dfm, "stillgelegte_repos", lambda: {"coach-hub"})
+    monkeypatch.setattr(
+        dfm,
+        "flat",
+        lambda: {
+            "repos": {"coach-hub": {"type": "django"}, "risk-hub": {"type": "django"}}
+        },
+    )
+    assert dfm.load_deploy_repos() == ["risk-hub"]
+
+
+def test_should_report_nothing_shut_down_when_ports_yaml_is_missing(tmp_path):
+    assert dfm.stillgelegte_repos(str(tmp_path / "fehlt.yaml")) == set()

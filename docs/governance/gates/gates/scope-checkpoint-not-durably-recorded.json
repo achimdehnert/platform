@@ -1,0 +1,45 @@
+{
+  "slug": "scope-checkpoint-not-durably-recorded",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": "tools/claude-hooks/scope_checkpoint_scanner.py",
+  "drill": "tools/claude-hooks/tests/test_scope_checkpoint_scanner.py",
+  "built": "2026-08-02",
+  "ref": "platform#1646",
+  "revised": "2026-09-25",
+  "revision_note": "Rev 9, Retro 2026-09-24 02b7f5 §5a (Gate RUECKFAELLIG +2, Ursache am ZEITPUNKT, Konsequenz umbauen; Owner-Wort '12 go' 2026-09-25): Fehlerform A–C haengen an Tool-Evidenz und kommen deshalb erst nach der Wirkung. Im Realfall bat eine Board-Zeile um '25 go' fuer einen Merge mit Prod-Deploy, der Owner klickte selbst — Tool-Evidenz der Sitzung gab es nie, A feuerte 22 min spaeter an einem anderen Ausloeser. Neu Fehlerform D: die letzte Antwort bittet in EINER Zeile um ein Wort (🟢, 'dein Zug/Wort/Klick', 'freigeben', 'N go') UND nennt Deploy/Prod/Publish/Release/Rollout, ohne dass in der Sitzung ein Checkpoint gefallen ist. Bloßes 'mergen' zaehlt nicht. Replay gegen 116 Antworttexte der Realsitzung: erste Meldung 14:44:58 ('Schattenbetrieb im Lotse freigeben (Prod-Dienst)'), der Realfall '[25] Merge mit Prod-Deploy freigeben' 15:01:49 ebenfalls erkannt; Entprellung einmal je Sitzung. Benannte Grenze: Prosa, die ein bereits gegebenes Owner-Wort zitiert ('durch dein „25 go“ gedeckt'), trifft ebenfalls — wegen der Entprellung ohne zweite Meldung. Vorversion: Rev 8, Retro 2026-09-24 e911bf Befund #5 (Gate RUECKFAELLIG, Ursache an der QUELLE, Konsequenz ausweiten): Der Checkpoint (07:43Z, durabel 07:49Z) nannte sechs Repos und stellte 'weitere Repos' unter ein neues Owner-Wort; beschrieben hatte die Sitzung davon erst vier. Ab 13:37Z kam cad-hub per Worktree-Pfad dazu — die Repo-Erkennung sah es (Replay: repos_beschrieben = 5), aber Fehlerform C verglich Zahlen: 5 - 4 = 1 < NACHWACHS_SCHWELLE 2, also stumm (Replay des Scanners von origin/main als Stop-Hook auf das Transkript bis 14:00Z: keine Ausgabe). Rev 8 vergleicht Mengen: jedes beschriebene Repo, das beim letzten Checkpoint weder beschrieben war noch in einem Checkpoint-Text genannt ist, macht den Checkpoint ueberholt — schon das erste. Replay Rev 8 auf dasselbe Transkript: bis 13:36Z stumm, bis 14:00Z Meldung 'cad-hub'. Rev 7 (Retro 69d15d Befund 7, Ausgang) bleibt davon unberuehrt.",
+  "faengt": [
+    {
+      "fall": "drittes Repo beruehrt, Scope nicht durabel abgelegt",
+      "probe": "third_repo"
+    },
+    {
+      "fall": "Reichweite aus der Ausgabe eines wirkenden Kommandos",
+      "probe": "reichweite"
+    },
+    {
+      "fall": "Checkpoint abgelegt, Reichweite danach weiter gewachsen (Retro 33616e #1)",
+      "probe": "Fehlerform C"
+    },
+    {
+      "fall": "Checkpoint abgelegt, danach erstes Repo, das er nicht nennt, per Worktree-Pfad beschrieben (Retro e911bf #5)",
+      "probe": "checkpoint_did_not_name"
+    },
+    {
+      "fall": "fremden Dienst scharfschalten (enable/start) ohne durablen Scope-Vermerk",
+      "probe": "fremde_ressource"
+    },
+    {
+      "fall": "Antwort bittet um ein Prod-Wort, ohne dass ein Checkpoint gefallen ist (Retro 02b7f5 #3/#6)",
+      "probe": "form_d"
+    }
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-08-02",
+  "expires": "2026-10-31",
+  "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet.",
+  "positivkontrolle": {
+    "ref": "tools/claude-hooks/tests/test_scope_checkpoint_scanner.py — Form D muss SCHWEIGEN bei: Checkpoint in derselben Antwort, Checkpoint frueher in der Sitzung, bloßer Merge-Bitte ohne Prod-Begriff, Bitte und Prod-Begriff in verschiedenen Zeilen, zweiter Meldung derselben Sitzung. Replay Realsitzung 02b7f5 (116 Antworttexte) s. revision_note. Vorher: docs/retros/session-retro-2026-09-24-platform-e911bf.md",
+    "datum": "2026-09-25"
+  }
+}

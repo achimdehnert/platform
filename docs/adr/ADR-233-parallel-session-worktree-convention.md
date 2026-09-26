@@ -210,6 +210,37 @@ Widerspruch zu „Main-Tree heilig = Ritual + ggf. Hook" — der Guard ist jetzt
   `repo-session`-Wrapper als Entscheidung (nicht Ritual), Lease-Ledger, geschärfte Reaper-Semantik
   (nie Branch löschen / unmerged-clean nur markieren), messbares Kill-Gate, Disk-Budget, Alternativen
   E/F/G. Tag-Tabelle §11.
+## Kopierfertiger CLAUDE.md-Schnipsel
+
+Damit die Formulierung zwischen den Repos nicht driftet, gilt der folgende Block
+als Kanon. In die `CLAUDE.md` eines Ziel-Repos uebernehmen, nichts daran aendern
+ausser dem Repo-Namen im Beispielaufruf:
+
+```markdown
+## Editieren — Worktree, nicht Haupt-Tree (ADR-233)
+
+Der Haupt-Checkout bleibt auf `main`; read-only-Analyse dort ist erlaubt, ein
+`git switch`/`checkout -b` nicht (parallele Sitzungen kollidieren ueber den HEAD).
+Editiert wird in einem eigenen Worktree:
+
+    bash ~/github/platform/tools/repo-session.sh start ~/github/<repo> \
+      --task "<slug>" --ziel "<Sitzungsziel>"
+
+Das Skript liegt in **platform**, nicht im eigenen Repo. Wer `tools/repo-session.sh`
+aus dem Repo-Wurzelverzeichnis aufruft, bekommt „file not found" ohne Hinweis auf
+den wahren Ort.
+```
+
+**Warum der Pfad ausgeschrieben ist:** Ein Agent liest die Zeile woertlich. Ohne
+`platform/`-Praefix liest sie sich repo-lokal, und der Aufruf schlaegt mit einer
+Meldung fehl, die den echten Ort nicht nennt — gefunden bei `/repo-optimize
+trading-hub` (2026-07-16, Befund LLM-2, platform#1196).
+
+**Stand der Flotte bei Aufnahme dieses Blocks (2026-09-21):** 4 `CLAUDE.md`
+nennen das Skript, alle vier mit korrektem Praefix; 23 nennen es gar nicht. Der
+Drift, den #1196 beobachtet hatte, ist damit ausgelaufen — der Block steht hier
+fuer die 23, die noch nichts dazu sagen, und fuer jedes neue Repo.
+
 - **2026-07-04:** `repo-session.sh reap [<repo>]` + Auto-Reap bei `start` (Retro f5e1d F-P4,
   Gate `worktree-midsession-accumulation` ×2 → Gate-Pflicht, #913): jede neue Session räumt
   zuerst gemergte+cleane Orphan-Worktrees des Ziel-Repos via `worktree-reaper.py --apply` ab

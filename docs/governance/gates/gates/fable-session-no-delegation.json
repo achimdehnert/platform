@@ -1,0 +1,24 @@
+{
+  "slug": "fable-session-no-delegation",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": "tools/claude-hooks/fable_delegation_reminder.sh",
+  "drill": "tools/claude-hooks/tests/test_fable_delegation_reminder.py",
+  "built": "2026-09-03",
+  "ref": "platform#2750 K2/K3",
+  "positivkontrolle": {
+    "ref": "Realer Lauf im Fable-Hauptfaden 2026-09-03 (settings model claude-fable-5-1[1m], POLICY_FILE auf den PR-Stand von policies/session-routing.md): Hook gab Kopfzeile + Tabelle aus, Exit 0; Gegenprobe mit model claude-sonnet-5 gab 0 Bytes. Drill: tools/claude-hooks/tests/test_fable_delegation_reminder.py (Fable-Fall rot ohne Ausgabe, Sonnet-Fall rot bei Ausgabe). Grenze: lokaler Lauf, kein CI-Beleg — der Traeger (SessionStart-Verdrahtung) fehlt noch, s. zustand.",
+    "datum": "2026-09-03"
+  },
+  "faengt": [
+    {
+      "fall": "Fable-Session ohne Delegationserinnerung fuer Umsetzungsarbeit",
+      "probe": "fable"
+    }
+  ],
+  "zustand": "schranke",
+  "zustand_note": "Traeger seit 2026-09-03: SessionStart-Eintrag `fable_delegation_reminder.sh` in ~/.claude/settings.json (Hauptfaden nach Merge von platform#2751). Echter Lauf gegen die Live-Settings gab die Regel aus (18 Zeilen, Exit 0).",
+  "expires": "2026-10-31",
+  "expires_note": "verdrahten oder streichen bis dahin — sonst Dekoration wie die anderen ohne-traeger-Gates (platform#2606 E4).",
+  "erzwungen_seit": "2026-09-03"
+}

@@ -410,6 +410,9 @@ def _args(tmp_path: Path, register_datei: Path, abgaenge: list[dict], **extra):
         "konten": tmp_path / "konten.json",
         "konto": None,
         "anlegen": False,
+        # Spiegelt die CLI: ohne diese Zeile faellt jeder Test, der
+        # ergebnis_sammeln() aufruft, ueber ein fehlendes Attribut (#3102).
+        "nach_paperless": False,
         "json": False,
         "heute": "2026-04-15",
         "ziel": tmp_path / "board.md",
@@ -1554,3 +1557,143 @@ def test_should_mark_a_mail_attachment_without_invoice_data_as_anlage(
     assert "Anlage ohne Rechnungsdaten" in bb.render_markdown(
         ergebnis, _args(tmp_path, register_datei, [])
     )
+
+
+# ── Archiv-Zustellung nach Paperless (#3102) ───────────────────────────────
+#
+# Der Befund, der diese Funktion ausgeloest hat: in Paperless lagen 65
+# Rechnungen des Jahres, aber keine einzige von Hetzner, Cloudflare, Anthropic
+# oder GitHub — obwohl deren Belege hier laengst beschafft wurden. Die
+# Zustellung haengt deshalb an der Zuordnung, nicht am Download.
+#
+# Der Transport ist injiziert; kein Test spricht mit einem Host.
+
+
+class _Zusteller:
+    """Merkt sich, was ihm uebergeben wurde — statt es zu uebertragen."""
+
+    def __init__(self, fehler_bei: str | None = None):
+        self.aufrufe: list[tuple[str, str, str]] = []
+        self.fehler_bei = fehler_bei
+
+    def __call__(self, pfad: Path, host: str, ziel: str) -> None:
+        if self.fehler_bei and pfad.name == self.fehler_bei:
+            raise OSError("Ziel nicht erreichbar")
+        self.aufrufe.append((pfad.name, host, ziel))
+
+
+def _zeile(pdf: str, ergebnis: str, mandant: str = "iil") -> dict:
+    return {"pdf": pdf, "ergebnis": ergebnis, "mandant": mandant}
+
+
+def test_should_deliver_an_assigned_receipt_to_the_consume_folder():
+    zusteller = _Zusteller()
+    index: dict = {}
+
+    bericht = bb.nach_paperless(
+        [_zeile("/a/rechnung.pdf", "angelegt")],
+        index,
+        wirklich=True,
+        heute=HEUTE,
+        zustell_fn=zusteller,
+    )
+
+    assert bericht["geliefert"] == ["/a/rechnung.pdf"]
+    assert zusteller.aufrufe == [
+        ("rechnung.pdf", bb.PAPERLESS_HOST, "/opt/paperless-consume/iil/rechnung")
+    ]
+
+
+def test_should_deliver_a_receipt_that_sevdesk_already_had():
+    """DUPLIKAT ist der haeufigere Fall — und genau der, der das Archiv leer liess."""
+    zusteller = _Zusteller()
+
+    bericht = bb.nach_paperless(
+        [_zeile("/a/schon-gebucht.pdf", "DUPLIKAT")],
+        {},
+        wirklich=True,
+        heute=HEUTE,
+        zustell_fn=zusteller,
+    )
+
+    assert bericht["geliefert"] == ["/a/schon-gebucht.pdf"]
+    assert len(zusteller.aufrufe) == 1
+
+
+@pytest.mark.parametrize("ergebnis", ["VORSCHAU", "FEHLER"])
+def test_should_not_deliver_anything_that_is_not_a_real_receipt(ergebnis):
+    """Positivkontrolle zur Auswahl: derselbe Aufruf liefert bei 'angelegt'."""
+    zusteller = _Zusteller()
+
+    bericht = bb.nach_paperless(
+        [_zeile("/a/x.pdf", ergebnis)],
+        {},
+        wirklich=True,
+        heute=HEUTE,
+        zustell_fn=zusteller,
+    )
+
+    assert bericht["geliefert"] == []
+    assert zusteller.aufrufe == []
+
+
+def test_should_not_transfer_without_anlegen_but_still_show_the_selection():
+    zusteller = _Zusteller()
+
+    bericht = bb.nach_paperless(
+        [_zeile("/a/rechnung.pdf", "angelegt")],
+        {},
+        wirklich=False,
+        heute=HEUTE,
+        zustell_fn=zusteller,
+    )
+
+    assert bericht["geliefert"] == ["/a/rechnung.pdf"]
+    assert zusteller.aufrufe == []
+
+
+def test_should_deliver_each_receipt_only_once():
+    zusteller = _Zusteller()
+    index: dict = {}
+    zeilen = [_zeile("/a/rechnung.pdf", "angelegt")]
+
+    bb.nach_paperless(zeilen, index, wirklich=True, heute=HEUTE, zustell_fn=zusteller)
+    zweiter = bb.nach_paperless(
+        zeilen, index, wirklich=True, heute=HEUTE, zustell_fn=zusteller
+    )
+
+    assert zweiter["geliefert"] == []
+    assert zweiter["schon_da"] == ["/a/rechnung.pdf"]
+    assert len(zusteller.aufrufe) == 1
+
+
+def test_should_keep_a_failed_delivery_out_of_the_index():
+    """Sonst gilt eine nie angekommene Datei beim naechsten Lauf als erledigt."""
+    zusteller = _Zusteller(fehler_bei="rechnung.pdf")
+    index: dict = {}
+
+    bericht = bb.nach_paperless(
+        [_zeile("/a/rechnung.pdf", "angelegt")],
+        index,
+        wirklich=True,
+        heute=HEUTE,
+        zustell_fn=zusteller,
+    )
+
+    assert bericht["geliefert"] == []
+    assert len(bericht["fehler"]) == 1
+    assert index == {}
+
+
+def test_should_use_the_mandant_of_the_row_as_consume_subfolder():
+    zusteller = _Zusteller()
+
+    bb.nach_paperless(
+        [_zeile("/a/r.pdf", "angelegt", mandant="edv")],
+        {},
+        wirklich=True,
+        heute=HEUTE,
+        zustell_fn=zusteller,
+    )
+
+    assert zusteller.aufrufe[0][2] == "/opt/paperless-consume/edv/rechnung"

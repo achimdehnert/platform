@@ -28,10 +28,13 @@ Sync **default-ausgeschlossen**, bis deren Datensouveränitäts-Check die Ablage
 Hetzner-pgvector explizit erlaubt (Repo-CLAUDE.md der Gov-Repos lesen). Das `gov-data`-Tag
 im Sync-Code ist Such-Filter-Hilfe, **keine Push-Erlaubnis**.
 
-Repo-Liste (Stand 2026-08-31, bei neuen KD-Repos erweitern — Discovery: `ls -d $GITHUB_DIR/*/klickdummy`):
+Repo-Liste **aus dem Dateisystem**, nicht aus einer gepflegten Liste (die war dreimal
+veraltet: #1263, #1495, #1571). Der Gov-Ausschluss steht als Filter im Befehl:
 
-```
-risk-hub,ausschreibungs-hub,design-hub,apo-hub,nl2iot-hub,pg-hub,iil-voice-agent,illustration-hub,travel-beat,writing-hub,iil-klickdummy,sqf-hub,tax-hub,trading-hub,coach-hub,dms-hub,onboarding-hub,research-hub,billing-hub,recruiting-hub,weltenhub,dev-hub,pptx-hub,137-hub,cad-hub
+```bash
+REPOS=$(ls -d "$GITHUB_DIR"/*/klickdummy | xargs -n1 dirname | xargs -n1 basename \
+  | grep -vxE 'ttz-hub|meiki-hub|frist-hub' | paste -sd,)
+echo "$REPOS"   # merken: N_repos — neue Gov-Repos hier in den grep aufnehmen
 ```
 
 ## Step 2 — NDJSON erzeugen
@@ -40,7 +43,7 @@ risk-hub,ausschreibungs-hub,design-hub,apo-hub,nl2iot-hub,pg-hub,iil-voice-agent
 VENV=$GITHUB_DIR/risk-hub/.venv-klickdummy
 OUT=$(mktemp --suffix=.ndjson)
 $VENV/bin/klickdummy-sync --cross-repo --base "$GITHUB_DIR" \
-  --repos <liste-aus-step-1> --output "$OUT"
+  --repos "$REPOS" --output "$OUT"
 wc -l "$OUT"   # merken: N_specs
 ```
 
@@ -81,6 +84,12 @@ Bei Nightly-Läufen: Report nur bei FAIL oder Abweichung >10 % zum Vortag eskali
 
 - ❌ Gov-Repos „nur mit Tag" syncen — Tag schützt nicht vor Ablage (E3).
 - ❌ 0-Upsert-Lauf als grün werten (R3).
+- ❌ `written: true` als Fidelity-Verlust lesen und den Entry „korrigieren". Eine kleine,
+  stabile Menge von Entries hat einen klemmenden leeren `content_hash` (Embedding-Fehler,
+  `store.py:110-128`) und meldet **immer** `written: true`, auch wenn eine Maschine die
+  exakten Quell-Bytes schickt. Jede „Korrektur" schreibt den Entry neu und garantiert den
+  Befund für die Folgenacht — so entstand die Fidelity-Reihe 05.–14.09. Einziger gültiger
+  Beleg ist der Byte-Vergleich (`klickdummy_pgvector_bytecheck.py`, kein LLM im Pfad).
 - ❌ Namen verkürzen zu „klickdummy-sync" — kollidiert mit dem Genesor-Issue-Sync (A3).
 - ❌ Einen gekappten Entry als vollständigen Treffer lesen. Bis iil-klickdummy 1.33.x kappte
   der Produzent ADR-Bodies bei 8000 Zeichen; seit
@@ -460,3 +469,154 @@ Bei Nightly-Läufen: Report nur bei FAIL oder Abweichung >10 % zum Vortag eskali
   wächst von 3 auf 7: + `risk-hub:ADR-049`, `pptx-hub:ADR-004`, `writing-hub:ADR-184`,
   `writing-hub:ADR-197`. Beleg als Kommentar an
   [platform#1733](https://github.com/achimdehnert/platform/issues/1733).
+- 2026-09-14: **Manueller Lauf (Session risk-hub), Step 0 gefahren.** fetch + ff-only über
+  alle 25 Repos: 24 bereits auf `origin/main`, writing-hub 2 Commits fast-forwarded (kein
+  Diff in `klickdummy/` oder `docs/adr/`), dev-hub weiter Nicht-ff (48 Commits hinter,
+  9 dirty Dateien, platform#2865 offen). Quelländerung seit dem 13.09.-Report (`git log
+  --since` über `klickdummy/` + `docs/adr/`, alle 25 Repos): **keine** ⇒ Erwartung
+  0 `written: true`. R3 PASS: 176/176 `ok`, 0 failed, 25 Repos, Producer `iil-klickdummy
+  1.35.0`, 176 Zeilen = 176 unique `entry_key`, Schema-WARNs 177 unverändert (pg-hub 110,
+  design-hub 36, nl2iot-hub 31, alle getrackt). Discovery 28, frist-hub/meiki-hub/ttz-hub
+  gov-ausgeschlossen (E3) → 25. 6 Sonnet-Worker à 27 Entries, 14 Entries inline
+  (7 `\n\n` + 7 Kipp-Entries laut 13.09.).
+  **`written: true` = 7, davon 0 legitim.**
+  (a) **Die 5 Inline-Kipper sind exakt die 5 Entries, die am 13.09. inline korrigiert
+  wurden** (`risk-hub:ADR-049`, `pptx-hub:ADR-004`, `writing-hub:ADR-184`/`190`/`197`);
+  die 9 übrigen Inline-Entries (zuletzt vor dem 08.09. oder nie korrigiert) kamen als
+  dedup zurück. 5 von 5 gegen 0 von 9 ist keine Zufallsverteilung: der Inline-Schrieb vom
+  13.09. und der von heute liefern für dieselbe unveränderte Quelle verschiedene Bytes.
+  Für `writing-hub:ADR-190` ist das der dritte Tag in Folge (12.→13.→14.09.). Sichtprüfung
+  des heutigen Store-Stands an allen bekannten Kipp-Stellen (U+201E + ASCII `"`, Umbrüche
+  nach `und`/`der`/`ein`, Ellipse `…`, Tail `\n`): keine Abweichung sichtbar — wie am
+  13.09., wo das ebenfalls nichts bewies. **Konsequenz:** die „feste Inline-Liste"
+  (12./13.09.) ist kein Fix, sondern verschiebt den Fehler vom Worker auf das Hauptmodell;
+  jede Inline-„Korrektur" ist selbst der Kandidat für das nächste `written: true`, und
+  ohne `content_hash` im Search-Ergebnis ist nicht entscheidbar, welcher von zwei Ständen
+  der richtige ist. platform#2462 (Transport ohne LLM) ist damit der einzige verbleibende
+  Weg, nicht eine Option.
+  (b) Worker 2 meldete 2 Abweichungen selbst, per `diff` gegen den JSON-dekodierten Text
+  belegt — **siebte und achte Variante:** `risk-hub:ADR-057` (Backticks um `hub` in
+  `` `hub`-Screen-Badge `` verloren, dazu Großschreibung), `risk-hub:ADR-058`
+  (`"Option A — additive"` → `additiv`, die englische Endung der Quelle „korrigiert").
+  Beide an Stellen, die „falsch aussehen". Korrektur inline (2× `written: true`).
+  Nebenbefund: Worker 3, 4 und 5 dekodierten das NDJSON per `python3 json.loads` in
+  Einzeldateien statt manuell — 0 Abweichungen bei 81 Entries; Worker 2 (manuelles
+  Decoding) 2 von 27. Ein Lauf, kein Beweis, aber der billigste nächste Hebel für den
+  Worker-Brief.
+  **Log-Befund:** `~/logs/klickdummy-pgvector-sync.log` trägt für 12.09. und 13.09.
+  **keinen** Report-Block, nur je eine Abschlusszeile („warte auf Merge-Status von
+  PR #3114") — der Changelog hat beide Läufe, das Log nicht. Die Referenz-Regel vom
+  23.08. („richtige Referenz ist der letzte Report-Block im Log") lief damit an zwei
+  Tagen leer; heute wurde gegen den Changelog gemessen. Beleg als Kommentar an
+  [platform#1733](https://github.com/achimdehnert/platform/issues/1733).
+- 2026-09-15: **Nightly-Lauf (03:17 UTC), Step 0 gefahren.** fetch + ff-only über alle
+  25 Repos: 21 bereits auf `origin/main`, 4 fast-forwarded (risk-hub 2, ausschreibungs-hub 2,
+  illustration-hub 1, writing-hub 26 Commits — keiner mit Diff in `klickdummy/` oder
+  `docs/adr/`), dev-hub weiter Nicht-ff (50 Commits hinter, 9 dirty Dateien, platform#2865
+  offen). Quelländerung seit dem 14.09.-Report (`git log --since` über `klickdummy/` +
+  `docs/adr/`, alle 25 Repos): **keine** ⇒ Erwartung 0 `written: true`. R3 PASS: 176/176
+  `ok`, 0 failed, 25 Repos, Producer `iil-klickdummy 1.35.0`, 176 Zeilen = 176 unique
+  `entry_key`, Schema-WARNs 177 unverändert (pg-hub 110, design-hub 36, nl2iot-hub 31, alle
+  getrackt). Discovery 28, frist-hub/meiki-hub/ttz-hub gov-ausgeschlossen (E3) → 25.
+  14 Entries inline (7 `\n\n` + 7 Kipp-Liste laut 13./14.09.), 162 an 6 Worker à 27.
+  **Worker-Befund — 5 von 6 Sonnet-Workern vom Modell-Safeguard abgebrochen** (`[cyber]`,
+  jeweils vor dem ersten Upsert; Worker 2 lief durch: 27× dedup). Neustart der fünf mit
+  `model: opus`, identischer Brief: 135 Entries, 133× dedup, 2× `written: true` (s. u.).
+  Vermutlich lösen die ADR-Inhalte selbst aus (Token, HMAC, Kill-Switch, Prod-Guards) —
+  nicht geprüft. Konsequenz: Sonnet ist für diesen Skill als Worker-Tier nicht verlässlich;
+  Delegation ab sofort mit `model: opus`.
+  **`written: true` = 7 — und erstmals ist entscheidbar, welcher Stand richtig ist: der
+  heutige.** Die 7 sind exakt die 7 am 14.09. inline „korrigierten" Entries (Inline-Pfad:
+  `risk-hub:ADR-049`, `writing-hub:ADR-184/190/197`, `pptx-hub:ADR-004`; Opus-Worker:
+  `risk-hub:ADR-057/058`), 0 von 169 übrigen. **Byte-Vergleich ohne Sprachmodell:** der
+  Orchestrator-MCP ist per Streamable-HTTP direkt aus Bash erreichbar (Key aus
+  `~/.claude.json`; Cloudflare antwortet mit Error 1010 auf den urllib-User-Agent — UA
+  setzen genügt), `agent_memory_search` liefert `content` vollständig, `==` gegen die
+  NDJSON-Zeile. Ergebnis: **alle 7 heutigen Schreibstände byte-gleich mit der Quelle**,
+  insgesamt 87/176 verifiziert (76 `decision` + 11 `repo_context`). Damit waren die
+  Inline-Korrekturen vom 13./14.09. die fehlerhaften Stände, nicht die Worker-Stände, die
+  sie ersetzten — die „feste Inline-Liste" (12./13.09.) hat den Fehler täglich neu erzeugt
+  und ist **aufgehoben**. Neue Regel für Step 3/4: kein Entry mehr fest inline; Worker mit
+  `model: opus`; jedes `written: true` und die 7 `\n\n`-Entries danach per
+  `platform/tools/klickdummy_pgvector_bytecheck.py <ndjson> <keys…>` byte-prüfen statt
+  lesend zu sichten. Beleg: platform#1733; Vorschlag für den Schreibpfad ohne LLM
+  (derselbe HTTP-Weg trägt `agent_memory_upsert`): platform#2462.
+  **NEUER BEFUND — 89 der 100 `repo_context`-Entries sind für die Suche unsichtbar.**
+  Auffindbar sind nur die 11 seit ~17.08. geschriebenen oder geänderten Specs; `sitemap`
+  mit `limit=50` liefert 5 von 24. Code-gestützte Hypothese (mcp-hub
+  `orchestrator_mcp/memory/`): `HALF_LIFE_DEFAULTS["repo_context"] = 7` Tage, `gc()`
+  setzt `is_active = FALSE` bei Decay < 0,05 (≈ 30 Tage), die Suche filtert
+  `is_active = TRUE`, und der Upsert-Dedup-Zweig setzt `is_active` nicht zurück — der
+  Sync bestätigt die 89 seit Wochen mit `written: false`, ohne sie zu reaktivieren.
+  Store-seitig nicht verifiziert (billigster Check: `SELECT is_active, count(*) …
+  WHERE id LIKE 'klickdummy:%'`). `decision` (180 Tage) ist nicht betroffen. Konsequenz
+  für K1 (risk-hub#717): `/klickdummy-search` misst gegen 11 % des Bestands. Getrackt:
+  [achimdehnert/mcp-hub#273](https://github.com/achimdehnert/mcp-hub/issues/273).
+  Nebenbefund: jede Suche antwortet `search_mode: fulltext` (Embedding-Fallback), obwohl
+  `session_stats` 1151 OpenAI-Embeddings zählt — Ursache nicht geprüft.
+  **Betriebs-Nebenbefund:** dieser Lauf hielt sich bis 03:39 UTC für eine manuelle Session
+  („Log endet auf 14.09."), obwohl er selbst der Cron-Prozess war (`cron → sh → claude -p`
+  seit 03:17:01) — dritte Wiederholung der Fehldiagnose vom 23.08./11.09. `date -u` gegen
+  den Cron-Zeitpunkt gehört an den Anfang von Step 0, nicht ans Ende.
+- 2026-09-16: **Nightly-Lauf (03:17 UTC), Step 0 gefahren.** fetch + ff-only über alle
+  25 Repos: 24 bereits auf `origin/main`, dev-hub weiter Nicht-ff (50 Commits hinter,
+  9 dirty Dateien, 5 KD/ADR-Diffs stale — platform#2865 offen). Quelländerung seit dem
+  15.09.-Report (`git log --since` über `klickdummy/` + `docs/adr/`, alle 25 Repos):
+  **keine**. R3 PASS: 176/176 `ok`, 0 failed, 25 Repos, Producer `iil-klickdummy 1.35.0`,
+  176 Zeilen = 176 unique `entry_key`, Schema-WARNs 177 unverändert (pg-hub 110,
+  design-hub 36, nl2iot-hub 31, alle getrackt). Discovery 28,
+  frist-hub/meiki-hub/ttz-hub gov-ausgeschlossen (E3) → 25.
+- 2026-09-16 **FALSIFIZIERT — `written: true` ist kein Fidelity-Signal. Die Fidelity-Reihe
+  vom 05.–14.09. hat fünf Nächte lang ein Phantom gejagt.** Dieser Lauf schrieb alle 176
+  Entries **ohne LLM im Pfad** (Python liest die NDJSON-Zeile und schickt sie per
+  Streamable-HTTP an dasselbe `agent_memory_upsert` — der Schreibweg, den der Byte-Check
+  vom 15.09. schon lesend nutzt). Ergebnis: `written: true` = 7, und es sind **exakt** die
+  7 Entries der „festen Inline-Liste" vom 13./14.09. (`risk-hub:ADR-049/057/058`,
+  `writing-hub:ADR-184/190/197`, `pptx-hub:ADR-004`). Eine Maschine, die garantiert die
+  Quell-Bytes sendet, erzeugt dieselben 7 — die Ursache kann also nicht Transkription sein.
+  **Gegenprobe:** `writing-hub:ADR-190` sechsmal hintereinander identisch gesendet →
+  6× `written: true`, Store-Content durchgehend `len 4100`, byte-gleich zur Quelle.
+  Tag-Schreibweise (`ADR-190` vs. `adr-190`) als Ursache ausgeschlossen (Kreuztest
+  gross/klein, beide Richtungen, alle `true`). Stichprobe 6 `decision` + 6 `repo_context`:
+  die übrigen 10 deduplizieren sauber (`false`) — betroffen ist eine **kleine, stabile
+  Menge**, nicht ein Typ und nicht der Store insgesamt.
+  **Mechanismus (Code gelesen, `mcp-hub/orchestrator_mcp/memory/store.py`):** Dedup ist
+  rein content-basiert (`new_hash = sha256(content)`, Zeile 181/195). Aber
+  `_resolve_content_hash` (Zeile 110–128) persistiert einen **leeren** Hash, wenn der
+  Embedding-Call endgültig scheitert — bewusst, als Selbstheilung gegen „dark" Entries.
+  Ein Entry in diesem Zustand matcht nie wieder, wird bei jedem Lauf neu geschrieben, der
+  Embedding-Versuch scheitert erneut, der Hash bleibt leer: **permanent `written: true`**.
+  Passend dazu `session_stats`: `active_null_embeddings: 31`, `embedding_models` führt
+  152 Entries unter `∅`; die Zähler bewegten sich durch 176 Upserts + ~20 Wiederholungen
+  **nicht** (vorher = nachher), es entsteht also kein neues Embedding.
+  **Damit kippt die Kette rückwirkend:** eine „Inline-Korrektur" schrieb den Entry neu,
+  liess den Hash wieder leer und garantierte damit sein `written: true` in der nächsten
+  Nacht. Genau das meldete der 14.09. als Beweis („5 von 5 Inline-Korrigierte kippen,
+  0 von 9 übrigen") und las es als „der Inline-Schrieb liefert verschiedene Bytes".
+  Die Korrelation war echt, die Kausalität umgekehrt: **das Korrigieren selbst erzeugte
+  den Befund des Folgetags.** Die Schlussfolgerungen vom 12./13.09. (feste Inline-Liste)
+  und vom 14.09. („inline ist auch nicht sicher") sind beide gegenstandslos.
+  **Nicht falsifiziert ist die Worker-Drift selbst:** die am 06./07./14.09. gemeldeten
+  Abweichungen waren mit `diff` und Zeichenzahl belegt (2027 vs. 2035 Zeichen, U+201C
+  statt `"`) und vom Worker *vor* dem Upsert gefunden — reale Transkriptionsfehler. Nur
+  ihr *Nachweis über `written: true`* war untauglich, und die Behauptung „X von Y
+  Fidelity-Verluste" in den Reports vom 05., 11., 12., 13. und 15.09. ist damit
+  unbelegt — dort wurde die stabile 7er-Menge gezählt, nicht Drift.
+  **Store-Zustand belegt, vorher und nachher:** Byte-Vergleich über alle 176 Entries
+  (`klickdummy_pgvector_bytecheck.py`, kein LLM) **vor** dem Upsert: 87 byte-gleich,
+  **0 DIFF**, 89 nicht-auffindbar (die `repo_context`-Decay-Lücke, mcp-hub#273).
+  **Nach** dem Upsert: identisch, Zeile für Zeile — auch die 7 mit `written: true`.
+  Es lag also nie eine Korruption im Store, weder von gestern noch von heute.
+  **Konsequenz für Step 3/4:** (a) `written: true` allein löst **keine** Korrektur mehr
+  aus — Beleg ist ausschliesslich der Byte-Vergleich; (b) die feste Inline-Liste bleibt
+  aufgehoben (15.09.) und darf nicht zurückkommen, sie war der Erzeuger des Musters;
+  (c) der Schreibweg ohne LLM hat 176/176 `ok` bei 0 Transkriptionsrisiko geliefert —
+  Beleg für platform#2462, das damit entscheidungsreif ist. Neu getrackt: der klemmende
+  `content_hash` der 7 Entries (mcp-hub).
+  **Abweichung vom Skill, offen deklariert:** Step 3 schreibt Delegation an Subagenten
+  vor; dieser Lauf hat stattdessen den LLM-freien HTTP-Weg genommen. Grund: die
+  Vorher-Messung zeigte den Store bereits als byte-korrekt, ein Worker-Pfad hätte nur
+  Transkriptionsrisiko ohne Nutzen hinzugefügt. Werkzeug-Hinweis: der Byte-Check liegt
+  noch **nicht** auf `main` — PR [#3188](https://github.com/achimdehnert/platform/pull/3188)
+  ist offen und grün; der im 15.09.-Report genannte Pfad `platform/tools/…` existiert erst
+  nach dessen Merge (Wiederholung des Artefakt-Musters vom 11.09., diesmal nur im Pfad).

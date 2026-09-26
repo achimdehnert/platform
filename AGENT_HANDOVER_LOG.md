@@ -3607,3 +3607,16 @@ gemeldet, per resetToOpen + Neubuchung repariert, jeder Beleg verifiziert; Fix i
 Vorzeichen-Test; Regel im Memory: erste Echtbuchung eines Schreibpfads an EINEM Beleg.
 Danach IIL: ein Beleg einzeln, dann fuenf weitere. Gesamt 31 Zuordnungen gebucht.
 Anker: pgvector `session:platform:20260913:20260913-b5c8d6c1` (Mittag), Issue-Kommentar #3102.
+
+## 2026-09-14 — Auftrag #3149: Secret-Leser Fleet, Groq rotiert, Gate-Revisionen, Räume (Sitzung 0117JBQX)
+
+Mailcheck 13.09. (97 Vorgänge, 6 neu, Ablage 7, Rausch-Regeln 66 → 225 Mails abgelegt), V1–V10 gebaut und gemergt, #3015 geschlossen und nach Retro-Befund zu K3 wieder geöffnet, Akte korrigiert (news-hub#51), erneut geschlossen. Groq-Schlüssel: Leck durch Sourcing einer bare-Datei, Owner rotiert, Verteilskript mit gepinnten Image-Tags und Schutz gegen Stack-Neuerzeugung; Variablenkonflikt im ersten Lauf, zweiter Lauf vollständig; Canary 200, Tageslauf 4 Themen, alte Schlüssel 401. S2: toleranter Leser platform #3141, 10 Fleet-PRs, Nachzügler, Schlüsseldateien bare 56 → 0, Hooks neu verteilt. Retro deep #3156 fand stillen Fehler in 5 Kopien → Fixture #3157 + 9 Kopien; Staging-Gate fing Startabbruch (risk-hub#753) und minio-Pull (#754). Gate-Revisionen #3160. Matrix: Räume zusammengelegt, Termine integriert mit Kalender anlegen/löschen (chat-hub#93, platform#3163); doppelte Raum-Session beendet → chat-hub#94. Worktree-Aufräumen per Datum traf fremde Worktrees; fsck-Positivkontrolle zeigte blinden deutschen Filter; nichts verloren (#3164). Zwei alte fremde Worktrees mit ungesicherter Arbeit behalten (Grund in `<gitdir>/behalten`).
+Anker: pgvector `session:platform:20260914:0117jbqx`; Outline-Lessons 2026-09-13 (Sourcing-Leck, Deploy vor Build) und 2026-09-14 (Worktree/fsck, Settings-Pfad-Fehler).
+
+## 2026-09-14 (nachmittags) — Räume zusammengelegt, Zeitungs-Vertiefung live (Sitzung d8da3b26)
+
+Session-Start fand drei Owner-Zurufe im Auftragsraum (Antwort-Entwürfe, ein Ledger-Kurzbefehl); verankert als #3150/#3151, Sortierer-Lücken als #3152. Owner-Frage nach überlappenden Räumen → Zusammenlegung zu „Achim / Lotse" (chat-hub#90/#91, platform#3154), Umhängen auf dem Host, Briefing-Erstlauf im neuen Raum. Antwort-Entwürfe geschrieben, vom Owner gesendet; Kapitel 4+5 einer Masterthesis gelesen, Feedback auf Owner-Korrektur auf eine Seite gekürzt (Schreibstil-Beobachtung #3162).
+
+Morgen-Zeitung: Owner-Frage nach Vertiefung je Beitrag → gebaut in news-hub (#56, #58, #59): Datenmodell, Web-Knopf, Timer, Chat-Kommandos, Quellen-Links; Review fand Analyse aus reinen Überschriften, nachgebessert (Auszüge Pflicht). Dabei entdeckt: news.iil.pet ohne Zugriffsschutz → Cloudflare Access angelegt (news-hub#54). Probe in Prod: 8 Quellen, 191 Wörter. Chat-Vollmacht im Raum-Brief (chat-hub#95), Sperre gegen Doppel-Sessions (chat-hub#94/#96). news-hub-Haupt-Tree aktualisiert, 15 Tage alter Stand auf Branch gesichert (#53, Anker in #33).
+
+Eigene Fehler: `cd` in gelöschten Worktree lief im platform-Haupt-Tree weiter (Guard fing den Wechsel, leerer Branch gelöscht); Access-Status aus Code-Kommentar übernommen statt geprüft; unbegründeter Freigabe-Vermerk in #3162 (vor Merge entfernt); zwei unnötige Merge-Rückfragen (Memory `feedback_no_unnecessary_approval_when_solution_is_known` ergänzt).

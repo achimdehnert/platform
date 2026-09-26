@@ -58,6 +58,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 import time
@@ -67,6 +68,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from mandant import STANDARD_MANDANT, mandant_argument  # noqa: E402
 from mandant import client as mandant_client  # noqa: E402
+import paperless  # noqa: E402
 
 API = "https://my.sevdesk.de/api/v1"
 
@@ -86,7 +88,10 @@ WORT_MIN_LAENGE = 4
 #: 10 = Nicht vorsteuerabziehbare Aufwendungen — für Eigenbelege ohne
 #: Vorsteuerausweis (Anbieter stellt keine Rechnung, der Beleg stammt aus dem
 #: Transaktionsverlauf) · 13 = Reverse Charge ohne Vorsteuerabzug.
-TAXRULES_BEKANNT = {"1", "9", "10", "12", "13", "14"}
+#: Ergänzt 2026-09-16 (#3271, ReceiptGuidance/forAccountNumber 2100 im Mandanten
+#: iil): 16 = Nicht steuerbar — einzige erlaubte Regel für 2100 Privatentnahmen,
+#: z. B. der Privatanteil einer Sammelüberweisung.
+TAXRULES_BEKANNT = {"1", "9", "10", "12", "13", "14", "16"}
 
 
 def _client(mandant: str = STANDARD_MANDANT):
@@ -113,6 +118,67 @@ def konto_aufloesen(client, nummer: str) -> dict | None:
         )
         return None
     return {"id": treffer[0]["id"], "objectName": "AccountDatev"}
+
+
+def kostenstellen_laden(client) -> list[dict]:
+    r = client.get("/CostCentre", params={"limit": 200})
+    r.raise_for_status()
+    return r.json()["objects"]
+
+
+def kostenstelle_aufloesen(client, name: str) -> dict | None:
+    """CostCentre zum NAMEN (oder ``name id``) — eindeutig oder gar nicht, nie raten.
+
+    Owner-Konvention 2026-09-21: Kostenstellen heissen wie die Paperless-Tags
+    (``macan``, ``x4``, ``8er``), damit die Zuordnung Namensgleichheit ist und
+    keine Mapping-Tabelle braucht.
+    """
+    k = paperless.kostenstelle_aus_tags([name], kostenstellen_laden(client))
+    if k is None:
+        print(
+            f"⚠ Kostenstelle '{name}': kein eindeutiger CostCentre-Treffer — Feld bleibt leer."
+        )
+        return None
+    return {"id": k["id"], "objectName": "CostCentre"}
+
+
+KATEGORIE_LIEFERANT = 2  # GET /Category objectType=Contact: 2 Lieferant, 3 Kunde
+
+
+def kontakt_finden(client, name: str) -> dict | None:
+    """Kontakt zum Lieferantennamen — Teilstring in beide Richtungen, Gross/Klein
+    egal; genau ein Treffer oder None (nie raten)."""
+    r = client.get("/Contact", params={"limit": 1000, "depth": 1})
+    r.raise_for_status()
+    such = _dedup_schluessel(name)
+    treffer = []
+    for k in r.json()["objects"]:
+        kn = _dedup_schluessel(k.get("name") or "")
+        if kn and (such in kn or kn in such):
+            treffer.append(k)
+    return treffer[0] if len(treffer) == 1 else None
+
+
+def kontakt_anlegen(client, name: str, bankdaten: dict) -> dict:
+    """Legt einen Lieferanten-Kontakt an (#3342) — mit IBAN/BIC/USt-ID/Steuernr.,
+    soweit im Rechnungstext gefunden. Ohne Kontakt kann sevdesk den Beleg nicht
+    aus der Oberflaeche heraus bezahlen (Bankverbindung leer)."""
+    daten = {
+        "name": name,
+        "category": {"id": KATEGORIE_LIEFERANT, "objectName": "Category"},
+        "status": 100,
+    }
+    if bankdaten.get("iban"):
+        daten["bankAccount"] = bankdaten["iban"]
+    if bankdaten.get("bic"):
+        daten["bankNumber"] = bankdaten["bic"]
+    if bankdaten.get("ustid"):
+        daten["vatNumber"] = bankdaten["ustid"]
+    if bankdaten.get("steuernummer"):
+        daten["taxNumber"] = bankdaten["steuernummer"]
+    r = client.post("/Contact", json=daten)
+    r.raise_for_status()
+    return r.json()["objects"]
 
 
 def konto_validieren(client, konto: str, taxrule: str) -> tuple[bool, str]:
@@ -431,6 +497,14 @@ def _dd_mm_yyyy(iso: str) -> str:
     return f"{t_}.{m}.{j}"
 
 
+def _kontakt_anzeige(args, kontakt, kontakt_neu: bool, bankdaten: dict) -> dict | None:
+    if not getattr(args, "kontakt", False):
+        return None
+    if kontakt:
+        return {"id": kontakt["id"], "name": kontakt.get("name"), "neu": False}
+    return {"name": args.lieferant, "neu": True, "bankdaten": sorted(bankdaten)}
+
+
 def anlegen(args) -> int:
     start = time.monotonic()
     brutto = round(float(args.brutto), 2)
@@ -447,6 +521,20 @@ def anlegen(args) -> int:
     # selbst zusammen und darf dabei ein Feld weglassen, ohne hier zu brechen.
     mandant = getattr(args, "mandant", STANDARD_MANDANT)
     client = _client(mandant)
+    kostenstelle = None
+    if getattr(args, "kostenstelle", None):
+        kostenstelle = kostenstelle_aufloesen(client, args.kostenstelle)
+        if kostenstelle is None:
+            print(
+                "ABBRUCH: Kostenstelle unbekannt — in sevdesk anlegen oder Tag korrigieren."
+            )
+            return 2
+    kontakt = None
+    kontakt_neu = False
+    if getattr(args, "kontakt", False):
+        kontakt = kontakt_finden(client, args.lieferant)
+        kontakt_neu = kontakt is None
+    bankdaten = getattr(args, "bankdaten", None) or {}
     belege = beleg_bestand(client)
 
     vorhanden = duplikat(belege, args.beschreibung)
@@ -537,6 +625,8 @@ def anlegen(args) -> int:
                     "brutto": f"{brutto:.2f}",
                     "taxrule": args.taxrule,
                     "konto": args.konto or "LEER (nicht zugeordnet — Owner)",
+                    "kostenstelle": getattr(args, "kostenstelle", None),
+                    "kontakt": _kontakt_anzeige(args, kontakt, kontakt_neu, bankdaten),
                     "vorschlaege": vorschlaege_liste,
                 },
                 ensure_ascii=False,
@@ -553,6 +643,9 @@ def anlegen(args) -> int:
             JOURNAL_DATEI,
         )
         return 0
+
+    if kontakt_neu:
+        kontakt = kontakt_anlegen(client, args.lieferant, bankdaten)
 
     intern = None
     if not getattr(args, "ohne_dokument", False):
@@ -601,6 +694,12 @@ def anlegen(args) -> int:
     if konto:
         daten["voucherPosSave[0][accountDatev][id]"] = str(konto["id"])
         daten["voucherPosSave[0][accountDatev][objectName]"] = "AccountDatev"
+    if kostenstelle:
+        daten["voucher[costCentre][id]"] = str(kostenstelle["id"])
+        daten["voucher[costCentre][objectName]"] = "CostCentre"
+    if kontakt:
+        daten["voucher[supplier][id]"] = str(kontakt["id"])
+        daten["voucher[supplier][objectName]"] = "Contact"
 
     r = client.post("/Voucher/Factory/saveVoucher", data=daten)
     r.raise_for_status()
@@ -613,6 +712,8 @@ def anlegen(args) -> int:
                 "beschreibung": args.beschreibung,
                 "brutto": f"{brutto:.2f}",
                 "konto": args.konto or "LEER (nicht zugeordnet — Owner)",
+                "kostenstelle": getattr(args, "kostenstelle", None),
+                "kontakt": _kontakt_anzeige(args, kontakt, kontakt_neu, bankdaten),
             },
             ensure_ascii=False,
         )
@@ -630,10 +731,72 @@ def anlegen(args) -> int:
     return 0
 
 
+def paperless_anwenden(args, p: argparse.ArgumentParser) -> None:
+    """Fuellt ``pdf``, ``mandant``, ``kostenstelle`` aus einem Paperless-Dokument —
+    nur, wo der Aufrufer nichts Explizites gesetzt hat (Flag > Tag)."""
+    dok = paperless.dokument(args.paperless)
+    tags = dok.get("tags", [])
+    explizit_mandant = "--mandant" in sys.argv or "SEVDESK_MANDANT" in os.environ
+    if not explizit_mandant:
+        m = paperless.mandant_aus_tags(tags)
+        if m is None:
+            p.error(
+                f"Paperless {args.paperless}: kein eindeutiger Mandanten-Tag (edv/iil) in {tags}"
+            )
+        args.mandant = m
+    if not args.kostenstelle:
+        k = paperless.kostenstelle_aus_tags(
+            tags, kostenstellen_laden(_client(args.mandant))
+        )
+        if k:
+            args.kostenstelle = k["name"]
+    if not args.pdf and not getattr(args, "ohne_dokument", False):
+        ziel = Path(os.environ.get("TMPDIR", "/tmp")) / "sevdesk-paperless"
+        args.pdf = str(paperless.pdf_holen(dok, ziel))
+    # Ein Beleg aus Paperless soll aus sevdesk heraus bezahlbar sein (#3342):
+    # Kontakt immer, Bankdaten aus dem OCR-Text.
+    args.kontakt = True
+    args.bankdaten = paperless.bankdaten_aus_text(dok.get("content") or "")
+    print(
+        json.dumps(
+            {
+                "paperless": dok["id"],
+                "titel": dok.get("title"),
+                "tags": tags,
+                "mandant": args.mandant,
+                "kostenstelle": args.kostenstelle,
+                "pdf": args.pdf,
+                "bankdaten": {
+                    k: (v[:4] + "…") if k == "iban" else v
+                    for k, v in args.bankdaten.items()
+                },
+            },
+            ensure_ascii=False,
+        )
+    )
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     mandant_argument(p)
     p.add_argument("--pdf")
+    p.add_argument(
+        "--paperless",
+        type=int,
+        metavar="DOK_ID",
+        help="Paperless-Dokument als Quelle: PDF wird geholt, Tags edv/iil -> Mandant, "
+        "Tag mit Kostenstellen-Namen -> --kostenstelle (explizite Flags gewinnen)",
+    )
+    p.add_argument(
+        "--kontakt",
+        action="store_true",
+        help="Lieferanten-Kontakt suchen (Teilstring) oder anlegen und am Beleg verknuepfen; "
+        "bei --paperless immer an (Bankdaten aus dem Rechnungstext)",
+    )
+    p.add_argument(
+        "--kostenstelle",
+        help="sevdesk-Kostenstelle (Name wie der Paperless-Tag, z.B. macan); muss existieren",
+    )
     p.add_argument(
         "--ohne-dokument",
         action="store_true",
@@ -657,7 +820,7 @@ def main() -> int:
         default="9",
         help=(
             "9 DE-Vorsteuer · 10 ohne Vorsteuerabzug · 12 Drittland RC · "
-            "13 RC ohne Vorsteuerabzug · 14 EU RC"
+            "13 RC ohne Vorsteuerabzug · 14 EU RC · 16 nicht steuerbar (2100 Privat)"
         ),
     )
     p.add_argument(
@@ -706,6 +869,9 @@ def main() -> int:
         help="legt nichts an — gibt die Vorschlag-Trefferquote der letzten N Journal-Läufe aus (ohne N: alle)",
     )
     args = p.parse_args()
+
+    if args.paperless:
+        paperless_anwenden(args, p)
 
     if args.auswertung is not None:
         n = None if args.auswertung == "alle" else int(args.auswertung)

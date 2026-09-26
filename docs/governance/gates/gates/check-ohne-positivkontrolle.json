@@ -1,0 +1,29 @@
+{
+  "slug": "check-ohne-positivkontrolle",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": "tools/claude-hooks/subagent_brief_negativprobe.py",
+  "drill": "tools/claude-hooks/tests/test_subagent_brief_negativprobe.py",
+  "built": "2026-09-17",
+  "last_drill_pass": "2026-09-17",
+  "ref": "docs/retros/session-retro-2026-09-17-meiki-hub-8185e1.md (Befund #1); post-hub#23 `be10bda` -> `9a3c085`",
+  "faengt": [
+    {
+      "fall": "Schutz-Kriterium im Brief ohne Negativ-Probe",
+      "probe": "ohne_negativprobe"
+    },
+    {
+      "fall": "Lese-Agent wird nicht geprueft (fail-open)",
+      "probe": "lese_agent"
+    }
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-09-17",
+  "expires": "2026-10-31",
+  "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet.",
+  "positivkontrolle": {
+    "ref": "tools/claude-hooks/tests/test_subagent_brief_negativprobe.py -- test_should_flag_realfall_criterion_without_negativprobe / test_should_not_flag_realfall_criterion_with_negativprobe (wortwoertlicher Realfall-Ausschnitt post-hub#22 Ziel 3: 'Projektion strikt auf die Vertragsfelder; alles andere wird verworfen und nie geloggt' meldet ohne Negativ-Probe-Zeile, dieselbe Zeile MIT 'Test: ... nichts davon kommt an' meldet nicht); Mutationstest test_should_flag_good_case_when_negation_detection_is_disabled_mutation belegt, dass die Verneinungs-Erkennung (NEGATIVPROBE_MUSTER) das 'keine Meldung' traegt, nicht Zufall.",
+    "datum": "2026-09-17"
+  },
+  "note": "Anlass: Retro 8185e1 Befund 1 — der Brief verlangte 'Projektion strikt auf die Vertragsfelder ... alles andere verworfen', der Sonnet-Agent baute `raw.update(fachlich)` (post-hub#23 `be10bda`, tenant_id/source ueberschreibbar, Klartext-Fremdfelder durchgereicht) und meldete 'alle sechs Ziele erfuellt'; gefangen nur durch Review (`9a3c085`). Dritte Zaehlung von check-ohne-positivkontrolle (tools/retro_kpis.py: 40c069, a397a5, 8185e1), bisher ohne registriertes Gate. Bewusste Grenze: der Hook liest den BRIEF, nicht das ERGEBNIS — er erzwingt die FORDERUNG nach einer Negativ-Probe (eine Test+Verneinungs-Zeile im Brief), nicht dass der Subagent sie tatsaechlich schreibt, ausfuehrt oder dass sie je rot war, bevor sie gruen wurde. Ein Brief, der die Probe nur behauptet, ohne echten Verneinungs-Bezug ('Test: alles gut'), faellt weiter durch dieses Netz — dagegen hilft nur Review. PreToolUse(Agent/Task), Klartext auf stdout statt hookSpecificOutput (wie cd-fehlschlag-kette-laeuft-weiter): PreToolUse kennt additionalContext nicht, nur permissionDecision (allow=stumm, ask=haelt an, deny=blockt) — Klartext ist der bereits belegte Weg. Verdrahtung in ~/.claude/settings.json (PreToolUse, matcher Agent) ist Owner-Recht (Charta Art. 3) — bis dahin gebaut, verteilt, nicht scharf."
+}

@@ -1,0 +1,35 @@
+{
+  "slug": "push-to-merged-branch-silently-lost",
+  "mode": "blocking",
+  "owner": "achim",
+  "module": "tools/claude-hooks/block_push_to_merged_branch.py",
+  "drill": "tools/claude-hooks/tests/test_block_push_to_merged_branch.py",
+  "built": "2026-09-24",
+  "ref": "platform#2234 (Owner-Wort '8 go', https://github.com/achimdehnert/platform/issues/2234#issuecomment-5821256242; Retro 2026-09-24 platform e911bf — 2. und 3. Vorkommen desselben Musters am selben Tag ⇒ GATE-PFLICHT)",
+  "last_drill_pass": "2026-09-24",
+  "zustand": "ohne-traeger",
+  "zustand_note": "Modul + Drill gebaut, executable, GATE_HEADER vorhanden — aber kein Eintrag in ~/.claude/settings.json. Der Owner registriert PreToolUse/Bash-Hooks nur selbst (Lotsen-Charta Art. 3); der kopierfertige settings.json-Schnipsel steht im PR-Body dieses Gates. Bis zur Registrierung greift der Hook nicht automatisch.",
+  "faengt": [
+    {
+      "fall": "git push auf einen Branch, dessen PR bereits gemergt ist — kein Refspec, aktueller Branch (Realfall platform#3488)",
+      "probe": "bare_push_on_merged_branch"
+    },
+    {
+      "fall": "git push origin <branch> mit explizitem Refspec auf einen gemergten Branch (Realfall cad-hub#81)",
+      "probe": "push_with_explicit_refspec"
+    },
+    {
+      "fall": "git -C <pfad> push aus einem anderen Arbeitsverzeichnis als dem Repo",
+      "probe": "git_dash_c_variant"
+    },
+    {
+      "fall": "cd <pfad> && git push — Verzeichnis-Tracking ohne -C",
+      "probe": "after_cd_tracking"
+    }
+  ],
+  "positivkontrolle": {
+    "ref": "tools/claude-hooks/tests/test_block_push_to_merged_branch.py -- `git push`, `git push origin <branch>`, `git -C <pfad> push` und `cd <pfad> && git push` auf einen laut gh-Attrappe gemergten Branch werden deny; derselbe Push ohne gemergten PR, auf den Default-Branch, mit gh-Fehler oder ohne `git push` im Befehlstext wird allow. Realfaelle: platform#3488 (mergedAt 07:23:54Z, Folge-Commit 11:38 auf denselben Branch, Fund erst durch Cherry-pick #3514) und cad-hub#81→#82 (Owner-Merge innerhalb weniger Minuten, Folge-Commit auf denselben Branch).",
+    "datum": "2026-09-24"
+  },
+  "note": "Zwei Vorkommen am 2026-09-24 (nach einem ersten am 2026-09-23, platform#3416→#3439) desselben Musters: ein `git push` auf einen Branch, dessen PR der Owner bereits gemergt hat, laeuft fehlerfrei durch und aendert main NICHT — der Commit landet auf dem toten Branch, sichtbar nur durch zufaellige Nachpruefung (`gh pr view`, Retro). Der Hook bestimmt Repo-Verzeichnis (`-C`, sonst letztes `cd`/`pushd`, sonst cwd) und Ziel-Branch (Refspec oder aktueller Branch), fragt bei Nicht-Default-Branches `gh pr list --repo <owner/repo> --head <branch> --state merged --json number --limit 1` (Timeout 8s) und blockt nur bei echtem Treffer. FAIL-OPEN durchgaengig (anders als das SA-M-Merge-Gate): ein Push ist reversibel, ein blindes Deny bei jedem Werkzeugausfall waere teurer als der seltene falsch-negative Fall. Jede Allow-Entscheidung, bei der tatsaechlich geprueft wurde, schreibt eine Zeile nach stderr (Beobachtbarkeit ohne Blockade). Memory: feedback_push_auf_gemergten_branch_geht_verloren.md."
+}

@@ -75,9 +75,18 @@ def _lies(name: str, ssh: str, tage: int) -> Hostbild:
     seit = datetime.now(timezone.utc) - timedelta(days=tage)
     try:
         roh = subprocess.run(
-            ["ssh", "-o", "ConnectTimeout=10", "-o", "BatchMode=yes", ssh,
-             f"tail -20000 {LOG_PFAD} 2>/dev/null"],
-            capture_output=True, text=True, timeout=60,
+            [
+                "ssh",
+                "-o",
+                "ConnectTimeout=10",
+                "-o",
+                "BatchMode=yes",
+                ssh,
+                f"tail -20000 {LOG_PFAD} 2>/dev/null",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
         ).stdout
     except (subprocess.SubprocessError, OSError) as exc:
         bild.fehler = f"ssh gescheitert: {type(exc).__name__}"
@@ -92,7 +101,9 @@ def _lies(name: str, ssh: str, tage: int) -> Hostbild:
         if not m:
             continue
         try:
-            zeit = datetime.strptime(m["zeit"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+            zeit = datetime.strptime(m["zeit"], "%Y-%m-%dT%H:%M:%SZ").replace(
+                tzinfo=timezone.utc
+            )
         except ValueError:
             continue
         bild.zeilen += 1
@@ -112,8 +123,14 @@ def _bewerte(bilder: list[Hostbild]) -> tuple[str, str]:
     for b in bilder:
         if b.fehler:
             continue
-        if b.juengste is None or (jetzt - b.juengste) > timedelta(minutes=STUMM_AB_MINUTEN):
-            alter = "nie" if b.juengste is None else f"{int((jetzt - b.juengste).total_seconds() // 60)} min"
+        if b.juengste is None or (jetzt - b.juengste) > timedelta(
+            minutes=STUMM_AB_MINUTEN
+        ):
+            alter = (
+                "nie"
+                if b.juengste is None
+                else f"{int((jetzt - b.juengste).total_seconds() // 60)} min"
+            )
             stumm.append(f"{b.name} (juengste Messung: {alter})")
         if b.fenster:
             mit_fenster.append(f"{b.name} ({len(b.fenster)} Messpunkt(e))")
@@ -124,17 +141,31 @@ def _bewerte(bilder: list[Hostbild]) -> tuple[str, str]:
             f"— Registry schlecht erreichbar bei sauberem Kontrollarm (platform#2685)"
         )
     if stumm:
-        return "WARN", f"Rekorder stumm: {', '.join(stumm)} — ein toter Rekorder meldet nie ein Fenster"
+        return (
+            "WARN",
+            f"Rekorder stumm: {', '.join(stumm)} — ein toter Rekorder meldet nie ein Fenster",
+        )
     if nicht_messbar and len(nicht_messbar) == len(bilder):
-        return "SKIP", f"nicht messbar: {', '.join(nicht_messbar)} — kein Beleg, aber auch keine Entwarnung"
+        return (
+            "SKIP",
+            f"nicht messbar: {', '.join(nicht_messbar)} — kein Beleg, aber auch keine Entwarnung",
+        )
     rest = f" · nicht messbar: {', '.join(nicht_messbar)}" if nicht_messbar else ""
     gemessen = sum(b.zeilen for b in bilder)
-    return "PASS", f"kein Ausfallfenster in {FENSTER_TAGE} Tagen ({gemessen} Messpunkte){rest}"
+    return (
+        "PASS",
+        f"kein Ausfallfenster in {FENSTER_TAGE} Tagen ({gemessen} Messpunkte){rest}",
+    )
 
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("--tage", type=int, default=FENSTER_TAGE, help=f"Rueckschau (Vorgabe {FENSTER_TAGE})")
+    p.add_argument(
+        "--tage",
+        type=int,
+        default=FENSTER_TAGE,
+        help=f"Rueckschau (Vorgabe {FENSTER_TAGE})",
+    )
     p.add_argument("--quiet", action="store_true", help="nur die Ergebniszeile")
     args = p.parse_args()
 

@@ -1,0 +1,17 @@
+{
+  "slug": "handover-prio-zeigt-auf-erledigtes",
+  "mode": "process",
+  "owner": "achim",
+  "module": "tools/handover_stale_reference_check.py",
+  "drill": "tools/tests/test_handover_stale_reference_check.py",
+  "built": "2026-08-13",
+  "ref": "platform#1945",
+  "faengt": [
+    {
+      "fall": "Prio-Zeile verweist auf gemergten PR oder geschlossenes Issue",
+      "probe": "merged"
+    }
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-08-13"
+}

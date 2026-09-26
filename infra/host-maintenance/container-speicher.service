@@ -1,0 +1,17 @@
+[Unit]
+Description=Container-Speicher je cgroup auf prod messen (platform#3400) — oom_kill, anon-Anteil, Limit-Treffer
+Documentation=https://github.com/achimdehnert/platform/tree/main/infra/host-maintenance
+
+[Service]
+Type=oneshot
+# Laeuft auf dem Sitzungs-Host und liest prod nur per ssh (cat auf der cgroup).
+# Auf prod wird nichts installiert. Journal: ~/.claude/container-speicher-journal.jsonl,
+# Ergebnis: ~/.repo-session/melder/container-speicher.json (liest Sitzungsstart 0.7.29).
+ExecStart=/usr/bin/python3 %h/github/platform/tools/container_speicher_melder.py --kurz
+Nice=10
+IOSchedulingClass=idle
+# Exit 1 bei Befund, 2 bei blinder Messung — der Dienst steht dann auf 'failed'.
+# Gewollt wie bei kettencheck: 'systemctl --user --failed' zeigt es ohne Log-Lesen.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=container-speicher

@@ -122,6 +122,12 @@ DEFAULT_HOST = "http://127.0.0.1:11434"
 
 #: Groq-Endpunkt (OpenAI-kompatibel) fuer ``--provider groq``.
 GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
+#: Eigene Kennung fuer jeden Groq-Aufruf. Ohne sie antwortet Cloudflare vor
+#: Groq mit HTTP 403 "error code: 1010" — die Standard-Kennung von urllib steht
+#: dort auf der Sperrliste. Gemessen 2026-09-14 (todo-board --vorwaermen: 101 von
+#: 101 Aufrufen 403/1010); Muster wie secrets_pruefen.USER_AGENT und
+#: ux_falsifikator.KENNUNG. Memory: feedback_provider_403_1010_is_cloudflare_not_the_key.
+GROQ_KENNUNG = "iil-platform/1.0 (+https://github.com/achimdehnert/platform)"
 #: T1a auf Groq lt. ``~/.claude/policies/llm-routing.md`` (Stand 2026-08-29,
 #: „Verified available"-Abschnitt): die Groq-Katalog-ID lautet
 #: ``openai/gpt-oss-120b`` — NICHT die Cerebras-Schreibweise ``gpt-oss-120b``
@@ -132,6 +138,11 @@ GROQ_DEFAULT_MODELL = "openai/gpt-oss-120b"
 #: Zweifel bis zum Kontextende weiter — auf einer Maschine ohne GPU kostet das
 #: Minuten je Segment, ohne dass ein besseres Urteil dabei herauskommt.
 MAX_ANTWORT_TOKEN = 160
+#: Groq-Pfad: gpt-oss denkt vor der Antwort. Mit 160 Token blieb die Generation
+#: leer und Groq antwortete 400 json_validate_failed (gemessen 2026-09-14, PR
+#: #3179, dasselbe Muster wie tools/todo_board/straenge.py). Die Antwort selbst
+#: bleibt kurz — das Budget ist fuer den Denkschritt.
+GROQ_MAX_ANTWORT_TOKEN = 4000
 #: Je Segment im Stapel; der Deckel waechst mit der Stapelgroesse.
 STAPEL_ANTWORT_TOKEN = 96
 #: Wie viele Segmente in EINEN Aufruf gehen. 0 schaltet den Stapel ab.
@@ -531,7 +542,8 @@ def groq_klassifikator(
                 "model": modell,
                 "messages": [{"role": "user", "content": PROMPT % text}],
                 "temperature": 0,
-                "max_tokens": MAX_ANTWORT_TOKEN,
+                "max_tokens": GROQ_MAX_ANTWORT_TOKEN,
+                "reasoning_effort": "low",
                 "response_format": {"type": "json_object"},
             }
         ).encode()
@@ -541,6 +553,7 @@ def groq_klassifikator(
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {schluessel}",
+                "User-Agent": GROQ_KENNUNG,
             },
         )
         try:
@@ -587,7 +600,8 @@ def groq_bestaetiger(
                     }
                 ],
                 "temperature": 0,
-                "max_tokens": MAX_ANTWORT_TOKEN,
+                "max_tokens": GROQ_MAX_ANTWORT_TOKEN,
+                "reasoning_effort": "low",
                 "response_format": {"type": "json_object"},
             }
         ).encode()
@@ -597,6 +611,7 @@ def groq_bestaetiger(
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {schluessel}",
+                "User-Agent": GROQ_KENNUNG,
             },
         )
         try:

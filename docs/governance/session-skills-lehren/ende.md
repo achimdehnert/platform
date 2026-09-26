@@ -237,7 +237,7 @@ platform#2690 K4, 2026-09-02.
 > etwas finden kann.** Gemessen am 2026-09-02: 14 von 33 Gates sind rückfällig
 > (#2374, #2678); von 31 Registry-Einträgen trug **keiner** einen Beleg, dass er den
 > Fall, gegen den er gebaut wurde, je getroffen hat. Der Eintrag in
-> `docs/governance/gate-registry.json` ist eine Behauptung über Wirkung — bis hierhin
+> ein Eintrag unter `docs/governance/gates/` ist eine Behauptung über Wirkung — bis hierhin
 > konnte sie jeder aufstellen, der eine Zeile JSON schreibt.
 
 **`faengt` ist kein Ersatz für die Positivkontrolle.** Es belegt, dass der Fall im Drill
@@ -509,7 +509,7 @@ Drei harte Lehren · PR-Kadenz session-retro 2026-07-02 · `[skip ci]`-Messung p
 
 ## 3.1c
 
-Worktree-Reaper, Retro 2026-06-14 · gestrichen 2026-09-02 (Streichkandidat S3: Gate-Registry `worktree-midsession-accumulation` `revision_note` vom 2026-08-20 und `session_start_checks.sh` Phase 0.4.5 räumen jedes Repo mit Lease; ein zweiter Lauf am Sitzungsende ist dieselbe Mechanik doppelt — Runner-Phase `E.8` steht deshalb bewusst auf SKIP mit Hinweis).
+Worktree-Reaper, Retro 2026-06-14 · gestrichen 2026-09-02 (Streichkandidat S3: Gate-Registry `worktree-midsession-accumulation` `revision_note` vom 2026-08-20 und `session_start_checks.sh` Phase 0.4.5 räumen jedes Repo mit Lease; ein zweiter Lauf am Sitzungsende ist dieselbe Mechanik doppelt — Runner-Phase `E.8` steht deshalb bewusst auf SKIP mit Hinweis). · wieder eingesetzt 2026-09-14 in anderer Form (Retro oqu6Z6 §5a / #21): nicht als zweiter Reaper-Lauf, sondern als `git worktree prune` plus Altersgrenze (FAIL) — die SKIP-Zeile hatte 13 Bäume, zwei davon `prunable`, folgenlos stehen lassen.
 
 > Ohne diesen Schritt akkumulieren Orphan-Worktrees über Tage (Retro 2026-06-14:
 > 9 dangling, davon 3 am selben Tag erzeugt + gemergt, nie gereapt). Der Reaper ist
@@ -666,6 +666,14 @@ Retro `session-retro-2026-07-15-platform-c494a2`, Befund #8.
 ## changelog-historie
 
 Alle Einträge vor 2026-08-30; die letzten drei stehen im Skill (Policy seit platform#2696).
+
+- 2026-09-02: **Phase 0h Fremder Blick (PFLICHT ab `full`) + Checklisten-Zeile 23** (#2036) —
+  Owner-Freigabe für Subagenten in den Session-Skills, ausdrücklich **selbstbetreffend**.
+  Nur 0d und 0e bekommen fremden Kontext; der mechanische Rest bleibt Skript. Der Zweig
+  stammt vom 2026-08-17 und hieß dort `0g`; `main` vergab denselben Buchstaben inzwischen
+  an #2211, deshalb `0h` und Zeile 23. Beim Nachziehen **neu geschrieben** statt gemergt:
+  `main` hatte die Datei zwischenzeitlich von 55 auf 20 kB gekürzt, ein Merge hätte das
+  zurückgedreht. Herleitung in `LEHREN#0h`.
 
 - 2026-08-20: **Phase 0f um rückfällige Gates erweitert** + Checklisten-Zeile 17. Ein vom
   Session-Start gemeldetes rückfälliges Gate braucht denselben Abschluss wie ein

@@ -8,6 +8,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- `tools/schleuse.py` (#3405): sieben neue Klassen — PR-/Issue-Text, Wegwerf-Skript,
+  Bildschirmfoto, Lauf-Ausgabe, Dokument-Entwurf, Modell-Ausgabe, Datierte Übergabe.
+  Bestandsaufnahme am 2026-09-23: 168 von 291 Einträgen in `~/shared` trugen keine
+  Regel und liefen still auf die 90-Tage-Grenze zu; jetzt sind es 39 echte
+  Einzelfälle. Ein Eintrag verfällt damit mit einer Begründung und einem Zielort
+  statt nur mit einem Datum. Positivkontrolle im Test: Projektordner, Notiz und
+  Konfiguration bleiben unentschieden, der Secrets-Ordner bleibt unberührt.
+- `tools/calendar_agent/ews_calendar.py` (#3300): HNU-Kalender lesen und im eigenen
+  Kalender anlegen/ändern/löschen — über EWS des On-Prem-Exchange (NTLM mit der
+  IMAP-Kennung, `curl --ntlm`, Passwort nur per stdin), weil Graph diesen Kalender nie
+  erreicht (On-Prem, dazu Conditional Access 53003). `--status/--list/--today/--ids/
+  --create/--update/--delete`, Stufe A (nie Teilnehmer; Besprechungen, fremde
+  Einladungen, Serien hart gesperrt). Belege und Bedienung:
+  `docs/runbooks/hnu-kalender-ews.md`. ICS-Import bleibt als Fallback unangetastet.
+
 - `tools/sevdesk/rechnungslauf.py` (#3102): Monats-/Quartalsrechnungslauf für
   sevdesk-Dauerkunden — `--kunden-ermitteln` erkennt den Rhythmus aus dem
   Bestand, `--monat`/`--quartal` legt Entwürfe (Status 100) aus der letzten

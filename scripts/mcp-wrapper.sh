@@ -14,11 +14,14 @@ set -euo pipefail
 SECRETS_DIR="$HOME/.secrets"
 SERVER="${1:-}"
 
+# Toleranter Leser (bare UND NAME=WERT, platform#3129) — nie selbst lesen.
+LESER="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/tools/secret_lesen.sh"
+
 # ── Load secret from file ────────────────────────────────────────────────────
 load_secret() {
     local file="$SECRETS_DIR/$1"
     if [[ -f "$file" ]]; then
-        cat "$file" | tr -d '\n'
+        "$LESER" "$file" | tr -d '\n'
     fi
 }
 

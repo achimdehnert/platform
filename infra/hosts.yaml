@@ -17,10 +17,14 @@
 #                   Felder: datenklassen_verboten, prod_container, app_hubs, runner,
 #                   oeffentlicher_ingress, nur_dienste, grund (Pflicht). Fehlt ein Feld,
 #                   gilt "erlaubt". Prueft: infra/scripts/hosts_audit.py --check auflage
-#   betrieb:        erwartet_an (Vorgabe, weglassen) | auf_zuruf — ein Knoten, der
-#                   planmaessig nur auf Zuruf laeuft. flottenbild.py meldet ihn dann
-#                   als 'schlaeft' statt 'unerreichbar'; ein erwartet_an-Knoten, der
-#                   nicht antwortet, bleibt ein Befund (platform#2545).
+#   betrieb:        nur beschreibend (z. B. `7/24`). Ein Knoten, der planmaessig nur
+#                   auf Zuruf laeuft, steht NICHT hier, sondern als Deklaration mit
+#                   Ablaufdatum in governance/deklarationen.json (#3495 V2):
+#                     python3 tools/befund_journal.py --deklaration <knoten> \
+#                       --art auf_zuruf --grund "<Satz>" --gueltig-bis YYYY-MM-DD
+#                   Die Melder zeigen ihn dann als 'schlaeft' statt 'unerreichbar';
+#                   ohne gueltige Deklaration bleibt ein stummer Knoten ein Befund
+#                   (platform#2545). Ein Test haelt `betrieb: auf_zuruf` hier fern.
 #   Neuer Knoten:   docs/runbooks/neuer-knoten.md — Reihenfolge ist Absicht.
 #   verified: false ist nur mit `verified_bis: <Datum>` gueltig (sonst Dauerausnahme).
 #
@@ -54,8 +58,10 @@ hosts:
       getrennte Compose-Projekte auf EINER Engine (COMPOSE_PROJECT_NAME pro Hub pinnen,
       ADR-248). Docker-Daten auf dem 350-GB-Volume (/mnt/HC_Volume_105908261),
       Root-Platte traegt CI-Runner und Backups. Offsite-Backup laeuft von hier (02:30,
-      Tags pgdump/volumes/config). Traegt wg0 zur GPU-Box (10.99.0.2) — deshalb kann
-      illustration-hub nicht wandern.
+      Tags pgdump/volumes/config) nach Storage Box 601177 (fsn1), Unterkonto
+      u618904-sub1, Repo sftp:storagebox-offsite:/home/restic (ADR-289 Rev 3, seit
+      2026-09-24; vorher netcup rest-server, tot seit 2026-09-08). Traegt wg0 zur
+      GPU-Box (10.99.0.2) — deshalb kann illustration-hub nicht wandern.
     historie:
       - "2026-07-20: OOM-Ausfall 16 h unbemerkt — kein Monitoring; seit 2026-08-30 scrapt der odoo-Prometheus diesen Host (cadvisor 9338; node_exporter 9100 wartet auf ufw-Regel, platform#2504)"
       - "2026-07-22: Freeze #1314 + Long-Tail-Umzug nach prod-b haben die Speichernotlage entspannt"
@@ -73,11 +79,23 @@ hosts:
     datacenter: hel1-dc2               # Finnland — siehe Standort-Auflage unten
     os: Ubuntu 24.04.4 LTS
     provider: Hetzner (hel1)
-    firewall: prod-b-web               # id 11351382 — nur 22/80/443 + ICMP
+    firewall: prod-b-web               # id 11351382
+    firewall_eingehend:                # Stand 2026-09-22, gegen die Hetzner-API gelesen
+      - "22/tcp, 80/tcp, 443/tcp, icmp"   # von ueberall
+      - "9100/tcp, 9338/tcp"              # nur 46.225.127.211 (Monitoring)
+      - "7881/tcp, 7882/udp"              # LiveKit-Medienstrecke Element Call,
+        # ergaenzt 2026-09-22 nach Owner-Freigabe (chat-hub#127): der SFU lauschte
+        # seit dem Aufbau im August, die Ports waren aber von aussen gefiltert —
+        # Video war damit nie moeglich (`turn.enabled: false`, kein Fallback).
+        # Gegenprobe nach der Aenderung: TCP 7881 vom dev-desktop offen.
     role: >
       Zweiter Prod-Host fuer den Long Tail der Hubs (prod_host=prod-b, ADR-292).
       Entstanden 2026-07-22 durch Rebuild der ungenutzten Maschine lastwar-bot (Snapshot
       lastwar-bot-archive-20260722, id 411324113). Standort Helsinki — siehe auflage.
+      Offsite-Backup laeuft von hier (03:30, Tags pgdump/volumes/config) nach Storage Box
+      601177 (fsn1), Unterkonto u618904-sub2, Repo sftp:storagebox-offsite:/home/restic
+      (ADR-289 Rev 3, seit 2026-09-24; 08.09.–24.09. ohne Offsite, keine lokale
+      Dump-Schicht — die acht Postgres-Instanzen haengen allein an diesem Lauf).
       Ingress ueber eigenen cloudflared-Tunnel; nginx terminiert hier KEIN TLS.
     historie:
       - "2026-08-04: Long-Tail-Welle — apo, pptx, weltenhub, wedding, coach, research, cad, trading, dms liegen hier (platform#1752/#1753)"
@@ -159,6 +177,16 @@ hosts:
             ein Rueckschritt, Umzug nach prod-b unverhaeltnismaessig.
           entschieden: 2026-09-01
           bis: 2026-12-01
+        lotse-raum:
+          grund: >
+            Werkzeug des Owners (Raum-Sitzung "Achim / Lotse", Matrix-Client ohne
+            Listener, systemd --user Zeitgeber, STT/TTS auf CPU). Kein Container,
+            kein Ingress, kein Prod-Workload; der Krypto-Store des zweiten Geraets
+            liegt hier (~/.local/share/chat-hub/lotse-achim), ein Umzug hiesse
+            neues Geraet + neue Schluessel. Derselbe Fall wie mail-links.
+            Owner-Wort 2026-09-22 (Kapitaens-Kanal): "43 ja, ausnahme eintragen".
+          entschieden: 2026-09-22
+          bis: 2026-12-01
     verified: 2026-08-30                # Vollmessung 13 Agenten + Nachmessung, KONZ-054
 
   gpu-box:
@@ -166,23 +194,30 @@ hosts:
     arch: amd64                        # uname -m 2026-08-30: x86_64
     ssh: achim@10.99.0.2
     ssh_via: root@88.198.191.108        # Schluessel fuer achim@10.99.0.2 liegt nur auf prod — ssh laeuft von dort (flottenbild.py)
-    ssh_shell: "wsl -d Ubuntu -u root -e bash -s"   # Windows-OpenSSH landet in cmd; die Probe gehoert in die WSL
-    hostname: DESKTOP-G1MN89S          # Owner-Desktop, Windows 11 (26200) + WSL2 Ubuntu 22.04
-    betrieb: auf_zuruf                 # Owner-Entscheid 2026-08-31: Box laeuft nur bei Bedarf
-                                       # (Wake-on-LAN). Ein schlafender Knoten ist KEIN Ausfall —
-                                       # flottenbild.py zeigt ihn als 'schlaeft' (platform#2545).
+    # KEIN ssh_shell mehr: bis 2026-09-22 stand hier `wsl -d Ubuntu -u root -e bash -s`.
+    # Die WSL ist seit dem 2026-09-22 aus (Owner-Entscheid, platform#3364) — und jeder
+    # wsl-Aufruf wuerde die VM wieder hochfahren. Windows-OpenSSH landet in cmd.exe; die
+    # bash-Probe von flottenbild.py liefert dort keine Messzeile, die Box erscheint als
+    # 'schlaeft', auch wenn sie an ist. Windows-seitige Probe: platform#3364.
+    hostname: DESKTOP-G1MN89S          # Owner-Desktop, Windows 11 (26200); WSL2 Ubuntu 22.04 vorhanden, aus
+    # Auf Zuruf (Owner-Entscheid 2026-08-31: Box laeuft nur bei Bedarf, Wake-on-LAN).
+    # Ein schlafender Knoten ist KEIN Ausfall (platform#2545). Quelle ist die
+    # Deklaration `auf_zuruf` in governance/deklarationen.json (mit Ablaufdatum,
+    # #3495 V2) — bis 2026-09-24 stand hier das Feld `betrieb: auf_zuruf`.
     provider: owner-desktop            # keine Cloud, kein IaC — laeuft nur, wenn die Box an ist
-    server_type: rtx4090               # RTX 4090 24 GB; WSL2: 24 vCPU / 64 GB / 4 GB Swap (.wslconfig, 2026-09-08)
+    server_type: rtx4090               # RTX 4090 24 GB
     role: >
-      GPU-Box des Owners (RTX 4090, Windows 11 + WSL2) fuer lokale LLM-Inferenz
-      (illustration-hub-Render ueber wg0) und CI-Runner ci-gpu fuer writing-hub
-      (KONZ-021, platform#2392). Zugang nur ueber den prod-Hop (ssh achim@10.99.0.2, wsl
-      -d Ubuntu -u root). Kein Prod-Deploy — siehe auflage.
+      GPU-Box des Owners (RTX 4090, Windows 11) fuer lokale LLM-Inferenz
+      (illustration-hub-Render ueber wg0). Alle GPU-Dienste sind Windows-Dienste
+      (ComfyUI, Ollama, ACE-Step, Arbiter — ADR-296). Zugang nur ueber den prod-Hop
+      (ssh achim@10.99.0.2, landet in cmd.exe). Kein Prod-Deploy — siehe auflage.
+      Bis 2026-09-22 zusaetzlich CI-Runner ci-gpu in der WSL2 (KONZ-021, platform#2392).
     historie:
       - "2026-08-30: ollama 0.0.0.0:11434 ohne Anmeldung von jedem wg0-Peer erreichbar (platform#2486); WSL meldet 738 GB frei, real 94 GB auf C:"
       - "2026-09-02: Befund praezisiert — die offene Instanz ist der WINDOWS-Dienst ollama.exe (0.0.0.0 + [::]), die WSL-Instanz bindet 127.0.0.1. Das Heim-LAN erreicht sie NICHT: die Firewall-Regeln aus ADR-296 begrenzen 11434 auf 10.99.0.0/24 und 10.8.0.0/24 (gemessen vom gx10 im selben Subnetz: 11434 und 22 beide zu, Positivkontrolle inklusive). Effektive Reichweite = die beiden VPN-Netze"
       - "2026-09-02: authentifizierte Gegenstelle gpu.iil.pet auf prod (Owner-Entscheid '24 go'): eigener Tunnel cloudflared-gpu.service, Ursprung 10.99.0.2:11434 ueber wg0, davor Cloudflare Access mit Owner-Richtlinie. Unangemeldet 302 (3 Proben mit laufendem Tunnel). Restrisiko benannt: VPN-Peers erreichen ollama weiterhin ohne Anmeldung"
-    hosts_runners: [gpu-box]
+      - "2026-09-22: WSL abgeschaltet (Owner: 'shutdown erledigt'). Sie hielt mit vmIdleTimeout=-1 + Aufgabe WSLKeepAlive 24 vCPU / 64 GB fuer den Runner ci-gpu bereit, den seit 2026-09-01 kein Workflow mehr anfordert — er bekam nur noch per Zufall shared-ci-Jobs ohne runs_on (2026-09-19: Resolve/Build/Notify von writing-hub). Runner bei GitHub abgemeldet; Probe-Pfade (ssh_shell, gpu_leerlauf) entfernt, weil jeder wsl-Aufruf die VM neu startet (platform#3364)"
+    hosts_runners: []                  # ci-gpu abgemeldet 2026-09-22, Block `runners.gpu-box` unten
     auflage:
       prod_container: false
       oeffentlicher_ingress: false
@@ -212,13 +247,40 @@ hosts:
     status: aktiv                      # wg0-Zugang steht, Direktanmeldung von prod verifiziert 2026-08-31
     role: >
       IIL-interner Inferenz- und Trainingsknoten (KONZ-platform-053, Owner-Entscheid
-      2026-08-29). Ausserhalb des Buergerdaten-Perimeters: keine Sozial-/Buergerdaten
-      aus der MEiKI-Kette, gleich in welcher Form. Zugang ueber wg0, KEIN oeffentlicher
+      2026-08-29) UND seit 2026-09-23 der On-Premise-Prueffall fuer MEiKI: an diesem
+      Knoten wird geprueft, ob On-Premise-Verarbeitung fuer die MEiKI-Kette in der
+      derzeitigen Konfiguration anwendbar ist (Owner-Korrektur, siehe KONZ-053 Rev 1).
+      Die fruehere Formulierung "keine Sozial-/Buergerdaten aus der MEiKI-Kette, gleich
+      in welcher Form" ist damit aufgehoben — sie schloss genau die Pruefung aus, die
+      stattfinden soll. Unveraendert gilt: MEiKI-Daten sind synthetisch, solange kein
+      Live-Lauf ausdruecklich kommuniziert ist. Zugang ueber wg0, KEIN oeffentlicher
       Tunnel (das war der Fehler bei ollama.iil.pet). Phase 1 ohne GitHub-Runner,
-      kein Prod-Deploy, kein Build-Ziel fuer Flotten-Images.
+      kein Prod-Deploy im Sinne von Containern/App-Hubs, kein Build-Ziel fuer
+      Flotten-Images.
+      ACHTUNG, seit 2026-09-23 traegt dieser Knoten eine FLOTTENWEITE
+      PRODUKTIONSABHAENGIGKEIT (platform#3440): der Embedder auf 10.99.0.4:8100
+      bedient das geteilte Gedaechtnis des Orchestrators — jede
+      `agent_memory_search` jeder Sitzung jedes Repos laeuft dagegen (mcp-hub#278:
+      1.370 Eintraege neu eingebettet). `rag_mcp` haengt seit 2026-09-01 am selben
+      Endpunkt (Commit 71f2f61). Ist der Knoten aus, faellt die semantische Suche
+      flottenweit auf Volltext zurueck — genau der Ausfall, der in mcp-hub#278
+      drei Monate lang unbemerkt blieb; gefangen wird er jetzt vom taeglichen
+      Melder (`orchestrator_mcp.memory.melder`, 05:30). "Kein Prod-Deploy" heisst
+      hier also NICHT "an diesem Knoten haengt nichts Produktives".
     hosts_runners: []                  # Phase 1 bewusst leer — KONZ-053 §6
     auflage:
-      datenklassen_verboten: [gov-sozialdaten]
+      # AUFGEHOBEN 2026-09-23 (Owner): das pauschale Verbot stand der Pruefung im Weg,
+      # fuer die dieser Knoten jetzt der Testfall ist. Was bleibt, steht in
+      # datenklassen_pruefauftrag — eine Bedingung, kein Freibrief.
+      datenklassen_verboten: []
+      datenklassen_pruefauftrag:
+        klasse: gov-sozialdaten
+        zulaessig_heute: "synthetische MEiKI-Daten (Standardfall, solange kein Live-Lauf angekuendigt ist)"
+        vor_echten_daten_zu_klaeren: >
+          Unterauftragsverhaeltnis und Anzeigepflicht nach Paragraf 80 Absatz 2 SGB X.
+          KONZ-053 Paragraf 2 hatte daraus den Ausschluss abgeleitet; der Owner hat am
+          2026-09-23 widersprochen: die Frage ist zu PRUEFEN, nicht vorwegzunehmen. Das
+          Ergebnis dieser Pruefung ist die Bedingung fuer echte Daten, nicht deren Ersatz.
       prod_container: false
       app_hubs: false
       runner: false
@@ -241,7 +303,34 @@ hosts:
             p50 9,0 statt 78,0 ms, 702 statt 5,9 chunks/s bei batch=50 —
             bei identischem Recall@1 (5/5) und auf vier Nachkommastellen
             identischen Aehnlichkeitswerten.
+            NACHGEZOGEN 2026-09-23 (platform#3440): dieser Dienst ist seit dem
+            Umstieg des Orchestrator-Gedaechtnisses (mcp-hub#278) keine lokale
+            Bequemlichkeit mehr, sondern die Einbettungsquelle der GESAMTEN
+            Flotte. Die Ausnahme laeuft am 2026-12-01 aus — vor diesem Datum ist
+            zu entscheiden, ob die Rolle des Knotens auf "traegt eine
+            Produktionsabhaengigkeit" gezogen oder der Dienst auf einen Host mit
+            Prod-Rolle verlegt wird. Laeuft sie kommentarlos aus, haengt die
+            Flotte an einer abgelaufenen Ausnahme.
           entschieden: 2026-09-01
+          bis: 2026-12-01
+        kev-decisions:
+          grund: >
+            Entscheidungsmodell kev-4b (Port 8009) fuer die Messreihe aus
+            platform#3337 — dieselbe Klasse wie `embedder`: ein Inferenzdienst,
+            und damit genau die Rolle, fuer die der Knoten angeschafft wurde.
+            Gebunden auf 127.0.0.1:8009, NICHT 0.0.0.0 (am Knoten gegengeprueft
+            mit `ss -ltn`), damit `oeffentlicher_ingress: false` gilt. Kein
+            Container, kein App-Hub: systemd-Nutzerdienst mit Linger.
+            Umgezogen 2026-09-21 von der gpu-box; dort wurden 21 GB frei.
+            Gemessen auf denselben 78 Faellen: erzwungene Trefferquote 0,859
+            statt 0,897 auf der 4090, 73 von 78 Antworten identisch. Die
+            Differenz von drei Faellen liegt im Rauschen dieser Stichprobe und
+            ist NICHT als Gleichwertigkeit belegt — die Numerik unterscheidet
+            sich real (bf16 auf Blackwell mit torch 2.14 gegen Ada mit torch
+            2.8; groesste Einzelabweichung einer Wahrscheinlichkeit 0,270).
+            Die Messreihe bleibt deshalb ab jetzt auf diesem Knoten; die
+            4090-Zahlen sind kein Vergleichsmass.
+          entschieden: 2026-09-21
           bis: 2026-12-01
         ollama:
           grund: >
@@ -254,9 +343,23 @@ hosts:
             description="NVIDIA GB10" total=121.6 GiB). Nur synthetische/oeffentliche
             Korpora (Guenzburg-Fachseiten), keine Buergerdaten. Gemessen 2026-09-02
             warm: 47,8 tok/s (qwen2.5:7b), 47,1 tok/s (llama3.1:8b).
-            Offene Haertung: Abschottung ruht allein auf der Bind-Adresse; ein
-            Paketfilter analog ADR-296 (11434 nur aus 10.99.0.0/24) braucht Root
-            (sudo verlangt Passwort) — Owner-Sitzung.
+            Paketfilter seit 2026-09-02 (Owner, interaktiv): ufw aktiv, 11434/tcp
+            nur aus 10.99.0.0/24 (ADR-296-Muster); vom prod-Hop gegengeprueft 200.
+          entschieden: 2026-09-02
+          bis: 2026-12-01
+        whisper:
+          grund: >
+            STT-Inferenz fuer den Voice-Agent (iil-voice-agent#101): whisper.cpp
+            large-v3-turbo auf der GB10, gebunden auf 10.99.0.4:8178, NICHT 0.0.0.0
+            (am Knoten gegengeprueft: 0 Treffer auf 0.0.0.0; 127.0.0.1 refused, vom
+            prod-Hop erreichbar). Kein Container, kein App-Hub: systemd-Nutzerdienst
+            wie Embedder und ollama (whisper.cpp eacbd82, CUDA 13, sm_121, GPU belegt:
+            "found 1 CUDA devices / Device 0: NVIDIA GB10", 1953 MiB). Nur synthetisches
+            Probe-Audio, keine Buergerdaten. Gemessen 2026-09-02 warm: 134 ms fuer 3,04 s
+            Audio (CPU-Baseline p50 690-734 ms); medium war langsamer (158 ms) UND
+            schlechter (Eigenname zerlegt). Paketfilter seit 2026-09-02 (Owner,
+            interaktiv): ufw aktiv, 8178/tcp nur aus 10.99.0.0/24 (ADR-296-Muster);
+            vom prod-Hop gegengeprueft 200.
           entschieden: 2026-09-02
           bis: 2026-12-01
         vllm:
@@ -270,7 +373,9 @@ hosts:
           entschieden: 2026-09-08
           bis: 2026-12-08
     historie:
-      - "2026-09-02: ollama als systemd-Nutzerdienst (~/.config/systemd/user/ollama.service, OLLAMA_HOST=10.99.0.4:11434) eingerichtet, manueller Prozess (127.0.0.1) beendet, llama3.1:8b (+4,9 GB) gezogen; iil-voice-agent Issue-#90-Gate gegen diesen Dienst gefahren (siehe Issue). Firewall-Stand nicht verifizierbar (kein Root)"
+      - "2026-09-02: ufw aktiviert (Owner, interaktiv): OpenSSH beliebig; 11434/8100/8178 tcp nur aus 10.99.0.0/24 (ADR-296-Muster). Positivkontrolle vom prod-Hop: ollama 200, whisper 200, embedder antwortet (404 auf /), ssh ok; ollama/whisper/embedder-Units active"
+      - "2026-09-02: whisper.cpp (CUDA, sm_121) als systemd-Nutzerdienst eingerichtet (~/.config/systemd/user/whisper.service, --host 10.99.0.4 --port 8178, large-v3-turbo); Modelle turbo+medium gezogen (+3,2 GB); iil-voice-agent#101 K1 erfuellt. Firewall: siehe ufw-Eintrag"
+      - "2026-09-02: ollama als systemd-Nutzerdienst (~/.config/systemd/user/ollama.service, OLLAMA_HOST=10.99.0.4:11434) eingerichtet, manueller Prozess (127.0.0.1) beendet, llama3.1:8b (+4,9 GB) gezogen; iil-voice-agent Issue-#90-Gate gegen diesen Dienst gefahren (siehe Issue). Firewall: siehe ufw-Eintrag"
     betrieb: 7/24                      # Owner-Angabe 2026-09-01 — der Knoten
                                        # ist KEIN Buerorechner mit Zuruf-Betrieb.
                                        # Damit faellt der Verfuegbarkeits-Einwand
@@ -358,22 +463,28 @@ runners:
 
   gpu-box:
     host: gpu-box                      # Host-Block oben; wg0 10.99.0.2, nur von prod erreichbar
-    status: online                     # 2026-08-28 09:00 CEST registriert + online (gh api runners);
-                                       # RTX 4090 24 GB, 8 vCPU/12 GB fuer WSL, api.github.com 200),
-                                       # Bootstrap lief als root via `wsl -u root` ueber den prod-Hop
+    status: deleted                    # 2026-09-22 vom Owner bei GitHub entfernt (gh api runners: nur noch prod-server);
+                                       # registriert 2026-08-28, letzter Job 2026-09-19 (Zufallszuteilung)
     labels: [self-hosted, Linux, X64, ci-gpu]
     scope: per-repo
-    install: /opt/actions-runner-<repo>   # innerhalb der WSL2-Distro
+    install: /opt/actions-runner-<repo>   # innerhalb der WSL2-Distro — Dienst dort nicht entfernt, WSL ist aus
     service: actions.runner.achimdehnert-<repo>.DESKTOP-G1MN89S.service   # Runner-Name = Hostname
     runner_user: github-ci             # REC-5, in docker-Gruppe (Postgres-Service-Container)
-    bootstrap: infra/scripts/bootstrap_ci_runner_wsl.sh
-    consumers: [writing-hub]           # KONZ-021-Opt-out, Grund: 70 % der hosted Minuten (platform#2392)
+    bootstrap: infra/scripts/bootstrap_ci_runner_wsl.sh   # bleibt fuer eine Wiederinbetriebnahme
+    consumers: []                      # bis 2026-09-01 writing-hub (KONZ-021-Opt-out, platform#2392);
+                                       # integration-tests seitdem auf ubuntu-latest (writing-hub ci.yml)
     note: >
-      Owner-Desktop, nicht Teil der Hetzner-Flotte: laeuft nur, wenn die Box an ist.
-      Windows-Seite muss die WSL offen halten (.wslconfig vmIdleTimeout=-1 + Aufgabenplanung
-      "wsl -d Ubuntu -u root -- sleep infinity"). Deploy-Jobs bleiben auf prod-server;
-      hier laufen nur `_ci-python`-Block und der writing-hub-Eigenjob `integration-tests`.
-    verified: 2026-08-28               # Box-Fakten; Runner-Status offen
+      Abgemeldet 2026-09-22: Die WSL hielt fuer diesen Runner 24 vCPU / 64 GB wach
+      (.wslconfig vmIdleTimeout=-1 + Aufgabe WSLKeepAlive), obwohl seit 2026-09-01 kein
+      Workflow mehr `ci-gpu` anforderte. Er bekam nur noch shared-ci-Jobs ohne runs_on
+      per Zufall (Resolve/Build/Notify) — die gehen jetzt deterministisch an prod-server.
+      Box-Seite 2026-09-22 ueber den prod-Hop: Aufgabe WSLKeepAlive geloescht, in
+      %USERPROFILE%\.wslconfig die Zeile vmIdleTimeout=-1 entfernt (Sicherung
+      .wslconfig.bak-20260922; memory/processors-Deckel bleiben), `wsl --shutdown`;
+      danach kein vmmemWSL-Prozess mehr. Die VM war nach dem Owner-Shutdown schon
+      wieder hochgekommen (1,9 GB) — genau der Effekt der Keepalive-Aufgabe.
+      Wiederinbetriebnahme: WSL starten, Bootstrap-Skript, dann hier `status: online`.
+    verified: 2026-09-22               # Runner bei GitHub entfernt, vmmemWSL nicht mehr aktiv
   dev-hetzner-2:
     host: UNKNOWN                       # auf keinem erreichbaren Host installiert
     status: deleted                     # 2026-06-17 dereg. (id=23 auf risk-hub gelöscht)

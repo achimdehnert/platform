@@ -30,6 +30,7 @@ Run: `python3 -m pytest tools/tests/test_ci_deckung.py -q`
 from __future__ import annotations
 
 import importlib.util
+import subprocess
 import sys
 from pathlib import Path
 
@@ -51,6 +52,38 @@ def _repo(
         wf_dir = repo / ".github" / "workflows"
         wf_dir.mkdir(parents=True, exist_ok=True)
         (wf_dir / "ci.yml").write_text(workflow, encoding="utf-8")
+    return repo
+
+
+def _git_klon_mit_workflow(
+    basis: Path, repo_name: str, dateiname: str, inhalt: str
+) -> Path:
+    """Echten lokalen Git-Klon unter `basis/repo_name` mit einer
+    `.github/workflows/<dateiname>` anlegen (Konvention `<github_base>/<repo>`,
+    platform#2990) — `git show`/`git rev-parse` brauchen ein echtes Repo, keine
+    reine Verzeichnisstruktur. `main` ist der Default-Branch, ein Commit reicht."""
+    repo = basis / repo_name
+    wf_dir = repo / ".github" / "workflows"
+    wf_dir.mkdir(parents=True)
+    (wf_dir / dateiname).write_text(inhalt, encoding="utf-8")
+    subprocess.run(["git", "init", "-q", "-b", "main", str(repo)], check=True)
+    subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "-c",
+            "user.email=test@example.invalid",
+            "-c",
+            "user.name=Test",
+            "commit",
+            "-q",
+            "-m",
+            "init",
+        ],
+        check=True,
+    )
     return repo
 
 
@@ -179,25 +212,38 @@ def test_should_catch_realfall_3_chat_hub_ruff_format_shape(tmp_path):
     assert not ergebnis2["befunde"]
 
 
-def test_should_find_nothing_on_real_current_chat_hub():
-    """Nachmessung gegen den ECHTEN, aktuellen chat-hub-Checkout (main, nach #81):
-    `lint` und `test` sind vollstaendig gedeckt; die einzigen Ziele mit
-    Pruef-Schluesselwort im Namen, die nicht laufen, sind `chat-verify` und
-    `chat-verify-init` — beide per governance/ci-deckung-verzicht.yaml verzichtet
-    (Prod-Zugriff, echter Homeserver noetig). Skip, wenn der Checkout fehlt (CI-
-    Runner hat ~/github nicht)."""
-    pfad = Path("/home/devuser/github/chat-hub")
-    if not pfad.is_dir():
-        import pytest
-
-        pytest.skip("~/github/chat-hub nicht vorhanden auf diesem Runner")
+def test_should_find_nothing_on_frozen_chat_hub_fixture():
+    """Nachmessung gegen einen EINGEFRORENEN chat-hub-Stand (03ddfa0, 2026-09-16,
+    nach chat-hub#109/#110): `lint` ruft shellcheck hinter `if command -v` und
+    ist trotzdem gedeckt; `chat-verify`/`chat-verify-init` sind per
+    governance/ci-deckung-verzicht.yaml verzichtet. Frueher lief die Probe gegen
+    den lebenden Checkout ~/github/chat-hub — der aenderte sich fremdbestimmt und
+    machte den Drill des Gates ci-gate-narrower-than-local-test lokal rot, in der
+    CI wurde er uebersprungen (platform#3247). Fixture: nur die Ziele mit
+    Pruef-Schluesselwort, chat-hub ist privat."""
+    pfad = Path(__file__).parent / "fixtures" / "ci_deckung" / "chat-hub"
     verzicht, fehler = cd.lade_verzicht(cd.DEFAULT_VERZICHT)
+    assert not fehler
     ergebnis = cd.scan_repo(str(pfad), verzicht)
     assert ergebnis["befunde"] == []
-    assert {v["ziel"] for v in ergebnis["verzicht"]} == {
-        "chat-verify",
-        "chat-verify-init",
-    }
+
+
+def test_should_flag_shellcheck_when_ci_never_runs_it(tmp_path):
+    """Positivkontrolle zur Fixture: dieselbe Makefile ohne den CI-Aufruf von
+    shellcheck ergibt den Befund, den der lebende Checkout am 2026-09-16 zeigte."""
+    quelle = Path(__file__).parent / "fixtures" / "ci_deckung" / "chat-hub"
+    (tmp_path / "chat-hub" / ".github" / "workflows").mkdir(parents=True)
+    (tmp_path / "chat-hub" / "Makefile").write_text(
+        (quelle / "Makefile").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    ci = (quelle / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    (tmp_path / "chat-hub" / ".github" / "workflows" / "ci.yml").write_text(
+        "\n".join(z for z in ci.splitlines() if "shellcheck" not in z) + "\n",
+        encoding="utf-8",
+    )
+    verzicht, _ = cd.lade_verzicht(cd.DEFAULT_VERZICHT)
+    befunde = cd.scan_repo(str(tmp_path / "chat-hub"), verzicht)["befunde"]
+    assert any("shellcheck" in b["kommando"] for b in befunde), befunde
 
 
 # ───────────────────────────── Gegenproben (duerfen NICHT anschlagen) ──────
@@ -326,3 +372,270 @@ def test_should_reject_a_verzicht_entry_without_grund(tmp_path):
     eintraege, fehler = cd.lade_verzicht(str(pfad))
     assert eintraege == {}
     assert fehler and "OHNE Grund" in fehler[0]
+
+
+def test_should_read_through_shell_if_then_else_and_cover_the_primary_branch(tmp_path):
+    """Realfall chat-hub `lint` (chat-hub#110): `if command -v shellcheck; then
+    shellcheck ...; else docker run ... shellcheck ...; fi`. Vorher vier Befunde
+    ("if command shellcheck", "then shellcheck", "else docker run", "fi"), obwohl
+    der CI shellcheck ausfuehrt. Kontrollwoerter fallen weg, die `command -v`-Sonde
+    zaehlt nicht, der else-Fallback ist kein Befund, wenn der Hauptzweig gedeckt ist."""
+    makefile = (
+        "lint:\n"
+        "\t@if command -v shellcheck >/dev/null; then shellcheck deploy/*.sh; \\\n"
+        '\telse docker run --rm -v "$(CURDIR):/mnt" -w /mnt koalaman/shellcheck:stable deploy/*.sh; fi\n'
+        "\t$(TEST_PY) -m ruff check deploy/ tests/\n"
+    )
+    workflow = (
+        "on: [push]\n"
+        "jobs:\n"
+        "  lint:\n"
+        "    runs-on: ubuntu-latest\n"
+        "    steps:\n"
+        "      - run: |\n"
+        "          shellcheck deploy/*.sh\n"
+        "          ruff check deploy/ tests/\n"
+    )
+    repo = _repo(tmp_path, makefile, workflow)
+    ergebnis = cd.scan_repo(str(repo))
+    assert ergebnis["befunde"] == []
+    assert {g["kommando"] for g in ergebnis["gedeckt"]} >= {
+        "shellcheck deploy/*.sh",
+        "ruff check deploy/ tests/",
+    }
+
+
+# ───────────────────── NICHT-PRUEFBAR-Dedup (#3469) ─────────────────────────
+
+
+def test_should_collapse_three_identical_causes_into_one_line_with_counter():
+    """AK 3d: 3 gleiche (Ziel, Grund)-Paare → 1 Zeile mit Zaehler `anzahl=3`."""
+    eintraege = [
+        {"ziel": "boards-check", "kommando": "python3 tools/a.py", "grund": "X"},
+        {"ziel": "boards-check", "kommando": "python3 tools/b.py", "grund": "X"},
+        {"ziel": "boards-check", "kommando": "cmp -s a b", "grund": "X"},
+    ]
+    dedup = cd._dedupliziere_nicht_pruefbar(eintraege)
+    assert len(dedup) == 1
+    assert dedup[0]["ziel"] == "boards-check"
+    assert dedup[0]["grund"] == "X"
+    assert dedup[0]["anzahl"] == 3
+
+
+def test_should_keep_distinct_ziel_or_grund_pairs_separate_with_own_counters():
+    eintraege = [
+        {"ziel": "boards-check", "kommando": "a", "grund": "X"},
+        {"ziel": "boards-check", "kommando": "b", "grund": "X"},
+        {"ziel": "workflow-lint", "kommando": "c", "grund": "X"},
+        {"ziel": "workflow-lint", "kommando": "d", "grund": "X"},
+        {"ziel": "workflow-lint", "kommando": "e", "grund": "X"},
+        {"ziel": "betrieb-check", "kommando": "f", "grund": "Y"},
+    ]
+    dedup = cd._dedupliziere_nicht_pruefbar(eintraege)
+    # Reihenfolge des ersten Auftretens bleibt erhalten (nicht alphabetisch).
+    assert [(d["ziel"], d["anzahl"]) for d in dedup] == [
+        ("boards-check", 2),
+        ("workflow-lint", 3),
+        ("betrieb-check", 1),
+    ]
+
+
+def test_should_collapse_realfall_3469_boards_check_shape(tmp_path):
+    """Realfall #3469 nachgebaut: ein Ziel mit Pruef-Schluesselwort ("check") und
+    einem Rezept aus mehreren `&&`-verketteten Pruef-Kommandos, dessen einziger
+    Workflow einen wiederverwendbaren Workflow referenziert. Vor der Auflösung
+    erzeugt JEDES Sub-Kommando eine eigene NICHT-PRUEFBAR-Zeile mit identischem
+    Grund (12x im echten Fall) — Dedup fasst sie zu einer Zeile zusammen, ohne
+    das echte Ziel `betrieb-check` (nur 1 Sub-Kommando) mitzuzaehlen."""
+    makefile = (
+        "boards-check:\n"
+        "\t@python3 tools/a.py && python3 tools/b.py && cmp -s x y && echo ok\n"
+        "betrieb-check:\n"
+        "\tpython3 tools/c.py\n"
+    )
+    workflow = (
+        "on: [push]\n"
+        "jobs:\n"
+        "  adr-validate:\n"
+        "    uses: achimdehnert/iil-adrfw/.github/workflows/_adr-validate.yml@main\n"
+    )
+    repo = _repo(tmp_path, makefile, workflow)
+    ergebnis = cd.scan_repo(str(repo))
+    assert ergebnis["befunde"] == []
+    roh_boards_check = [
+        n for n in ergebnis["nicht_pruefbar"] if n["ziel"] == "boards-check"
+    ]
+    assert len(roh_boards_check) > 1  # roh: mehrere identische Zeilen
+
+    dedup = cd._dedupliziere_nicht_pruefbar(ergebnis["nicht_pruefbar"])
+    boards_check_dedup = [d for d in dedup if d["ziel"] == "boards-check"]
+    assert len(boards_check_dedup) == 1
+    assert boards_check_dedup[0]["anzahl"] == len(roh_boards_check)
+    betrieb_check_dedup = [d for d in dedup if d["ziel"] == "betrieb-check"]
+    assert len(betrieb_check_dedup) == 1
+    assert betrieb_check_dedup[0]["anzahl"] == 1
+
+
+# ────────── Aufloesung wiederverwendbarer Workflows (platform#2990) ────────
+
+
+def test_should_resolve_reusable_workflow_via_local_clone_and_cover_matching_command(
+    tmp_path,
+):
+    """Akzeptanzkriterium 4: rot ohne lokalen Klon (heutiges Verhalten bleibt,
+    `github_base=None`), gruen mit — die referenzierte Datei wird per `git show`
+    gelesen und ihr `run:`-Kommando deckt das Makefile-Ziel des rufenden Repos."""
+    github_base = tmp_path / "github_base"
+    _git_klon_mit_workflow(
+        github_base,
+        "toolrepo",
+        "_ci.yml",
+        "on:\n  workflow_call: {}\njobs:\n  ci:\n    steps:\n      - run: pytest tests/\n",
+    )
+    makefile = "test:\n\tpytest tests/\n"
+    workflow = (
+        "on: [push]\n"
+        "jobs:\n"
+        "  ci:\n"
+        "    uses: someorg/toolrepo/.github/workflows/_ci.yml@main\n"
+    )
+    repo = _repo(tmp_path, makefile, workflow, name="caller-repo")
+
+    # rot ohne Klon (Default-Verhalten der Python-API, unveraendert vor #2990)
+    ergebnis_ohne = cd.scan_repo(str(repo))
+    assert ergebnis_ohne["befunde"] == []
+    assert any(n["ziel"] == "test" for n in ergebnis_ohne["nicht_pruefbar"])
+
+    # gruen mit Klon
+    ergebnis_mit = cd.scan_repo(str(repo), github_base=str(github_base))
+    assert ergebnis_mit["nicht_pruefbar"] == []
+    assert ergebnis_mit["befunde"] == []
+    assert "test" in _gedeckt_ziele(ergebnis_mit)
+
+
+def test_should_report_a_genuine_finding_when_resolved_workflow_does_not_cover_it(
+    tmp_path,
+):
+    """Akzeptanzkriterium 1+2: nach der Aufloesung ist ein Ziel, das der
+    referenzierte Workflow NICHT ausfuehrt, ein echter Befund — kein stiller
+    Treffer (faelschlich gedeckt) und keine stille Luecke (faelschlich NICHT
+    PRUEFBAR)."""
+    github_base = tmp_path / "github_base"
+    _git_klon_mit_workflow(
+        github_base,
+        "toolrepo",
+        "_ci.yml",
+        "on:\n  workflow_call: {}\njobs:\n  ci:\n    steps:\n      - run: pytest tests/\n",
+    )
+    makefile = "test:\n\tpytest tests/\n\nlint:\n\truff check src/\n"
+    workflow = (
+        "on: [push]\n"
+        "jobs:\n"
+        "  ci:\n"
+        "    uses: someorg/toolrepo/.github/workflows/_ci.yml@main\n"
+    )
+    repo = _repo(tmp_path, makefile, workflow, name="caller-repo")
+    ergebnis = cd.scan_repo(str(repo), github_base=str(github_base))
+    assert ergebnis["nicht_pruefbar"] == []
+    assert "lint" in _befund_ziele(ergebnis)
+    assert "test" in _gedeckt_ziele(ergebnis)
+
+
+def test_should_stay_not_pruefbar_when_no_local_clone_exists(tmp_path):
+    """Akzeptanzkriterium 2: fremde Org/kein Klon bleibt NICHT PRUEFBAR mit
+    demselben Grund wie vor #2990 — keine Verschlechterung, auch wenn die
+    Aufloesung ueber `github_base` aktiv ist."""
+    makefile = "test:\n\tpytest tests/\n"
+    workflow = (
+        "on: [push]\n"
+        "jobs:\n"
+        "  ci:\n"
+        "    uses: fremde-org/unbekanntes-repo/.github/workflows/_ci.yml@main\n"
+    )
+    repo = _repo(tmp_path, makefile, workflow, name="caller-repo")
+    ergebnis = cd.scan_repo(str(repo), github_base=str(tmp_path / "leer"))
+    assert ergebnis["befunde"] == []
+    assert any(n["ziel"] == "test" for n in ergebnis["nicht_pruefbar"])
+
+
+def test_should_fall_back_to_head_with_warning_when_ref_is_not_resolvable(tmp_path):
+    """`@<ref>` nicht im lokalen Klon aufloesbar (Tag existiert dort nicht) →
+    Fallback auf origin/main/HEAD, mit Warnzeile im Report statt stillschweigend
+    falscher Zuordnung."""
+    github_base = tmp_path / "github_base"
+    _git_klon_mit_workflow(
+        github_base,
+        "toolrepo",
+        "_ci.yml",
+        "on:\n  workflow_call: {}\njobs:\n  ci:\n    steps:\n      - run: pytest tests/\n",
+    )
+    makefile = "test:\n\tpytest tests/\n"
+    workflow = (
+        "on: [push]\n"
+        "jobs:\n"
+        "  ci:\n"
+        "    uses: someorg/toolrepo/.github/workflows/_ci.yml@v9-nicht-vorhanden\n"
+    )
+    repo = _repo(tmp_path, makefile, workflow, name="caller-repo")
+    ergebnis = cd.scan_repo(str(repo), github_base=str(github_base))
+    assert "test" in _gedeckt_ziele(ergebnis)
+    assert ergebnis["warnungen"]
+    assert "v9-nicht-vorhanden" in ergebnis["warnungen"][0]
+
+
+def test_should_stop_recursion_at_max_tiefe_and_report_not_pruefbar(tmp_path):
+    """Verschachtelte `uses:`-Referenzen werden nur bis `MAX_REUSABLE_TIEFE`
+    rekursiv aufgeloest — Kette a→b→c→d→e (4 Hops, > 3) laesst die letzte
+    Referenz NICHT PRUEFBAR statt unbegrenzter Rekursion."""
+    github_base = tmp_path / "github_base"
+    kette = ["a", "b", "c", "d"]
+    for i, name in enumerate(kette):
+        naechster = kette[i + 1] if i + 1 < len(kette) else "e"
+        _git_klon_mit_workflow(
+            github_base,
+            name,
+            "_ci.yml",
+            "on:\n  workflow_call: {}\njobs:\n  ci:\n    uses: "
+            f"someorg/{naechster}/.github/workflows/_ci.yml@main\n",
+        )
+    _git_klon_mit_workflow(
+        github_base,
+        "e",
+        "_ci.yml",
+        "on:\n  workflow_call: {}\njobs:\n  ci:\n    steps:\n      - run: pytest tests/\n",
+    )
+    makefile = "test:\n\tpytest tests/\n"
+    workflow = (
+        "on: [push]\njobs:\n  ci:\n    uses: someorg/a/.github/workflows/_ci.yml@main\n"
+    )
+    repo = _repo(tmp_path, makefile, workflow, name="caller-repo")
+    ergebnis = cd.scan_repo(str(repo), github_base=str(github_base))
+    assert ergebnis["befunde"] == []
+    assert any(n["ziel"] == "test" for n in ergebnis["nicht_pruefbar"])
+    assert any("Aufloesungstiefe" in n["grund"] for n in ergebnis["nicht_pruefbar"])
+
+
+def test_should_detect_a_cycle_between_two_reusable_workflows(tmp_path):
+    """a referenziert b, b referenziert a zurueck — ohne Zyklus-Schutz eine
+    Endlosrekursion. Bleibt NICHT PRUEFBAR statt Absturz oder Haenger."""
+    github_base = tmp_path / "github_base"
+    _git_klon_mit_workflow(
+        github_base,
+        "a",
+        "_ci.yml",
+        "on:\n  workflow_call: {}\njobs:\n  ci:\n    uses: someorg/b/.github/workflows/_ci.yml@main\n",
+    )
+    _git_klon_mit_workflow(
+        github_base,
+        "b",
+        "_ci.yml",
+        "on:\n  workflow_call: {}\njobs:\n  ci:\n    uses: someorg/a/.github/workflows/_ci.yml@main\n",
+    )
+    makefile = "test:\n\tpytest tests/\n"
+    workflow = (
+        "on: [push]\njobs:\n  ci:\n    uses: someorg/a/.github/workflows/_ci.yml@main\n"
+    )
+    repo = _repo(tmp_path, makefile, workflow, name="caller-repo")
+    ergebnis = cd.scan_repo(str(repo), github_base=str(github_base))
+    assert ergebnis["befunde"] == []
+    assert any(n["ziel"] == "test" for n in ergebnis["nicht_pruefbar"])

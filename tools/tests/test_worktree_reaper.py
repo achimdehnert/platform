@@ -796,3 +796,113 @@ def test_should_still_reap_the_own_tree_when_nothing_indicates_activity(
         sitzungsende=(str(wt),),
     )
     assert verdict == "REAP_MERGED"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Befund-Sperren (platform#3495 V1 Folgepunkt b): der Reaper kennt
+# $LEASE_DIR/befund/<key>.lock nicht ueber repo-session.sh, sondern muss sie beim
+# Schliessen einer Lease selbst freigeben — sowohl beim regulaeren Merge-Reap
+# (close_lease_for) als auch beim Orphan-Pfad fuer manuell entfernte Worktrees
+# (close_orphan_leases). Reine Datei-Fixtures unter tmp_path, kein echtes git noetig.
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _befund_lock(leases: pathlib.Path, dateiname: str, key: str, lease_id: str) -> None:
+    d = leases / "befund"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / dateiname).write_text(
+        json.dumps(
+            {
+                "key": key,
+                "lease_id": lease_id,
+                "worktree": "/irgendwo",
+                "created_at": "2026-01-01T00:00:00Z",
+                "expires_at": "2026-01-08T00:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_should_release_befund_lock_when_close_lease_for_closes_it(
+    tmp_path, monkeypatch
+):
+    leases = tmp_path / "leases"
+    leases.mkdir()
+    wt_path = tmp_path / "wt-mit-befund"
+    (leases / "sess-a.json").write_text(
+        json.dumps({"worktree": str(wt_path), "expires_at": "2099-01-01T00:00:00Z"}),
+        encoding="utf-8",
+    )
+    _befund_lock(
+        leases,
+        "0.7_deploy-scan__fixture.lock",
+        "0.7 deploy-scan::fixture",
+        "sess-a",
+    )
+    monkeypatch.setattr(rw, "LEASE_DIR", leases)
+
+    closed = rw.close_lease_for(str(wt_path))
+
+    assert closed is True
+    assert (leases / "sess-a.json.closed").is_file()
+    assert not (leases / "sess-a.json").exists()
+    assert not (leases / "befund" / "0.7_deploy-scan__fixture.lock").exists()
+
+
+def test_should_keep_befund_lock_of_a_different_lease_when_closing_one(
+    tmp_path, monkeypatch
+):
+    """Nur die Sperre(n) der GESCHLOSSENEN Lease werden freigegeben — eine fremde
+    Sperre (andere lease_id) bleibt unberuehrt."""
+    leases = tmp_path / "leases"
+    leases.mkdir()
+    wt_path = tmp_path / "wt-mit-befund"
+    (leases / "sess-a.json").write_text(
+        json.dumps({"worktree": str(wt_path), "expires_at": "2099-01-01T00:00:00Z"}),
+        encoding="utf-8",
+    )
+    _befund_lock(leases, "eigene.lock", "0.7 deploy-scan::fixture", "sess-a")
+    _befund_lock(leases, "fremde.lock", "0.9 andere::fixture", "sess-b")
+    monkeypatch.setattr(rw, "LEASE_DIR", leases)
+
+    rw.close_lease_for(str(wt_path))
+
+    assert not (leases / "befund" / "eigene.lock").exists()
+    assert (leases / "befund" / "fremde.lock").exists()
+
+
+def test_should_release_befund_lock_when_orphan_lease_is_closed(tmp_path, monkeypatch):
+    """Worktree manuell entfernt (kein `repo-session.sh end`) — close_orphan_leases()
+    schliesst die Lease und muss die Befund-Sperre trotzdem freigeben."""
+    leases = tmp_path / "leases"
+    leases.mkdir()
+    fehlender_wt = tmp_path / "existiert-nicht"
+    (leases / "sess-verwaist.json").write_text(
+        json.dumps(
+            {"worktree": str(fehlender_wt), "expires_at": "2099-01-01T00:00:00Z"}
+        ),
+        encoding="utf-8",
+    )
+    _befund_lock(
+        leases,
+        "0.7_deploy-scan__fixture.lock",
+        "0.7 deploy-scan::fixture",
+        "sess-verwaist",
+    )
+    monkeypatch.setattr(rw, "LEASE_DIR", leases)
+
+    closed = rw.close_orphan_leases()
+
+    assert closed == 1
+    assert (leases / "sess-verwaist.json.closed").is_file()
+    assert not (leases / "befund" / "0.7_deploy-scan__fixture.lock").exists()
+
+
+def test_should_return_empty_list_when_no_befund_dir_exists(tmp_path, monkeypatch):
+    """release_befund_locks() darf nie werfen, wenn es noch keine Sperren gibt."""
+    leases = tmp_path / "leases-ohne-befund"
+    leases.mkdir()
+    monkeypatch.setattr(rw, "LEASE_DIR", leases)
+
+    assert rw.release_befund_locks("irgendeine-lease") == []

@@ -1,0 +1,7 @@
+{
+  "slug": "critical-alert-no-ticket",
+  "decided": "2026-08-23",
+  "owner": "achim",
+  "ref": "platform#2234",
+  "reason": "Von zwei bestehenden Mechanismen abgedeckt: Phase 0.7.2 (`cron-melder`) findet dauerhaft rote Melder, und `cross-repo-befund-ohne-artefakt-im-zielrepo` verlangt je Fremd-Repo-Befund ein Artefakt oder einen abgelegten Verzicht. Letztes Vorkommen 2026-07-09, seither kein Rueckfall."
+}

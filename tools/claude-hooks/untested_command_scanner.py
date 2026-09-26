@@ -64,6 +64,34 @@ GATE_HEADER = {
 # Fenced Code-Block: ```[sprache]\n<inhalt>```
 FENCE_RE = re.compile(r"```[a-zA-Z]*\n(.*?)```", re.S)
 
+# Inline-Code in einfachen Backticks. AUSWEITUNG 3 (2026-09-23, Retro 0405d4):
+# Der Melder sah bis hierher NUR eingerahmte Bloecke. Am Realfall gemessen —
+# eine Board-Zeile mit `! befehl` blieb still, derselbe Befehl im Block feuerte.
+# Das ist keine Randform: das hauseigene Antwortformat verlangt schmale Zellen,
+# ein Befehl steht dort deshalb IMMER als Inline-Code. Je konsequenter das
+# Board benutzt wird, desto blinder war dieses Gate.
+INLINE_RE = re.compile(r"`([^`\n]{2,300})`")
+
+# Inline gilt NUR das Ausrufezeichen als Uebergabe — nicht die uebrigen
+# Prompt-Zeichen aus PROMPT_PREFIX_RE. Nachtrag am selben Tag (Increment-Retro
+# 0405d4-incr): die erste Fassung von AUSWEITUNG 3 liess `$`, `#`, `>` und
+# user@host auch inline zu und erzeugte damit vier belegte Fehlalarm-Klassen in
+# reiner Prosa:
+#
+#   "Die README zeigt als Beispiel `$ npm install`"     -> feuerte
+#   "Jedes Skript beginnt mit `#!/bin/bash`"            -> feuerte
+#   "Er schrieb: `> git status` als Zitat"              -> feuerte
+#   "Kopiere die Datei nach `$HOME/bin/deploy.sh`"      -> feuerte
+#
+# Der Melder ist `blocking`; ein Fehlalarm erzwingt einen unnoetigen
+# Korrektur-Zug, und ein Waechter, der grundlos feuert, wird gelernt zu
+# ignorieren — dieselbe Begruendung wie bei AUSWEITUNG 2.
+#
+# Im eingerahmten Block bleiben alle Prompt-Zeichen zulaessig: dort sagt der
+# Block selbst, dass Befehle folgen. Inline sagt das nur das `!`, weil es in
+# Claude Code die Uebergabe-Konvention ist und sonst nichts bedeutet.
+INLINE_PREFIX_RE = re.compile(r"^\s*!\s*\S")
+
 # Ein Block gilt als "auszuführender Befehl", wenn seine erste sinnvolle Zeile
 # mit einem dieser Kommandos beginnt. Bewusst eine Positivliste: Ausgabe-
 # Beispiele, Logs, JSON und Diffs sollen NICHT feuern.
@@ -269,6 +297,29 @@ def _last_turn(transcript_path: str):
     return "\n".join(assistant_text), bash_commands, abgelehnte_kerne
 
 
+def _kandidaten_bloecke(text: str):
+    """Jeder Textabschnitt, in dem ein uebergebener Befehl stehen kann.
+
+    Zwei Quellen (AUSWEITUNG 3, 2026-09-23):
+
+    1. **Eingerahmte Codebloecke** — die urspruengliche und weiterhin
+       wichtigste Quelle, unveraendert. Dort gelten alle Prompt-Zeichen aus
+       ``PROMPT_PREFIX_RE`` (``!``, ``$``, ``#``, ``>``, user@host), weil der
+       Block selbst schon sagt, dass Befehle folgen.
+    2. **Inline-Code, aber NUR mit ``!``** (``INLINE_PREFIX_RE``). Die uebrigen
+       Prompt-Zeichen sind inline mehrdeutig: ``$`` steht in Pfaden und in
+       Shell-Beispielen aus Dokumentation, ``#`` in Shebangs und Kommentaren,
+       ``>`` in zitierten Zeilen. Vier solcher Faelle sind als Fehlalarm belegt
+       (siehe Kommentar an ``INLINE_PREFIX_RE``). Das ``!`` bedeutet in Claude
+       Code die Uebergabe und sonst nichts — eine Board-Zelle traegt einen
+       Befehl immer so und nie als Block.
+    """
+    yield from FENCE_RE.findall(text)
+    for spanne in INLINE_RE.findall(text):
+        if INLINE_PREFIX_RE.match(spanne):
+            yield spanne
+
+
 def find_untested(
     assistant_text: str,
     bash_commands: list[str],
@@ -291,7 +342,7 @@ def find_untested(
     ran_cores.discard("")
 
     untested, placeholders = [], []
-    for block in FENCE_RE.findall(assistant_text or ""):
+    for block in _kandidaten_bloecke(assistant_text or ""):
         for line in _iter_command_lines(block):
             has_placeholder = bool(PLACEHOLDER_RE.search(line))
             if has_placeholder:

@@ -238,5 +238,5 @@ Gesamt: ~4h, vollständig rückwärtskompatibel (bestehende MCP Tools bleiben er
 
 | Datum | Version | Reviewer | Urteil | Link |
 |-------|---------|----------|--------|------|
-| 2026-03-08 | v1.0 | Cascade | ❌ 3B/4C/5H → Impl-Plan | [Review](../reviews/ADR-112-review-implementation.md) |
+| 2026-03-08 | v1.0 | Cascade | ❌ 3B/4C/5H → Impl-Plan | [Review](reviews/ADR-112-review-implementation.md) |
 | 2026-03-11 | v1.0 → v1.1 | Cascade | ✅ Phase 1 implementiert (mcp-hub `5951acc`) | — |

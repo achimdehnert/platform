@@ -1,0 +1,7 @@
+{
+  "slug": "test-asserts-the-case-in-mind-not-the-harmful-one",
+  "decided": "2026-08-23",
+  "owner": "achim",
+  "ref": "platform#2234",
+  "reason": "Kein mechanisches Signal: ein Test, der den gedachten statt den schaedlichen Fall prueft, ist syntaktisch von einem richtigen nicht zu unterscheiden. Die praktische Gegenmassnahme ist die Positivkontrolle vor dem Verdrahten (zweimal am 2026-08-23 wirksam: die Footer-Blindstelle in doctor.py und die Symlink-Falle bei den Policies fielen genau dort auf) — eine Arbeitsweise, kein Scanner."
+}

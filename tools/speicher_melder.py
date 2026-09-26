@@ -39,13 +39,27 @@ Das Journal liegt neben `befund-journal.json` unter `~/.claude/`; ein Host-Eingr
 (XDISK aktivieren) waere IaC-pflichtig und liefert nichts, was das Journal nicht
 auch liefert.
 
+Schlafende Knoten (Deklaration `auf_zuruf`)
+-------------------------------------------
+`gpu-box` laeuft seit dem Owner-Entscheid 2026-08-31 nur auf Zuruf (Wake-on-LAN,
+WSL seit 2026-09-22 aus, platform#3364). Ohne diese Unterscheidung meldet der
+Melder bei jedem Sitzungsstart `WARN: nicht erreichbar: gpu-box`, obwohl die Box
+planmaessig aus ist (platform#3471). Ein unerreichbarer Host mit einer gueltigen
+Deklaration `auf_zuruf` landet in `schlaeft`, nicht in `unerreichbar`, und loest
+kein WARN aus. Ist er erreichbar, wird er wie jeder andere Host gemessen. Die
+Deklaration kommt aus `befund_journal.deklarationen_fuer()` — derselben
+Funktion, die `flottenbild.py` und `reconcile_registry_live.py` fragen — und
+traegt ein Ablaufdatum: am Tag danach meldet dieser Melder den Host wieder
+(#3495 V2).
+
 Exit-Codes
 ----------
 0 = OK oder SAMMELPHASE · 1 = ≥1 Platte < 7 Tage oder < 10 % frei
 2 = kein einziger Host erreichbar — blind ist nicht gruen.
 3 = sauber gemessen, aber `--nur HOST` liess Hosts aus (Scope-Luecke) — gleicher
     Vertrag wie backup_deckung.py, damit der Workflow beide gleich liest.
-Ein einzelner unerreichbarer Host ist ein WARN-Befund, kein Werkzeugfehler.
+Ein einzelner unerreichbarer Host ist ein WARN-Befund, kein Werkzeugfehler —
+ausser er ist ein schlafender Knoten (Deklaration `auf_zuruf`, siehe oben).
 
 Usage
 -----
@@ -66,6 +80,9 @@ from pathlib import Path
 from statistics import median
 
 import yaml
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import befund_journal  # noqa: E402 — Deklarationen, #3495 V2
 
 WARN_TAGE = 7
 WARN_PROZENT_FREI = 10.0
@@ -314,7 +331,16 @@ def prognose(punkte: list[dict], heute: date) -> dict:
     return {"stand": stand, "punkte": len(reihe), "rate": rate, "tage": tage}
 
 
-def bewerte(messung: dict, journal: list[dict], heute: date) -> dict:
+def bewerte(
+    messung: dict,
+    journal: list[dict],
+    heute: date,
+    deklarationen: Path | None = None,
+) -> dict:
+    """Ein unerreichbarer Host mit gueltiger Deklaration `auf_zuruf` (Stand
+    ``heute``) landet in `schlaeft` (Info), nicht in `unerreichbar` (WARN) —
+    siehe Docstring-Abschnitt „Schlafende Knoten" oben. ``deklarationen`` ist
+    der Pfad der Deklarations-Datei (Tests); ``None`` = Vorgabe des Journals."""
     platten = []
     for host, liste in messung.items():
         if liste is None:
@@ -338,9 +364,18 @@ def bewerte(messung: dict, journal: list[dict], heute: date) -> dict:
                     **pr,
                 }
             )
+    unerreichbar, schlaeft = [], []
+    for h, v in messung.items():
+        if v is not None:
+            continue
+        auf_zuruf = befund_journal.deklarationen_fuer(
+            h, heute, art="auf_zuruf", pfad=deklarationen
+        )
+        (schlaeft if auf_zuruf else unerreichbar).append(h)
     return {
         "heute": heute.isoformat(),
-        "unerreichbar": sorted(h for h, v in messung.items() if v is None),
+        "unerreichbar": sorted(unerreichbar),
+        "schlaeft": sorted(schlaeft),
         "blind": bool(messung) and all(v is None for v in messung.values()),
         "platten": platten,
     }
@@ -373,10 +408,18 @@ def _kurzzeile(e: dict) -> str:
     praefix = ""
     if e["unerreichbar"]:
         praefix = f"nicht erreichbar: {', '.join(e['unerreichbar'])} · "
+    schlaeft_txt = (
+        f"schlaeft: {', '.join(e['schlaeft'])} · " if e.get("schlaeft") else ""
+    )
     if warn:
-        return f"WARN: {praefix}{len(warn)} Platte(n) unter Vorlauf — " + " · ".join(
-            _platte_kurz(p)
-            for p in sorted(warn, key=lambda p: (p["tage"] or 1e9, p["prozent_frei"]))
+        return (
+            f"WARN: {praefix}{schlaeft_txt}{len(warn)} Platte(n) unter Vorlauf — "
+            + " · ".join(
+                _platte_kurz(p)
+                for p in sorted(
+                    warn, key=lambda p: (p["tage"] or 1e9, p["prozent_frei"])
+                )
+            )
         )
     sammel = [p for p in e["platten"] if p["stand"] == "SAMMELPHASE"]
     knappste = (
@@ -386,11 +429,11 @@ def _kurzzeile(e: dict) -> str:
         punkte = min(p["punkte"] for p in sammel)
         return (
             f"SAMMELPHASE {punkte}/2 Tagespunkte — noch keine Vorlaufzeit; {praefix}"
-            f"knappste: {_platte_kurz(knappste)}"
+            f"{schlaeft_txt}knappste: {_platte_kurz(knappste)}"
         )
     if praefix:
-        return f"WARN: {praefix}{len(e['platten'])} Platte(n) gemessen, knappste {_platte_kurz(knappste)}"
-    return f"OK: {len(e['platten'])} Platte(n), keine unter {WARN_TAGE} d — knappste {_platte_kurz(knappste)}"
+        return f"WARN: {praefix}{schlaeft_txt}{len(e['platten'])} Platte(n) gemessen, knappste {_platte_kurz(knappste)}"
+    return f"OK: {schlaeft_txt}{len(e['platten'])} Platte(n), keine unter {WARN_TAGE} d — knappste {_platte_kurz(knappste)}"
 
 
 def bericht(e: dict) -> str:
@@ -400,6 +443,9 @@ def bericht(e: dict) -> str:
         return "\n".join(z)
     if e["unerreichbar"]:
         z.append(f"⚠️  nicht erreichbar: {', '.join(e['unerreichbar'])}")
+        z.append("")
+    if e.get("schlaeft"):
+        z.append(f"💤 schlaeft: {', '.join(e['schlaeft'])}")
         z.append("")
     z.append(
         f"{'host':<18}{'mount':<30}{'frei GB':>9}{'frei %':>8}{'Rate GB/d':>11}{'Tage':>7}  Stand"
@@ -424,6 +470,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--journal", type=Path, default=JOURNAL_STANDARD)
     p.add_argument("--hosts", type=Path, default=HOSTS_YAML)
     p.add_argument("--heute", default=None, help="YYYY-MM-DD (Tests)")
+    p.add_argument(
+        "--deklarationen",
+        type=Path,
+        default=None,
+        help="Deklarations-Datei (Tests; Vorgabe: befund_journal)",
+    )
     p.add_argument(
         "--df-fixtures", type=Path, help="Verzeichnis mit <host>.txt statt ssh"
     )
@@ -457,7 +509,7 @@ def main(argv: list[str] | None = None) -> int:
             shells=lade_shells(a.hosts),
         )
     journal = schreibe_journal(a.journal, lies_journal(a.journal), heute, messung)
-    e = bewerte(messung, journal, heute)
+    e = bewerte(messung, journal, heute, deklarationen=a.deklarationen)
     e["ausserhalb"] = ausserhalb
 
     if a.als_json:

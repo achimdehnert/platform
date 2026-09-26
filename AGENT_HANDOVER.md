@@ -15,32 +15,23 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 **Archiv älterer Stände und ausgelagerter Sektionen:**
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
 
-## ⚡ Aktueller Stand (2026-09-13 — sevdesk-Belegstrecke K9 gebaut und im Echtlauf, EDV-Rechnungen fortgeschrieben)
+## ⚡ Aktueller Stand (2026-09-15 — decks-hub hinter Access für Agenten prüfbar; Sitzung ee405591)
 
-**Zeitanker:** HEAD `46261dd7` · `rev-list --count` 4435 · geschrieben 2026-09-13
+**Zeitanker:** HEAD `bbb04684` · `rev-list --count` 4491 · geschrieben 2026-09-15
 
-**K9 Belegbeschaffung ([#3102](https://github.com/achimdehnert/platform/issues/3102)):** `tools/sevdesk/belegbeschaffung.py` holt Rechnungs-PDFs aus dem IIL-Postfach und der Owner-Ablage `~/shared/inbox/invoices/`, ordnet sie Bankabgaengen zu und legt Beleg-Entwuerfe in beiden Mandanten an (PRs #3117/#3119/#3120/#3121; Register lokal unter `~/.claude/`). Mittag: 20 Entwuerfe, 11 Eigenbelege (Scribd), 9 IIL-Eingangsbelege der EDV-Rechnungen (5900); Owner-Regeln (6837, Mandant edv fuer KI-Abos/Bibliocad/GitHub-privat, Spotify privat) im Register. Versand per API geblockt — Owner sendet selbst.
+**Erledigt:** Service-Token `playwright-verify` in die Access-App `decks-hub.iil.pet` aufgenommen (Policy `playwright-verify-svc`, Muster tax.iil.pet) — `tools/cf-access-fetch.sh --coverage` 200/302, Tabelle nachgezogen ([decks-hub#98](https://github.com/achimdehnert/decks-hub/issues/98), #3196). Befunde als Issues: `gen_project_facts` gibt static-Repos Django-Container ([#3194](https://github.com/achimdehnert/platform/issues/3194)), `handover_prio_mirror` kürzt Prio auf erstes Fett-Wort ([#3197](https://github.com/achimdehnert/platform/issues/3197)).
 
-**EDV → IIL:** 23 Rechnungen seit 04/2024 geprueft, Monatspaket 2.350 EUR netto war bis 30.11.2025 abgerechnet; RE-1024–RE-1032 (Dez 2025–Aug 2026) angelegt, 8 vom Owner versendet, RE-1028 noch Entwurf; 5 Rechnungen aus 2025 (RE-1018–1022, 47.957 EUR) unbezahlt. edv verlangt `invoice[taxRate]` (#3112).
+**Seit dem letzten Stand ohne eigenen Handover-Eintrag gelandet (17 Commits, andere Sitzungen):** todo_board Verlauf/Strang-Zuordnung (#3175–#3180), Retros b7822e (#3183, Gates #3186) und apo-hub kbiAvn (#3182, #3184), Hook-Gate `gh-body-file-leer-ueberschrieben`, Transkript-Kennzahlen-Skript für Retro Phase 1, ux-review Bündel-Ausnahme, klickdummy-pgvector-sync Changelog (#3187). Stand-Einträge dazu fehlen — nicht von hier aus rekonstruiert.
 
-**Befunde:** [#3115](https://github.com/achimdehnert/platform/issues/3115) origin-tls gpu-ollama nicht messbar · [#3116](https://github.com/achimdehnert/platform/issues/3116) Auftragsraum zaehlt `?` als Wort · #3118 Parser-Nachlauf (geschlossen) · Merge-502 mit Commit auf main, Pipe-maskierter Format-Check, erfundene Issue-Nummer im Subagent-Commit (alle im Memory/Log).
+## ⚡ Aktueller Stand (2026-09-14 nachmittags — Räume zusammengelegt, Zeitungs-Vertiefung live; Sitzung d8da3b26)
 
-**Nachmittag (abends):** EDV-Konto erstmals abgeglichen, Register 39 Eintraege (Mail/intern/Portal). Werkzeuge: `--ohne-dokument` (#3133), Parser + Kostenabgleich 1:1 (#3134), Login ohne Kontozeile (#3131), Entwuerfe buchen + `--nicht-buchen` (#3136), Vorzeichen-Fix (#3138 — erste Echtbuchung uebergab den Zahlbetrag positiv, 25 Belege repariert und verifiziert). Angelegt edv 71 / iil 11, **gebucht edv 25 / iil 6**. Owner-Reste im [#3102-Kommentar](https://github.com/achimdehnert/platform/issues/3102#issuecomment-5652883200); Test-Leak [#3135](https://github.com/achimdehnert/platform/issues/3135); Memory `feedback_bookamount_ausgabe_negativ_fakes_verdecken_vorzeichen`.
+**Erledigt:** Räume Mail/Briefing/Aufträge → „Achim / Lotse" ([chat-hub#90](https://github.com/iilgmbh/chat-hub/issues/90)), Auffangnetz `auftragsraum_sync.sh` (#3154), Sperre eine Session je Raum ([chat-hub#94](https://github.com/iilgmbh/chat-hub/issues/94)). news.iil.pet hinter Cloudflare Access (news-hub#54); Vertiefung je Thema per Knopf und Chat-Zuruf in Prod ([news-hub#52](https://github.com/achimdehnert/news-hub/issues/52)). Zurufe #3150/#3151 und Kapitel-Feedback (Ledger #138) gesendet.
 
-**Zielzustand:** K9 Werkzeug-Kriterien erfuellt (fremder Blick 0d: 6 von 7 mit Beleg), Massstab **nicht erreicht** — 2/17 Lieferanten-Abgaenge mit Beleg, beide vorbestehend, weil die fehlenden Rechnungen nicht im Postfach liegen (Belegquelle, nicht Werkzeug); Owner-Reste (RE-1028, GitHub Mai–Juli, Microsoft Juni/Juli, Dashlane, Newshosting, 20.000 hin/zurueck) im [#3102-Kommentar](https://github.com/achimdehnert/platform/issues/3102#issuecomment-5652883200) getrackt. **SA-4:** 4 Anwendungen (Merges unter SA-M W1/M1) · 0 Einzel-OK · 0 Fehlanwendungen. **0h fremder Blick:** siehe Log. Anker: pgvector `session:platform:20260913:20260913-b5c8d6c1`.
-
-## ⚡ Stand (2026-09-12 abends — Auftragsraum fertig, fav0 live, sevdesk-Routinen #3102)
-
-**Zeitanker:** HEAD `442d4269` · `rev-list --count` 4428 · geschrieben 2026-09-12
-
-**Auftragsraum Stufe 1** ([#3079](https://github.com/achimdehnert/platform/issues/3079)): Werkzeug (#3087), `--erledigt` (#3085), Skill-Zeilen (#3088), `chat_lotse.py history` (chat-hub#88, #3086 zu). **Morgen-Zeitung:** zweite Quelle fav0.com (news-hub#44, deployt, Tageslauf verdrahtet, [news-hub#45](https://github.com/achimdehnert/news-hub/issues/45)).
-
-**sevdesk-Routinen [#3102](https://github.com/achimdehnert/platform/issues/3102)** (SA-4): Rechnungslauf mit Versand-Gate (#3105), Timer am 10. (#3107), Zahlungsabgleich (#3103), Kostenabgleich + `--mandant` (#3108), Eingangsbelege (#3104), Fixes (#3109). Owner-Befunde in Ledger 210/211.
-
-**Zielzustand:** #3015 und #3079 Stufe 1 erreicht; #3102 K1–K5, K7 erreicht; K6/K8 verschoben mit Tracking (#3112, Akte); Drill K5 am 2026-10-10. **SA-4:** 0 Fehlanwendungen. **SA-M:** 8 eigene Merges (M1/M2), news-hub#44/chat-hub#88 M3.
+**Zielzustand:** #90, #94, news-hub#52/#54/#55 erreicht. **SA-4:** 5 eigene Merges unter Mandat (#3153, #3154, news-hub#56/#58/#59) · 2 unnötige Rückfragen · 0 Fehlanwendungen; eigene Fehler außerhalb SA-4 im Log, als Outline-Lessons 2026-09-14 verankert. **0h:** Abnahme 20/22 belegt, 2 nur Selbstauskunft (Briefing-Erstlauf, Bestätigung im Raum); Clear-Härte: SA-4 präzisiert, Checklisten abgehakt. **Offen:** laufende Raum-Session hält noch keine Sperre (vor #96 gestartet) — nächster Neustart vorher „Lotse stopp"; Sortierer-Lücken #3152.
 
 ## Offene Fäden (über den Session-Stand hinaus)
 
+0. **platform privat (KONZ-039, SA-4) — Umbau läuft**, Melder `0.7.27` gemessen 2026-09-16: Aufrufer 17 · Raw 27 (Laufzeit 3) · Kopien 3 · Fristen 14, Flip erst bei 7 Tagen 0/0/1/0: https://github.com/achimdehnert/platform/issues/3234
 - **Auftragsraum Stufe 1** ([#3079](https://github.com/achimdehnert/platform/issues/3079)): fertig; Kill-Gate-Zahlen 2026-10-08 (KONZ-059). **sevdesk-Routinen** ([#3102](https://github.com/achimdehnert/platform/issues/3102)): K4 in PR, K1–K3/K5 und K6 in Bau.
 
 0. iil-assist Gateway: Transport (D2) nicht begehbar — drei Ursachen belegt, Fix haengt an der Transport-Entscheidung: https://github.com/achimdehnert/mcp-hub/issues/264
@@ -53,16 +44,23 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 0. Stapel-Zerleger im Betrieb, Zielzustand-Issue noch offen: https://github.com/achimdehnert/doc-hub/issues/4 — Bauteile gemergt (doc-hub#5, doc-hub#13, doc-hub#14).
 0. Freigabe-Zeile je Prod-Schritt als Regel bestaetigen — aus dem Stand vom 2026-09-09 abends gerettet (Owner-Entscheid).
 
+- **[3164]** Retro-Restlücken: Anker-Gate-Fehlläufe, weitere Roh-Leser (6 Repos ohne Stufe-2-PR), Rettungs-Branch — https://github.com/achimdehnert/platform/issues/3164
+- **[3158]** Stop-Hook `deferred_item_scanner` aus `~/.claude/settings.json` austragen (Owner, nach Sunset in #3160) — https://github.com/achimdehnert/platform/issues/3158
+- **[3129]** Melder `secrets_pruefen --alle`: `gemischt` als eigene Stufe statt Exit 1 — https://github.com/achimdehnert/platform/issues/3129
+- **[3050]** Waisen-Melder: Repo→Host-Zuordnung kippt still (Rest aus dem geschlossenen #3015) — https://github.com/achimdehnert/platform/issues/3050
+- **[news-hub#45]** Web-Naht fav0: zweite Lieferquelle, Freigabe-Tracking offen (aus Stand 2026-09-12 gerettet) — https://github.com/achimdehnert/news-hub/issues/45
+- **[3112]** sevdesk: ältere Werkzeuge auf `--mandant` umstellen (aus Stand 2026-09-13 gerettet) — https://github.com/achimdehnert/platform/issues/3112
+- **[3115]** origin-tls: gpu-ollama nicht messbar (aus Stand 2026-09-13 gerettet) — https://github.com/achimdehnert/platform/issues/3115
+- **[3116]** Auftragsraum: Satzzeichen zählt als Wort (aus Stand 2026-09-13 gerettet) — https://github.com/achimdehnert/platform/issues/3116
+- **[3135]** test_kostenabgleich schreibt Buchungslog ins echte Home (aus Stand 2026-09-13 gerettet) — https://github.com/achimdehnert/platform/issues/3135
 - **[2982]** Retro 136735: sieben ueberlebende Befunde ohne Umsetzungsartefakt — beim Auslagern der Sektion vom 2026-09-08 hierher gerettet — https://github.com/achimdehnert/platform/issues/2982
 - **[2507]** dev-desktop: 10 undeklarierte Container / 4 oeffentliche Hostnamen gegen die Auflage; todo-board-Befund blockte #3093 — https://github.com/achimdehnert/platform/issues/2507
 - **[2908]** gate_namensdeckung lief nie durch — Drill-Luecken; 8 Gates nennen Faelle ohne Drill (Start 0.7.15) — https://github.com/achimdehnert/platform/issues/2908
 - **[2990]** ci_deckung: shared-ci-Workflows aufloesen statt NICHT PRUEFBAR (24 Ziele) — https://github.com/achimdehnert/platform/issues/2990
 - **[3102]** sevdesk-Routinen: K9 im Echtlauf, Owner-Reste (RE-1028, GitHub/Microsoft-Belege, 20.000 hin/zurueck) im Kommentar — https://github.com/achimdehnert/platform/issues/3102
-- **[3015]** Auftrag Mailcheck/To-do/Zeitung: K1–K5 erreicht, Reste #3050/#3080; Abschluss-Kommentar und Schliessen offen — https://github.com/achimdehnert/platform/issues/3015
 - **[3027]** Auslagerungs-Gate liest Fremd-Repos jetzt per Flotten-Token; schliesst erst, wenn eine Auslagerung mit Fremd-Refs im Gate gruen laeuft — https://github.com/achimdehnert/platform/issues/3027
 - **[3079]** Auftragsraum Stufe 1 fertig; naechster Schritt Kill-Gate-Auswertung 2026-10-08 — https://github.com/achimdehnert/platform/issues/3079
 - **[3080]** Backlog-Check zaehlt nacktes offen als Anker — https://github.com/achimdehnert/platform/issues/3080
-- **[3073]** 20 Dateien Format-Schuld (ruff format) — https://github.com/achimdehnert/platform/issues/3073
 - **[doc-hub#18]** Access-Liste docs.iil.pet: zwei fremde Konten; `auto-title.py` nur auf prod geaendert — https://github.com/achimdehnert/doc-hub/issues/18
 - **[news-hub#33]** Morgen-Zeitung: Themenauswahl kuert generische Woerter — beim Auslagern der Sektion vom 2026-09-09 vormittags hierher gerettet — https://github.com/achimdehnert/news-hub/issues/33
 - **[news-hub#40]** Morgen-Zeitung: Smoke-Lauf im CI, Entwurf steht — beim Auslagern gerettet — https://github.com/achimdehnert/news-hub/issues/40
@@ -76,7 +74,6 @@ Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Histor
 1. KONZ-054 Systembild, Kill-Gate 2026-10-15; Owner-Punkte #2486/#2504/#2507, Reste #2480: https://github.com/achimdehnert/platform/issues/2516
 2. KONZ-051 ux-review-agent, Kill-Gate 2026-09-30; K1 3/9, K3 offen: https://github.com/achimdehnert/writing-hub/issues/766
 3. Volume-Deckung prod (40 Volumes), K2 = Owner-Gate, Löschliste #2258: https://github.com/achimdehnert/platform/issues/2300
-4. KONZ-052-Rest: `PYPI_API_TOKEN` löschen (Owner-Wort, dann #1904 zu), Erstrelease iil-enrichment/gaeb-toolkit: https://github.com/achimdehnert/platform/issues/2380
 6. Gate-Deckung: 11 Slugs gedeckt/Verzicht per #2909 (38 %), 4 Verzichte bestätigen: https://github.com/achimdehnert/platform/issues/2234
 7. Wirksamkeits-Bilanz der Gates: 6 rückfällige per #2909 behandelt, Hook-Verdrahtung #2907: https://github.com/achimdehnert/platform/issues/2374
 8. Concurrency je Ziel-Umgebung: 13 gleichlautende PRs in der Flotte offen: https://github.com/achimdehnert/platform/issues/2229
@@ -93,7 +90,7 @@ Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Histor
 20. GX10-Training: 4090 bleibt fuehrend bis 16.384 Umgebungen, darueber traegt nur der GX10: https://github.com/achimdehnert/robo-lab/issues/58
 53. Kaufberatung zweites Geraet — Empfehlung abgelegt, Kenntnisnahme offen: https://github.com/achimdehnert/platform/issues/2978
 21. Mail-Ansicht: leerer Körper braucht „Inhalt im Anhang": https://github.com/achimdehnert/platform/issues/2597
-22. Owner: die 20 mechanisch gesetzten `frist_grund`-Texte auf `todo.iil.pet` sichten (Spalte Frist) — mechanisch je Bucket gesetzt, nicht redigiert: https://github.com/achimdehnert/platform/issues/3015
+22. Owner: die 20 mechanisch gesetzten `frist_grund`-Texte auf `todo.iil.pet` sichten (Spalte Frist) — mechanisch je Bucket gesetzt, nicht redigiert: https://github.com/achimdehnert/platform/issues/3203
 23. Megatest-Erstlauf, 15 Befunde unbearbeitet und ohne Tracking-Issue ([Lauf 30619024656](https://github.com/achimdehnert/platform/actions/runs/30619024656), 2026-08-02) — vor Wiederaufnahme neu messen.
 24. Gegenprobe Wochenlauf `ttz-hub`: beim nächsten Lauf, der ttz-hub wirklich ändert, müssen Checks am erzeugten PR erscheinen: https://github.com/achimdehnert/platform/issues/3090
 25. Session-Skills modellfest (#2690): Drill-Vorlage #2719, Backfill Positivkontrolle #2703, Ruleset-Entscheid bis 2026-10-02: https://github.com/achimdehnert/platform/issues/2690
@@ -109,9 +106,7 @@ Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Histor
 36. Zug A 51/56 gemessen; ohne: coach-hub#70, bahn-hub#19, risk-hub#729, infra-deploy#7, dev-hub (44); Folgebefunde #2827, mcp-hub#251, meiki-dms#19: https://github.com/achimdehnert/platform/issues/2787
 37. Aufschub-Anker-Gate: Fehlalarm-Klasse „nicht ausgewertet/bewusst nicht“ in Code-Kommentaren, 3× am 2026-09-04: https://github.com/achimdehnert/platform/issues/2606
 38. Sitzung 6e320e79 (Mailcheck/DSGVO/EPIC): `load_credentials` beendet den Prozess statt zu werfen — Wurzel hinter #2755; Ledger #185–#188 offen, Papiere `~/shared/retentionsscanner/`: https://github.com/achimdehnert/platform/issues/2752
-39. apo-hub ruhend, DEPLOY_ENABLED=false; Schluesselrotation erst bei Reaktivierung: https://github.com/achimdehnert/apo-hub/issues/82
 40. `Bash(gh pr merge:*)` global in autoMode.allow — zurueckbauen oder als Gate verankern (Owner): https://github.com/achimdehnert/platform/issues/2834
-41. shared-ci v1.1.15 gesetzt (#73 zu); 42 Konsumenten bumpen, writing-hub zuerst, Liste mit Versionen: https://github.com/iilgmbh/shared-ci/issues/77
 45. molkerei-landing archiviert 2026-09-07, DELETE Human-Only ab 2026-10-07 (Kommando im Tombstone): https://github.com/achimdehnert/platform/issues/2914
 44. memory-link-guard prüft alle Memory-Lanes und meldet fremde Sitzung als eigenen Zug: https://github.com/achimdehnert/platform/issues/2870
 46. robo-lab Kill-Gate Zeile 1 ohne Zahl (Regler am symmetrischen Modell optimiert), Frist 2026-11-30: https://github.com/achimdehnert/robo-lab/issues/66

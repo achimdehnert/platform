@@ -442,3 +442,54 @@ def test_should_keep_echte_hosts_yaml_ausnahmen_schema_konform():
     nicht abgelaufen."""
     data = yaml.safe_load((WURZEL / "infra" / "hosts.yaml").read_text(encoding="utf-8"))
     assert not [i for i in ha.check_schema(data) if "ausnahme" in i]
+
+
+# --- Datenklassen-Pruefauftrag (KONZ-053 Rev 1, 2026-09-23) -------------------
+#
+# Eingefuehrt, weil die gx10 der On-Premise-Prueffall fuer MEiKI ist: ein
+# pauschales Verbot schloss genau die Pruefung aus, fuer die der Knoten da ist.
+# Die Tests halten fest, dass ein Prueffall eine BEDINGUNG traegt — ohne sie
+# waere er von einer stillschweigenden Erlaubnis nicht zu unterscheiden.
+
+
+def _pruefauftrag(**kv):
+    basis = {
+        "klasse": "gov-sozialdaten",
+        "zulaessig_heute": "synthetische Daten",
+        "vor_echten_daten_zu_klaeren": "Paragraf 80 Absatz 2 SGB X",
+    }
+    basis.update(kv)
+    return {"grund": "Owner-Entscheid", "datenklassen_pruefauftrag": basis}
+
+
+def test_should_accept_complete_pruefauftrag():
+    assert ha._check_pruefauftrag("gx10", _pruefauftrag()) == []
+
+
+def test_should_reject_pruefauftrag_without_condition():
+    a = _pruefauftrag()
+    del a["datenklassen_pruefauftrag"]["vor_echten_daten_zu_klaeren"]
+    assert any(
+        "stillschweigende Erlaubnis" in i for i in ha._check_pruefauftrag("gx10", a)
+    )
+
+
+def test_should_reject_unknown_datenklasse_in_pruefauftrag():
+    a = _pruefauftrag(klasse="wetterdaten")
+    assert any("unbekannte Klasse" in i for i in ha._check_pruefauftrag("gx10", a))
+
+
+def test_should_reject_class_that_is_forbidden_and_pruefauftrag_at_once():
+    a = _pruefauftrag()
+    a["datenklassen_verboten"] = ["gov-sozialdaten"]
+    assert any("zugleich als verboten" in i for i in ha._check_pruefauftrag("gx10", a))
+
+
+def test_should_ignore_hosts_without_pruefauftrag():
+    assert ha._check_pruefauftrag("prod", {"grund": "x"}) == []
+
+
+def test_should_log_the_pruefauftrag_so_it_is_seen_without_a_diff():
+    ha._AUSNAHME_LOG.clear()
+    ha._check_pruefauftrag("gx10", _pruefauftrag())
+    assert any("prueffall" in z for z in ha._AUSNAHME_LOG)
