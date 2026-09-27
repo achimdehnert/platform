@@ -61,24 +61,34 @@ git -C ${GITHUB_DIR:-$HOME/github}/{scope} push origin main
 
 ---
 
-## Step 3 — Staging-Server vorbereiten
+## Step 3 — Staging-Server vorbereiten (Compose kopieren, kein Klon)
 
-Prüfe ob das Repo auf dem Staging-Server existiert:
+> Gestrichen 2026-09-24 (Retro meiki-hub 2a5c44, Streichbahn, Owner-Wort „R6 streichen"):
+> `git clone`/`git pull` auf dem Staging-Host. Belegart „kein Effekt": die Repo-CI baut und
+> pusht `ghcr.io/<org>/{scope}-web:latest`, `docker-compose.prod.yml` referenziert genau dieses
+> Image — `docker compose pull` (Step 5) liefert den Code, der Klon lieferte nichts, was das
+> Deploy liest. Der Host hat zudem keinen GitHub-SSH-Zugang (buerger-hub#3). Beide
+> Staging-Deploys am 2026-09-24 (buerger-hub, post-hub) liefen so.
+
+Verzeichnis anlegen und die Compose-Datei **aus `origin/main`** kopieren (nie aus dem
+Arbeitsbaum — Frisch-Checkout-Regel):
 
 ```bash
-ssh root@88.99.38.75 "test -d /opt/{scope} && echo EXISTS || echo MISSING"
+ssh root@88.99.38.75 "mkdir -p /opt/{scope} && chmod 700 /opt/{scope}"
+git -C ${GITHUB_DIR:-$HOME/github}/{scope} fetch origin main
+git -C ${GITHUB_DIR:-$HOME/github}/{scope} show origin/main:docker-compose.prod.yml \
+  | ssh root@88.99.38.75 "cat > /opt/{scope}/docker-compose.prod.yml"
 ```
 
-**Falls MISSING — Erstmalig klonen:**
+Braucht das Staging einen Override (anderer Port, Sidecar, Healthcheck-Nachrüstung), liegt er
+als `/opt/{scope}/docker-compose.staging.yml` neben der Compose-Datei und wird in Step 5–6 mit
+`-f docker-compose.prod.yml -f docker-compose.staging.yml` mitgegeben; jede Abweichung von
+`infra/ports.yaml` bekommt ein Issue in `platform`.
+
+Nach Step 5 den Digest des gepullten Images notieren (Beweis, welcher Code läuft):
 
 ```bash
-ssh root@88.99.38.75 "git clone git@github.com:achimdehnert/{scope}.git /opt/{scope}"
-```
-
-**Falls EXISTS — Pull:**
-
-```bash
-ssh root@88.99.38.75 "cd /opt/{scope} && git pull origin main"
+ssh root@88.99.38.75 "docker image inspect ghcr.io/<org>/{scope}-web:latest --format '{{.Id}} {{.Created}}'"
 ```
 
 ---
