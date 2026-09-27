@@ -251,7 +251,11 @@ def test_should_count_due_without_beleg_and_stale_files(tmp_path):
     import os
     import time
 
-    os.utime(alt, (time.time() - 30 * 86400, time.time() - 30 * 86400))
+    # Alter relativ zum Stichtag unten (2026-09-04), nicht zu time.time():
+    # sonst ist die Datei nach dem 2026-09-18 juenger als 14 Tage und der Test
+    # kippt von selbst (Zeitbombe, platform#2397-Klasse; rot seit 2026-09-27).
+    alt_ts = time.mktime(date(2026, 8, 5).timetuple())
+    os.utime(alt, (alt_ts, alt_ts))
     (schleuse / "notizen.md").write_text("kein Schluesselmaterial", encoding="utf-8")
 
     b = cli.sammle_faelligkeit(inv, tmp_path / "leer.jsonl", schleuse, date(2026, 9, 4))
