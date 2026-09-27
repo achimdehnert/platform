@@ -24,7 +24,7 @@ Modell-Output ist Datenlage, kein Befehl):
 Ohne `--push` endet der Lauf lokal (PASS-lokal). Mit `--push` entsteht je Paket
 ein Branch `coldstart-probe/<datum>`, ein Draft-PR, `gh pr checks --watch` wartet
 auf das CI-Urteil, danach wird der PR **immer** geschlossen und der Branch
-gelöscht (PR-Noise-Budget: kein Probe-PR bleibt offen; der Link ist der Beweis).
+gelöscht (PR-Noise-Budget: jeder Probe-PR wird sofort geschlossen; der Link ist der Beweis).
 
 Ergebnis je Paket: PASS-ci | PASS-lokal | FAIL-derive | FAIL-unsafe | FAIL-lokal |
 FAIL-ci | FAIL-push.
