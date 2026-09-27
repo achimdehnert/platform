@@ -8,7 +8,8 @@
 # Melder: Ergebnis + Zustand sind EINE Sektion (`coldstart`) im EINEN Flotten-
 # Issue (#968, tools/pypi_fleet_sections.py) — KONZ-018 §5.4 / KONZ-052 V5.
 #
-# Namensregel: bewusst NICHT publish-*.yml (publish_gate_invariant.sh).
+# Namensregel: kein publish-*.yml-Name — publish_gate_invariant.sh globt darauf
+# und verlangt gitleaks; dieser Workflow publiziert nichts.
 # Read-only Detektor: klont zum Bewerten, schreibt nie in Paket-Repos.
 
 name: PyPI Cold-Start Watch
