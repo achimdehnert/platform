@@ -9,8 +9,8 @@ Issue (#968, tools/pypi_fleet_sections.py), Zustand lebt in derselben Sektion.
   K1 Drift-Gate   AGENTS.md jedes aktiv-Pakets wird remote (GitHub-API, kein
                   Klon) gegen das Schema pkg-agents-v1 geprüft
                   (tools/check_agents_md.py). Fehlend/Verstoß = Drift.
-  K2 Eval         Der T1a-LLM-Cold-Start-Eval (tools/pypi_coldstart_llm_eval.py)
-                  läuft NUR für Pakete, deren Eingaben (AGENTS.md, Makefile,
+  K2 Eval         Der T1a-LLM-Cold-Start-Eval (tools/pypi_coldstart_llm_eval.py,
+                  Cerebras vor Groq gem. llm-routing.md) läuft NUR für Pakete, deren Eingaben (AGENTS.md, Makefile,
                   pyproject.toml — Blob-SHAs auf main) sich seit dem letzten
                   bewerteten Stand geändert haben: ereignisgesteuert statt
                   wöchentlich-blind (KONZ-052 Linse 4: jeder Melder, der ohne
@@ -30,7 +30,7 @@ führt ausschließlich `make <target>`-Ketten aus (fail-closed, siehe llm_eval).
 Advisory: rc 0, solange kein --strict (ADR-266-Amendment 2026-08-19: neue
 Checks starten advisory, blocking erst nach Präzisions-Nachweis).
 
-    GH_TOKEN=... [GROQ_API_KEY=...] python3 tools/pypi_coldstart_watch.py \\
+    GH_TOKEN=... [CEREBRAS_API_KEY=...] [GROQ_API_KEY=...] python3 tools/pypi_coldstart_watch.py \\
         [--all] [--max-evals 6] [--no-eval] [--state-file s.json] \\
         [--report-out section.md] [--run-id 123]
 """
@@ -211,7 +211,7 @@ def clone(org: str, repo: str, dest: Path) -> bool:
     return proc.returncode == 0
 
 
-def evaluate(org: str, repo: str, api_key: str, workdir: Path) -> dict:
+def evaluate(org: str, repo: str, workdir: Path) -> dict:
     """Ein Paket: klonen, gen-drift messen, T1a-Eval (nur make-Ketten)."""
     import pypi_coldstart_llm_eval as llm_eval
 
@@ -224,10 +224,11 @@ def evaluate(org: str, repo: str, api_key: str, workdir: Path) -> dict:
         gen_drift = generate(dest).strip() != committed.strip()
     except (OSError, UnicodeDecodeError):
         gen_drift = None
-    if not api_key:
-        return {"result": "SKIP (kein GROQ_API_KEY)", "gen_drift": gen_drift}
+    providers = llm_eval.providers_from_env()
+    if not providers:
+        return {"result": "SKIP (kein Provider-Key)", "gen_drift": gen_drift}
     try:
-        result = llm_eval.eval_package(dest, api_key)
+        result = llm_eval.eval_package(dest, providers)
     except subprocess.TimeoutExpired:
         result = "FAIL-run (timeout)"
     return {"result": result, "gen_drift": gen_drift}
@@ -279,7 +280,6 @@ def main() -> int:
     if not token:
         print("FEHLER: GH_TOKEN fehlt.", file=sys.stderr)
         return 2
-    api_key = os.environ.get("GROQ_API_KEY", "")
 
     fleet = yaml.safe_load(args.fleet_file.read_text())
     active = sorted(
@@ -321,7 +321,7 @@ def main() -> int:
         try:
             for r in todo:
                 print(f"== Eval {r['org']}/{r['repo']} ({r['k2']}) ==", file=sys.stderr)
-                ev = evaluate(r["org"], r["repo"], api_key, workdir)
+                ev = evaluate(r["org"], r["repo"], workdir)
                 evaluated[r["repo"]] = ev
                 print(f"    -> {ev['result']}", file=sys.stderr)
                 if ev["result"].startswith(("PASS", "FAIL")):

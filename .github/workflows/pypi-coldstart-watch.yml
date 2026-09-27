@@ -3,7 +3,7 @@
 #
 # Macht den einmaligen Cold-Start-Beweis vom 2026-08-19 zur stehenden Garantie:
 # K1 prüft AGENTS.md jedes aktiv-Pakets remote gegen pkg-agents-v1, K2 lässt den
-# T1a-LLM-Eval (Groq, policies/llm-routing.md) NUR für Pakete laufen, deren
+# T1a-LLM-Eval (Cerebras vor Groq, policies/llm-routing.md) NUR für Pakete laufen, deren
 # Eingaben sich seit dem letzten bewerteten Stand geändert haben. Kein neuer
 # Melder: Ergebnis + Zustand sind EINE Sektion (`coldstart`) im EINEN Flotten-
 # Issue (#968, tools/pypi_fleet_sections.py) — KONZ-018 §5.4 / KONZ-052 V5.
@@ -56,6 +56,8 @@ jobs:
       # PROJECT_PAT sieht die privaten Paket-Repos beider Orgs (#2610);
       # GITHUB_TOKEN als Fallback misst dann sichtbar "nicht pruefbar".
       GH_TOKEN: ${{ secrets.PROJECT_PAT || secrets.GITHUB_TOKEN }}
+      # T1a gem. llm-routing.md: Cerebras Vorrang, Groq Fallback (401 = naechster)
+      CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
       GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
