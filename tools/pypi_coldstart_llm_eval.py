@@ -102,17 +102,22 @@ def _ask_one(url: str, model: str, key: str, prompt: str) -> str | None:
         return json.loads(resp.read())["choices"][0]["message"]["content"]
 
 
+def ask_model_raw(
+    prompt: str, providers: list[tuple[str, str, str, str]]
+) -> str | None:
+    """Roher Modelltext vom ersten Provider, der antwortet — None, wenn alle scheitern."""
+    for name, url, model, key in providers:
+        try:
+            return _ask_one(url, model, key, prompt)
+        except Exception as exc:  # noqa: BLE001 — naechster Provider, zuletzt None
+            print(f"    API-Fehler ({name}/{model}): {exc}", file=sys.stderr)
+    return None
+
+
 def ask_model(
     agents_md: str, listing: str, providers: list[tuple[str, str, str, str]]
 ) -> dict | None:
-    prompt = PROMPT % (agents_md, listing)
-    content = None
-    for name, url, model, key in providers:
-        try:
-            content = _ask_one(url, model, key, prompt)
-            break
-        except Exception as exc:  # noqa: BLE001 — naechster Provider, zuletzt FAIL-derive
-            print(f"    API-Fehler ({name}/{model}): {exc}", file=sys.stderr)
+    content = ask_model_raw(PROMPT % (agents_md, listing), providers)
     if content is None:
         return None
     m = re.search(r"\{.*\}", content, re.S)
