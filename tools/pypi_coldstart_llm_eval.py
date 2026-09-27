@@ -2,7 +2,7 @@
 """T1a-LLM-Cold-Start-Eval der PyPI-Fleet (#2075 K2, ADR-266).
 
 Misst das K2-Kriterium direkt statt über Proxies: Kann ein T1a-Modell
-(Groq, `llm-routing.md`) NUR aus AGENTS.md + Datei-Listing eines frischen
+(Cerebras vor Groq, `llm-routing.md`) NUR aus AGENTS.md + Datei-Listing eines frischen
 Checkouts den korrekten Einstieg ableiten — und laufen die abgeleiteten
 Kommandos grün?
 
@@ -18,7 +18,7 @@ Ablauf je Paket:
 Ergebnis je Paket: PASS | FAIL-derive | FAIL-unsafe | FAIL-run.
 V1-Scope bewusst ohne Mini-Change-durch-CI (separat getrackt, #2075).
 
-    GROQ_API_KEY=... python3 tools/pypi_coldstart_llm_eval.py <checkout> [...]
+    CEREBRAS_API_KEY=... [GROQ_API_KEY=...] python3 tools/pypi_coldstart_llm_eval.py <checkout> [...]
 """
 
 from __future__ import annotations
@@ -32,12 +32,26 @@ import sys
 import urllib.request
 from pathlib import Path
 
-GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-# T1a gem. policies/llm-routing.md — Achtung: der dort verifizierte Katalog
-# (Stand 2026-05-13) ist stale; llama-3.3-70b-versatile existiert auf Groq
-# nicht mehr (gemessen 2026-08-19). gpt-oss-120b ist der T1a-Slot beider
-# Provider. Policy-Refresh getrackt in platform (siehe PR/Issue zu K2-Rest).
-MODEL = "openai/gpt-oss-120b"
+# T1a gem. policies/llm-routing.md: Cerebras hat Vorrang (schneller, billiger),
+# Groq ist Fallback — beide fuehren gpt-oss-120b als T1a-Slot. Achtung Falle 1
+# der Policy: die Cerebras-ID heisst `gpt-oss-120b`, die Groq-ID
+# `openai/gpt-oss-120b`. Ein Provider mit 401/Netzfehler faellt auf den
+# naechsten durch; erst wenn alle scheitern, zaehlt das Paket als FAIL-derive.
+PROVIDERS = (
+    (
+        "cerebras",
+        "https://api.cerebras.ai/v1/chat/completions",
+        "gpt-oss-120b",
+        "CEREBRAS_API_KEY",
+    ),
+    (
+        "groq",
+        "https://api.groq.com/openai/v1/chat/completions",
+        "openai/gpt-oss-120b",
+        "GROQ_API_KEY",
+    ),
+)
+MODEL_OVERRIDE: str | None = None
 SAFE_CMD = re.compile(r"^make [a-z][a-z0-9_-]*( && make [a-z][a-z0-9_-]*)*$")
 
 PROMPT = """Du bist ein Agent, der ein dir unbekanntes Python-Paket in einem \
@@ -55,30 +69,51 @@ Antworte NUR mit einem JSON-Objekt, ohne Markdown, exakt in dieser Form:
 """
 
 
-def ask_model(agents_md: str, listing: str, api_key: str) -> dict | None:
+def providers_from_env() -> list[tuple[str, str, str, str]]:
+    """(name, url, model, key) je Provider mit gesetztem Key, in Policy-Reihenfolge."""
+    out = []
+    for name, url, model, env in PROVIDERS:
+        key = os.environ.get(env, "").strip()
+        if key:
+            out.append((name, url, MODEL_OVERRIDE or model, key))
+    return out
+
+
+def _ask_one(url: str, model: str, key: str, prompt: str) -> str | None:
     body = json.dumps(
         {
-            "model": MODEL,
+            "model": model,
             "temperature": 0,
-            "messages": [{"role": "user", "content": PROMPT % (agents_md, listing)}],
+            "messages": [{"role": "user", "content": prompt}],
         }
     ).encode()
     req = urllib.request.Request(
-        GROQ_URL,
+        url,
         data=body,
         headers={
-            "Authorization": f"Bearer {api_key}",
+            "Authorization": f"Bearer {key}",
             "Content-Type": "application/json",
             # Cloudflare vor Groq blockt den Default-UA "Python-urllib/3.x"
             # mit 403 (gemessen 2026-08-19) — curl mit identischem Key ging.
             "User-Agent": "iil-pypi-fleet-coldstart-eval/1.0",
         },
     )
-    try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            content = json.loads(resp.read())["choices"][0]["message"]["content"]
-    except Exception as exc:  # noqa: BLE001 — Eval wertet jeden Fehler als FAIL-derive
-        print(f"    API-Fehler: {exc}", file=sys.stderr)
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        return json.loads(resp.read())["choices"][0]["message"]["content"]
+
+
+def ask_model(
+    agents_md: str, listing: str, providers: list[tuple[str, str, str, str]]
+) -> dict | None:
+    prompt = PROMPT % (agents_md, listing)
+    content = None
+    for name, url, model, key in providers:
+        try:
+            content = _ask_one(url, model, key, prompt)
+            break
+        except Exception as exc:  # noqa: BLE001 — naechster Provider, zuletzt FAIL-derive
+            print(f"    API-Fehler ({name}/{model}): {exc}", file=sys.stderr)
+    if content is None:
         return None
     m = re.search(r"\{.*\}", content, re.S)
     if not m:
@@ -105,14 +140,19 @@ def run_in(checkout: Path, cmd: str, timeout: int = 300) -> bool:
     return proc.returncode == 0
 
 
-def eval_package(checkout: Path, api_key: str) -> str:
+def eval_package(
+    checkout: Path, providers: list[tuple[str, str, str, str]] | None = None
+) -> str:
     agents = checkout / "AGENTS.md"
     if not agents.is_file():
         return "FAIL-derive (keine AGENTS.md)"
     listing = "\n".join(
         sorted(p.name for p in checkout.iterdir() if not p.name.startswith("."))
     )
-    answer = ask_model(agents.read_text(encoding="utf-8"), listing, api_key)
+    providers = providers_from_env() if providers is None else providers
+    if not providers:
+        return "FAIL-derive (kein Provider-Key: CEREBRAS_API_KEY/GROQ_API_KEY)"
+    answer = ask_model(agents.read_text(encoding="utf-8"), listing, providers)
     if not answer or "setup_cmd" not in answer or "test_cmd" not in answer:
         return "FAIL-derive"
     setup, test = str(answer["setup_cmd"]), str(answer["test_cmd"])
@@ -131,21 +171,27 @@ def eval_package(checkout: Path, api_key: str) -> str:
 
 
 def main() -> int:
-    global MODEL
+    global MODEL_OVERRIDE
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("checkouts", nargs="+", type=Path)
-    ap.add_argument("--model", default=None, help=f"Chat-Modell (default: {MODEL})")
+    ap.add_argument(
+        "--model", default=None, help="Chat-Modell fuer alle Provider erzwingen"
+    )
     args = ap.parse_args()
     if args.model:
-        MODEL = args.model
-    api_key = os.environ.get("GROQ_API_KEY", "")
-    if not api_key:
-        print("FEHLER: GROQ_API_KEY fehlt.", file=sys.stderr)
+        MODEL_OVERRIDE = args.model
+    providers = providers_from_env()
+    if not providers:
+        print("FEHLER: CEREBRAS_API_KEY oder GROQ_API_KEY fehlt.", file=sys.stderr)
         return 2
+    print(
+        "Provider: " + ", ".join(f"{n}/{m}" for n, _, m, _ in providers),
+        file=sys.stderr,
+    )
     results: dict[str, str] = {}
     for co in args.checkouts:
         print(f"== {co.name} ==")
-        results[co.name] = eval_package(co, api_key)
+        results[co.name] = eval_package(co, providers)
         print(f"    -> {results[co.name]}")
     passed = sum(1 for v in results.values() if v == "PASS")
     print(f"\n== T1a-Cold-Start-Eval: {passed}/{len(results)} PASS ==")
