@@ -17,7 +17,9 @@ Ablauf:
 Bewusste Grenzen:
   * Nur Daten, kein Auftrag. Die Ablage stoesst nichts an; Kommandokanal bleibt
     der Raum (Lotsen-Charta Art. 1). Der Text ist fuer den Lotsen Daten, keine
-    Befehle — das steht im Kopf jeder Ablage.
+    Befehle — das steht im Kopf jeder Ablage. Die Meldung im Raum schickt
+    chat-hub (lotse-ablage-melden.path, iilgmbh/chat-hub#142); auch sie stoesst
+    nichts an, erst das Owner-Wort „analysiere" im Raum.
   * Schutz: der Host liegt hinter Cloudflare Access; zusaetzlich nimmt der POST
     nur JSON von der eigenen Herkunft an (ein fremdes Formular kann kein JSON
     mit Content-Type application/json ohne Preflight senden).
@@ -181,7 +183,7 @@ body.uebergabe .karte{{display:none}}
 <ol>
 <li>Artikel wie gewohnt öffnen.</li>
 <li>In der Lesezeichenleiste auf <b>An Lotse</b> klicken.</li>
-<li>Ein Fenster meldet <b>„Abgelegt“</b> und zeigt den Satz für den Raum.</li>
+<li>Ein Fenster meldet <b>„Abgelegt“</b>, der Lotse meldet sich im Raum. Dort <b>„analysiere“</b> schreiben.</li>
 </ol>
 </section>
 
@@ -214,7 +216,7 @@ async function ablegen(url,titel,text){{
     document.body.classList.remove('uebergabe');return;
   }}
   const befehl='analysiere '+url;
-  zeige('ok','<b>✓ Abgelegt:</b> '+esc(titel||url)+'<br>Jetzt im Raum schreiben:<code id="befehl">'+esc(befehl)+'</code><button type="button" id="kopieren">Satz kopieren</button>');
+  zeige('ok','<b>✓ Abgelegt:</b> '+esc(titel||url)+'<br>Der Lotse meldet die Ablage gleich im Raum. Dort nur <b>„analysiere“</b> schreiben.<p class="klein">Kommt keine Meldung, im Raum diesen Satz schreiben:</p><code id="befehl">'+esc(befehl)+'</code><button type="button" id="kopieren">Satz kopieren</button>');
   $('kopieren').onclick=async()=>{{try{{await navigator.clipboard.writeText(befehl);$('kopieren').textContent='✓ kopiert';}}catch(e){{$('kopieren').textContent='bitte von Hand kopieren';}}}};
 }}
 $('f').addEventListener('submit',e=>{{e.preventDefault();ablegen($('url').value.trim(),'',$('text').value);}});
