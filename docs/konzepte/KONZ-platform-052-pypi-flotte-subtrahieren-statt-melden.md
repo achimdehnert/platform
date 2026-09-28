@@ -1,7 +1,7 @@
 ---
 concept_id: KONZ-platform-052
 title: "PyPI-Flotte 2026-08 — subtrahieren statt melden: Publish-Pfad am Artefakt beweisen, den fallengelassenen Plan entscheiden, Melder-Flaeche halbieren"
-pipeline_status: idea
+pipeline_status: pilot   # 2026-09-28: Owner-Wort "052 accepted go" — V1–V10 vollzogen, V11 Teil 2 = platform#3575 K4, V12 offen
 tier: T2
 owner: "Achim Dehnert"
 spec_refs: []
@@ -10,14 +10,15 @@ adr_threshold: >
   ADR-278 Attestations, ADR-266 Portfolio-Strategien) oder Loeschungen. ADR-
   wuerdig sind nur die drei L-Optionen (O1 Monorepo, O6 Konsumenten-Regel, O8
   Gate als Required Check) — und die werden hier NICHT empfohlen.
-review_by: 2026-10-19
+review_by: 2027-01-19
 kill_criteria: >
-  Bis 2026-10-19 (ADR-278-Kill-Gate-Termin): (a) tragen weniger als 100 % der
-  Releases seit 2026-09-01 eine PyPI-Attestation ODER (b) ist KONZ-018 immer
-  noch pipeline_status idea ODER (c) ist die Zahl der offenen Melder-Issues der
-  Flotte nicht von 3 auf 1 gesunken — dann ist dieses Konzept selbst die N+2-te
-  Fassung desselben Plans: schliessen, Slug accepted-plan-item-silently-dropped
-  in der Retro als Rueckfall zaehlen, kein neues KONZ.
+  Bis 2027-01-19: (a) ein Release eines aktiv-Pakets seit 2026-09-01 ohne
+  PyPI-Attestation ODER (b) V11 Teil 2 nicht vollzogen (dev-hub oder mcp-hub
+  ohne Kohorten-Pin auf main) ODER (c) wieder mehr als ein Melder-Issue der
+  Flotte offen — dann zurueck auf idea und Slug accepted-plan-item-silently-
+  dropped in der Retro als Rueckfall zaehlen. Stand der urspruenglichen
+  Kriterien am 2026-09-27: (a) 15/15 attestiert, (b) KONZ-018 war seit
+  2026-08-27 pilot (nicht idea) und ist seit 2026-09-28 sunset, (c) 3 -> 1.
 superseded_by_spec: null
 evidence_manifest:
   - {claim_id: F1, source_path: .github/workflows/publish-iil-testkit.yml, commit_or_pr: "Z.61-62, geprueft 2026-08-27", opened_in_session: true}
@@ -159,6 +160,15 @@ Owner: Lese-Token). Cold-Start-Klasse „`make test` ignoriert `.venv`" in 9 Rep
 (`docs/verifications/2026-09-02-adr266-k3-venv-first-und-m4-nominal.md`). Befund je Paket mit
 Beleg: `tools/pypi_fleet_report.py` (K2). Kill-Kriterium (a) bleibt offen: gpufw 0.1.1 und
 iil-reflex 0.6.1 sind Releases nach ADR-278 ohne Attestation.
+
+## Stand 2026-09-28 — accepted (pilot), Fristen entschieden
+
+Owner-Wort „052 accepted go" (platform#3575 K5). Messung 2026-09-27: alle 15 Wheel-Releases seit
+2026-09-01 attestiert (Integrity-API je Release), Melder-Issues 3 → 1, KONZ-018 seit 2026-09-28
+`sunset` (superseded, Messtabelle dort §13 Schluss). Vollzogen: V1–V10; V11 Teil 1 Kohorte 2026.09
+(platform#3579), Teil 2 dev-hub#395 / mcp-hub#298 (Draft, Ursache mcp-hub#299); V12 offen.
+ADR-278-Review 19.10.: Gate blockend, 10 von 11 Token-Repos mit Binding-Beweis — Sweep-Liste in
+platform#3575. Naechste Frist 2027-01-19 (Frontmatter).
 
 ## Bezug
 
