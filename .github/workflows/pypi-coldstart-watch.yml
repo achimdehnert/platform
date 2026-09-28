@@ -29,6 +29,11 @@ on:
         required: false
         default: "6"
         type: string
+      retry_fail:
+        description: "Pakete mit letztem Ergebnis FAIL erneut bewerten (auch ohne Aenderung)"
+        required: false
+        default: false
+        type: boolean
       dry_run:
         description: "Nur Report ins Log, kein Issue-Write"
         required: false
@@ -66,7 +71,10 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install deps
-        run: pip install pyyaml
+        # uv: nl2cad (und kuenftig weitere) setzen per `uv sync` auf — ohne uv
+        # endet der Eval als FAIL-run (setup), obwohl der Einstieg stimmt
+        # (Erstlauf 36393204628, 2026-09-28).
+        run: pip install pyyaml uv
 
       - name: Cold-Start-Wache (K1 Drift remote, K2 Eval nur bei Änderung)
         run: |
@@ -77,6 +85,8 @@ jobs:
             BUDGET="1"
           elif [ "${{ inputs.all }}" = "true" ]; then
             ALL="--all"
+          elif [ "${{ inputs.retry_fail }}" = "true" ]; then
+            ALL="--retry-fail"
           fi
           python3 tools/pypi_coldstart_watch.py $ALL \
             --max-evals "${BUDGET:-6}" \

@@ -142,6 +142,12 @@ def run_in(checkout: Path, cmd: str, timeout: int = 300) -> bool:
         text=True,
         timeout=timeout,
     )
+    if proc.returncode != 0:
+        # Die letzten Zeilen sind die Diagnose (z.B. "uv: command not found") —
+        # ohne sie ist FAIL-run ein Urteil ohne Ursache.
+        tail = (proc.stderr or proc.stdout).strip().splitlines()[-5:]
+        for line in tail:
+            print(f"      | {line[:200]}", file=sys.stderr)
     return proc.returncode == 0
 
 

@@ -144,3 +144,13 @@ def test_should_count_unresolved_packages_as_not_checkable():
     text = m.render_report(rows, dt.date(2026, 9, 27), {}, budget_left=6)
     assert "1 nicht pruefbar" in text
     assert "z: ORG NICHT AUFLÖSBAR (nicht pruefbar)" in text
+
+
+def test_should_retry_failed_packages_only_when_asked():
+    rows = [_row("a", m.K2_CURRENT), _row("b", m.K2_CURRENT)]
+    rows[0]["last"] = "FAIL-run (setup)"
+    rows[1]["last"] = "PASS"
+    assert m.select_for_eval(rows, 5, False) == []
+    assert [r["repo"] for r in m.select_for_eval(rows, 5, False, retry_fail=True)] == [
+        "a"
+    ]
