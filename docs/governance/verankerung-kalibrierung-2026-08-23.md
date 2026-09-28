@@ -623,3 +623,14 @@ Gemeldet: „Zusage ohne Tracking in: #3350". Die Stelle im PR-Text:
 Das ist **vertagte Arbeit** (Bau zweier Gates) — **richtig erkannt**. Anker existierte schon in Form der `kandidaten/`-Einträge (Registry) und platform#2234 (Gate-Deckungs-Programm), stand aber nicht im PR-Text; nachgezogen als Kommentar auf #3350 + Offen-Zeile im Handover-Fragment f1d54f5c.
 
 **Stand damit: 32 Meldungen · 6 richtig · 26 Fehlalarme (Präzision 0,188).**
+
+## 2026-09-28 — meiki-lra/meiki-hub#508 (E.5, Sitzungsende meiki-hub eff9b50f)
+
+Gemeldet im Runner: „Zusage ohne Tracking in: #508". Der Einzellauf danach
+(`verankerung_pruefer.py --pr 508 --repo meiki-lra/meiki-hub`, 11 Segmente) meldet
+„jede Zusage trägt ein Tracking-Issue" — die Meldung ist nicht reproduzierbar, der Runner
+nennt keine Textstelle. Der PR-Text vertagt einen Punkt (Stufe 4 der Rückfrage, „Einzeiler je
+Aufgabenart") mit Anker frist-hub#180 im selben Abschnitt. **Fehlalarm** (nicht deterministischer
+Klassifikator).
+
+**Stand damit: 33 Meldungen · 6 richtig · 27 Fehlalarme (Präzision 0,182).**
