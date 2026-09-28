@@ -194,6 +194,44 @@ def derive(checkout: Path, providers) -> tuple[str | None, str | None, str]:
     return path, content, ""
 
 
+def verdict_from_buckets(buckets: list[str]) -> str | None:
+    """PASS-ci nur, wenn jeder Check pass/skipping ist; None = noch nicht entschieden.
+
+    `gh pr checks` liefert direkt nach dem Anlegen eines PRs noch keine Checks
+    (Exit 1, "no checks reported") — das war am 2026-09-28 dreimal ein falsches
+    FAIL-ci bei komplett gruener CI (aifw#67, promptfw#45, weltenfw#29). Deshalb:
+    erst warten, bis Checks existieren, dann die Buckets lesen, nie den Exit-Code
+    von --watch als Urteil nehmen.
+    """
+    if not buckets:
+        return None
+    if any(b == "pending" for b in buckets):
+        return None
+    if any(b in ("fail", "cancel") for b in buckets):
+        return "FAIL-ci"
+    return "PASS-ci"
+
+
+def ci_verdict(url: str, dest: Path, ci_timeout: int) -> str:
+    """Wartet auf das CI-Urteil des Probe-PRs (Polling alle 30 s, deterministisch)."""
+    import time
+
+    deadline = time.monotonic() + ci_timeout
+    while time.monotonic() < deadline:
+        proc = _run(["gh", "pr", "checks", url, "--json", "bucket"], dest, 60)
+        buckets: list[str] = []
+        if proc.stdout.strip():
+            try:
+                buckets = [c.get("bucket", "pending") for c in json.loads(proc.stdout)]
+            except json.JSONDecodeError:
+                buckets = []
+        verdict = verdict_from_buckets(buckets)
+        if verdict:
+            return verdict
+        time.sleep(30)
+    return "FAIL-ci (timeout)"
+
+
 def probe_package(
     org_repo: str,
     workdir: Path,
@@ -287,10 +325,7 @@ def probe_package(
     if pr.returncode:
         return {"result": "FAIL-push (pr create)", "pr": None}
     url = pr.stdout.strip().splitlines()[-1]
-    checks = _run(
-        ["gh", "pr", "checks", url, "--watch", "--fail-fast"], dest, ci_timeout + 60
-    )
-    verdict = "PASS-ci" if checks.returncode == 0 else "FAIL-ci"
+    verdict = ci_verdict(url, dest, ci_timeout)
     _run(
         [
             "gh",
