@@ -55,7 +55,7 @@ TOOLS = Path(__file__).resolve().parent
 sys.path.insert(0, str(TOOLS))
 
 from check_agents_md import check_text  # noqa: E402
-from gen_pkg_agents_md import generate  # noqa: E402
+from gen_pkg_agents_md import generate, generated_head  # noqa: E402
 from pypi_fleet_earlywarn import PLATFORM_DIR, _api, find_org  # noqa: E402
 from pypi_fleet_sections import fetch_issue  # noqa: E402
 
@@ -233,7 +233,7 @@ def evaluate(org: str, repo: str, workdir: Path) -> dict:
     gen_drift: bool | None = None
     try:
         committed = (dest / "AGENTS.md").read_text(encoding="utf-8")
-        gen_drift = generate(dest).strip() != committed.strip()
+        gen_drift = generate(dest).strip() != generated_head(committed).strip()
     except (OSError, UnicodeDecodeError):
         gen_drift = None
     providers = llm_eval.providers_from_env()
