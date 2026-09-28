@@ -264,9 +264,11 @@ def main() -> int:
     )
     ap.add_argument(
         "--all", action="store_true", help="alle Pakete bewerten (Erstlauf/Beweis)"
-    ap.add_argument(
-        "--retry-fail", action="store_true", help="letztes Ergebnis FAIL erneut bewerten"
     )
+    ap.add_argument(
+        "--retry-fail",
+        action="store_true",
+        help="letztes Ergebnis FAIL erneut bewerten",
     )
     ap.add_argument(
         "--max-evals", type=int, default=DEFAULT_MAX_EVALS, help="Eval-Budget je Lauf"
