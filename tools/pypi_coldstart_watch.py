@@ -114,9 +114,21 @@ def render_state(state: dict) -> str:
     return f"<!-- coldstart-state:{json.dumps(state, sort_keys=True, ensure_ascii=False)} -->"
 
 
-def select_for_eval(rows: list[dict], max_evals: int, force_all: bool) -> list[dict]:
-    """Fällige Pakete in stabiler Reihenfolge, gedeckelt durch das Budget."""
-    due = [r for r in rows if force_all or r["k2"] != K2_CURRENT]
+def select_for_eval(
+    rows: list[dict], max_evals: int, force_all: bool, retry_fail: bool = False
+) -> list[dict]:
+    """Fällige Pakete in stabiler Reihenfolge, gedeckelt durch das Budget.
+
+    `retry_fail`: auch Pakete, deren letztes Ergebnis kein PASS war — ohne
+    Änderung an den Eingaben (z.B. nach einem Fix am Runner selbst).
+    """
+    due = [
+        r
+        for r in rows
+        if force_all
+        or r["k2"] != K2_CURRENT
+        or (retry_fail and not str(r.get("last") or "").startswith("PASS"))
+    ]
     due.sort(key=lambda r: (r["k2"] != K2_NEW, r["repo"]))  # neu zuerst
     return due[:max_evals]
 
@@ -254,6 +266,11 @@ def main() -> int:
         "--all", action="store_true", help="alle Pakete bewerten (Erstlauf/Beweis)"
     )
     ap.add_argument(
+        "--retry-fail",
+        action="store_true",
+        help="letztes Ergebnis FAIL erneut bewerten",
+    )
+    ap.add_argument(
         "--max-evals", type=int, default=DEFAULT_MAX_EVALS, help="Eval-Budget je Lauf"
     )
     ap.add_argument(
@@ -304,6 +321,7 @@ def main() -> int:
                 "k1": k1,
                 "k1_problems": problems,
                 "k2": k2_status(state.get(repo), fp),
+                "last": (state.get(repo) or {}).get("result"),
             }
         )
 
@@ -312,7 +330,10 @@ def main() -> int:
         []
         if args.no_eval
         else select_for_eval(
-            [r for r in rows if not r.get("unresolved")], args.max_evals, args.all
+            [r for r in rows if not r.get("unresolved")],
+            args.max_evals,
+            args.all,
+            args.retry_fail,
         )
     )
     budget_left = args.max_evals - len(todo)
