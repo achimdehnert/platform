@@ -249,16 +249,20 @@ def test_should_count_due_without_beleg_and_stale_files(tmp_path):
     alt = schleuse / "irgendein-token.txt"
     alt.write_text("ATTRAPPE", encoding="utf-8")
     import os
-    import time
+    from datetime import datetime, timedelta
 
-    # Alter relativ zum Stichtag unten (2026-09-04), nicht zu time.time():
-    # sonst ist die Datei nach dem 2026-09-18 juenger als 14 Tage und der Test
-    # kippt von selbst (Zeitbombe, platform#2397-Klasse; rot seit 2026-09-27).
-    alt_ts = time.mktime(date(2026, 8, 5).timetuple())
+    # Alter relativ zum Stichtag, nicht zu time.time(): der Vergleich in
+    # inventar.altlasten() laeuft gegen `heute` (unten 2026-09-04). Relativ zur
+    # Wanduhr wurde die Datei mit jedem Kalendertag "juenger" und fiel am
+    # 2026-09-27 genau auf ALTLAST_TAGE (7 > 7 ist falsch) — main rot.
+    stichtag = date(2026, 9, 4)
+    alt_ts = datetime.combine(
+        stichtag - timedelta(days=30), datetime.min.time()
+    ).timestamp()
     os.utime(alt, (alt_ts, alt_ts))
     (schleuse / "notizen.md").write_text("kein Schluesselmaterial", encoding="utf-8")
 
-    b = cli.sammle_faelligkeit(inv, tmp_path / "leer.jsonl", schleuse, date(2026, 9, 4))
+    b = cli.sammle_faelligkeit(inv, tmp_path / "leer.jsonl", schleuse, stichtag)
     assert b["secrets"] == 1
     assert b["faellig"] == ["ATTRAPPE_TOKEN"]
     # 1 von 3 ohne proof: der Gov-Org-Konsument HAT einen Beleg — abgelehnt wird
