@@ -67,7 +67,15 @@ def test_should_drop_top_level_sections_and_ssh_users():
 
 def test_should_write_three_files_with_the_unchanged_preflight(tmp_path):
     dateien = erzeuge(tmp_path)
-    assert [p.name for p in dateien] == ["deploy_preflight.py", "ports.yaml", "hosts.yaml"]
+    assert [p.name for p in dateien] == [
+        "deploy_preflight.py",
+        "ports.yaml",
+        "hosts.yaml",
+    ]
     assert (tmp_path / "deploy_preflight.py").read_bytes() == PREFLIGHT.read_bytes()
-    assert yaml.safe_load((tmp_path / "ports.yaml").read_text()) == dienst_auszug(VOLL_PORTS)
-    assert yaml.safe_load((tmp_path / "hosts.yaml").read_text()) == knoten_auszug(VOLL_HOSTS)
+    assert yaml.safe_load((tmp_path / "ports.yaml").read_text()) == dienst_auszug(
+        VOLL_PORTS
+    )
+    assert yaml.safe_load((tmp_path / "hosts.yaml").read_text()) == knoten_auszug(
+        VOLL_HOSTS
+    )
