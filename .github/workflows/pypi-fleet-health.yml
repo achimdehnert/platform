@@ -8,6 +8,10 @@
 # Meter, kein neues Rolling-Issue; drei Melder-Issues mit 0 Kommentaren waren
 # der Befund). Kein Auto-Publish, kein Auto-Fix, keine LLM-Urteile (Nicht-Ziele).
 #
+# Token: PROJECT_PAT (cross-repo, wie pypi-gate-meter.yml) statt GITHUB_TOKEN —
+# der sah 6 von 20 aktiv-Paketen nicht (private Repos, iilgmbh) und zaehlte sie
+# als `ORG NICHT AUFLÖSBAR` (#2610). GITHUB_TOKEN bleibt Fallback.
+#
 # Namensregel: bewusst NICHT publish-*.yml — publish_gate_invariant.sh globt
 # darauf und verlangt gitleaks (dieser Workflow publiziert nichts).
 # Ergänzt pypi-gate-meter.yml (Sektion gate-meter) und pypi-ci-adoption-gate.yml
@@ -58,7 +62,7 @@ jobs:
 
       - name: Fleet-Scan (remote, read-only)
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PROJECT_PAT || secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           python3 tools/pypi_fleet_inventory.py --remote --downloads --check \
@@ -69,7 +73,7 @@ jobs:
       # earlywarn-baseline.md. Blocking erst nach Präzisions-Nachweis (Owner).
       - name: Frühwarn-Scan (advisory, #2075 K3)
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PROJECT_PAT || secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           {
@@ -85,7 +89,7 @@ jobs:
       # (2026-08-19, PR #2096) und ist mit KONZ-052 V5 entfernt.
       - name: Auto-Issue-Emitter (Frühwarn → Auto-Issue, #2075 K4)
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PROJECT_PAT || secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           python3 tools/pypi_fleet_earlywarn.py --json > earlywarn.json
@@ -102,7 +106,7 @@ jobs:
       # im Wochen-Report auf (Regel: jeder dauerrote Check braucht einen Issue-Link).
       - name: Bot-PRs + rote main-Checks je Paket-Repo
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PROJECT_PAT || secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           {
@@ -149,7 +153,7 @@ jobs:
 
       - name: Sektion "health" im EINEN Flotten-Issue pflegen
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PROJECT_PAT || secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           {
