@@ -117,10 +117,14 @@ Umsetzung auf dem bestehenden Issue platform#2666, kein zweites Gate; Edit am Re
 `scope-checkpoint-not-durably-recorded` ist **Gate rückfällig** (F11, erst durch 3b sichtbar,
 deshalb nicht in 0.0). Das Gate ist advisory, Rev 9 vom 2026-09-25. Hier lag das Owner-Wort
 „D2 go" vor dem Deploy, nur der Checkpoint-Nachtrag fehlte.
-Ursache **am Ausgang**: Der Melder löst nichts aus, wenn die Freigabe schon vorliegt.
-Vorgeschlagene Antwort: **herabstufen**. Der Fall „Freigabe vorhanden, Spiegel fehlt" kommt als
-begründete Ausnahme nach `declined`, der Kern (Prod ohne Freigabe) bleibt.
-Über Herabstufen entscheidet der Owner, bis dahin bleibt es ein Kandidat (M8).
+**Korrigiert 2026-09-28 (Nachtrag nach Merge):** Die ursprüngliche Diagnose „am Ausgang, herabstufen" war
+falsch. Die Ursache liegt **an der Quelle**: Im Transkript meldete sich der Scanner zuletzt um 14:39:52Z,
+also vor dem D2-Deploy. Zwischen 15:30 und 16:00Z kam keine Meldung, obwohl `gh workflow run deploy.yml`
+nachweislich als Prod-Schritt erkannt wird (`_PROD` in `artefakt_budget.py`).
+Hypothese: Fehlerform C sieht Prod schon seit dem ersten Deploy (14:36Z) als berührt an, deshalb zählt ein
+zweiter Prod-Schritt nicht als Wachstum.
+Antwort: **nachschärfen**. Mit Rev 10 zählt jeder weitere Prod-Schritt nach einem Checkpoint als Wachstum.
+Das Owner-Go vom 2026-09-28 galt für „herabstufen", deshalb braucht M8 ein neues Wort.
 
 ### 5b. Autonomie-Kalibrierung
 
@@ -154,7 +158,7 @@ adr_candidates: keine (reine Fixes nach bestehendem Muster).
 | M4 | Mitschreiber: Eltern-Cmdline kürzen + Test | platform | platform#3595 | 🔵 | Folge-Issue, Fix nach Owner-Wort |
 | M5 | `deploy.yml`-Input dokumentieren | news-hub | news-hub#87 | 🔵 | Beschreibung „Kurz-SHA" ergänzen |
 | M7 | Deploy-Kontrolle in #86 nachtragen | news-hub | news-hub#86 | ✅ | [Kommentar](https://github.com/achimdehnert/news-hub/issues/86#issuecomment-5873744745) |
-| M8 | Checkpoint-Gate herabstufen? | platform | platform#3598 | 🟢 | Owner-Entscheid zu §5a |
+| M8 | Checkpoint-Gate nachschärfen | platform | platform#3598 | 🟢 | neues Owner-Wort, §5a korrigiert |
 | M6 | Streichbahn | platform | — | ✅ | siehe `## Streichbahn` |
 
 ## 8. Nicht verifiziert (Restlücken)

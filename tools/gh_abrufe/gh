@@ -36,7 +36,12 @@ zusammenfassung() {
 
 {
   mkdir -p "$(dirname "$LOG")" && umask 077
-  aufrufer="$(tr '\0' ' ' < "/proc/$PPID/cmdline" 2>/dev/null | cut -c1-120 | tr '\t\n' '  ')"
+  # Vom Aufrufer nur Programm und Skriptpfad, nie seine Argumente (platform#3599)
+  mapfile -d '' -t teile < "/proc/$PPID/cmdline" 2>/dev/null || teile=()
+  aufrufer="${teile[0]:-}"
+  [[ -f "${teile[1]:-}" ]] && aufrufer+=" ${teile[1]}"
+  aufrufer="${aufrufer:0:120}"
+  aufrufer="${aufrufer//[$'\t\n']/ }"
   printf '%s\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$aufrufer" "$PWD" \
     "$(zusammenfassung "$@")" >> "$LOG"
 } 2>/dev/null
