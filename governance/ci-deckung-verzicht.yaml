@@ -47,3 +47,10 @@
 # .github/workflows/registry-lint.yml laeuft jetzt `make lint-registry` statt
 # `make lint-tenancy`) und deshalb entfernt — kein Eintrag mehr fuer `ziel:
 # lint-registry` hier.
+
+# meiki-hub: ein Ziel (Session-Start 2026-09-27, Delta-Klasse NEU in 0.7.26).
+# Alle drei Kommandos des Make-Ziels laufen in CI unter anderem Namen.
+
+- repo: meiki-hub
+  ziel: lint
+  grund: "Lokaler Spiegel dreier CI-Schritte, die unter anderem Namen laufen: markdownlint als markdownlint-cli2-action in lint.yml (advisory, continue-on-error wie das `|| true` im Make-Ziel), Platzhalter-Scan (einzutragen/TODO/FIXME/TBD/XXX) als eigener Schritt in quality.yml, scripts/glossar-check.py als Schritt in quality.yml (continue-on-error). Das Werkzeug matcht Kommandotext und sieht die Action und die Inline-Schritte nicht."
