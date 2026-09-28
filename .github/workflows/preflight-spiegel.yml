@@ -1,0 +1,93 @@
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  PREFLIGHT-SPIEGEL → iilgmbh/shared-ci (platform#3596, #3234 K3)         ║
+# ║  Die Deploy-Bausteine in shared-ci lesen den Preflight nach dem Flip      ║
+# ║  auf privat nicht mehr aus platform, sondern aus shared-ci/spiegel/       ║
+# ║  platform/. Gespiegelt wird nur der Minimalauszug (preflight_spiegel.py). ║
+# ║  PR = Trockenlauf (Diff gegen den Spiegel, kein Push).                    ║
+# ║  main = Push mit SHARED_CI_SPIEGEL_TOKEN (fine-grained, nur shared-ci,    ║
+# ║  contents:write — legt der Owner an, Gate Security-Config).               ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+
+name: Preflight-Spiegel
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/ports.yaml'
+      - 'infra/hosts.yaml'
+      - 'tools/deploy_preflight.py'
+      - 'tools/preflight_spiegel.py'
+      - '.github/workflows/preflight-spiegel.yml'
+  pull_request:
+    paths:
+      - 'infra/ports.yaml'
+      - 'infra/hosts.yaml'
+      - 'tools/deploy_preflight.py'
+      - 'tools/preflight_spiegel.py'
+      - '.github/workflows/preflight-spiegel.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preflight-spiegel
+  cancel-in-progress: false
+
+env:
+  SPIEGEL_REPO: iilgmbh/shared-ci
+  SPIEGEL_PFAD: spiegel/platform
+
+jobs:
+  spiegel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Auszug erzeugen
+        run: |
+          python3 -c "import yaml" 2>/dev/null || pip install -q pyyaml
+          python3 tools/preflight_spiegel.py --ziel "$RUNNER_TEMP/auszug"
+
+      - name: Spiegel auschecken (Trockenlauf ohne Token)
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ${{ env.SPIEGEL_REPO }}
+          path: kanon
+          persist-credentials: false
+
+      - name: Spiegel auschecken (mit Schreib-Token)
+        if: github.event_name != 'pull_request'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ${{ env.SPIEGEL_REPO }}
+          path: kanon
+          token: ${{ secrets.SHARED_CI_SPIEGEL_TOKEN }}
+
+      - name: Diff gegen den Spiegel
+        id: diff
+        run: |
+          mkdir -p "kanon/$SPIEGEL_PFAD"
+          cp "$RUNNER_TEMP"/auszug/* "kanon/$SPIEGEL_PFAD/"
+          cd kanon
+          git add -A "$SPIEGEL_PFAD"
+          if git diff --cached --quiet; then
+            echo "Spiegel aktuell — nichts zu tun." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "geaendert=0" >> "$GITHUB_OUTPUT"
+          else
+            { echo "### Preflight-Spiegel: Aenderung gegen ${SPIEGEL_REPO}"; echo '```'; git diff --cached --stat; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            git diff --cached --stat
+            echo "geaendert=1" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Push in den Spiegel
+        if: github.event_name != 'pull_request' && steps.diff.outputs.geaendert == '1'
+        working-directory: kanon
+        run: |
+          git config user.name "platform-preflight-spiegel"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -q -m "chore(spiegel): Preflight-Auszug aus platform@${GITHUB_SHA::7} (platform#3596)"
+          git push origin HEAD

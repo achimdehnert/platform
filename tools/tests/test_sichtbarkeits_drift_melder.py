@@ -120,6 +120,28 @@ def test_should_laufzeit_nur_fuer_code_ausserhalb_ci_klickdummy_doku_melden():
     assert "dev-hub" in kurzzeile(e)
 
 
+def test_should_count_deploy_bausteine_as_laufzeit_although_they_live_in_ci():
+    konsumenten = {
+        "iilgmbh/shared-ci": {
+            "aufruf": [],
+            "raw": [
+                ".github/workflows/_deploy-unified.yml",
+                ".github/workflows/_deploy-hetzner.yml",
+                ".github/workflows/_ci-python.yml",
+            ],
+        },
+    }
+    e = bewerte(
+        konsumenten, kopien=["iilgmbh/shared-ci"], fristen=[], sichtbar="PUBLIC"
+    )
+    assert e["laufzeit"] == {
+        "iilgmbh/shared-ci": [
+            ".github/workflows/_deploy-unified.yml",
+            ".github/workflows/_deploy-hetzner.yml",
+        ]
+    }
+
+
 def test_should_frist_nur_fuer_aktive_konzepte_melden(tmp_path):
     _konzept(tmp_path, "KONZ-platform-001", "decided", "2026-09-15")
     _konzept(tmp_path, "KONZ-platform-002", "sunset", "2026-01-01")
