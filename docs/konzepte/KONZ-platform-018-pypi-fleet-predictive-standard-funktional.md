@@ -1,14 +1,14 @@
 ---
 concept_id: KONZ-platform-018
 title: "PyPI-Fleet: Predictive statt Repair · Standard statt Exception · Funktionales Portfolio"
-pipeline_status: pilot   # 2026-08-27: Owner-Entscheid "annehmen" (KONZ-052 V6) — W1-1…W1-4 als MVP, Fristen laut §13 laufen ab heute neu
+pipeline_status: sunset   # 2026-09-28: Owner-Entscheid "superseded" — Kill-Gate-Messung 2026-09-27 (§13 Schluss), Nachfolger KONZ-052 + ADR-266-Amendment #2077
 tier: T3
 owner: "Achim Dehnert"
 spec_refs: []
 adr_threshold: "kein neues ADR — Vollzug des ADR-266-Backlogs; einzige ADR-Berührung: ein ADR-266-Amendment NUR falls der Publish-Reusable-Entscheid (W2-E1) pro Reusable ausgeht (§5.4)"
 review_by: "2026-10-12"
 kill_criteria: "T+90 (2026-10-12): (a) Stub-Kohorte (Legacy-Name `aifw>=0.5.0`) nicht auf 0, MASCHINELL gemessen (Stub-Grep-Step, Handmessung zählt nicht) ODER (b) shared-ci `_ci-pypi.yml` weiterhin OHNE gate-Job (Doppelquelle ungelöst, shared-ci#20 offen) ODER (c) Consumer-Canary-Skript (ADR-266 3a) ohne dokumentierten Rot-Lauf gegen den Regressions-Korpus ODER (d) Portfolio-Entscheidungssession nicht stattgefunden (datiertes Protokoll fehlt) → Konzept-Rückbau: neue Artefakte entfernen, Rest-Items zurück in den ADR-266-Backlog, Befund als 🌀-Memory."
-superseded_by_spec: null
+superseded_by_spec: "KONZ-platform-052 + ADR-266-Amendment platform#2077 (Portfolio-Klassifikation); Rest-Items → platform#2089"
 evidence_manifest:
   - {claim_id: C1, source_path: "registry/pypi-fleet.yaml (generated_at 2026-07-04T09:18Z, 21 Pakete)", commit_or_pr: "main, subagent-gelesen + Haupt-Session-Querchecks", opened_in_session: true}
   - {claim_id: C2, source_path: "docs/adr/ADR-266-pypi-fleet-lifecycle-und-publishing-konvergenz.md (K1–K7, Stufen, §owner_actions, Z.125 'Zentraler Publish: verworfen')", commit_or_pr: "accepted 2026-07-04, partial", opened_in_session: true}
@@ -380,3 +380,21 @@ testkit-Dedup exekutiert; Freshness-Pilot grün; fleet.yaml-Entscheid umgesetzt.
 
 **90 Tage (bis 2026-10-12):** Kill-Gate-Review am Reminder; Canary-Rot-Beweis dokumentiert;
 E1-Vorlage beim Owner; Portfolio-Session protokolliert; Konzept-Status-Flip.
+
+
+### Schluss 2026-09-28 — Kill-Gate gemessen, Konzept abgelöst (Owner-Wort „018 superseded go")
+
+Messung 2026-09-27 je Kriterium (platform#1262, Kommentar 5858117101):
+
+| Kill-Kriterium | Ist | Trifft |
+|---|---|---|
+| (a) Stub-Kohorte `aifw>=0.5.0` ≠ 0 | 0 Treffer der Legacy-Dist in `requirements*.txt`/`pyproject.toml` über vier Orgs; zwei Text-Treffer sind `iil-aifw>=0.5.0` (aktueller Name) | nein |
+| (b) shared-ci `_ci-pypi.yml` ohne `gate`-Job | Job vorhanden (Z. 403), shared-ci#20 geschlossen 2026-07-12 | nein |
+| (c) Consumer-Canary ohne Rot-Lauf | nie gebaut | **ja** |
+| (d) Portfolio-Session ohne Protokoll | ADR-266-Amendment #2077 (2026-08-19), Vollzug KONZ-052 V7 (2026-08-27) | nein |
+
+Drei von vier Kriterien sind erfüllt — durch andere Vorgänge, nicht durch dieses Konzept; der
+REC-7-Reminder als Trigger-Artefakt wurde bei der Annahme 2026-08-27 nie angelegt (Slug
+`accepted-plan-item-silently-dropped`, Memory 🌀 2026-09-28). Kein Rückbau: die W1-Artefakte
+(testkit-Dedup, Freshness-Pilot promptfw) sind gemergt und in Betrieb. Rest aus #1262 wandert nach
+#2089; der Canary wird nicht nachgebaut — Nachfolger ist KONZ-052 O3 (Reverse-Dep-CI on-release).
