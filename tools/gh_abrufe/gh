@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Mitschreiber vor `gh` (dev-hub#404): jeder Aufruf eine Zeile, dann das echte gh.
+#
+# Installation: ln -s <main-klon>/tools/gh_abrufe/gh ~/.local/bin/gh
+# (~/.local/bin steht im PATH vor /usr/bin). Auswertung: auswertung.py.
+#
+# Protokolliert werden NUR Zeit, Aufrufer, Arbeitsverzeichnis, Unterbefehl,
+# Repo und bei `gh api` der Endpunkt — nie Freitext-Argumente (--body, -f …),
+# weil dort Inhalte stehen koennen, die nicht in eine Logdatei gehoeren.
+# Der Mitschreiber darf gh nie brechen: jeder Fehler beim Schreiben wird
+# verschluckt, das echte gh laeuft immer per exec.
+
+GH_ECHT="${GH_ABRUF_ECHT:-/usr/bin/gh}"
+LOG="${GH_ABRUF_LOG:-$HOME/.local/state/gh-abrufe/abrufe.tsv}"
+
+zusammenfassung() {
+  local befehl="" unter="" ziel="" repo="" vorher=""
+  for a in "$@"; do
+    case "$vorher" in
+      -R|--repo) repo="$a"; vorher=""; continue ;;
+    esac
+    case "$a" in
+      --repo=*) repo="${a#--repo=}" ;;
+      -R|--repo) ;;
+      -*) ;;
+      *)
+        if [ -z "$befehl" ]; then befehl="$a"
+        elif [ "$befehl" = "api" ] && [ -z "$ziel" ]; then ziel="${a%%\?*}"
+        elif [ "$befehl" != "api" ] && [ -z "$unter" ]; then unter="$a"
+        fi ;;
+    esac
+    vorher="$a"
+  done
+  printf '%s\t%s\t%s' "${befehl} ${unter}" "$ziel" "$repo"
+}
+
+{
+  mkdir -p "$(dirname "$LOG")" && umask 077
+  aufrufer="$(tr '\0' ' ' < "/proc/$PPID/cmdline" 2>/dev/null | cut -c1-120 | tr '\t\n' '  ')"
+  printf '%s\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$aufrufer" "$PWD" \
+    "$(zusammenfassung "$@")" >> "$LOG"
+} 2>/dev/null
+
+exec "$GH_ECHT" "$@"
