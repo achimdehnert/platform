@@ -18,7 +18,7 @@ scores:
   prozess_effizienz: 3
   entscheidungsqualitaet: 4
 gate_candidates: [deploy-input-format-undokumentiert]
-recurring_findings: [parallel-session-pr-collision, claim-before-cheapest-check, test-asserts-the-case-in-mind-not-the-harmful-one, scope-checkpoint-not-durably-recorded]
+recurring_findings: [parallel-session-pr-collision, claim-before-cheapest-check, test-asserts-the-case-in-mind-not-the-harmful-one, gate-scope-checkpoint-not-durably-recorded-wirkungslos]
 gates_caught: []
 over_ask_klassen: []
 over_act_klassen: []
@@ -72,7 +72,7 @@ kommandobelegten Befunde (F3, F9 hätten keinen gebraucht). Beim nächsten `full
 | F8 | Self-Approval-Ablehnung betraf einen direkten PR-Merge-Versuch | Prozesslücke | niedrig | REFUTED | abgelehnter Aufruf 13:51:07Z war `tools/pr_merge_sa.py 3595`, kein `gh pr merge` | — |
 | F9 | Erster Deploy mit vollem SHA als `image_tag`; Build pusht nur Kurz-SHA, `deploy.yml` nennt das Format nicht | Wissenslücke | niedrig | SURVIVES | Run 36437298152 `image_tag` 40 Zeichen, Folge-Run 36437515448 7 Zeichen; shared-ci `_build-docker.yml` `type=sha,prefix=`; `deploy.yml`-Input „Image-Tag aus GHCR (leer = Commit-SHA dieses Laufs)" | — |
 | F10 | Zwei Probe-Ausgaben auf Prod (Lauf 38: 0 Themen + Alarm, Lauf 39: 1 Thema) verbrauchen den Deckel 2/Tag; Report und Board nannten das nicht, M2 ist heute nicht ausführbar | Kommunikation | niedrig | SURVIVES (3b NEU) | dev-hub#403 Kommentar 14:11:50Z („Zusatzausgabe 1/2"), dev-hub#404 Checkpoint 14:40:01Z („2/2 läuft"), news-hub#83 Deckel | — |
-| F11 | Zielerreichung überzeichnet: #87 nur per Einzelaufruf geprüft, Kontrollergebnis nicht in #86; D2-Deploy nach Checkpoint „keine weiteren Prod-Schritte" ohne neuen Checkpoint | fehlende Validierung | mittel | SURVIVES (3b NEU) | news-hub#86 ohne Kommentar nach 15:34:48Z; dev-hub#404 Checkpoint 2 14:40:01Z; Deploy-Run 36444702762 | scope-checkpoint-not-durably-recorded |
+| F11 | Zielerreichung überzeichnet: #87 nur per Einzelaufruf geprüft, Kontrollergebnis nicht in #86; D2-Deploy nach Checkpoint „keine weiteren Prod-Schritte" ohne neuen Checkpoint | fehlende Validierung | mittel | SURVIVES (3b NEU) | news-hub#86 ohne Kommentar nach 15:34:48Z; dev-hub#404 Checkpoint 2 14:40:01Z; Deploy-Run 36444702762 | gate-scope-checkpoint-not-durably-recorded-wirkungslos |
 
 F9 ist die in Phase 2.5 aus dem Finder-Konflikt (P2) verifizierte Fassung; F6 bleibt als widerlegte Ursprungsbehauptung stehen.
 
@@ -114,6 +114,14 @@ Umsetzung auf dem bestehenden Issue platform#2666, kein zweites Gate; Edit am Re
 (`revised` + `revision_note` + neue `positivkontrolle`) ist Kandidat, bis er durch
 `gate_verankerung_check.py --neu` läuft.
 
+`scope-checkpoint-not-durably-recorded` ist **Gate rückfällig** (F11, erst durch 3b sichtbar,
+deshalb nicht in 0.0). Das Gate ist advisory, Rev 9 vom 2026-09-25. Hier lag das Owner-Wort
+„D2 go" vor dem Deploy, nur der Checkpoint-Nachtrag fehlte.
+Ursache **am Ausgang**: Der Melder löst nichts aus, wenn die Freigabe schon vorliegt.
+Vorgeschlagene Antwort: **herabstufen**. Der Fall „Freigabe vorhanden, Spiegel fehlt" kommt als
+begründete Ausnahme nach `declined`, der Kern (Prod ohne Freigabe) bleibt.
+Über Herabstufen entscheidet der Owner, bis dahin bleibt es ein Kandidat (M8).
+
 ### 5b. Autonomie-Kalibrierung
 
 over_ask 0, over_act 0. Alle Prod-Schritte mit Owner-Wort vorab (news-hub#84 „R1 Groq + Prod ok",
@@ -146,6 +154,7 @@ adr_candidates: keine (reine Fixes nach bestehendem Muster).
 | M4 | Mitschreiber: Eltern-Cmdline kürzen + Test | platform | platform#3595 | 🔵 | Folge-Issue, Fix nach Owner-Wort |
 | M5 | `deploy.yml`-Input dokumentieren | news-hub | news-hub#87 | 🔵 | Beschreibung „Kurz-SHA" ergänzen |
 | M7 | Deploy-Kontrolle in #86 nachtragen | news-hub | news-hub#86 | ✅ | [Kommentar](https://github.com/achimdehnert/news-hub/issues/86#issuecomment-5873744745) |
+| M8 | Checkpoint-Gate herabstufen? | platform | platform#3598 | 🟢 | Owner-Entscheid zu §5a |
 | M6 | Streichbahn | platform | — | ✅ | siehe `## Streichbahn` |
 
 ## 8. Nicht verifiziert (Restlücken)
@@ -153,7 +162,7 @@ adr_candidates: keine (reine Fixes nach bestehendem Muster).
 - **getan:** R1 (news-hub#85) und R2 (news-hub#87) gemergt und ausgerollt, Prod-Kontrollen grün (Schlüsselprüfung, Hetzner auf Stufe 0); platform#3595 und dev-hub#407 gemergt; alle Prod-Schritte mit Owner-Freigabe vermerkt.
 - **angenommen:** Dass der Morgenlauf 2026-09-29 mit ≥3 Themen läuft; Qwen ohne Denken verdrehte im Testsatz den Sinn („einstellen" → „vorgestellt") — Qualitätsfolge für Überschriften offen.
 - **nicht verifizierbar:** ob Lauf 38/39 an Leser zugestellt wurden (billigster Check: Zustellstatus in der Prod-DB); wann der Freigabe-Vermerk im Body von news-hub#84 entstand (GraphQL `userContentEdits`); Host-seitiges `DefaultTimeoutStartSec` für den Tageslauf (nicht im Repo); ob #406 aus dieser oder einer parallelen Sitzung stammt (Autor identisch). Billigster Check: Transkripte des Tages nach „issue create" + „venv" greppen.
-- **offen geblieben:** M1–M5 (M7 im Retro-Lauf erledigt); #404 Bausteine A, C2, D (D bis 2026-10-05); die sechs rückfälligen Gates ohne Vorkommen hier wurden nicht entschieden.
+- **offen geblieben:** M1–M5, M8 (M7 im Retro-Lauf erledigt); #404 Bausteine A, C2, D (D bis 2026-10-05); die sechs rückfälligen Gates ohne Vorkommen hier wurden nicht entschieden.
 
 ## Widerlegung
 
