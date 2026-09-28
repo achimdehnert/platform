@@ -55,6 +55,22 @@ def test_should_never_log_free_text_arguments(tmp_path):
     assert geheim not in "\n".join(zeilen)
 
 
+def test_should_not_log_parent_arguments(tmp_path):
+    # platform#3599: vom Aufrufer nur Programm und Skriptpfad, nie seine Argumente
+    geheim = "tok-das-nie-ins-Log-darf"
+    echt = tmp_path / "echt-gh"
+    echt.write_text("#!/usr/bin/env bash\nexit 0\n")
+    echt.chmod(0o755)
+    aufrufer = tmp_path / "aufrufer.sh"
+    aufrufer.write_text(f'bash "{MITSCHREIBER}" pr list\ntrue\n')
+    log = tmp_path / "abrufe.tsv"
+    env = {**os.environ, "GH_ABRUF_ECHT": str(echt), "GH_ABRUF_LOG": str(log)}
+    subprocess.run(["bash", str(aufrufer), "--token", geheim], env=env, check=True)
+    spalten = log.read_text().splitlines()[0].split("\t")
+    assert geheim not in spalten[1]
+    assert spalten[1] == f"bash {aufrufer}"
+
+
 def test_should_still_run_gh_when_log_is_unwritable(tmp_path):
     echt = tmp_path / "echt-gh"
     echt.write_text('#!/usr/bin/env bash\necho ok\n')
