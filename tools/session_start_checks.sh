@@ -557,12 +557,19 @@ print(' '.join(sorted(r for r, s in erklaert.items() if s in erlaubt)))
 # lautlos aus der Abdeckung) — deshalb das eigene Wort UNABFRAGBAR.
 _deploy_probe() { # _deploy_probe <owner> <repo> → "<conclusion> <id> <waiting-min> <rejected>"
   local owner="$1" r="$2" out c id w rej=0
+  # Trenner `|` statt Leerzeichen: ein Run am Environment-Gate (`waiting`) hat
+  # `conclusion: ""`, nicht null — `// "none"` greift dann nicht, und `read`
+  # mit Leerzeichen-IFS verschluckte das leere Feld. Alle Felder rutschten eins
+  # nach links, der Rejected-Zaehler "0" landete als Zeitstempel in W und
+  # unterbot jeden Cutoff: Fehlalarm "waiting>24h" auf einem 12 min alten Gate
+  # (risk-hub, 2026-09-29).
   out=$(gh run list -R "$owner/$r" --workflow Deploy --limit 1 --json databaseId,conclusion \
-        --jq '"\(.[0].conclusion // "none") \(.[0].databaseId // "none")"' 2>/dev/null)
+        --jq '"\(.[0].conclusion // "")|\(.[0].databaseId // "")"' 2>/dev/null)
   if [ -z "$out" ]; then echo "UNABFRAGBAR"; return; fi
-  read -r c id <<EOF
+  IFS='|' read -r c id <<EOF
 $out
 EOF
+  c=${c:-none}; id=${id:-none}
   # `waiting` server-seitig, fenster- und frequenzunabhaengig (Begruendung 0.7).
   w=$(gh run list -R "$owner/$r" --workflow Deploy --status waiting --limit 100 \
       --json createdAt --jq '[.[].createdAt]|min // "none"' 2>/dev/null)
