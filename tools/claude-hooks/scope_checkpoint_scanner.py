@@ -360,6 +360,11 @@ def sammle_evidenz(transcript_path: Path) -> dict:
         # Rev 8: eine MENGE statt einer Zahl (s. Modulkopf „WARUM REV 8").
         "repos_bei_checkpoint": None,
         "prod_bei_checkpoint": False,
+        # Rev 10: ZAHL der Prod-Schritte statt nur „Prod beruehrt" — ein zweiter
+        # Deploy nach dem Checkpoint ist Wachstum, auch wenn Prod vorher schon
+        # lief (Retro 7152dd F11: Deploy 1b8f53b nach Checkpoint blieb stumm).
+        "prod_schritte": 0,
+        "prod_schritte_bei_checkpoint": 0,
         # Rev 8: voller Text jedes Checkpoint-Blocks — die darin genannten Repos
         # gelten als gedeckt, auch wenn die Sitzung sie selbst nie beschrieb.
         "checkpoint_texte": [],
@@ -410,6 +415,9 @@ def sammle_evidenz(transcript_path: Path) -> dict:
                             ergebnis["repos_beschrieben"]
                         )
                         ergebnis["prod_bei_checkpoint"] = bool(ergebnis["prod"])
+                        ergebnis["prod_schritte_bei_checkpoint"] = ergebnis[
+                            "prod_schritte"
+                        ]
                         ergebnis["checkpoint_texte"].append(text)
                     continue
 
@@ -444,6 +452,7 @@ def sammle_evidenz(transcript_path: Path) -> dict:
                     continue
                 if _PROD.search(cmd):
                     ergebnis["prod"] = True
+                    ergebnis["prod_schritte"] += 1
                 # Rev 4: fremde laufende Ressource beendet — eigener Ausloeser,
                 # unabhaengig von Repo-Zahl und Prod. Der erste Treffer traegt
                 # den Beleg; spaetere ueberschreiben ihn nicht.
@@ -579,7 +588,7 @@ def main() -> int:
             for r in repos
             if r not in gedeckt and not im_checkpoint_genannt(r, ev["checkpoint_texte"])
         ]
-        prod_neu = ev["prod"] and not ev["prod_bei_checkpoint"]
+        prod_neu = ev["prod_schritte"] > ev["prod_schritte_bei_checkpoint"]
         if neu or prod_neu:
             gruende = []
             if neu:
@@ -588,12 +597,16 @@ def main() -> int:
                     f"nennt ({', '.join(neu)}; jetzt {len(repos)}: {', '.join(repos)})"
                 )
             if prod_neu:
-                gruende.append("erster Prod-/Publish-Schritt NACH dem Checkpoint")
+                gruende.append(
+                    "weiterer Prod-/Publish-Schritt NACH dem Checkpoint"
+                    if ev["prod_bei_checkpoint"]
+                    else "erster Prod-/Publish-Schritt NACH dem Checkpoint"
+                )
             # Entprellung an der Reichweite, nicht an der Sitzung: jeder neue
             # Wachstumsstand meldet einmal. Sonst waere Fehlerform C selbst
             # wieder ein Melder, der nach dem ersten Mal verstummt — genau der
             # Fehler, gegen den sie gebaut ist.
-            form = f"reichweite-gewachsen:{','.join(neu)}:{int(ev['prod'])}"
+            form = f"reichweite-gewachsen:{','.join(neu)}:{ev['prod_schritte']}"
             if _schon_gemeldet(session, form):
                 return 0
             _merken(session, form)
@@ -610,7 +623,7 @@ def main() -> int:
                 + ". Ein Checkpoint gilt fuer die Reichweite, die er beschreibt; "
                 "waechst sie weiter, gehoert der gewachsene Stand erneut gespiegelt "
                 "und durabel festgehalten. (Gate "
-                "scope-checkpoint-not-durably-recorded Rev 8, Fehlerform C, advisory.)"
+                "scope-checkpoint-not-durably-recorded Rev 10, Fehlerform C, advisory.)"
             )
             return 0
         return 0

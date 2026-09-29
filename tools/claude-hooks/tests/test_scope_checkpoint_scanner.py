@@ -581,6 +581,28 @@ def test_should_not_flag_prod_that_already_ran_before_the_checkpoint(
     assert _kontext(antwort) == ""
 
 
+def test_should_warn_on_a_second_prod_step_after_a_checkpoint(
+    tmp_path, monkeypatch, capsys
+):
+    # Rev 10 (Retro 7152dd F11): Prod lief vor dem Checkpoint, danach ein ZWEITER
+    # Prod-Schritt (Realfall: Deploy 1b8f53b nach Checkpoint 14:40). Der Checkpoint
+    # deckt nur die Prod-Schritte, die es bei ihm schon gab.
+    p = _transcript(
+        tmp_path,
+        [
+            *DREI_REPOS,
+            _zeile_bash("gh workflow run deploy.yml -f image_tag=895d5ce"),
+            _CHECKPOINT,
+            _ARTEFAKT,
+            _zeile_bash("gh workflow run deploy.yml -f image_tag=1b8f53b"),
+        ],
+    )
+    _, antwort = _run(monkeypatch, capsys, p)
+    kontext = _kontext(antwort)
+    assert "Fehlerform C" in kontext
+    assert "weiterer Prod-/Publish-Schritt NACH dem Checkpoint" in kontext
+
+
 def test_should_reset_the_duty_when_a_second_checkpoint_is_spoken(
     tmp_path, monkeypatch, capsys
 ):
