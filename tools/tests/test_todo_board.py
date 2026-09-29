@@ -211,6 +211,21 @@ class TestFrische:
     def test_should_warn_when_date_is_missing(self):
         assert "Stand unbekannt" in tb.frische_banner({"vorgaenge": []}, STICHTAG)
 
+    def test_should_accept_survey_date_with_time(self):
+        # So schreibt /mailcheck den Stand heute — frueher meldete die Seite "unlesbar" (#3608).
+        daten = {"letzte_pruefung": "2026-08-07 06:45", "vorgaenge": []}
+        assert tb.frische_banner(daten, STICHTAG) == ""
+
+    def test_should_count_age_by_day_when_date_has_time(self):
+        banner = tb.frische_banner({"letzte_pruefung": "2026-08-04 23:59"}, STICHTAG)
+        assert "3 Tage alt" in banner
+        assert "unlesbar" not in banner
+
+    def test_should_show_survey_date_with_time_on_the_page(self):
+        seite = tb.baue({"letzte_pruefung": "2026-08-07 06:45", "vorgaenge": []}, STICHTAG)
+        assert "Erhebung vom 2026-08-07 06:45" in seite
+        assert "unlesbar" not in seite
+
     def test_should_warn_when_date_is_unparsable(self):
         banner = tb.frische_banner({"letzte_pruefung": "07.08.2026"}, STICHTAG)
         assert "unlesbar" in banner
