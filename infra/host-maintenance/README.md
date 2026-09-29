@@ -158,6 +158,25 @@ systemctl --user enable --now container-speicher.timer
 systemctl --user list-timers container-speicher.timer
 ```
 
+## Speicherdruck-Melder (platform#3607 — dev/session host, `--user`)
+
+`tools/speicher_druck_melder.py` misst jede Minute den Speicherdruck des Hosts, auf dem die
+Sitzungen laufen: PSI `some avg60`, `MemAvailable` und den Zähler `oom_kill`. Er liest
+dafür nur `/proc`. Bei einem Befund hält er die größten cgroups fest (anon + swap,
+Prozesszahl, Name, keine Kommandozeilen). Das Journal liegt unter
+`~/.claude/speicher-druck-journal.jsonl`, das Ergebnis unter
+`~/.repo-session/melder/speicher-druck.json` (Sitzungsstart 0.7.30 liest es). Anlass ist
+der OOM vom 2026-09-26 mit 35 Kills, darunter der CI-Runner. Den Speicher hielten 16
+Optimierer-Worker mit zusammen 22,4 GB.
+
+Install:
+```bash
+cp infra/host-maintenance/speicher-druck.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now speicher-druck.timer
+python3 tools/speicher_druck_melder.py --lesen   # Beleg: Exit 0 und eine Zeile
+```
+
 ## Befund-Journal-Sicherung (KONZ-platform-054 §12.7 — dev/session host, `--user`)
 
 `befund-journal-sicherung.sh` legt `~/.claude/befund-journal.json` (offene Befunde,

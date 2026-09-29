@@ -1,0 +1,16 @@
+[Unit]
+Description=Speicherdruck auf dem Sitzungs-Host messen (platform#3607) — PSI, MemAvailable, oom_kill
+Documentation=https://github.com/achimdehnert/platform/issues/3607
+
+[Service]
+Type=oneshot
+# Liest nur /proc (kein ssh, keine Kommandozeilen). Journal nur bei Befund:
+# ~/.claude/speicher-druck-journal.jsonl, Ergebnis jeder Lauf:
+# ~/.repo-session/melder/speicher-druck.json (liest Sitzungsstart 0.7.30).
+ExecStart=/usr/bin/python3 %h/github/platform/tools/speicher_druck_melder.py
+# Endet immer mit 0: ein minuetlich 'failed' werdender Dienst waere Rauschen
+# (wie registry-probe). Gelesen wird das Ergebnis, nicht der Dienststatus.
+Nice=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=speicher-druck

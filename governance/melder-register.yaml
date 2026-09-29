@@ -389,6 +389,12 @@ melder:
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.7.29"
+  - phase: "0.7.30 speicher-druck"
+    leser: "Session-Start-Board → Agent (groesste cgroup aus dem Befund benennen und den Verursacher-Lauf drosseln oder beenden; Host-Eingriffe wie systemd-oomd nur mit Owner-Go) (platform#3607)"
+    wiedervorlage_tage: 7
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.30"
   - phase: "0.7.26 ci-deckung"
     leser: "Session-Start-Board → Agent (Ziel gedeckt/verzichtet nachziehen, dann `make <ziel>` in den Workflow oder Grund in governance/ci-deckung-verzicht.yaml); Owner bei Scope-Fragen ueber Repo-Grenzen"
     wiedervorlage_tage: 14

@@ -1470,6 +1470,24 @@ else
   record "0.7.29 container-speicher" "SKIP" "tools/container_speicher_melder.py fehlt"
 fi
 
+# ── 0.7.30 Speicherdruck auf dem Sitzungs-Host: wer haelt den Speicher ─────────
+# platform#3607: am 2026-09-26 fuellten 16 Optimierer-Worker (22,4 GB) den Host binnen
+# Minuten, der Kernel toetete 35 kleine Prozesse, darunter den CI-Runner (#3606). Der
+# Timer speicher-druck.timer misst jede Minute; hier wird NUR das Ergebnis gelesen.
+# Exit 1 = Befund in den letzten 24 h, Exit 2 = kein frisches Ergebnis (Timer steht).
+if [ -f "$PLATFORM_DIR/tools/speicher_druck_melder.py" ]; then
+  # Ohne Pipe: `--lesen` gibt genau eine Zeile aus (Lehre platform#3373).
+  SD_OUT=$(python3 "$PLATFORM_DIR/tools/speicher_druck_melder.py" --lesen \
+             --ergebnis-datei "$MELDER_DIR/speicher-druck.json" 2>&1)
+  SD_RC=$?
+  case "$SD_RC" in
+    0) record "0.7.30 speicher-druck" "PASS" "$SD_OUT" ;;
+    *) record "0.7.30 speicher-druck" "WARN" "$SD_OUT" ;;
+  esac
+else
+  record "0.7.30 speicher-druck" "SKIP" "tools/speicher_druck_melder.py fehlt"
+fi
+
 # ── 0.7.24 Registry-Erreichbarkeit: die Strecke, an der vier Deploys starben ──
 # Am 2026-09-02 erreichte prod ghcr.io nur in 4 von 10 Versuchen, bei 10 von 10
 # gegen github.com. Vier Deploys scheiterten; zwei Stunden spaeter war der Zustand
