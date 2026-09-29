@@ -12,6 +12,7 @@ import datetime as dt
 import importlib.util
 import io
 import json
+import os
 import pathlib
 import sys
 
@@ -24,6 +25,18 @@ sys.modules[_spec.name] = hm
 _spec.loader.exec_module(hm)
 
 JETZT = dt.datetime(2026, 8, 2, 12, 0, tzinfo=dt.timezone.utc)
+
+# Die echten Funktionen, bevor die autouse-Fixture sie fuer main() abklemmt.
+KONTINGENT = hm.kontingent_befund
+LANGLAEUFER = hm.langlaeufer
+
+
+@pytest.fixture(autouse=True)
+def ohne_host(monkeypatch, tmp_path):
+    """main() darf in Tests weder gh rufen noch den echten Host lesen."""
+    monkeypatch.setattr(hm, "SETTINGS", tmp_path / "keine-settings.json")
+    monkeypatch.setattr(hm, "kontingent_befund", lambda: None)
+    monkeypatch.setattr(hm, "langlaeufer", lambda: [])
 
 
 def lease(d: pathlib.Path, name: str, expires: str | None) -> pathlib.Path:
@@ -474,3 +487,153 @@ def test_should_skip_leases_older_than_the_freshness_window(tmp_path):
     # Ohne lesbaren Zeitstempel wird geprueft, nicht uebersprungen.
     assert hm.ist_frisch({}, jetzt, 3) is True
     assert hm.ist_frisch({"last_touch": "kaputt"}, jetzt, 3) is True
+
+
+# --- Verschleiss ohne Zeugen (dev-hub#404 Baustein A) -------------------------
+
+
+def _settings(d: pathlib.Path, *befehle: str) -> pathlib.Path:
+    p = d / "settings.json"
+    p.write_text(
+        json.dumps(
+            {"hooks": {"Stop": [{"hooks": [{"type": "command", "command": b} for b in befehle]}]}}
+        ),
+        encoding="utf-8",
+    )
+    return p
+
+
+def _skript(d: pathlib.Path, name: str, shebang: str, ausfuehrbar=True) -> pathlib.Path:
+    p = d / name
+    p.write_text(f"#!{shebang}\n", encoding="utf-8")
+    p.chmod(0o755 if ausfuehrbar else 0o644)
+    return p
+
+
+def test_should_report_hook_whose_interpreter_is_a_self_link(tmp_path):
+    # Realfall 2026-09-28: `.venv -> <selber Pfad>`, rc 126 ab 03:17.
+    venv = tmp_path / ".venv"
+    venv.symlink_to(venv)
+    hook = _skript(tmp_path, "log_llm_call.py", f"{venv}/bin/python")
+
+    befunde = hm.kaputte_hooks(_settings(tmp_path, str(hook)))
+
+    assert len(befunde) == 1
+    assert befunde[0].startswith("log_llm_call.py: Interpreter")
+
+
+def test_should_accept_healthy_hooks(tmp_path):
+    ok = _skript(tmp_path, "ok.py", "/usr/bin/env python3")
+    direkt = _skript(tmp_path, "direkt.sh", "/bin/sh")
+
+    befehle = (str(ok), str(direkt), f"python3 {ok} --hook")
+    assert hm.kaputte_hooks(_settings(tmp_path, *befehle)) == []
+
+
+def test_should_report_missing_and_non_executable_hooks(tmp_path):
+    lahm = _skript(tmp_path, "lahm.py", "/usr/bin/env python3", ausfuehrbar=False)
+
+    befunde = hm.kaputte_hooks(
+        _settings(tmp_path, str(tmp_path / "weg.sh"), str(lahm), f"python3 {tmp_path}/fehlt.py")
+    )
+
+    assert befunde == ["weg.sh: Datei fehlt", "lahm.py: nicht ausfuehrbar", "fehlt.py: Datei fehlt"]
+
+
+def test_should_return_no_hooks_for_missing_or_broken_settings(tmp_path):
+    kaputt = tmp_path / "kaputt.json"
+    kaputt.write_text("{{{", encoding="utf-8")
+
+    assert hm.kaputte_hooks(tmp_path / "weg.json") == []
+    assert hm.kaputte_hooks(kaputt) == []
+
+
+def test_should_report_broken_hook_via_main(tmp_path, capsys, stdin_leer):
+    (tmp_path / "leases").mkdir()
+    settings = _settings(tmp_path, str(tmp_path / "weg.sh"))
+
+    hm.main(
+        ["--platform", str(tmp_path), "--leases", str(tmp_path / "leases"),
+         "--settings", str(settings), "--ohne-merge-pruefung"]
+    )
+
+    text = json.loads(capsys.readouterr().out)["hookSpecificOutput"]["additionalContext"]
+    assert "koennen nicht starten: weg.sh: Datei fehlt" in text
+
+
+def _rate(core: int, graphql: int = 5000) -> str:
+    return json.dumps(
+        {"resources": {"core": {"limit": 5000, "remaining": core},
+                       "graphql": {"limit": 5000, "remaining": graphql}}}
+    )
+
+
+def _laeufer(probe_ok: bool, rate: str):
+    def lauf(pfad: str):
+        if pfad.startswith("repos/"):
+            return (0, "achimdehnert/platform") if probe_ok else (1, "API rate limit exceeded")
+        return 0, rate
+    return lauf
+
+
+def test_should_report_secondary_throttling_although_rate_limit_is_full():
+    # platform#2735: rate_limit meldet 5000 frei, echte Abrufe scheitern.
+    drossel = hm._drossel_modul()
+    assert drossel is not None
+
+    befund = KONTINGENT(laeufer=_laeufer(False, _rate(5000)), drossel=drossel)
+
+    assert befund and "weist echte Abrufe ab" in befund
+
+
+def test_should_report_primary_quota_below_threshold():
+    befund = KONTINGENT(laeufer=_laeufer(True, _rate(5000, 900)), drossel=hm._drossel_modul())
+
+    assert befund == "GitHub-Kontingent knapp: graphql 900/5000."
+
+
+def test_should_stay_silent_on_healthy_quota_or_missing_gh():
+    drossel = hm._drossel_modul()
+
+    assert KONTINGENT(laeufer=_laeufer(True, _rate(4000)), drossel=drossel) is None
+    assert KONTINGENT(laeufer=lambda p: (127, "gh: command not found"), drossel=drossel) is None
+    assert KONTINGENT(laeufer=lambda p: (1, "HTTP 401: Bad credentials"), drossel=drossel) is None
+
+
+def _proc(d: pathlib.Path, btime: int) -> pathlib.Path:
+    d.mkdir()
+    (d / "stat").write_text(f"cpu  1 2 3\nbtime {btime}\n", encoding="utf-8")
+    return d
+
+
+def _prozess(proc: pathlib.Path, pid: int, argv: list[str], start_ticks: int) -> None:
+    p = proc / str(pid)
+    p.mkdir()
+    (p / "cmdline").write_bytes("\0".join(argv).encode() + b"\0")
+    # Feld 22 = starttime; nach `)` ist es der 20. Eintrag (Index 19).
+    (p / "stat").write_text(f"{pid} (x y) S" + " 0" * 18 + f" {start_ticks} 0 0\n")
+
+
+def test_should_find_old_gh_loop_and_mcp_but_not_old_dev_server(tmp_path):
+    takt = os.sysconf("SC_CLK_TCK")
+    proc = _proc(tmp_path / "proc", btime=1_000_000)
+    jetzt = 1_000_000 + 20 * 86400
+    alt, frisch = 0, (19 * 86400) * takt  # Start bei Boot bzw. vor einem Tag
+    geheim = "tok-nie-ins-log"
+    _prozess(proc, 11, ["bash", "-c", f"until false; do gh pr view 1 --token {geheim}; sleep 60; done"], alt)
+    _prozess(proc, 12, ["npm", "exec", "@modelcontextprotocol/server-github"], alt)
+    _prozess(proc, 13, ["python3", "-m", "http.server", "--directory", "/home/x/github/repo"], alt)
+    _prozess(proc, 14, ["gh", "run", "watch"], frisch)
+
+    funde = LANGLAEUFER(tage=7, proc=proc, jetzt=jetzt, uid=os.getuid())
+
+    assert [(pid, tage) for pid, tage, _ in funde] == [(11, 20), (12, 20)]
+    assert funde[0][2] == "bash"
+    assert all(geheim not in label for _, _, label in funde)
+
+
+def test_should_skip_processes_of_other_users(tmp_path):
+    proc = _proc(tmp_path / "proc", btime=1_000_000)
+    _prozess(proc, 11, ["gh", "run", "watch"], 0)
+
+    assert LANGLAEUFER(tage=7, proc=proc, jetzt=1_000_000 + 30 * 86400, uid=os.getuid() + 1) == []

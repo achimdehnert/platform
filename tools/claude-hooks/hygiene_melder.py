@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SessionStart-Melder fuer drei stille Ansammlungen.
+"""SessionStart-Melder fuer stille Ansammlungen und stillen Verschleiss.
 
 Beide Klassen wachsen, ohne dass jemand es merkt — weil das Werkzeug, das sie
 aufraeumt, aus gutem Grund schweigt, wenn es nichts tun darf.
@@ -55,6 +55,24 @@ ein Fix in platform nicht — und der laufende Hook ist die Kopie. Der
 cc-skill-dist-Generator bleibt hier ungenutzt: sein `--target` tauscht ein
 ganzes Verzeichnis aus und hat `~/.claude` schon einmal ersetzt.
 
+**Verschleiss ohne Zeugen** (2026-09-29, dev-hub#404 Baustein A). Drei Fehler vom
+2026-09-28 sah kein Agent, weil nicht-blockierende Hook-Fehler nur im Terminal
+des Owners erscheinen:
+
+    Hook-Gesundheit  ein eingecheckter `.venv`-Link zeigte auf sich selbst, der
+                     Stop-Hook `log_llm_call.py` scheiterte ab 03:17 mit rc 126,
+                     bemerkt um 13:30. Geprueft wird je registriertem Hook:
+                     Datei da, ausfuehrbar, Interpreter der Shebang aufloesbar.
+                     Kostet 0 Abrufe.
+    Kontingent       um 13:06 wurde jeder Abruf abgewiesen. `gh api rate_limit`
+                     allein hilft nicht, es misst nur das Primaerlimit
+                     (platform#2735). Deshalb zuerst die echte Probe aus
+                     `gh_drossel.py`, dazu das Primaerlimit unter 30 % Rest.
+    Langlaeufer      eine `until … gh …`-Schleife lief 11 Tage, dazu Sitzungen
+                     von 118 und 124 Tagen. Gemeldet werden nur eigene Prozesse
+                     ueber 7 Tage, die `gh` aufrufen oder einen GitHub-MCP-
+                     Anschluss halten, mit Programm und Skript, ohne Argumente.
+
 Vertrag: **immer Exit 0**, Ausgabe nur bei Befund. Ein Melder darf nie blockieren.
 """
 
@@ -65,6 +83,9 @@ import datetime as dt
 import hashlib
 import json
 import os
+import re
+import shlex
+import shutil
 import subprocess
 import sys
 import time
@@ -341,6 +362,233 @@ def driftende_kopien(platform: Path, kopien: Path = KOPIEN) -> list[str]:
     return drift
 
 
+SETTINGS = Path.home() / ".claude" / "settings.json"
+LANGLAEUFER_TAGE = int(os.environ.get("HYGIENE_LANGLAEUFER_TAGE", "7"))
+KONTINGENT_MIN = float(os.environ.get("HYGIENE_KONTINGENT_MIN", "0.30"))
+KONTINGENT_TIMEOUT_S = 5
+
+#: `gh` als Befehl in einem Shell-Skript — nicht `github` in einem Pfad.
+_GH_IM_SKRIPT = re.compile(r"(?<![\w/.-])gh\s+(?:pr|api|run|issue|repo|release|workflow)\b")
+_GITHUB_MCP = ("server-github", "github-mcp-server")
+
+
+def hook_befehle(settings: Path = SETTINGS) -> list[str]:
+    """Alle registrierten Hook-Kommandos aus settings.json, in Dateireihenfolge."""
+    try:
+        daten = json.loads(settings.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    befehle: list[str] = []
+    for gruppen in (daten.get("hooks") or {}).values():
+        for gruppe in gruppen or []:
+            for hook in gruppe.get("hooks") or []:
+                befehl = hook.get("command")
+                if isinstance(befehl, str) and befehl.strip():
+                    befehle.append(befehl)
+    return befehle
+
+
+def _interpreter_fehlt(skript: Path) -> str | None:
+    """Grund, falls die Shebang-Zeile auf nichts Ausfuehrbares zeigt."""
+    try:
+        with skript.open("rb") as f:
+            kopf = f.readline(200).decode("utf-8", "replace").strip()
+    except OSError:
+        return "nicht lesbar"
+    if not kopf.startswith("#!"):
+        return None
+    teile = kopf[2:].split()
+    if not teile:
+        return "leere Shebang"
+    interp = teile[0]
+    if Path(interp).name == "env" and len(teile) > 1:
+        return None if shutil.which(teile[1]) else f"Interpreter {teile[1]} fehlt"
+    # os.access folgt Links; ein Link auf sich selbst (der venv-Fall) ist False.
+    return None if os.access(interp, os.X_OK) else f"Interpreter {interp} fehlt"
+
+
+def kaputte_hooks(settings: Path = SETTINGS) -> list[str]:
+    """`<name>: <grund>` je Hook, der so, wie registriert, nicht starten kann."""
+    befunde: list[str] = []
+    for befehl in hook_befehle(settings):
+        try:
+            teile = shlex.split(befehl)
+        except ValueError:
+            continue
+        if not teile:
+            continue
+        erstes = os.path.expanduser(os.path.expandvars(teile[0]))
+        if "/" not in erstes:
+            # `python3 <skript>`: Interpreter per PATH, Skript als erster Pfad danach.
+            if not shutil.which(erstes):
+                befunde.append(f"{erstes}: nicht im PATH")
+                continue
+            pfade = [
+                os.path.expanduser(os.path.expandvars(t)) for t in teile[1:] if "/" in t
+            ]
+            if pfade and not Path(pfade[0]).exists():
+                befunde.append(f"{Path(pfade[0]).name}: Datei fehlt")
+            continue
+        skript = Path(erstes)
+        if not skript.exists():
+            befunde.append(f"{skript.name}: Datei fehlt")
+        elif not os.access(skript, os.X_OK):
+            befunde.append(f"{skript.name}: nicht ausfuehrbar")
+        else:
+            grund = _interpreter_fehlt(skript)
+            if grund:
+                befunde.append(f"{skript.name}: {grund}")
+    return befunde
+
+
+def _drossel_modul():
+    """`tools/gh_drossel.py` — importiert, nicht nachgebaut.
+
+    Gesucht neben diesem Skript (Checkout) und im Haupt-Klon, weil der laufende
+    Hook eine Kopie unter ~/.claude/hooks ist, von der aus `_platform_wurzel()`
+    nicht auf platform zeigt.
+    """
+    import importlib.util
+
+    kandidaten = [
+        _platform_wurzel(),
+        Path(os.environ.get("GITHUB_DIR", Path.home() / "github")) / "platform",
+    ]
+    for wurzel in kandidaten:
+        quelle = wurzel / "tools" / "gh_drossel.py"
+        if not quelle.is_file():
+            continue
+        try:
+            spec = importlib.util.spec_from_file_location("gh_drossel", quelle)
+            modul = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(modul)
+            return modul
+        except Exception:  # noqa: BLE001 — Melder wirft nie
+            return None
+    return None
+
+
+def _gh_kurz(pfad: str) -> tuple[int, str]:
+    try:
+        p = subprocess.run(
+            ["gh", "api", pfad],
+            capture_output=True,
+            text=True,
+            timeout=KONTINGENT_TIMEOUT_S,
+            check=False,
+        )
+        return p.returncode, p.stdout + p.stderr
+    except (subprocess.TimeoutExpired, OSError):
+        return 124, "timeout"
+
+
+def kontingent_befund(laeufer=None, drossel=None) -> str | None:
+    """Eine Zeile, falls GitHub gedrosselt ist oder das Primaerlimit knapp wird.
+
+    `laeufer(pfad) -> (rc, ausgabe)` ist fuer Tests austauschbar. Ist gh gar
+    nicht da oder nicht angemeldet, schweigt der Melder — das ist kein
+    Kontingent-Befund, und der Sitzungsstart meldet es anderswo.
+    """
+    laeufer = laeufer or _gh_kurz
+    drossel = drossel if drossel is not None else _drossel_modul()
+    if drossel:
+        gesehen: list[str] = []
+
+        def mitlesen(pfad: str):
+            rc, aus = laeufer(pfad)
+            gesehen.append(aus)
+            return rc, aus
+
+        try:
+            if not drossel.probe(werfen=False, laeufer=mitlesen):
+                # Nur eine Abweisung WEGEN Drosselung ist ein Befund. gh fehlt,
+                # nicht angemeldet, Netz weg: kein Kontingent-Thema.
+                text = " ".join(gesehen).lower()
+                if "rate limit" not in text and "abuse" not in text:
+                    return None
+                return (
+                    "GitHub weist echte Abrufe ab (Probe `repos/achimdehnert/platform`). "
+                    "`gh api rate_limit` kann dabei volles Kontingent zeigen — "
+                    "gedrosselt wird sekundaer."
+                )
+        except Exception:  # noqa: BLE001 — Melder wirft nie
+            return None
+    rc, aus = laeufer("rate_limit")
+    if rc != 0:
+        return None
+    try:
+        res = json.loads(aus).get("resources", {})
+    except ValueError:
+        return None
+    knapp = []
+    for name in ("core", "graphql"):
+        r = res.get(name) or {}
+        limit, rest = r.get("limit") or 0, r.get("remaining")
+        if limit and rest is not None and rest / limit < KONTINGENT_MIN:
+            knapp.append(f"{name} {rest}/{limit}")
+    if not knapp:
+        return None
+    return "GitHub-Kontingent knapp: " + ", ".join(knapp) + "."
+
+
+def _prozess_label(argv: list[str]) -> str:
+    """Programm und Skriptpfad, nie die uebrigen Argumente (platform#3599)."""
+    label = Path(argv[0]).name if argv else "?"
+    if len(argv) > 1 and "/" in argv[1] and Path(argv[1]).is_file():
+        label += " " + Path(argv[1]).name
+    return label
+
+
+def _haelt_github(argv: list[str]) -> bool:
+    if not argv:
+        return False
+    if Path(argv[0]).name == "gh":
+        return True
+    gesamt = " ".join(argv)
+    if any(m in gesamt for m in _GITHUB_MCP):
+        return True
+    return Path(argv[0]).name in ("bash", "sh", "zsh") and bool(_GH_IM_SKRIPT.search(gesamt))
+
+
+def langlaeufer(
+    tage: int = LANGLAEUFER_TAGE,
+    proc: Path = Path("/proc"),
+    jetzt: float | None = None,
+    uid: int | None = None,
+) -> list[tuple[int, int, str]]:
+    """`(pid, alter_tage, label)` eigener Prozesse ueber `tage`, die GitHub halten."""
+    jetzt = time.time() if jetzt is None else jetzt
+    uid = os.getuid() if uid is None else uid
+    try:
+        btime = next(
+            int(z.split()[1])
+            for z in (proc / "stat").read_text().splitlines()
+            if z.startswith("btime ")
+        )
+        takt = os.sysconf("SC_CLK_TCK")
+    except (OSError, StopIteration, ValueError):
+        return []
+    funde: list[tuple[int, int, str]] = []
+    for d in proc.iterdir():
+        if not d.name.isdigit():
+            continue
+        try:
+            if d.stat().st_uid != uid:
+                continue
+            argv = [a for a in (d / "cmdline").read_bytes().decode("utf-8", "replace").split("\0") if a]
+            if not _haelt_github(argv):
+                continue
+            # Feld 22 (starttime) — gezaehlt nach der letzten `)`, weil der
+            # Programmname Leerzeichen enthalten darf.
+            felder = (d / "stat").read_text().rsplit(")", 1)[1].split()
+            alter = jetzt - (btime + int(felder[19]) / takt)
+        except (OSError, IndexError, ValueError):
+            continue
+        if alter >= tage * 86400:
+            funde.append((int(d.name), int(alter // 86400), _prozess_label(argv)))
+    return sorted(funde, key=lambda f: -f[1])
+
+
 def _platform_wurzel() -> Path:
     """Der platform-Checkout — von hier aus zwei Ebenen hoch."""
     return Path(__file__).resolve().parent.parent.parent
@@ -354,6 +602,12 @@ def main(argv: list[str] | None = None) -> int:
         "--ohne-merge-pruefung",
         action="store_true",
         help="Die Klasse 'gemergt, aber offen' ueberspringen (sie braucht gh).",
+    )
+    ap.add_argument("--settings", default=str(SETTINGS))
+    ap.add_argument(
+        "--ohne-kontingent",
+        action="store_true",
+        help="Die Kontingent-Probe ueberspringen (sie braucht gh und Netz).",
     )
     args = ap.parse_args(argv)
 
@@ -434,6 +688,27 @@ def main(argv: list[str] | None = None) -> int:
             + ", ".join(drift)
             + ". Der LAUFENDE Hook ist die Kopie — ein Fix in platform wirkt erst nach "
             "dem Nachziehen."
+        )
+
+    # Verschleiss ohne Zeugen (dev-hub#404 Baustein A).
+    kaputt = kaputte_hooks(Path(args.settings))
+    if kaputt:
+        zeilen.append(
+            f"· {len(kaputt)} registrierte(r) Hook(s) koennen nicht starten: "
+            + "; ".join(kaputt[:5])
+            + (f" (+{len(kaputt) - 5} weitere)" if len(kaputt) > 5 else "")
+            + ". Ihr Fehler erscheint nur im Terminal des Owners, nie im Kontext."
+        )
+    if not args.ohne_kontingent:
+        kontingent = kontingent_befund()
+        if kontingent:
+            zeilen.append("· " + kontingent)
+    lang = langlaeufer()
+    if lang:
+        zeilen.append(
+            f"· {len(lang)} Prozess(e) ueber {LANGLAEUFER_TAGE} Tage halten GitHub: "
+            + ", ".join(f"{label} (PID {pid}, {alter} d)" for pid, alter, label in lang[:5])
+            + ". Warteschleifen ohne Frist laufen sonst weiter (Realfall 11 Tage)."
         )
 
     if not zeilen:
