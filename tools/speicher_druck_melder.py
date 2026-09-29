@@ -27,7 +27,7 @@ Speicher haelt, statt es Tage spaeter aus dem Kernel-Log zu rekonstruieren.
 
 Bei einem Befund haelt der Melder fest, wer den Speicher haelt: je cgroup die Summe aus
 `RssAnon` und `VmSwap` aus `/proc/<pid>/status`, dazu Prozesszahl und haeufigster
-Prozessname. Kommandozeilen liest er bewusst nicht, denn dort koennen Secrets stehen.
+Prozessname. Kommandozeilen und Umgebung liest er nie (Secrets), das sichert ein Test ab.
 
 ## Ablage
 
