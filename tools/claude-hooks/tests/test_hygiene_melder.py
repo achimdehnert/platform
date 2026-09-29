@@ -157,6 +157,82 @@ def test_should_return_empty_when_the_copy_dir_is_missing(welt):
     assert hm.driftende_kopien(wurzel, wurzel / "gibtsnicht") == []
 
 
+_FOOTER = (
+    "\n\n# MANAGED-BY: platform/tools/cc-skill-dist · generated=true · "
+    "source=tools/claude-hooks/a.py · source_commit=9caf8a5b3950 · "
+    "content_hash=sha256:549b35e9f2dd5536 · do_not_edit\n"
+)
+
+
+def test_should_not_count_the_managed_footer_as_drift(welt):
+    """platform#3611: jede Lane-Kopie traegt den Footer, die Quelle nicht."""
+    wurzel, quelle, kopien = welt
+    (quelle / "a.py").write_text("gleich\n", encoding="utf-8")
+    (kopien / "a.py").write_text("gleich" + _FOOTER, encoding="utf-8")
+
+    assert hm.driftende_kopien(wurzel, kopien) == []
+
+
+def test_should_report_drift_behind_a_managed_footer(welt):
+    wurzel, quelle, kopien = welt
+    (quelle / "a.py").write_text("neu\n", encoding="utf-8")
+    (kopien / "a.py").write_text("alt" + _FOOTER, encoding="utf-8")
+
+    assert hm.driftende_kopien(wurzel, kopien) == ["a.py"]
+
+
+def test_should_strip_the_footer_like_the_lane_doctor():
+    """Gegenstueck zu doctor.py — beide muessen dieselbe Kopie gleich lesen."""
+    doctor_pfad = _SRC.parents[1] / "cc-skill-dist" / "doctor.py"
+    spec = importlib.util.spec_from_file_location("cc_doctor", doctor_pfad)
+    doctor = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(doctor)
+
+    for kopie in ("x = 1" + _FOOTER, "x = 1\n", "#!/bin/bash\necho a" + _FOOTER):
+        assert hm.ohne_managed_footer(kopie) == doctor.strip_managed_footer(kopie).rstrip(
+            "\n"
+        )
+
+
+def test_should_find_drift_when_running_as_the_distributed_copy(tmp_path):
+    """platform#3611 Kriterium 4: der Melder laeuft als Kopie unter
+    ~/.claude/hooks — `__file__` zeigt dann nicht in den platform-Checkout."""
+    import shutil
+    import subprocess
+
+    home = tmp_path / "home"
+    kopien = home / ".claude" / "hooks"
+    kopien.mkdir(parents=True)
+    quelle = tmp_path / "github" / "platform" / "tools" / "claude-hooks"
+    quelle.mkdir(parents=True)
+    shutil.copy(_SRC, quelle / "hygiene_melder.py")
+    kopie = kopien / "hygiene_melder.py"
+    kopie.write_text(_SRC.read_text(encoding="utf-8").rstrip("\n") + _FOOTER, encoding="utf-8")
+    (kopien / "zweiter.py").write_text("alt" + _FOOTER, encoding="utf-8")
+    (quelle / "zweiter.py").write_text("neu\n", encoding="utf-8")
+
+    ergebnis = subprocess.run(
+        [
+            sys.executable,
+            str(kopie),
+            "--leases",
+            str(tmp_path / "leases"),
+            "--settings",
+            str(tmp_path / "settings.json"),
+            "--ohne-merge-pruefung",
+            "--ohne-kontingent",
+        ],
+        input="{}",
+        capture_output=True,
+        text=True,
+        env={**os.environ, "HOME": str(home), "GITHUB_DIR": str(tmp_path / "github")},
+    )
+
+    assert ergebnis.returncode == 0, ergebnis.stderr
+    kontext = json.loads(ergebnis.stdout)["hookSpecificOutput"]["additionalContext"]
+    assert "1 verteilte Hook-Kopie(n) weichen von der platform-Quelle ab: zweiter.py." in kontext
+
+
 # --- main(): schweigen im Normalfall, nie blockieren -------------------------
 
 
