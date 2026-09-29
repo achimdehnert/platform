@@ -103,13 +103,13 @@ Nachweise aus privaten Repos in platform nur abstrakt nennen.
 **Why:** #3613, Erstfassung mit Interna eines privaten Repos; der Bearbeitungsverlauf bleibt öffentlich.
 **How to apply:** vor `gh pr create/edit` und `gh issue create/comment` in platform Body auf private Repo-Namen und SHAs prüfen.
 ```
-Gate-Kandidat: PreToolUse-Hook auf `gh pr|issue create|edit|comment` mit Ziel `achimdehnert/platform`: Body gegen die privaten Repos aus `registry/repos.yaml` prüfen und auf Commit-SHAs, die nicht im platform-Repo liegen.
+Gate-Kandidat: **kein neues Gate.** `tools/checks/mandantendaten_gate.py` ausweiten. Es läuft schon beim Push (Ausgabe „Mandantendaten (oeffentliches Repo)“), sieht aber nur Commits und keine PR- oder Issue-Texte. Die Ausweitung umfasst einen PreToolUse-Aufruf auf `gh pr|issue create|edit|comment` für `achimdehnert/platform` und die Prüfung auf private Repo-Namen sowie fremde SHAs.
 
 ## 7. Maßnahmen
 
 | # | Item | Repo | PR/Issue/ADR | Status | Next Step |
 |---|---|---|---|---|---|
-| M1 | Gate privater Inhalt in platform | platform | — | 🟢 | Owner: Gate-Kandidat freigeben |
+| M1 | Mandantendaten-Gate auf PR-Texte | platform | — | 🟢 | Owner: Ausweitung freigeben |
 | M2 | Zeitangaben-Ausweitung | platform | [#2666](https://github.com/achimdehnert/platform/issues/2666) | 🟢 | Beleg angehängt, Umsetzung dort |
 | M3 | Erstfassung #3613 löschen | platform | [#3613](https://github.com/achimdehnert/platform/pull/3613) | 🟢 | Owner: Bearbeitungsverlauf entscheiden |
 | M4 | Streichbahn | platform | — | ✅ | keiner, Grund im Frontmatter |
