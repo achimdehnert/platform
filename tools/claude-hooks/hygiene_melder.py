@@ -333,11 +333,28 @@ def gemergt_aber_offen(
     return ergebnis
 
 
+#: Footer, den die cc-skill-dist-Lane `claude-hooks` jeder Kopie anhaengt.
+MANAGED_MARK = "# MANAGED-BY: platform/tools/cc-skill-dist"
+
+
+def ohne_managed_footer(text: str) -> str:
+    """Kopie auf den Quelltext zurueckfuehren — Gegenstueck zu
+    `tools/cc-skill-dist/doctor.py::strip_managed_footer` (dort Hook-Zweig).
+
+    Ohne das meldet der Hash-Vergleich jede der rund 30 Kopien als driftend
+    (platform#3611) — ein dauerhaft roter Melder ist so wirkungslos wie ein toter.
+    Nur am Zeilenanfang: sonst schnitte die Konstante oben diese Datei selbst ab.
+    """
+    idx = text.rfind("\n" + MANAGED_MARK)
+    return (text if idx == -1 else text[:idx]).rstrip("\n")
+
+
 def _hash(p: Path) -> str | None:
     try:
-        return hashlib.sha256(p.read_bytes()).hexdigest()
-    except OSError:
+        text = p.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
         return None
+    return hashlib.sha256(ohne_managed_footer(text).encode("utf-8")).hexdigest()
 
 
 def driftende_kopien(platform: Path, kopien: Path = KOPIEN) -> list[str]:
@@ -450,11 +467,7 @@ def _drossel_modul():
     """
     import importlib.util
 
-    kandidaten = [
-        _platform_wurzel(),
-        Path(os.environ.get("GITHUB_DIR", Path.home() / "github")) / "platform",
-    ]
-    for wurzel in kandidaten:
+    for wurzel in (_platform_wurzel(), _platform_checkout()):
         quelle = wurzel / "tools" / "gh_drossel.py"
         if not quelle.is_file():
             continue
@@ -594,9 +607,26 @@ def _platform_wurzel() -> Path:
     return Path(__file__).resolve().parent.parent.parent
 
 
+def _platform_checkout() -> Path:
+    """Der platform-Checkout auch dann, wenn dieses Skript die Kopie ist.
+
+    `_platform_wurzel()` stimmt nur in der Quelle unter tools/claude-hooks/; aus
+    ~/.claude/hooks/ heraus landet es im Home-Verzeichnis (platform#3611).
+    Erkennungszeichen ist das Quell-Verzeichnis selbst.
+
+    Bewusst NICHT fuer `_reaper_pr_state()`: die Merge-Klasse kostet gh-Abfragen
+    je Sitzungsstart; ob sie in der Kopie laufen soll, entscheidet der Owner
+    (#3611 Kriterium 3). Bis dahin bleibt sie dort inert wie bisher.
+    """
+    wurzel = _platform_wurzel()
+    if (wurzel / "tools" / "claude-hooks").is_dir():
+        return wurzel
+    return Path(os.environ.get("GITHUB_DIR", Path.home() / "github")) / "platform"
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--platform", default=str(_platform_wurzel()))
+    ap.add_argument("--platform", default=str(_platform_checkout()))
     ap.add_argument("--leases", default=str(LEASES))
     ap.add_argument(
         "--ohne-merge-pruefung",
