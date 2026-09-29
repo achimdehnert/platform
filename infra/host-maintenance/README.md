@@ -177,6 +177,25 @@ systemctl --user enable --now speicher-druck.timer
 python3 tools/speicher_druck_melder.py --lesen   # Beleg: Exit 0 und eine Zeile
 ```
 
+## systemd-oomd für die Sitzungen (platform#3616 — dev/session host, root)
+
+Der Speicherdruck-Melder meldet, verhindert aber keinen Kill. Am 2026-09-26 lagen
+zwischen 60 % frei und dem ersten Kernel-Kill 6 Minuten. Der Kernel wählt nach
+`oom_score_adj` und traf deshalb zuerst den CI-Runner, nicht die 16 Worker.
+`oomd-user-slice.conf` lässt `systemd-oomd` die `user.slice` überwachen: Nach 20 s
+über 60 % Druck beendet oomd die Sitzungs-cgroup mit der meisten Reclaim-Aktivität.
+**Preis:** Das ist eine ganze `session-*.scope`, auch eine Agenten-Sitzung, die den
+schweren Lauf selbst gestartet hat. `system.slice` (Runner, Docker) bleibt
+unüberwacht. Die Paket-Voreinstellung für `user@.service` (50 %) bleibt stehen.
+
+Install und Beleg:
+```bash
+sudo bash infra/host-maintenance/oomd-einspielen.sh            # idempotent
+sudo bash infra/host-maintenance/oomd-einspielen.sh --pruefen  # Exit 0 = wirksam laut oomctl
+```
+
+Rücknahme: `rm /etc/systemd/system/user.slice.d/10-oomd.conf && systemctl daemon-reload`.
+
 ## Befund-Journal-Sicherung (KONZ-platform-054 §12.7 — dev/session host, `--user`)
 
 `befund-journal-sicherung.sh` legt `~/.claude/befund-journal.json` (offene Befunde,
@@ -196,6 +215,8 @@ systemctl --user start befund-journal-sicherung.service   # Erstlauf + Probe
 Restore: `ssh root@88.99.38.75 'gzip -dc /opt/backups/befund-journal/<datei>' > ~/.claude/befund-journal.json`
 
 ## Changelog
+- 2026-09-29: `oomd-user-slice.conf` + `oomd-einspielen.sh` (platform#3616, Owner-Go),
+  auf dev-desktop eingespielt, `--pruefen` Exit 0.
 - 2026-09-24: `befund-journal-sicherung.{sh,service,timer}` (KONZ-054 §12.7 Ablageort, Owner-Go).
 - 2026-09-07: Docker-Praevention dev-desktop hinzugefuegt (`docker-daemon.{json,md}`,
   `docker-prune.{sh,service,timer}`, platform#2895 Item 98). IaC-only, Apply = Owner.
