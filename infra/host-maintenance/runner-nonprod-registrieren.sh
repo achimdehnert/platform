@@ -47,6 +47,10 @@ sudo -u github-ci bash -c "./config.sh --unattended --url https://github.com/$OW
 sudo ./svc.sh install github-ci
 sudo ./svc.sh start
 
+# 4b) Resilienz: svc.sh setzt weder Restart= noch OOMPolicy= — ohne dieses Drop-in
+#     beendet ein OOM-Kill in einem Job den ganzen Runner (Realfall 2026-09-26).
+sudo bash "$(dirname "$(readlink -f "$0")")/runner-resilienz-einspielen.sh"
+
 # 5) Beleg: Runner online in GitHub, Dienst aktiv
 sleep 5
 gh api "/repos/$OWNER/$REPO/actions/runners" --jq ".runners[]|select(.name==\"$NAME\")|.name+\" \"+.status+\" [\"+([.labels[].name]|join(\",\"))+\"]\""
