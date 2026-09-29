@@ -663,8 +663,10 @@ def frische_banner(daten: dict, stichtag: date) -> str:
     if not roh:
         return "<p class='alt'>Kein Erhebungsdatum im Ledger — Stand unbekannt.</p>"
     try:
-        # Reiner ISO-Tag aus dem Ledger, s.o.
-        alter = (stichtag - datetime.strptime(str(roh), "%Y-%m-%d").date()).days  # noqa: DTZ007
+        # /mailcheck schreibt die Erhebung mit Uhrzeit ("2026-09-29 06:45"), aeltere
+        # Ledger als reinen ISO-Tag. fromisoformat liest beides; fuer das Alter zaehlt
+        # nur der Tag, eine Zeitzone gaebe es dort nicht (#3608).
+        alter = (stichtag - datetime.fromisoformat(str(roh)).date()).days
     except ValueError:
         return f"<p class='alt'>Erhebungsdatum '{html.escape(str(roh))}' unlesbar.</p>"
     if alter <= FRISCH_TAGE:
