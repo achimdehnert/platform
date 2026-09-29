@@ -283,3 +283,94 @@ def test_should_checkout_von_platform_in_fremder_ci_als_aufrufer_zaehlen(tmp_pat
     assert treffer["iilgmbh/r-hub"]["aufruf"] == [
         ".github/workflows/silent-failure-lint.yml"
     ]
+
+
+def _checkout(token_zeile: str, einzug: str = "      ") -> str:
+    """Checkout-Schritt wie in mcp-hub ci.yml; token_zeile leer = ohne Token."""
+    return (
+        "jobs:\n  t:\n    steps:\n"
+        "      - uses: actions/checkout@v7\n        with:\n"
+        "          repository: achimdehnert/platform\n"
+        + (f"{einzug}{token_zeile}\n" if token_zeile else "")
+        + "          path: _platform\n"
+        "          sparse-checkout: |\n            skills\n"
+        "      - name: weiter\n        run: echo ok\n"
+    )
+
+
+PAT = "token: ${{ secrets.PROJECT_PAT }}"
+
+
+def test_should_checkout_mit_eigenem_secret_listen_aber_nicht_zaehlen(tmp_path):
+    """Realfall mcp-hub ci.yml: PROJECT_PAT uebersteht den Flip — kein Aufrufer."""
+    _klon(
+        tmp_path,
+        "m-hub",
+        "achimdehnert/m-hub",
+        {".github/workflows/ci.yml": _checkout(PAT, "          ")},
+    )
+    treffer = scanne_lokal(tmp_path)
+    assert treffer["achimdehnert/m-hub"]["aufruf"] == []
+    assert treffer["achimdehnert/m-hub"]["mit_token"] == [".github/workflows/ci.yml"]
+    e = bewerte(treffer, [sdm.KANON], [], "PUBLIC")
+    assert e["zaehler"]["aufrufer"] == 0
+    assert e["mit_token"] == {"achimdehnert/m-hub": [".github/workflows/ci.yml"]}
+
+
+def test_should_github_token_oder_fehlender_token_weiter_als_aufrufer_zaehlen():
+    """Negativkontrollen: GITHUB_TOKEN kann ein privates Fremd-Repo nicht lesen."""
+    assert not sdm.nur_token_checkouts(_checkout(""))
+    assert not sdm.nur_token_checkouts(
+        _checkout("token: ${{ secrets.GITHUB_TOKEN }}", "          ")
+    )
+    assert sdm.nur_token_checkouts(_checkout(PAT, "          "))
+
+
+def test_should_token_ausserhalb_des_with_blocks_nicht_anerkennen():
+    """Ein `token:` im Folgeschritt oder tiefer eingerueckt gehoert nicht zum Checkout."""
+    fremd = _checkout("") + "        with:\n          " + PAT + "\n"
+    assert not sdm.nur_token_checkouts(fremd)
+    assert not sdm.nur_token_checkouts(_checkout(PAT, "            "))
+
+
+def test_should_datei_mit_zusaetzlichem_uses_oder_klon_als_aufrufer_zaehlen():
+    mit_uses = _checkout(PAT, "          ") + (
+        "      - uses: achimdehnert/platform/.github/actions/x@main\n"
+    )
+    mit_klon = _checkout(PAT, "          ") + (
+        "      - run: git clone https://github.com/achimdehnert/platform.git\n"
+    )
+    zweiter_ohne = _checkout(PAT, "          ") + _checkout("").split("steps:\n", 1)[1]
+    for text in (mit_uses, mit_klon, zweiter_ohne, "", None):
+        assert not sdm.nur_token_checkouts(text)
+
+
+def test_should_netz_checkout_nach_dateiinhalt_klassifizieren(monkeypatch):
+    monkeypatch.setattr(
+        sdm,
+        "suche_code",
+        lambda q: [("achimdehnert/m-hub", ".github/workflows/ci.yml"),
+                   ("achimdehnert/x-hub", ".github/workflows/lint.yml")]
+        if q.startswith("repository:")
+        else [],
+    )
+    inhalte = {
+        "achimdehnert/m-hub": _checkout(PAT, "          "),
+        "achimdehnert/x-hub": _checkout(""),
+    }
+    monkeypatch.setattr(sdm, "lies_datei_netz", lambda repo, pfad: inhalte[repo])
+    netz = sdm.scanne_netz()
+    assert netz["achimdehnert/m-hub"] == {
+        "aufruf": [],
+        "raw": [],
+        "mit_token": [".github/workflows/ci.yml"],
+    }
+    assert netz["achimdehnert/x-hub"]["aufruf"] == [".github/workflows/lint.yml"]
+
+
+def test_should_bei_widerspruch_der_quellen_aufrufer_bevorzugen():
+    pfad = ".github/workflows/ci.yml"
+    lokal = {"achimdehnert/m-hub": {"aufruf": [pfad], "raw": []}}
+    netz = {"achimdehnert/m-hub": {"aufruf": [], "raw": [], "mit_token": [pfad]}}
+    ges = sdm.vereinige(lokal, netz)
+    assert ges["achimdehnert/m-hub"] == {"aufruf": [pfad], "raw": []}
