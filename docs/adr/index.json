@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-24",
+  "generated": "2026-09-28",
   "total": 253,
   "next_free": 308,
   "adrs": [
@@ -4105,7 +4105,7 @@
       "id": "ADR-233",
       "file": "ADR-233-parallel-session-worktree-convention.md",
       "title": "Parallel-Session-Worktree-Konvention — Isolation von Integration entkoppeln",
-      "status": "proposed",
+      "status": "deprecated",
       "date": "2026-06-01",
       "domains": [
         "dx",
@@ -4122,7 +4122,7 @@
         "ADR-209",
         "ADR-234"
       ],
-      "implementation_status": "partial  # 2026-06-04: pre-commit-Backstop (main-tree-protect) verdrahtet; Snap-back-Hook-Aktivierung via 'tools/main-tree-guard.sh install .' je Checkout"
+      "implementation_status": "killgate-failed  # 2026-09-28: Kill-Gate §8 ausgewertet — unauthorized_head_flips/30d > 0 in 8/85 Repos (platform: 43), Stichtag 2026-09-01 verstrichen. Tools bleiben nutzbar, Enforcement-Anspruch entfaellt."
     },
     {
       "number": 234,

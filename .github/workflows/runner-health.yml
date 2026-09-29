@@ -91,7 +91,23 @@ jobs:
           stuck_restarted = []
           errors = []
           unregistered = []
+          offline = []
+          offline_repos = set()
           now = datetime.datetime.utcnow()
+
+          # --- 0. Offline-Runner, JEDES Label ---
+          # Bis 2026-09-29 sah dieser Check nur Runner namens `prod-server`. Der
+          # Non-Prod-Runner mcp-hub-staging-ci (ci-nonprod) lag ab 2026-09-26 nach
+          # einem OOM-Kill 3 Tage tot, der Lauf blieb taeglich gruen und brach die
+          # haengenden CI-Laeufe sogar ab (platform#3234, mcp-hub#301). Ein Runner,
+          # der >14 Tage offline ist, loescht GitHub — dann ist er hier unsichtbar.
+          # Deshalb ist offline ab dem ersten Tag rot, nicht erst beim Verschwinden.
+          def note_offline(owner_repo, runner):
+              if runner.get("status") != "offline":
+                  return
+              labels = ",".join(l["name"] for l in runner.get("labels", []) if l.get("type") == "custom")
+              offline.append(f"{owner_repo}: {runner.get('name')} (runner {runner['id']}, {labels or '-'})")
+              offline_repos.add(owner_repo)
 
           for org, repo in REPOS:
               # --- 1. Runner label check ---
@@ -101,6 +117,7 @@ jobs:
                   continue
 
               for runner in runners_data.get("runners", []):
+                  note_offline(f"{org}/{repo}", runner)
                   if runner.get("name") != REQUIRED_LABEL:
                       continue
                   labels = [l["name"] for l in runner.get("labels", [])]
@@ -127,8 +144,13 @@ jobs:
                                   label_missing.append(f"{repo} (runner {runner_id})")
 
               # --- 2. Stuck deploy runs check ---
+              # Endpunkt je Workflow: `/actions/runs?workflow_id=` IGNORIERT GitHub
+              # stillschweigend — bis 2026-09-29 brach dieser Block deshalb JEDEN
+              # >30 min wartenden Lauf ab (CI, CodeQL, …) und stiess fuer main
+              # zusaetzlich einen Deploy an. Gemessen: mcp-hub, 6 CI-Laeufe von
+              # PR #301 am 2026-09-29 abgebrochen. 404 = Repo ohne deploy.yml.
               runs_data = api("GET",
-                  f"/repos/{org}/{repo}/actions/runs?workflow_id=deploy.yml&status=queued&per_page=10"
+                  f"/repos/{org}/{repo}/actions/workflows/deploy.yml/runs?status=queued&per_page=10"
               )
               if "_error" in runs_data:
                   continue
@@ -142,6 +164,13 @@ jobs:
                       continue
 
                   run_id = run["id"]
+                  if f"{org}/{repo}" in offline_repos:
+                      # Abbrechen + neu anstossen landet wieder beim toten Runner und
+                      # verwischt nur die Spur. Der Lauf bleibt stehen, der Runner ist rot.
+                      stuck_cancelled.append(
+                          f"{repo} run {run_id} (queued {age_minutes:.0f}min) — NICHT abgebrochen, Runner offline"
+                      )
+                      continue
                   if DRY_RUN:
                       stuck_cancelled.append(
                           f"{repo} run {run_id} (queued {age_minutes:.0f}min) — DRY RUN"
@@ -235,6 +264,7 @@ jobs:
                   if "_error" in runners_data:
                       continue
                   for runner in runners_data.get("runners", []):
+                      note_offline(f"{owner}/{repo_name}", runner)
                       if runner.get("name") == REQUIRED_LABEL:
                           unregistered.append(
                               f"{owner}/{repo_name} (runner {runner['id']}) — "
@@ -262,14 +292,18 @@ jobs:
           if unregistered:
               print(f"\nUNREGISTERED RUNNERS — add to registry/canonical.yaml ({len(unregistered)}):")
               for r in unregistered: print(f"  ⚠️  {r}")
+          if offline:
+              print(f"\nRUNNER OFFLINE ({len(offline)}) — Host: infra/hosts.yaml runners.*.host,"
+                    f" Heilung: infra/host-maintenance/runner-resilienz-einspielen.sh:")
+              for r in offline: print(f"  🔴 {r}")
           if errors:
               print(f"\nERRORS ({len(errors)}):")
               for r in errors: print(f"  💥 {r}")
 
           print(f"\nSummary: {len(label_ok)} ok | {len(label_fixed)} fixed | "
                 f"{len(label_missing)} missing | {len(stuck_cancelled)} stuck cancelled | "
-                f"{len(unregistered)} unregistered")
+                f"{len(unregistered)} unregistered | {len(offline)} offline")
 
-          if label_missing or errors:
+          if label_missing or errors or offline:
               raise SystemExit(1)
           PYEOF

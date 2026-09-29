@@ -10,9 +10,13 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
+import re
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 SKRIPT = Path(__file__).resolve().parents[1] / "chat_agent" / "vorschlaege.py"
 _spec = importlib.util.spec_from_file_location("vorschlaege", SKRIPT)
@@ -132,3 +136,86 @@ def test_should_print_status_over_the_command_line(tmp_path):
     )
     assert lauf.returncode == 0
     assert json.loads(lauf.stdout) == {"x::platform": "2026-09-22"}
+
+
+# ── #3394: Ausgabe dieses Netzes einmal durch das andere schicken ──────────
+#
+# Das zweite Netz ist `gesperrt_wegen()` in iilgmbh/chat-hub
+# `deploy/lotse_auftrag.py` (Stand 25e9b2b). Es sperrt den Daumen-Weg fuer
+# jeden Entwurf, der nach Aussenwirkung klingt. Ein Vorschlagstext, der die
+# Sperre ausloest, macht die eigene Frage unbeantwortbar — der Fehler liegt
+# dann in der Formulierung, nicht in der Sperre. Die Staemme sind hier
+# gespiegelt, weil chat-hub in dieser CI nicht ausgecheckt ist; der
+# Drift-Test darunter vergleicht mit dem Nachbar-Klon, wo er existiert.
+_SPERR_STAEMME = (
+    "deploy",
+    "prod",
+    "publish",
+    "veroeffentlich",
+    "pypi",
+    "release",
+    "merg",
+    "loesch",
+    "delete",
+    "drop",
+    "rotat",
+    "secret",
+    "token",
+    "passwor",
+    "zugangsdat",
+    "schluessel",
+    "ruleset",
+    "permission",
+    "berechtigung",
+)
+_SPERR_GANZ = ("tag", "tags")
+_SPERRE = re.compile(
+    "|".join(
+        [rf"\w*{s}\w*" for s in _SPERR_STAEMME] + [rf"\b{w}\b" for w in _SPERR_GANZ]
+    ),
+    re.IGNORECASE,
+)
+_FALTUNG = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
+# Ueber $GITHUB_DIR statt relativ zur Testdatei: aus einem repo-session-Worktree
+# liegt chat-hub nicht neben dem platform-Klon, der Test waere dort immer SKIP.
+_CHAT_HUB = (
+    Path(os.environ.get("GITHUB_DIR") or Path.home() / "github")
+    / "chat-hub"
+    / "deploy"
+    / "lotse_auftrag.py"
+)
+
+
+def _gesperrt(text: str) -> str | None:
+    treffer = _SPERRE.search(text.lower().translate(_FALTUNG))
+    return treffer.group(0) if treffer else None
+
+
+def test_should_detect_blocked_word_with_mirrored_check():
+    """Positivkontrolle: die gespiegelte Sperre faengt den Anlassfall von #3394."""
+    assert _gesperrt("Worktrees auf origin/main mergen") == "mergen"
+
+
+def test_should_phrase_every_allowed_proposal_without_blocked_words():
+    for phase, (frage, tat) in vs.ERLAUBT.items():
+        for text in (frage, tat):
+            assert _gesperrt(text) is None, f"{phase}: {text!r}"
+
+
+def test_should_render_morning_text_without_blocked_words():
+    befunde = [_befund(p, laeufe=9 - i) for i, p in enumerate(vs.ERLAUBT)]
+    text = vs.als_text(vs.waehle(befunde, {}, max_fragen=len(vs.ERLAUBT)))
+    assert text
+    assert _gesperrt(text) is None, text
+
+
+@pytest.mark.skipif(
+    not _CHAT_HUB.exists(), reason="chat-hub nicht als Nachbar-Klon vorhanden"
+)
+def test_should_mirror_chat_hub_block_list():
+    """Drift-Wache: gespiegelte Staemme == chat-hub `_STAEMME`/`_GANZE_WOERTER`."""
+    spec = importlib.util.spec_from_file_location("lotse_auftrag", _CHAT_HUB)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert tuple(mod._STAEMME) == _SPERR_STAEMME
+    assert tuple(mod._GANZE_WOERTER) == _SPERR_GANZ

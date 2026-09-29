@@ -455,11 +455,17 @@ runners:
       `runs_on: ci-nonprod` hierher gelenkt werden; host-gebundene Deploys bleiben
       via `deploy_runs_on: prod-server` auf dem Prod-Host. Pilot-Repo: travel-beat
       (`travel-beat-staging-ci`). Weitere Hubs gestaffelt via ADR-222-Familie.
-      Registriert: travel-beat (`travel-beat-staging-ci`, 2026-06-28) · mcp-hub
-      (`mcp-hub-staging-ci`, 2026-09-10 — Ersatz fuer die drei netcup-Runner mit
-      demselben Label, offline seit 2026-09-08, platform#2956; Owner hat das Runbook
-      §3 selbst ausgefuehrt, Runner online per gh api, Dienst active).
-    verified: 2026-09-10                # mcp-hub-staging-ci online (gh api runners), Dienst active
+      Registriert: mcp-hub (`mcp-hub-staging-ci`, 2026-09-10 — Ersatz fuer die drei
+      netcup-Runner mit demselben Label, offline seit 2026-09-08, platform#2956; Owner
+      hat das Runbook §3 selbst ausgefuehrt, Runner online per gh api, Dienst active).
+      Stillgelegt: travel-beat (`travel-beat-staging-ci`, 2026-06-28 bis 2026-09-29) —
+      Registrierung bei GitHub geloescht (>14 Tage offline), CI laeuft ohne ihn gruen,
+      Deploy auf prod-server; Unit per `systemctl disable --now` aus, Verzeichnis bleibt.
+    historie:
+      - "2026-09-26 08:06: globaler OOM auf dev-desktop killt gpg-agent im Job-Baum von mcp-hub-staging-ci; OOMPolicy=stop + Restart=no → Runner 3 Tage tot, runner-health.yml blieb gruen (sah nur prod-server)"
+      - "2026-09-29: Drop-in runner-resilienz.conf (OOMPolicy=continue, Restart=on-failure) auf beiden Units; Crashtest SIGKILL → neuer PID, NRestarts=1; runner-health.yml meldet jetzt jeden Offline-Runner rot"
+    resilienz: infra/host-maintenance/runner-resilienz.conf   # Pruefung: runner-resilienz-einspielen.sh --pruefen
+    verified: 2026-09-29                # mcp-hub-staging-ci Drop-in wirksam (--pruefen Exit 0), Dienst active
 
   gpu-box:
     host: gpu-box                      # Host-Block oben; wg0 10.99.0.2, nur von prod erreichbar

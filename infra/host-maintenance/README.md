@@ -158,7 +158,26 @@ systemctl --user enable --now container-speicher.timer
 systemctl --user list-timers container-speicher.timer
 ```
 
+## Befund-Journal-Sicherung (KONZ-platform-054 §12.7 — dev/session host, `--user`)
+
+`befund-journal-sicherung.sh` legt `~/.claude/befund-journal.json` (offene Befunde,
+Urteile, Heilungsverlauf seit #3527) täglich 02:30 als gzip auf dem Dev-Server ab
+(`/opt/backups/befund-journal`, 700/600, Retention 30) und lädt das Archiv dort zur
+Probe. Ablageort nach dem Muster Mail-State (KONZ-platform-040 MVC-4) — bewusst nicht
+in diesem öffentlichen Repo (KONZ-054 §6.3).
+
+Install (per session host):
+```bash
+cp infra/host-maintenance/befund-journal-sicherung.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now befund-journal-sicherung.timer
+systemctl --user start befund-journal-sicherung.service   # Erstlauf + Probe
+```
+
+Restore: `ssh root@88.99.38.75 'gzip -dc /opt/backups/befund-journal/<datei>' > ~/.claude/befund-journal.json`
+
 ## Changelog
+- 2026-09-24: `befund-journal-sicherung.{sh,service,timer}` (KONZ-054 §12.7 Ablageort, Owner-Go).
 - 2026-09-07: Docker-Praevention dev-desktop hinzugefuegt (`docker-daemon.{json,md}`,
   `docker-prune.{sh,service,timer}`, platform#2895 Item 98). IaC-only, Apply = Owner.
 - 2026-06-28: `runner-nonprod-runbook.md` added (ADR-257 §Folge-Artefakt, REC-5/7) —

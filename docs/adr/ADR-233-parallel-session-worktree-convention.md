@@ -1,6 +1,6 @@
 ---
-status: proposed
-implementation_status: partial  # 2026-06-04: pre-commit-Backstop (main-tree-protect) verdrahtet; Snap-back-Hook-Aktivierung via 'tools/main-tree-guard.sh install .' je Checkout
+status: deprecated
+implementation_status: killgate-failed  # 2026-09-28: Kill-Gate §8 ausgewertet — unauthorized_head_flips/30d > 0 in 8/85 Repos (platform: 43), Stichtag 2026-09-01 verstrichen. Tools bleiben nutzbar, Enforcement-Anspruch entfaellt.
 decision_date: 2026-06-01
 deciders: Achim Dehnert
 domains: [dx, git-workflow, drift-prevention, governance]
@@ -13,7 +13,7 @@ tags: [git, worktree, parallel-sessions, branch-strategy, integration, claude-co
 
 | Attribut       | Wert                                                    |
 |----------------|---------------------------------------------------------|
-| **Status**     | Proposed                                                |
+| **Status**     | Deprecated (Kill-Gate §8 verletzt, 2026-09-28)          |
 | **Scope**      | platform (org-weit, alle Repos & Coding-Sessions)       |
 | **Repo**       | platform                                                |
 | **Erstellt**   | 2026-06-01                                              |
@@ -160,6 +160,29 @@ strukturell. Darum ist der Guard Teil der **Entscheidung**, nicht der Risiko-Mit
   nicht existieren **oder** (b) `unauthorized_head_flips > 0 / 30 Tage` (Guard greift nicht / wird umgangen),
   gilt die Konvention als **nicht erzwingbar** → Status `Deprecated`, zurück auf Status quo mit dokumentierter
   Warnung. „Routinemäßig" ist damit durch eine Zahl ersetzt (M28-6).
+
+### 8.1 Kill-Gate-Auswertung (2026-09-28)
+
+Kriterium (a) erfüllt — beide Tools existieren. Kriterium (b) **verletzt**: `main-tree-guard.sh report`
+zeigt `unauthorized_head_flips/30d > 0` in 8 von 85 überwachten Checkouts, davon 43 allein im
+platform-Haupt-Tree:
+
+| Repo | Flips/30d |
+|---|---|
+| platform | 43 |
+| writing-hub | 11 |
+| mcp-hub | 2 |
+| apo-hub | 1 |
+| frist-hub | 1 |
+| iil-pet-portal | 1 |
+| iil-voice-agent | 1 |
+| odoo-hub | 1 |
+
+Der Bot-Kommentar in [#2567](https://github.com/achimdehnert/platform/issues/2567) (2026-09-01) empfahl
+abweichend `detect-only` statt der hier selbst vereinbarten Formel — ohne neue Evidenz für die
+Abschwächung. Per §8-Wortlaut gilt darum: **Status `Deprecated`**. Die gebauten Tools
+(`repo-session.sh`, `worktree-reaper.py`, `main-tree-guard.sh`) bleiben als optionale Helfer nutzbar,
+nur der verpflichtende Enforcement-Anspruch (§2.1) entfällt.
 
 ## 9. Glossar
 

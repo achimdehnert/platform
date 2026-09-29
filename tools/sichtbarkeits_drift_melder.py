@@ -17,7 +17,7 @@ Dinge, die vor dem Flip auf ihren Zielwert muessen:
 |----------|-------------------------------------------------------------|------|
 | aufrufer | Repos mit `uses: achimdehnert/platform/.github/…` oder Klon | 0    |
 | raw      | Repos mit `raw.githubusercontent.com/achimdehnert/platform` | 0    |
-| laufzeit | davon Treffer in Code ausserhalb CI/Klickdummy/Doku          | 0    |
+| laufzeit | davon Code ausserhalb CI/Klickdummy/Doku, plus `_deploy-*.yml` | 0  |
 | kopien   | Repos, die `_*.yml`-Bausteine halten (Kanon: iilgmbh/shared-ci) | 1 |
 | fristen  | aktive Konzepte mit abgelaufenem `review_by`                | 0    |
 
@@ -79,6 +79,9 @@ RAW_MUSTER = r"raw\.githubusercontent\.com/achimdehnert/platform"
 # Raw-Treffer, die NICHT zur Laufzeit brechen: CI (eigene Klasse), Klickdummy-
 # Schema-Verweise, Doku.
 NICHT_LAUFZEIT = re.compile(r"(^|/)(\.github/|klickdummy/|docs/)|\.md$")
+# Ausnahme von der CI-Klasse: Deploy-Bausteine laden zur Deploy-Zeit, ein Abbruch
+# dort stoppt jeden Deploy jedes Callers (shared-ci _deploy-*.yml, #3596).
+DEPLOY_BAUSTEIN = re.compile(r"(^|/)\.github/workflows/_deploy-[^/]*\.ya?ml$")
 # Konzepte, deren Frist niemanden mehr bindet.
 INAKTIV = {"sunset", "stale", "done", "superseded", "archived", "rejected"}
 ORIGIN_RE = re.compile(r"github\.com[:/]([^/\s]+)/([^/\s]+?)(?:\.git)?\s*$")
@@ -308,7 +311,11 @@ def bewerte(
     aufrufer = sorted(r for r, e in konsumenten.items() if e["aufruf"])
     raw = sorted(r for r, e in konsumenten.items() if e["raw"])
     laufzeit = {
-        r: [p for p in e["raw"] if not NICHT_LAUFZEIT.search(p)]
+        r: [
+            p
+            for p in e["raw"]
+            if DEPLOY_BAUSTEIN.search(p) or not NICHT_LAUFZEIT.search(p)
+        ]
         for r, e in konsumenten.items()
     }
     laufzeit = {r: p for r, p in laufzeit.items() if p}

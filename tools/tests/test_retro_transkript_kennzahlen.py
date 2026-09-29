@@ -100,3 +100,45 @@ def test_should_respect_time_window():
 def test_should_report_gap_from_reminder_to_next_text():
     k = rtk.lies(json.dumps(z) for z in rtk._FIXTURE)
     assert "4.0 min bis Text 2026-01-01T10:05:00Z" in rtk.bericht(k)
+
+
+def _eingereiht(ts: str, prompt, **felder):
+    return {
+        "type": "attachment",
+        "timestamp": ts,
+        "attachment": {"type": "queued_command", "prompt": prompt, **felder},
+    }
+
+
+def test_should_count_owner_word_queued_mid_turn_before_its_later_repeat():
+    """Realfall Retro 02b7f5: „47 go" kam 16:31 eingereiht und 17:04 erneut —
+    ohne die eingereihte Zeile sah die Widerlegungsbahn nur 17:04."""
+    k = _lies(
+        _eingereiht("2026-09-24T16:31:33Z", "47 go", origin={"kind": "human"}),
+        {
+            "type": "user",
+            "timestamp": "2026-09-24T17:04:58Z",
+            "message": {"content": "47 go"},
+        },
+    )
+    assert k.nutzer == [
+        ("2026-09-24T16:31:33Z", "(eingereiht) 47 go"),
+        ("2026-09-24T17:04:58Z", "47 go"),
+    ]
+
+
+def test_should_not_count_queued_system_notifications_as_user_messages():
+    k = _lies(
+        _eingereiht(
+            "2026-09-24T17:13:51Z",
+            "<task-notification>fertig</task-notification>",
+            commandMode="task-notification",
+        ),
+        _eingereiht("2026-09-24T17:14:00Z", "", origin={"kind": "human"}),
+    )
+    assert k.nutzer == []
+
+
+def test_should_accept_human_turn_flag_without_origin():
+    k = _lies(_eingereiht("2026-09-24T16:12:44Z", "33 was rätst du?", humanTurn=True))
+    assert k.nutzer == [("2026-09-24T16:12:44Z", "(eingereiht) 33 was rätst du?")]

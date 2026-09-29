@@ -77,11 +77,20 @@ h2.break-before { page-break-before: always; }
 h3 { font-size: 10.5pt; font-weight: 700; color: #1C1C1C; margin: 14pt 0 5pt 0; page-break-after: avoid; }
 h4 { font-size: 10pt; font-weight: 700; color: var(--primary); margin: 12pt 0 4pt 0; page-break-after: avoid; }
 
+/* Seitenumbruch (2026-09-29): Tabellen fliessen ueber die Seitengrenze, die
+   Kopfzeile wiederholt sich auf jeder Seite, keine Zeile wird zerschnitten.
+   Kurze Tabellen bekommen vom Agenten `keep-together` (tabellen_umbruch.py)
+   und bleiben als Block zusammen. Vorher hielt `page-break-inside: avoid`
+   jede Tabelle zusammen — eine zehnzeilige Tabelle liess die halbe Seite
+   davor leer. */
 table {
     width: 100%; border-collapse: collapse; font-size: 9pt;
-    margin: 8pt 0 14pt 0; page-break-inside: avoid;
+    margin: 8pt 0 14pt 0; page-break-inside: auto;
     table-layout: auto;
 }
+table.keep-together, .meta-table, .gantt { page-break-inside: avoid; }
+thead { display: table-header-group; }
+tbody tr { page-break-inside: avoid; }
 thead tr { background: var(--primary); color: white; }
 thead th { padding: 7pt 9pt; text-align: left; font-weight: 600; font-size: 8.5pt; }
 tbody tr:nth-child(even) { background: var(--row-even); }

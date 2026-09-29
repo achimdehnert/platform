@@ -1,0 +1,106 @@
+# pypi-coldstart-watch.yml — Cold-Start-Wache der PyPI-Fleet (#3575 K1/K2,
+# ADR-266 / #2075 K2-Fortführung).
+#
+# Macht den einmaligen Cold-Start-Beweis vom 2026-08-19 zur stehenden Garantie:
+# K1 prüft AGENTS.md jedes aktiv-Pakets remote gegen pkg-agents-v1, K2 lässt den
+# T1a-LLM-Eval (Cerebras vor Groq, policies/llm-routing.md) NUR für Pakete laufen, deren
+# Eingaben sich seit dem letzten bewerteten Stand geändert haben. Kein neuer
+# Melder: Ergebnis + Zustand sind EINE Sektion (`coldstart`) im EINEN Flotten-
+# Issue (#968, tools/pypi_fleet_sections.py) — KONZ-018 §5.4 / KONZ-052 V5.
+#
+# Namensregel: kein publish-*.yml-Name — publish_gate_invariant.sh globt darauf
+# und verlangt gitleaks; dieser Workflow publiziert nichts.
+# Read-only Detektor: klont zum Bewerten, schreibt nie in Paket-Repos.
+
+name: PyPI Cold-Start Watch
+
+on:
+  schedule:
+    - cron: "0 7 * * 1"   # Mo 07:00 UTC — nach pypi-fleet-health (06:30)
+  workflow_dispatch:
+    inputs:
+      all:
+        description: "Alle Pakete bewerten (Erstlauf/Beweis), nicht nur fällige"
+        required: false
+        default: false
+        type: boolean
+      max_evals:
+        description: "Eval-Budget in diesem Lauf"
+        required: false
+        default: "6"
+        type: string
+      retry_fail:
+        description: "Pakete mit letztem Ergebnis FAIL erneut bewerten (auch ohne Aenderung)"
+        required: false
+        default: false
+        type: boolean
+      dry_run:
+        description: "Nur Report ins Log, kein Issue-Write"
+        required: false
+        default: false
+        type: boolean
+  # Wiring-Beweis by-construction (Gate autonomous-no-human-review): jede
+  # Änderung an Workflow/Tool läuft im PR als ERZWUNGENER Dry-Run mit Budget 1
+  # (ein echter Klon + Eval, nie Issue-Write).
+  pull_request:
+    paths:
+      - ".github/workflows/pypi-coldstart-watch.yml"
+      - "tools/pypi_coldstart_watch.py"
+      - "tools/pypi_coldstart_llm_eval.py"
+      - "tools/check_agents_md.py"
+      - "tools/gen_pkg_agents_md.py"
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  coldstart:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      # PROJECT_PAT sieht die privaten Paket-Repos beider Orgs (#2610);
+      # GITHUB_TOKEN als Fallback misst dann sichtbar "nicht pruefbar".
+      GH_TOKEN: ${{ secrets.PROJECT_PAT || secrets.GITHUB_TOKEN }}
+      # T1a gem. llm-routing.md: Cerebras Vorrang, Groq Fallback (401 = naechster)
+      CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        # uv: nl2cad (und kuenftig weitere) setzen per `uv sync` auf — ohne uv
+        # endet der Eval als FAIL-run (setup), obwohl der Einstieg stimmt
+        # (Erstlauf 36393204628, 2026-09-28).
+        run: pip install pyyaml uv
+
+      - name: Cold-Start-Wache (K1 Drift remote, K2 Eval nur bei Änderung)
+        run: |
+          set -euo pipefail
+          ALL=""
+          BUDGET="${{ inputs.max_evals }}"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BUDGET="1"
+          elif [ "${{ inputs.all }}" = "true" ]; then
+            ALL="--all"
+          elif [ "${{ inputs.retry_fail }}" = "true" ]; then
+            ALL="--retry-fail"
+          fi
+          python3 tools/pypi_coldstart_watch.py $ALL \
+            --max-evals "${BUDGET:-6}" \
+            --run-id "${{ github.run_id }}" \
+            --report-out section-coldstart.md
+
+      - name: Sektion "coldstart" im EINEN Flotten-Issue pflegen
+        run: |
+          set -euo pipefail
+          DRYFLAG=""
+          if [ "${{ github.event_name }}" = "pull_request" ] || [ "${{ inputs.dry_run }}" = "true" ]; then
+            DRYFLAG="--dry-run"
+          fi
+          python3 tools/pypi_fleet_sections.py \
+            --owner "${{ github.repository_owner }}" --repo platform \
+            --section coldstart --heading "Cold-Start-Wache (#3575 K1/K2)" \
+            --body-file section-coldstart.md $DRYFLAG

@@ -904,6 +904,40 @@ def urteile_dazu(daten: dict, fid: str, urteil: str, grund: str) -> dict | None:
     return eintrag
 
 
+#: Urteil fuer einen Befund, dessen Phase aus dem Runner gestrichen wurde. Weder
+#: echt noch falsch — `praezision()` zaehlt es deshalb nicht mit.
+URTEIL_ENTFALLEN = "entfallen"
+
+
+def entfalle(daten: dict, fid: str, grund: str, runner_phasen: set[str]) -> str | None:
+    """Befund einer gestrichenen Phase schliessen; Fehlertext oder None.
+
+    Ein Eintrag heilt nur, wenn seine Phase im Lauf urteilt. Eine aus dem Runner
+    gestrichene Phase urteilt nie mehr, ihr Eintrag bliebe fuer immer offen —
+    der einzige Ausweg war bisher ein Direkteingriff in die Journal-Datei (#3569
+    K1, Anlass `0.7.7 gate-wirkung::platform`). Deshalb:
+
+    - **nur** fuer Phasen, die der Runner nicht mehr kennt. Solange eine Phase
+      laeuft, ist `--entfallen` kein Weg, einen lebenden Befund stummzuschalten —
+      dafuer gibt es `--echt`/`--falsch`/`--verankert`/`--verzichtet`.
+    - leere Phasenmenge (Runner nicht lesbar) = Ablehnung, nicht Freibrief.
+    - die Urteils-Historie behaelt eine Zeile, erst dann faellt der Eintrag weg.
+    """
+    eintrag = daten.get("befunde", {}).get(fid)
+    if eintrag is None:
+        return f"Kein Befund mit ID {fid}"
+    if not runner_phasen:
+        return "Runner-Phasen nicht lesbar — ohne sie ist nicht belegbar, dass die Phase gestrichen ist"
+    if eintrag["phase"] in runner_phasen:
+        return (
+            f"Phase '{eintrag['phase']}' laeuft noch im Runner — "
+            "--echt/--falsch/--verankert/--verzichtet statt --entfallen"
+        )
+    urteile_dazu(daten, fid, URTEIL_ENTFALLEN, grund)
+    del daten["befunde"][fid]
+    return None
+
+
 def _geschaerft_je_phase(register: list[dict]) -> dict[str, str]:
     """Phase -> `geschaerft_am` aus der Registry, nur wo das Feld gesetzt ist."""
     ergebnis = {}
@@ -1223,6 +1257,18 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--falsch", nargs=2, metavar=("ID", "GRUND"), help="Fehlalarm des Melders"
     )
+    p.add_argument(
+        "--entfallen",
+        nargs=2,
+        metavar=("ID", "GRUND"),
+        help="Befund einer aus dem Runner gestrichenen Phase schliessen",
+    )
+    p.add_argument(
+        "--runner",
+        type=Path,
+        default=_mrc.DEFAULT_RUNNER,
+        help="mit --entfallen: Runner-Skript, dessen Phasen gelten",
+    )
     p.add_argument("--praezision", action="store_true", help="Trefferquote je Melder")
     p.add_argument("--kurz", action="store_true", help="eine Zeile fuer den Runner")
     p.add_argument("--verzichtet", nargs=2, metavar=("ID", "GRUND"))
@@ -1357,6 +1403,16 @@ def main(argv: list[str] | None = None) -> int:
 
     if a.bericht and a.json:
         print(json.dumps(bericht_json(daten, a.repo), ensure_ascii=False, indent=1))
+        return 0
+
+    if a.entfallen:
+        fid, grund = a.entfallen
+        fehler = entfalle(daten, fid, grund, _mrc.lade_runner_phasen(a.runner))
+        if fehler:
+            print(fehler, file=sys.stderr)
+            return 2
+        sichere(daten, pfad)
+        print(f"{URTEIL_ENTFALLEN}: {fid} — {grund}")
         return 0
 
     if a.echt or a.falsch:
