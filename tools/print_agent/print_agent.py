@@ -45,6 +45,7 @@ from deckblatt_meta import (
     meta_rows,
     strip_meta_prefix_lines,
 )
+from tabellen_umbruch import markiere_kurze_tabellen
 import llm_gate  # Datenschutz-Gate (#1297) — bewusst importfrei, siehe Modul-Docstring
 import profile_policy  # Profil-Voreinstellungen (#1297, zweiter Befund)
 from asset_gate import (
@@ -1127,6 +1128,9 @@ def convert(
         },
     )
     body_html = md.convert(md_text_processed)
+    # Kurze Tabellen bleiben als Block zusammen, lange fliessen ueber die
+    # Seitengrenze (base.css + tabellen_umbruch.py, Realfall 2026-09-29).
+    body_html = markiere_kurze_tabellen(body_html)
 
     m = re.search(r"<h1[^>]*>(.*?)</h1>", body_html)
     title = m.group(1) if m else input_path.stem
