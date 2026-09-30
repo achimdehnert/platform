@@ -634,3 +634,22 @@ Aufgabenart") mit Anker frist-hub#180 im selben Abschnitt. **Fehlalarm** (nicht 
 Klassifikator).
 
 **Stand damit: 33 Meldungen · 6 richtig · 27 Fehlalarme (Präzision 0,182).**
+
+## 2026-09-30 — achimdehnert/platform#3640 (E.5, Sitzungsende platform 708a8ae7)
+
+Gemeldet im Runner: „Zusage ohne Tracking in: #3640 #3639". #3639 stammt aus einer anderen
+Sitzung und ist dort einzuordnen. Der Einzellauf `verankerung_pruefer.py --pr 3640` endete
+nach 200 s ohne Ergebnis (Timeout), der Runner nennt keine Textstelle. Der PR-Text hat zwei
+Kandidaten:
+
+> »Bitte **#3632 zuerst mergen**, danach zeigt der Diff nur noch diese Änderung.«
+
+> »Die Entscheidung darüber liegt beim Owner (Kommentar im Issue).«
+
+Der erste ist eine Merge-Reihenfolge (bekanntes Fehlalarm-Muster „gestapelter PR"). Der zweite
+vertagt eine Owner-Entscheidung. Ihr Anker ist #3637 mit Kommentar, genannt nur als „Refs #3637"
+am Textende und nicht im selben Abschnitt. Die Entscheidung fiel noch am selben Tag (AD3) und
+ist im Issue dokumentiert. Welche Stelle gemeint war, ist **nicht bestimmbar**; die Meldung
+wird deshalb **nicht gezählt**.
+
+**Stand unverändert: 33 Meldungen · 6 richtig · 27 Fehlalarme (Präzision 0,182).**
