@@ -21,9 +21,9 @@ gehört. Zwei Stellen fragen es:
 
 1. **Eigene Adresse** — die ``from``-Adressen aus der Rollen-Registry
    (``~/.claude/mail-roles.json``, nicht im Repo) und alles unter den eigenen
-   Firmen-Domains ``EIGENE_KONTO_DOMAENEN``. Die Hochschul-Domain gehört
-   bewusst NICHT dazu: dort schreiben auch System-Absender, die der Owner am
-   2026-09-14 ausdrücklich im Löschordner lassen wollte („drin lassen").
+   Firmen-Domains ``EIGENE_KONTO_DOMAENEN``. Die Hochschul-Domain zählt
+   nicht dazu (Owner-Entscheid 2026-09-14, Refs #3176): dort schreiben auch
+   System-Absender, die im Löschordner bleiben sollen („drin lassen").
 2. **Beleg** — Betreff oder Anhangname trifft ``BELEG_MUSTER`` (Rechnung,
    Invoice, Receipt, Gutschrift, Zahlung, Sicherheitscode, …). Ein Beleg
    gehört zur Aufbewahrung, nie zum Rauschen.
