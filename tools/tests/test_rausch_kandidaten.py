@@ -122,3 +122,118 @@ class TestRegelVorschlag:
         assert regel["ziel"] == "Zur Loeschung"
         assert regel["treffer_30_tage"] == 5
         assert regel["vorschlag_stichtag"] == "2026-09-13"
+
+
+# --- platform#3176: Schutzklassen (K1), Modell-Einordnung (K2), Bestand (K4) ---
+
+PERSON = "erika.muster@partner.example.org"
+RECHNUNG = "billing@cloud.example.com"
+WERBUNG = "news@shop.example.com"
+
+
+def _kandidat(adresse, betreffs=("Angebot",)):
+    return rk.Kandidat(absender=adresse, treffer=len(betreffs), betreffs=list(betreffs))
+
+
+def test_should_accept_attachment_flag_from_real_index():
+    """Regression 2026-09-30: der Index liefert ``anhaenge`` als Bool, nicht als Liste."""
+    assert rk._anhang_namen({"anhaenge": True}) == []
+    assert rk._anhang_namen({"anhaenge": ["Rechnung.pdf"]}) == ["Rechnung.pdf"]
+
+
+class TestSchutzFiltern:
+    def test_should_drop_sender_if_any_hit_is_an_invoice(self):
+        """K1: ein Rechnungs-Betreff unter vielen reicht."""
+        k = _kandidat(RECHNUNG, ["Newsletter", "Tipps", "Invoice #42"])
+        frei, raus = rk.schutz_filtern([k], eigene=set(), gesendet=set())
+        assert frei == [] and raus[0].grund == "schutz:beleg"
+
+    def test_should_drop_sender_owner_wrote_to(self):
+        k = _kandidat(PERSON, ["Hallo", "Rückfrage", "Termin"])
+        frei, raus = rk.schutz_filtern([k], eigene=set(), gesendet={PERSON})
+        assert frei == [] and raus[0].grund == "schutz:gesendet"
+
+    def test_should_keep_plain_newsletter(self):
+        k = _kandidat(WERBUNG, ["Sale", "Neu im Shop", "Nur heute"])
+        frei, _ = rk.schutz_filtern([k], eigene=set(), gesendet=set())
+        assert [f.absender for f in frei] == [WERBUNG]
+
+
+class TestLlmEinordnen:
+    def test_should_keep_only_newsletter_and_werbung(self):
+        ks = [_kandidat(WERBUNG), _kandidat("info@verband.example.org")]
+        behalten, raus = rk.llm_einordnen(
+            ks, lambda _k: {"klassen": {"0": "werbung", "1": "partner"}}
+        )
+        assert [k.absender for k in behalten] == [WERBUNG]
+        assert raus[0].grund == "klasse:partner"
+
+    def test_should_overrule_model_for_person_address(self):
+        """K5-Positivkontrolle: Modell sagt newsletter, Adressmuster sagt Person."""
+        behalten, raus = rk.llm_einordnen(
+            [_kandidat(PERSON)], lambda _k: {"klassen": {"0": "newsletter"}}
+        )
+        assert behalten == [] and raus[0].grund == "klasse:person"
+
+    def test_should_overrule_model_for_freemail_domain(self):
+        assert rk.plausibel("shopdeals@gmail.com", "werbung") == "person"
+
+    def test_should_not_mistake_role_address_for_person(self):
+        assert (
+            rk.plausibel("news.letter@shop.example.com", "newsletter") == "newsletter"
+        )
+
+    def test_should_treat_unknown_class_as_unclear(self):
+        behalten, raus = rk.llm_einordnen(
+            [_kandidat(WERBUNG)], lambda _k: {"klassen": {"0": "spam?"}}
+        )
+        assert behalten == [] and raus[0].grund == "klasse:unklar"
+
+    def test_should_fail_closed_when_model_unavailable(self):
+        def kaputt(_k):
+            raise RuntimeError("GROQ_API_KEY nicht gesetzt")
+
+        behalten, raus = rk.llm_einordnen([_kandidat(WERBUNG)], kaputt)
+        assert behalten == []
+        assert raus[0].grund.startswith("einordnung_fehlgeschlagen")
+
+
+class TestBestandEinordnen:
+    def test_should_flag_person_and_invoice_entries_and_keep_newsletter(self):
+        """K4: Vorlage markiert Person/Rechnung als fraglich, schreibt nichts."""
+        im_ordner = {
+            PERSON: ["Termin", "Rückfrage"],
+            RECHNUNG: ["Your receipt"],
+            WERBUNG: ["Sale", "Neu"],
+        }
+
+        def abfrage(anfragen):
+            aus = []
+            for i, a in enumerate(anfragen):
+                if "von" in a:
+                    t = [
+                        {"betreff": b, "ordner": ["Zur Loeschung"]}
+                        for b in im_ordner[a["von"]]
+                    ]
+                else:
+                    t = (
+                        [{"ordner": ["Gesendete Elemente"]}]
+                        if a["an"] == PERSON
+                        else []
+                    )
+                aus.append({"index": i, "treffer": t})
+            return aus
+
+        zeilen = rk.bestand_einordnen(
+            [PERSON, RECHNUNG, WERBUNG],
+            eigene=set(),
+            abfrage=abfrage,
+            klassifikator=lambda ks: {
+                "klassen": {str(i): "newsletter" for i, _ in enumerate(ks)}
+            },
+        )
+        nach = {z["eintrag"]: z for z in zeilen}
+        assert nach[PERSON]["bleibt"] is False
+        assert nach[PERSON]["im_loeschordner"] == 2
+        assert nach[RECHNUNG]["einordnung"] == "schutz:beleg"
+        assert nach[WERBUNG]["bleibt"] is True
