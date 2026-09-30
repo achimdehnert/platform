@@ -38,6 +38,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from read_mail import _mailbox_arg as _read_mail_mailbox_arg  # noqa: E402
 from send_mail import CONFIG_FILE, load_credentials, login_name, parse_env  # noqa: E402
+import loeschschutz  # noqa: E402  (platform#3176 K3)
 
 TRASH_CANDIDATES = (
     "INBOX.Trash",
@@ -211,7 +212,9 @@ def _matches(
                 continue
             if subj_sub and subj_sub.lower() not in subj.lower():
                 continue
-            hits.append((uid, _decode(msg.get("Date"))[:22], frm[:40], subj[:55]))
+            # Ungekürzt: der Löschschutz (platform#3176) liest Adresse und Betreff
+            # hieraus — gekürzt wird erst in der Anzeige.
+            hits.append((uid, _decode(msg.get("Date"))[:22], frm, subj))
     return hits
 
 
@@ -301,6 +304,16 @@ def cmd_move(
     if not hits:
         print("Keine passenden Mails gefunden — nichts verschoben.")
         return
+    # K3 (platform#3176): geschützte Mails bleiben vor dem Löschordner liegen;
+    # ist der Index nicht erreichbar, wird nichts dorthin verschoben (fail-closed).
+    try:
+        hits, gehalten = loeschschutz.filtere_verschiebung(target, hits)
+    except RuntimeError as e:
+        sys.exit(f"FEHLER: Löschschutz nicht prüfbar ({e}) — nichts verschoben.")
+    loeschschutz.melde_zurueckgehalten(gehalten)
+    if not hits:
+        print("Nach dem Löschschutz bleibt nichts zu verschieben.")
+        return
     krit = (
         " & ".join(
             filter(
@@ -317,7 +330,7 @@ def cmd_move(
         f"Verschieben aus '{source}' nach '{target}'  (Kriterium: {krit}) — reversibel:"
     )
     for _, date, frm, subj in hits:
-        print(f"  · {date:<22} {frm:<40} {subj}")
+        print(f"  · {date:<22} {frm[:40]:<40} {subj[:55]}")
     print(f"  = {len(hits)} Mail(s)")
     if not yes:
         try:
@@ -378,7 +391,7 @@ def cmd_flag(
     )
     print(f"{label} in '{source}'  (Kriterium: {krit}) — reversibel:")
     for _, date, frm, subj in hits:
-        print(f"  · {date:<22} {frm:<40} {subj}")
+        print(f"  · {date:<22} {frm[:40]:<40} {subj[:55]}")
     print(f"  = {len(hits)} Mail(s)")
     if not yes:
         try:
