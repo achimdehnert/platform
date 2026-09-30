@@ -21,7 +21,7 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 
 **Erledigt:** Service-Token `playwright-verify` in die Access-App `decks-hub.iil.pet` aufgenommen (Policy `playwright-verify-svc`, Muster tax.iil.pet) — `tools/cf-access-fetch.sh --coverage` 200/302, Tabelle nachgezogen ([decks-hub#98](https://github.com/achimdehnert/decks-hub/issues/98), #3196). Befunde als Issues: `gen_project_facts` gibt static-Repos Django-Container ([#3194](https://github.com/achimdehnert/platform/issues/3194)), `handover_prio_mirror` kürzt Prio auf erstes Fett-Wort ([#3197](https://github.com/achimdehnert/platform/issues/3197)).
 
-**Seit dem letzten Stand ohne eigenen Handover-Eintrag gelandet (17 Commits, andere Sitzungen):** todo_board Verlauf/Strang-Zuordnung (#3175–#3180), Retros b7822e (#3183, Gates #3186) und apo-hub kbiAvn (#3182, #3184), Hook-Gate `gh-body-file-leer-ueberschrieben`, Transkript-Kennzahlen-Skript für Retro Phase 1, ux-review Bündel-Ausnahme, klickdummy-pgvector-sync Changelog (#3187). Stand-Einträge dazu fehlen — nicht von hier aus rekonstruiert.
+**Seit dem letzten Stand ohne eigenen Handover-Eintrag gelandet (17 Commits, andere Sitzungen):** todo_board Verlauf/Strang-Zuordnung (#3175, #3177–#3180; #3176 ist ein eigenständiger, **offener** Befund zu den Rauschregeln, nicht Teil dieses Strangs), Retros b7822e (#3183, Gates #3186) und apo-hub kbiAvn (#3182, #3184), Hook-Gate `gh-body-file-leer-ueberschrieben`, Transkript-Kennzahlen-Skript für Retro Phase 1, ux-review Bündel-Ausnahme, klickdummy-pgvector-sync Changelog (#3187). Stand-Einträge dazu fehlen — nicht von hier aus rekonstruiert.
 
 ## ⚡ Aktueller Stand (2026-09-14 nachmittags — Räume zusammengelegt, Zeitungs-Vertiefung live; Sitzung d8da3b26)
 
