@@ -32,11 +32,11 @@ import email
 import imaplib
 import re
 import sys
-from urllib.parse import unquote
 from email.header import decode_header
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import bodystructure as bs  # noqa: E402  (platform#3627)
 from read_mail import _mailbox_arg as _read_mail_mailbox_arg  # noqa: E402
 from send_mail import CONFIG_FILE, load_credentials, login_name, parse_env  # noqa: E402
 import loeschschutz  # noqa: E402  (platform#3176 K3)
@@ -219,31 +219,14 @@ def _matches(
     return hits
 
 
-#: Name-Parameter in einer BODYSTRUCTURE: ``"FILENAME" "x.pdf"``, ``"NAME" "…"``,
-#: RFC 2231 ``"FILENAME*" "utf-8''Rechnung%20Mai.pdf"`` oder als Literal ``{23}``.
-_NAME_PARAM_RE = re.compile(
-    rb'"(?:FILE)?NAME(\*)?"\s+(?:"((?:[^"\\]|\\.)*)"|\{(\d+)\}\r?\n?)', re.IGNORECASE
-)
-
-
-def namen_aus_bodystructure(blob: bytes) -> list[str]:
-    """Anhangnamen aus einer BODYSTRUCTURE-Antwort, ohne Dubletten (NAME und
-    FILENAME stehen oft beide da)."""
-    namen: list[str] = []
-    for m in _NAME_PARAM_RE.finditer(blob):
-        if m.group(3):
-            start = m.end()
-            roh = blob[start : start + int(m.group(3))]
-        else:
-            roh = re.sub(rb"\\(.)", rb"\1", m.group(2))
-        text = roh.decode("utf-8", errors="replace")
-        if m.group(1) and "''" in text:
-            text = unquote(text.split("''", 1)[1])
-        else:
-            text = _decode(text)
-        if text and text not in namen:
-            namen.append(text)
-    return namen
+def namen_aus_bodystructure(zeile: bytes) -> list[str] | None:
+    """Dateinamen aller Teile einer FETCH-Antwort, ohne Dubletten. ``None``,
+    wenn die Struktur nicht lesbar ist — auch ein eingebettetes Bild zählt,
+    denn ein Beleg kann inline kommen."""
+    teile = bs.aus_fetch_antwort(zeile)
+    if teile is None:
+        return None
+    return list(dict.fromkeys(t.dateiname for t in teile if t.dateiname))
 
 
 def anhang_namen(

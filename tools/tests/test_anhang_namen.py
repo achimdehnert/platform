@@ -96,31 +96,32 @@ class TestAnhaengePruefen:
 class TestImapBodystructure:
     om = _load("organize_mail")
 
-    def test_should_read_quoted_filename(self):
+    # Dekodierung (RFC 2231/2047) prüft test_bodystructure — hier nur die Anbindung.
+    PDF = (
+        b'17 (UID 17 BODYSTRUCTURE (("text" "plain" ("charset" "utf-8") NIL NIL'
+        b' "7bit" 10 1 NIL NIL NIL NIL)("application" "pdf" ("name"'
+        b' "Rechnung_4711.pdf") NIL NIL "base64" 99 NIL ("attachment" ("filename"'
+        b' "Rechnung_4711.pdf")) NIL NIL) "mixed" NIL NIL NIL NIL))'
+    )
+
+    def test_should_read_filename_once(self):
+        assert self.om.namen_aus_bodystructure(self.PDF) == ["Rechnung_4711.pdf"]
+
+    def test_should_return_empty_list_without_attachments(self):
         blob = (
-            b'17 (UID 17 BODYSTRUCTURE (("TEXT" "PLAIN" NIL NIL NIL "7BIT" 10 1)'
-            b'("APPLICATION" "PDF" ("NAME" "Rechnung_4711.pdf") NIL NIL "BASE64" 99'
-            b' NIL ("ATTACHMENT" ("FILENAME" "Rechnung_4711.pdf"))) "MIXED"))'
+            b'1 (UID 1 BODYSTRUCTURE ("text" "plain" ("charset" "utf-8") NIL NIL'
+            b' "7bit" 42 2 NIL NIL NIL NIL))'
         )
-        assert self.om.namen_aus_bodystructure(blob) == ["Rechnung_4711.pdf"]
-
-    def test_should_decode_rfc2231_filename(self):
-        blob = b'("FILENAME*" "utf-8\'\'Geb%C3%BChren%20Rechnung.pdf")'
-        assert self.om.namen_aus_bodystructure(blob) == ["Gebühren Rechnung.pdf"]
-
-    def test_should_decode_rfc2047_name(self):
-        blob = b'("NAME" "=?UTF-8?B?UXVpdHR1bmcucGRm?=")'
-        assert self.om.namen_aus_bodystructure(blob) == ["Quittung.pdf"]
-
-    def test_should_read_literal_name(self):
-        blob = b'("NAME" {12}\r\nbeleg 1.pdf!)'
-        assert self.om.namen_aus_bodystructure(blob) == ["beleg 1.pdf!"]
-
-    def test_should_return_nothing_without_attachments(self):
-        blob = b'1 (UID 1 BODYSTRUCTURE ("TEXT" "PLAIN" ("CHARSET" "UTF-8") NIL)'
         assert self.om.namen_aus_bodystructure(blob) == []
 
-    def test_should_join_literal_parts_and_mark_failures_none(self):
+    def test_should_return_none_for_unreadable_structure(self):
+        """Literal im Namen: nicht aus einem Stück lesbar -> nie „keine Anhänge“."""
+        blob = b'1 (BODYSTRUCTURE ("text" "plain" ("name" {5}'
+        assert self.om.namen_aus_bodystructure(blob) is None
+
+    def test_should_mark_failures_none_per_uid(self):
+        pdf = self.PDF
+
         class FakeImap:
             def select(self, *a, **k):
                 return "OK", [b"2"]
@@ -128,15 +129,12 @@ class TestImapBodystructure:
             def uid(self, cmd, uid, what):
                 if uid == "5":
                     return "NO", [None]
-                return "OK", [
-                    (b'4 (UID 4 BODYSTRUCTURE ("NAME" {11}', b"Invoice.pdf"),
-                    b"))",
-                ]
+                return "OK", [pdf]
 
         namen = self.om.anhang_namen(
-            FakeImap(), "INBOX", [(b"4", "", WERBUNG, ""), (b"5", "", WERBUNG, "")]
+            FakeImap(), "INBOX", [(b"17", "", WERBUNG, ""), (b"5", "", WERBUNG, "")]
         )
-        assert namen == {"4": ["Invoice.pdf"], "5": None}
+        assert namen == {"17": ["Rechnung_4711.pdf"], "5": None}
 
 
 class TestGraphAnhaenge:
