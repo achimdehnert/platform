@@ -141,6 +141,26 @@ def test_should_accept_attachment_flag_from_real_index():
     assert rk._anhang_namen({"anhaenge": ["Rechnung.pdf"]}) == ["Rechnung.pdf"]
 
 
+def test_should_read_attachment_names_from_index_field():
+    """#3627: der Index liefert ``anhang_namen`` neben dem Bool ``anhaenge``."""
+    treffer = {"anhaenge": True, "anhang_namen": ["AGB.pdf", "Rechnung_4711.pdf"]}
+    assert rk._anhang_namen(treffer) == ["AGB.pdf", "Rechnung_4711.pdf"]
+
+
+def test_should_protect_sender_whose_invoice_hides_in_the_attachment_name():
+    """#3627: neutraler Betreff, Beleg nur im Anhangnamen — Absender bleibt draußen."""
+    k = rk.Kandidat(
+        absender=RECHNUNG,
+        treffer=3,
+        betreffs=["Ihre Unterlagen", "Neuigkeiten", "Tipps"],
+        anhaenge=rk._anhang_namen(
+            {"anhaenge": True, "anhang_namen": ["Rechnung_4711.pdf"]}
+        ),
+    )
+    frei, raus = rk.schutz_filtern([k], eigene=set(), gesendet=set())
+    assert frei == [] and raus[0].grund == "schutz:beleg"
+
+
 class TestSchutzFiltern:
     def test_should_drop_sender_if_any_hit_is_an_invoice(self):
         """K1: ein Rechnungs-Betreff unter vielen reicht."""
