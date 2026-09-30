@@ -248,12 +248,15 @@ def filtere_verschiebung(
     eigene: set[str] | None = None,
     abfrage: Callable[[list[dict]], list[dict]] | None = None,
     gelernt: Iterable[str] | None = None,
+    anhang_namen: AnhangLeser | None = None,
 ) -> tuple[list[tuple], list[tuple[tuple, Befund]]]:
     """K3: vor dem Verschieben die geschützten Mails aussortieren.
 
     ``hits`` sind die Tupel beider Werkzeuge: ``(id, datum, absender, betreff)``.
     Ist ``ziel`` nicht der Löschordner, geht alles unverändert durch.
     ``gelernt`` sind die Owner-Einträge (Default: aus dem Ledger).
+    ``anhang_namen`` liest die Anhangnamen direkt aus dem Postfach (platform#3627);
+    gefragt werden nur die Mails, die nach Adresse und Betreff frei wären.
     Rückgabe: (verschiebbar, zurückgehalten mit Befund).
     """
     if not ist_loeschordner(ziel):
@@ -277,7 +280,42 @@ def filtere_verschiebung(
             gehalten.append((h, befund))
         else:
             frei.append(h)
+    if anhang_namen and frei:
+        frei, per_anhang = anhaenge_pruefen(frei, anhang_namen)
+        gehalten += per_anhang
     return frei, gehalten
+
+
+#: Liest je Mail-Kennung die Anhangnamen; ``None`` = nicht lesbar.
+AnhangLeser = Callable[[list[tuple]], dict[str, "list[str] | None"]]
+
+
+def anhaenge_pruefen(
+    hits: list[tuple], anhang_namen: AnhangLeser
+) -> tuple[list[tuple], list[tuple[tuple, Befund]]]:
+    """Beleg-Schutz über die Anhangnamen aus dem Postfach (platform#3627).
+
+    Fail-closed wie die Gesendet-Prüfung: sind die Anhänge einer Mail nicht
+    lesbar, bleibt sie liegen.
+    """
+    namen = anhang_namen(hits)
+    frei: list[tuple] = []
+    gehalten: list[tuple[tuple, Befund]] = []
+    for h in hits:
+        liste = namen.get(_kennung(h[0]))
+        if liste is None:
+            gehalten.append((h, Befund("anhang_unlesbar", "Anhänge nicht lesbar")))
+        elif ist_beleg("", liste):
+            treffer = next(a for a in liste if BELEG_MUSTER.search(a or ""))
+            gehalten.append((h, Befund("beleg", f"Anhang {treffer[:50]}")))
+        else:
+            frei.append(h)
+    return frei, gehalten
+
+
+def _kennung(roh) -> str:
+    """Graph-messageId (str) und IMAP-UID (bytes) als ein Schlüssel."""
+    return roh.decode() if isinstance(roh, (bytes, bytearray)) else str(roh)
 
 
 def melde_zurueckgehalten(gehalten: list[tuple[tuple, Befund]]) -> None:

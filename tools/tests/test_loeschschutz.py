@@ -175,6 +175,9 @@ def test_should_not_move_person_or_invoice_via_imap(monkeypatch, ohne_registry):
     monkeypatch.setattr(
         om, "_matches", lambda *a, **k: list(TestFiltereVerschiebung.HITS)
     )
+    monkeypatch.setattr(
+        om, "anhang_namen", lambda _i, _s, hits: {h[0]: [] for h in hits}
+    )
     bewegt = []
     monkeypatch.setattr(om, "_move", lambda _i, _s, _t, uids: bewegt.extend(uids))
 
@@ -194,6 +197,8 @@ def test_should_not_move_person_or_invoice_via_graph(monkeypatch, ohne_registry)
     bewegt = []
 
     def fake_http(method, url, **k):
+        if method == "GET":
+            return gm._Resp(200, '{"value": []}')
         bewegt.append(url.split("/messages/")[1].split("/")[0])
         return gm._Resp(201, "{}")
 

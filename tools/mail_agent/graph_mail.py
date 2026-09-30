@@ -678,14 +678,37 @@ def _find_messages(tok: str, from_sub: str, source_path: str, subject_sub: str =
     return hits
 
 
-def _loeschschutz(target_path: str, hits: list[tuple]) -> list[tuple]:
+def anhang_namen(tok: str, hits: list[tuple]) -> dict[str, list[str] | None]:
+    """Anhangnamen je messageId direkt aus dem Postfach (platform#3627).
+
+    Ein Abruf je Mail; nur ``name`` wird geholt, nie der Inhalt. Antwortet
+    Graph nicht mit 200, steht ``None`` da — der Löschschutz hält die Mail dann.
+    """
+    namen: dict[str, list[str] | None] = {}
+    for mid, *_ in hits:
+        r = _http(
+            "GET",
+            f"{_basis()}/messages/{mid}/attachments?$select=name",
+            headers=_auth(tok),
+        )
+        if r.status_code != 200:
+            namen[mid] = None
+            continue
+        namen[mid] = [a.get("name") or "" for a in r.json().get("value", [])]
+    return namen
+
+
+def _loeschschutz(target_path: str, hits: list[tuple], tok: str) -> list[tuple]:
     """K3 (platform#3176): geschützte Mails vor dem Löschordner aussortieren.
 
     Ist der Index für die Gesendet-Prüfung nicht erreichbar, verschiebt der
     Aufruf NICHTS in den Löschordner (fail-closed, siehe ``loeschschutz``).
+    Die Anhangnamen kommen direkt aus dem Postfach (platform#3627).
     """
     try:
-        frei, gehalten = loeschschutz.filtere_verschiebung(target_path, hits)
+        frei, gehalten = loeschschutz.filtere_verschiebung(
+            target_path, hits, anhang_namen=lambda h: anhang_namen(tok, h)
+        )
     except RuntimeError as e:
         sys.exit(f"FEHLER: Löschschutz nicht prüfbar ({e}) — nichts verschoben.")
     loeschschutz.melde_zurueckgehalten(gehalten)
@@ -751,7 +774,7 @@ def cmd_move(
         if not hits:
             print("Keine der angegebenen Nachrichten lesbar — nichts verschoben.")
             return
-        hits = _loeschschutz(target_path, hits)
+        hits = _loeschschutz(target_path, hits, tok)
         if not hits:
             print("Nach dem Löschschutz bleibt nichts zu verschieben.")
             return
@@ -792,7 +815,7 @@ def cmd_move(
     if not hits:
         print("Keine passenden Mails gefunden — nichts verschoben.")
         return
-    hits = _loeschschutz(target_path, hits)
+    hits = _loeschschutz(target_path, hits, tok)
     if not hits:
         print("Nach dem Löschschutz bleibt nichts zu verschieben.")
         return

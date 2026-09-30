@@ -184,6 +184,9 @@ class GraphPostfach:
     def liste(self, pfad: str) -> list[tuple]:
         return self.gm._find_messages(self.tok, "", pfad)
 
+    def anhang_namen(self, _quelle: str, hits: list[tuple]) -> dict:
+        return self.gm.anhang_namen(self.tok, hits)
+
     def verschiebe(self, _quelle: str, ziel: str, kennungen: list) -> int:
         ziel_id = "inbox" if ziel == "inbox" else self.gm.ensure_path(self.tok, ziel)
         bewegt = 0
@@ -227,6 +230,9 @@ class ImapPostfach:
 
     def liste(self, pfad: str) -> list[tuple]:
         return self.om._matches(self.imap, pfad, None, None)
+
+    def anhang_namen(self, quelle: str, hits: list[tuple]) -> dict:
+        return self.om.anhang_namen(self.imap, quelle, hits)
 
     def verschiebe(self, quelle: str, ziel: str, kennungen: list) -> int:
         if kennungen:
@@ -299,7 +305,13 @@ def in_loeschordner(
     if not hits:
         return 0, []
     ziel = LOESCHORDNER[konto]
-    frei, gehalten = loeschschutz.filtere_verschiebung(ziel, hits, gelernt=gelernt)
+    leser = getattr(postfach, "anhang_namen", None)
+    frei, gehalten = loeschschutz.filtere_verschiebung(
+        ziel,
+        hits,
+        gelernt=gelernt,
+        anhang_namen=(lambda h: leser(quelle, h)) if leser else None,
+    )
     loeschschutz.melde_zurueckgehalten(gehalten)
     for h in frei:
         print(f"  {konto}: → {ziel}  {_zeile(h)}")
