@@ -43,6 +43,7 @@ import imaplib
 import json
 import sys
 from pathlib import Path
+from typing import Iterable
 
 HIER = Path(__file__).resolve().parent
 sys.path.insert(0, str(HIER))
@@ -91,7 +92,9 @@ def lernordner_pfad(konto: str, typ: str) -> str:
 # ---------- Rechnung (ohne Postfach prüfbar) ----------
 
 
-def eintrag_fuer(typ: str, absender: str, eigene: set[str]) -> tuple[str | None, str]:
+def eintrag_fuer(
+    typ: str, absender: str, eigene: set[str], behalten: Iterable[str] = ()
+) -> tuple[str | None, str]:
     """(Regel-Eintrag, Grund). Ohne Eintrag erklärt der Grund die Abweisung."""
     adresse = loeschschutz.adresse_von(absender)
     if not adresse or "@" not in adresse:
@@ -99,11 +102,16 @@ def eintrag_fuer(typ: str, absender: str, eigene: set[str]) -> tuple[str | None,
     if loeschschutz.ist_eigene_adresse(adresse, eigene):
         return None, "eigene Adresse"
     if typ == "absender":
-        return adresse, ""
-    domain = adresse.rsplit("@", 1)[1]
-    if any(domain == d or domain.endswith("." + d) for d in DOMAIN_GESPERRT):
-        return None, f"Domain {domain} wird nie als Ganzes gelernt"
-    return domain, ""
+        eintrag = adresse
+    else:
+        eintrag = adresse.rsplit("@", 1)[1]
+        if any(eintrag == d or eintrag.endswith("." + d) for d in DOMAIN_GESPERRT):
+            return None, f"Domain {eintrag} wird nie als Ganzes gelernt"
+    # platform#3637: „behalten" ist die engere Owner-Entscheidung und gewinnt.
+    kollision = loeschschutz.behalten_kollision(eintrag, behalten)
+    if kollision:
+        return None, f"Owner behält {kollision}"
+    return eintrag, ""
 
 
 def ledger_ergaenzen(
@@ -270,7 +278,9 @@ def _zeile(h: tuple) -> str:
     return f"{str(h[1])[:16]:<16}  {h[2][:40]:<40} {(h[3] or '')[:50]}"
 
 
-def lernordner_lesen(konto: str, postfach, eigene: set[str]):
+def lernordner_lesen(
+    konto: str, postfach, eigene: set[str], behalten: Iterable[str] = ()
+):
     """(Lernungen, angenommene Treffer je Quellordner, abgewiesene Treffer je Quellordner)."""
     vorhanden = set(postfach.ordner())
     lernungen: list[tuple[str, str, str]] = []
@@ -282,7 +292,7 @@ def lernordner_lesen(konto: str, postfach, eigene: set[str]):
             print(f"  {konto}: Ordner '{pfad}' fehlt — erst --anlegen")
             continue
         for h in postfach.liste(pfad):
-            eintrag, grund = eintrag_fuer(typ, h[2], eigene)
+            eintrag, grund = eintrag_fuer(typ, h[2], eigene, behalten)
             if eintrag:
                 lernungen.append((eintrag, typ, konto))
                 angenommen.setdefault(pfad, []).append(h)
@@ -300,6 +310,7 @@ def in_loeschordner(
     hits: list[tuple],
     gelernt: list[str],
     apply: bool,
+    behalten: list[str] | None = None,
 ) -> tuple[int, list[tuple]]:
     """Durch den Löschschutz in den Löschordner. Rückgabe: (bewegt, gehaltene Treffer)."""
     if not hits:
@@ -310,6 +321,7 @@ def in_loeschordner(
         ziel,
         hits,
         gelernt=gelernt,
+        behalten=behalten,
         anhang_namen=(lambda h: leser(quelle, h)) if leser else None,
     )
     loeschschutz.melde_zurueckgehalten(gehalten)
@@ -325,6 +337,7 @@ def lauf(
     """Ein Lauf über alle Konten. Gibt eine Bilanz je Konto zurück."""
     ledger_pfad = ledger_pfad or loeschschutz.LEDGER
     eigene = loeschschutz.eigene_adressen()
+    behalten = loeschschutz.owner_behalten(ledger_pfad)
     offen: dict[str, object] = {}
     bilanz: dict[str, dict] = {}
     gelesen: dict[str, tuple] = {}
@@ -335,7 +348,7 @@ def lauf(
             bilanz[konto] = {"nicht_erreichbar": str(fehler)}
             print(f"  {konto}: nicht erreichbar — {fehler}")
             continue
-        gelesen[konto] = lernordner_lesen(konto, offen[konto], eigene)
+        gelesen[konto] = lernordner_lesen(konto, offen[konto], eigene, behalten)
 
     try:
         ledger = json.loads(ledger_pfad.read_text(encoding="utf-8"))
@@ -364,7 +377,7 @@ def lauf(
         try:
             for quelle, hits in angenommen.items():
                 bewegt, gehalten = in_loeschordner(
-                    konto, postfach, quelle, hits, gelernt, apply
+                    konto, postfach, quelle, hits, gelernt, apply, behalten
                 )
                 b["geloescht"] += bewegt
                 zurueck = gehalten + abgewiesen.pop(quelle, [])
@@ -379,7 +392,7 @@ def lauf(
                     )
             eingang = gelernte_treffer(postfach.liste(POSTEINGANG[konto]), gelernt)
             bewegt, _ = in_loeschordner(
-                konto, postfach, POSTEINGANG[konto], eingang, gelernt, apply
+                konto, postfach, POSTEINGANG[konto], eingang, gelernt, apply, behalten
             )
             b["posteingang"] += bewegt
         except RuntimeError as fehler:

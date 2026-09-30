@@ -63,7 +63,7 @@ import urllib.request
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Iterable
 
 LEDGER = Path.home() / ".claude" / "mail-vorgaenge.json"
 HIER = Path(__file__).resolve().parent
@@ -288,9 +288,15 @@ def _anhang_namen(treffer: dict) -> list[str]:
 
 
 def schutz_filtern(
-    kandidaten: list[Kandidat], *, eigene: set[str], gesendet: set[str]
+    kandidaten: list[Kandidat],
+    *,
+    eigene: set[str],
+    gesendet: set[str],
+    behalten: Iterable[str] = (),
 ) -> tuple[list[Kandidat], list[Ausschluss]]:
     """K1: Schutzklassen aus ``loeschschutz`` — über ALLE Treffer des Fensters.
+
+    ``behalten``: Owner-Behalten-Liste (platform#3637) — nie vorschlagen.
 
     Ein einziger Beleg-Betreff reicht: derselbe Absender schickt dann auch
     Rechnungen, und eine Absender-Regel träfe sie mit.
@@ -306,6 +312,7 @@ def schutz_filtern(
                 eigene=eigene,
                 gesendet=gesendet,
                 anhaenge=k.anhaenge,
+                behalten=behalten,
             )
             if befund:
                 break
@@ -444,6 +451,7 @@ def bestand_einordnen(
     eigene: set[str],
     abfrage: Callable[[list[dict]], list[dict]],
     klassifikator: Callable[[list[Kandidat]], dict] | None = None,
+    behalten: Iterable[str] = (),
 ) -> list[dict]:
     """K4: je Regel-Eintrag Klasse und Treffer im Löschordner — Owner-Vorlage.
 
@@ -466,7 +474,9 @@ def bestand_einordnen(
                 anhaenge=[n for t in treffer for n in _anhang_namen(t)],
             )
         )
-    frei, raus_schutz = schutz_filtern(kandidaten, eigene=eigene, gesendet=gesendet)
+    frei, raus_schutz = schutz_filtern(
+        kandidaten, eigene=eigene, gesendet=gesendet, behalten=behalten
+    )
     rausch, raus_klasse = llm_einordnen(frei, klassifikator)
     zeilen = [
         _bestand_zeile(k.absender, k.treffer, f"klasse:{k.klasse}", bleibt=True)
@@ -493,6 +503,7 @@ def _bestand_ausgeben(rausch_regeln: dict, *, als_json: bool) -> int:
         eintraege,
         eigene=loeschschutz.eigene_adressen(),
         abfrage=loeschschutz.index_batch,
+        behalten=loeschschutz.owner_behalten(LEDGER),
     )
     if als_json:
         print(json.dumps(zeilen, ensure_ascii=False, indent=2))
@@ -544,7 +555,10 @@ def main(argv: list[str] | None = None) -> int:
     roh = kandidaten_ermitteln(treffer, rausch_regeln, vorgaenge)
     gesendet = loeschschutz.gesendet_an(k.absender for k in roh)
     geschuetzt, raus_schutz = schutz_filtern(
-        roh, eigene=loeschschutz.eigene_adressen(), gesendet=gesendet
+        roh,
+        eigene=loeschschutz.eigene_adressen(),
+        gesendet=gesendet,
+        behalten=loeschschutz.owner_behalten(LEDGER),
     )
     kandidaten, raus_klasse = llm_einordnen(geschuetzt)
     ausgeschlossen = raus_schutz + raus_klasse

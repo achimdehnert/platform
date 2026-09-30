@@ -39,6 +39,11 @@ Domain selbst in einen Lernordner gezogen (``lernordner.py``), steht der
 Eintrag unter ``rausch_regeln.owner_gelernt`` im Ledger. Für diese Absender
 entfällt die Gesendet-Prüfung — sein Zug ist die Entscheidung, auch wenn er
 ihnen einmal geschrieben hat. Eigene Adressen und Belege bleiben geschützt.
+
+**Owner-Behalten (platform#3637).** Was der Owner ausdrücklich behalten will,
+steht unter ``rausch_regeln.bewusst_NICHT_aufgenommen``. Ein solcher Absender
+kommt nie in den Löschordner — auch nicht über eine gelernte Domain-Regel,
+denn „behalten" ist die engere und damit maßgebliche Owner-Entscheidung.
 """
 
 from __future__ import annotations
@@ -83,6 +88,11 @@ LEDGER = Path.home() / ".claude" / "mail-vorgaenge.json"
 #: selbst bestimmt hat (``lernordner.py``).
 GELERNT_SCHLUESSEL = "owner_gelernt"
 
+#: Schlüssel unter ``rausch_regeln``: Adresse oder Domain → Grund, die der Owner
+#: behalten will (platform#3637). Ein Wert mit ``absender``-Liste (Sammel-
+#: korrektur eines Tages) zählt mit seinen Adressen.
+BEHALTEN_SCHLUESSEL = "bewusst_NICHT_aufgenommen"
+
 #: Beleg-Betreffe und -Anhangnamen (K1/K3). Lieber einmal zu viel liegen lassen:
 #: "zahlung" trifft auch "Zahlungserinnerung", "rechnung" auch "Abrechnung".
 BELEG_MUSTER = re.compile(
@@ -102,7 +112,7 @@ GESENDET_ORDNER_TEILE = ("esendet", "sent")
 class Befund:
     """Warum eine Mail/ein Absender nicht in den Löschordner darf."""
 
-    klasse: str  # "eigene_adresse" | "beleg" | "gesendet"
+    klasse: str  # "owner_behalten" | "eigene_adresse" | "beleg" | "gesendet" | …
     detail: str
 
 
@@ -171,6 +181,62 @@ def owner_gelernt(ledger: Path | None = None) -> list[str]:
     return [z["eintrag"] for z in zeilen if isinstance(z, dict) and z.get("eintrag")]
 
 
+def _ist_eintrag(text: str) -> bool:
+    """Adresse oder Domain — nicht ein Meta-Schlüssel wie ``owner_korrektur_…``."""
+    return "." in text and " " not in text
+
+
+def owner_behalten(ledger: Path | None = None) -> list[str]:
+    """Die Einträge, die der Owner behalten will (platform#3637).
+
+    Fehlt das Ledger, gibt es keine — dann fehlen auch die Rauschregeln, die sie
+    überstimmen könnten. Ein ausdrücklicher ``--from`` ohne Ledger ist die
+    Entscheidung des Aufrufers; Belege, eigene Adressen und Gesendet-Historie
+    schützen weiter.
+    """
+    try:
+        daten = json.loads((ledger or LEDGER).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    tabelle = (daten.get("rausch_regeln") or {}).get(BEHALTEN_SCHLUESSEL) or {}
+    eintraege: list[str] = []
+    for schluessel, wert in tabelle.items():
+        if _ist_eintrag(schluessel):
+            eintraege.append(schluessel.strip().lower())
+        if isinstance(wert, dict):
+            eintraege += [
+                a.strip().lower()
+                for a in wert.get("absender") or []
+                if isinstance(a, str) and _ist_eintrag(a)
+            ]
+    return list(dict.fromkeys(eintraege))
+
+
+def trifft_einen(adresse: str, eintraege: Iterable[str]) -> bool:
+    return any(trifft_eintrag(adresse, e) for e in eintraege)
+
+
+def behalten_kollision(eintrag: str, behalten: Iterable[str]) -> str | None:
+    """Der Behalten-Eintrag, den eine neue Löschregel träfe — sonst ``None``.
+
+    Eine Domain-Regel kollidiert mit jeder behaltenen Adresse darunter, mit
+    einer behaltenen Subdomain und mit einer behaltenen Eltern-Domain.
+    """
+    eintrag = (eintrag or "").strip().lower()
+    for b in behalten:
+        if "@" in eintrag:
+            treffer = trifft_eintrag(eintrag, b)
+        elif "@" in b:
+            treffer = trifft_eintrag(b, eintrag)
+        else:
+            treffer = (
+                b == eintrag or b.endswith("." + eintrag) or eintrag.endswith("." + b)
+            )
+        if treffer:
+            return b
+    return None
+
+
 def ist_beleg(betreff: str, anhaenge: Iterable[str] = ()) -> bool:
     return bool(BELEG_MUSTER.search(betreff or "")) or any(
         BELEG_MUSTER.search(a or "") for a in anhaenge
@@ -223,15 +289,19 @@ def pruefe(
     gesendet: set[str],
     anhaenge: Iterable[str] = (),
     owner_entschieden: bool = False,
+    behalten: Iterable[str] = (),
 ) -> Befund | None:
     """Schutz-Befund für eine Mail — ``None`` heißt: darf in den Löschordner.
 
     ``owner_entschieden``: der Absender steht in ``owner_gelernt`` — dann
     zählt die Gesendet-Historie nicht, eigene Adresse und Beleg schon.
+    ``behalten``: Owner-Behalten-Einträge; ein Treffer schlägt ``owner_entschieden``.
     """
     adresse = adresse_von(absender)
     if not adresse:
         return Befund("unbekannt", "Absenderadresse nicht lesbar")
+    if trifft_einen(adresse, behalten):
+        return Befund("owner_behalten", adresse)
     if ist_eigene_adresse(adresse, eigene):
         return Befund("eigene_adresse", adresse)
     if ist_beleg(betreff, anhaenge):
@@ -249,12 +319,13 @@ def filtere_verschiebung(
     abfrage: Callable[[list[dict]], list[dict]] | None = None,
     gelernt: Iterable[str] | None = None,
     anhang_namen: AnhangLeser | None = None,
+    behalten: Iterable[str] | None = None,
 ) -> tuple[list[tuple], list[tuple[tuple, Befund]]]:
     """K3: vor dem Verschieben die geschützten Mails aussortieren.
 
     ``hits`` sind die Tupel beider Werkzeuge: ``(id, datum, absender, betreff)``.
     Ist ``ziel`` nicht der Löschordner, geht alles unverändert durch.
-    ``gelernt`` sind die Owner-Einträge (Default: aus dem Ledger).
+    ``gelernt`` und ``behalten`` sind Owner-Einträge (Default: aus dem Ledger).
     ``anhang_namen`` liest die Anhangnamen direkt aus dem Postfach (platform#3627);
     gefragt werden nur die Mails, die nach Adresse und Betreff frei wären.
     Rückgabe: (verschiebbar, zurückgehalten mit Befund).
@@ -263,6 +334,7 @@ def filtere_verschiebung(
         return list(hits), []
     eigene = eigene_adressen() if eigene is None else eigene
     gelernt = list(owner_gelernt() if gelernt is None else gelernt)
+    behalten = list(owner_behalten() if behalten is None else behalten)
     gesendet = gesendet_an((adresse_von(h[2]) for h in hits), abfrage)
     frei: list[tuple] = []
     gehalten: list[tuple[tuple, Befund]] = []
@@ -272,9 +344,8 @@ def filtere_verschiebung(
             h[3],
             eigene=eigene,
             gesendet=gesendet,
-            owner_entschieden=any(
-                trifft_eintrag(adresse_von(h[2]), e) for e in gelernt
-            ),
+            owner_entschieden=trifft_einen(adresse_von(h[2]), gelernt),
+            behalten=behalten,
         )
         if befund:
             gehalten.append((h, befund))
