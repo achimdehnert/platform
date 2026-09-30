@@ -277,11 +277,12 @@ def kandidaten_ermitteln(
 def _anhang_namen(treffer: dict) -> list[str]:
     """Anhangnamen eines Index-Treffers — Strings oder Objekte mit Namensfeld.
 
-    Die heutige Index-Projektion liefert unter ``anhaenge`` nur ein Bool
-    („hat Anhänge", gemessen 2026-09-30) — dann gibt es keine Namen, und der
-    Beleg-Schutz stützt sich allein auf den Betreff.
+    Die Index-Projektion liefert die Namen unter ``anhang_namen`` (dev-hub
+    ``mail_suche``, #3627); ``anhaenge`` ist dort nur ein Bool („hat Anhänge").
+    Ein Index ohne das Feld (vor dem Deploy) ergibt keine Namen — dann stützt
+    sich der Beleg-Schutz allein auf den Betreff.
     """
-    roh = treffer.get("anhaenge")
+    roh = treffer.get("anhang_namen", treffer.get("anhaenge"))
     if not isinstance(roh, list):
         return []
     namen = []
