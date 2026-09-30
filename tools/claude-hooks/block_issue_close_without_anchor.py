@@ -21,11 +21,12 @@ liest Body und Kommentare des Issues mit derselben Regel wie
 
 Gedeckt ist ein Fund, wenn
   * die Stelle selbst einen Anker traegt (die Regel des Werkzeugs), oder
-  * der Schliess-Kommentar (`--comment`/`-c`) einen Anker nennt, also
+  * der Schliess-Kommentar (`--comment`/`-c`) einen Anker nennt (#3169), also
     `Folgearbeit: #N` oder eine Issue-URL. Ohne diese Regel liesse sich ein Issue
     mit einem alten, unverankerten Kommentar nie mehr schliessen, ohne fremde
     Kommentare umzuschreiben. Grenze, bewusst: ein Anker deckt dann alle Funde.
-    Der Hook erzwingt den Blick auf die Folgearbeit, nicht ein Issue je Punkt.
+    Der Hook erzwingt den Blick auf die Folgearbeit, nicht ein Issue je Punkt
+    (entschieden in #3169).
 
 FAIL-OPEN: kein JSON, kein `gh issue close`, Werkzeug nicht auffindbar, Repo
 nicht bestimmbar, `gh` scheitert oder braucht zu lange → exit 0.
@@ -80,7 +81,7 @@ def zerlege(kommando: str) -> dict | None:
     if not treffer:
         return None
     try:
-        woerter = shlex.split(kommando[treffer.end():])
+        woerter = shlex.split(kommando[treffer.end() :])
     except ValueError:
         return None
     ziel = repo = None
@@ -132,7 +133,12 @@ def _gh(args: list[str], cwd: str | None = None) -> str:
 
 def repo_aus_cwd(cwd: str | None) -> str | None:
     try:
-        return _gh(["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"], cwd).strip() or None
+        return (
+            _gh(
+                ["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"], cwd
+            ).strip()
+            or None
+        )
     except (OSError, subprocess.SubprocessError):
         return None
 
@@ -145,7 +151,9 @@ def issue_stoff(werkzeug, nummer: int, repo: str) -> tuple[str, list[dict]]:
     return body, kommentare
 
 
-def funde(werkzeug, body: str, kommentare: list[dict], schliess_kommentar: str) -> list[str]:
+def funde(
+    werkzeug, body: str, kommentare: list[dict], schliess_kommentar: str
+) -> list[str]:
     """Unverankerte Aufschub-Stellen; leer, wenn der Schliess-Kommentar einen Anker nennt."""
     if schliess_kommentar and werkzeug.ANKER.search(
         werkzeug.ohne_pr_referenzen(schliess_kommentar)
@@ -154,7 +162,10 @@ def funde(werkzeug, body: str, kommentare: list[dict], schliess_kommentar: str) 
     stellen = [f"Issue-Body: {z}" for _, z in werkzeug.finde_ankerlose_stellen(body)]
     for k in kommentare:
         ort = k.get("html_url") or f"Kommentar {k.get('id', '?')}"
-        stellen += [f"{ort}: {z}" for _, z in werkzeug.finde_ankerlose_stellen(k.get("body") or "")]
+        stellen += [
+            f"{ort}: {z}"
+            for _, z in werkzeug.finde_ankerlose_stellen(k.get("body") or "")
+        ]
     stellen += [
         f"Schliess-Kommentar: {z}"
         for _, z in werkzeug.finde_ankerlose_stellen(schliess_kommentar)
@@ -186,7 +197,7 @@ def entscheide(daten: dict, werkzeug=None, stoff=None) -> str | None:
         f"Aufschub-Anker (Retro 97a9a1 #1, #3169): {repo}#{ziel['nummer']} enthaelt "
         f"{len(stellen)} Stelle(n) mit angekuendigter Folgearbeit ohne Issue-Nummer:\n{liste}\n"
         "Folge-Issue anlegen und im Schliess-Kommentar nennen "
-        "(`--comment \"… Folgearbeit: #N\"`), oder die Stelle ist erledigt: dann das im "
+        '(`--comment "… Folgearbeit: #N"`), oder die Stelle ist erledigt: dann das im '
         "Schliess-Kommentar mit Verweis belegen."
     )
 

@@ -17,7 +17,9 @@ from pathlib import Path
 import pytest
 
 _HOOK = Path(__file__).resolve().parent.parent / "block_issue_close_without_anchor.py"
-_spec = importlib.util.spec_from_file_location("block_issue_close_without_anchor", _HOOK)
+_spec = importlib.util.spec_from_file_location(
+    "block_issue_close_without_anchor", _HOOK
+)
 hook = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(hook)
 
@@ -94,12 +96,18 @@ def test_should_flag_a_deferral_in_the_closing_comment_itself():
     "kommando, erwartet",
     [
         ("gh issue close 12", {"nummer": 12, "repo": None, "kommentar": ""}),
-        ("gh issue close '#12' --repo o/r", {"nummer": 12, "repo": "o/r", "kommentar": ""}),
+        (
+            "gh issue close '#12' --repo o/r",
+            {"nummer": 12, "repo": "o/r", "kommentar": ""},
+        ),
         (
             "gh issue close https://github.com/o/r/issues/7 --reason 'not planned'",
             {"nummer": 7, "repo": "o/r", "kommentar": ""},
         ),
-        ("cd x && gh issue close 3 --comment=fertig && echo ok", {"nummer": 3, "repo": None, "kommentar": "fertig"}),
+        (
+            "cd x && gh issue close 3 --comment=fertig && echo ok",
+            {"nummer": 3, "repo": None, "kommentar": "fertig"},
+        ),
     ],
 )
 def test_should_parse_the_close_command(kommando, erwartet):
@@ -111,7 +119,10 @@ def test_should_parse_the_close_command(kommando, erwartet):
     ["gh issue view 12", "gh issue reopen 12", "gh pr close 12", "echo gh issue"],
 )
 def test_should_ignore_other_commands(kommando):
-    assert hook.entscheide(_daten(kommando), WERKZEUG, _stoff("x", KOMMENTAR_OHNE_ANKER)) is None
+    assert (
+        hook.entscheide(_daten(kommando), WERKZEUG, _stoff("x", KOMMENTAR_OHNE_ANKER))
+        is None
+    )
 
 
 def test_should_fail_open_when_gh_fails():
@@ -124,13 +135,20 @@ def test_should_fail_open_when_gh_fails():
 def test_should_fail_open_without_a_resolvable_repo(monkeypatch):
     monkeypatch.setattr(hook, "repo_aus_cwd", lambda _cwd: None)
 
-    assert hook.entscheide(_daten("gh issue close 12"), WERKZEUG, _stoff("x", KOMMENTAR_OHNE_ANKER)) is None
+    assert (
+        hook.entscheide(
+            _daten("gh issue close 12"), WERKZEUG, _stoff("x", KOMMENTAR_OHNE_ANKER)
+        )
+        is None
+    )
 
 
 def test_should_emit_a_deny_decision_via_main(monkeypatch, capsys):
     monkeypatch.setattr(hook, "lade_werkzeug", lambda: WERKZEUG)
     monkeypatch.setattr(hook, "issue_stoff", _stoff("x", KOMMENTAR_OHNE_ANKER))
-    monkeypatch.setattr(sys, "stdin", __import__("io").StringIO(json.dumps(_daten(REALFALL))))
+    monkeypatch.setattr(
+        sys, "stdin", __import__("io").StringIO(json.dumps(_daten(REALFALL)))
+    )
 
     assert hook.main() == 0
     ausgabe = json.loads(capsys.readouterr().out)
