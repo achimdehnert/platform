@@ -178,8 +178,11 @@ class TestGraphAnhaenge:
 
 
 class TestLernordnerVerdrahtung:
-    def test_should_hold_invoice_attachment_in_learned_move(self):
+    def test_should_hold_invoice_attachment_in_learned_move(self, monkeypatch):
         lo = _load("lernordner")
+        # Andere Testdateien laden loeschschutz neu; ohne diese Zeile fragte
+        # lernordner je nach Reihenfolge den echten Index (CI: kein Host).
+        monkeypatch.setattr(lo, "loeschschutz", ls)
 
         class Postfach:
             bewegt = []
