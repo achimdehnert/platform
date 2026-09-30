@@ -85,7 +85,17 @@ def test_should_embed_the_matching_base_in_the_bookmarklet():
     assert le.basis_aus_host("evil.example") == le.STANDARD_BASIS
     zeichen = le.lesezeichen("https://lotse.iil.pet")
     assert zeichen.startswith("javascript:")
-    assert '"https://lotse.iil.pet/lesen"' in zeichen
+    assert '"https://lotse.iil.pet/lesen?knopf=1#lotse="' in zeichen
+
+
+def test_should_not_depend_on_a_window_relation_in_the_bookmarklet():
+    # chat-hub#151: opener ist null, sobald die Artikelseite COOP setzt — der
+    # Knopf darf dann nicht still scheitern. Kein Weg ueber opener/postMessage.
+    zeichen = le.lesezeichen("https://lotse.iil.pet")
+    assert "noopener" in zeichen
+    assert "postMessage" not in zeichen and "opener." not in zeichen
+    # In javascript:-URLs dekodiert der Browser %-Folgen vor dem Ausfuehren.
+    assert "%" not in zeichen
 
 
 @pytest.fixture
@@ -141,3 +151,67 @@ def test_should_refuse_a_post_from_a_foreign_origin(server, tmp_path):
 def test_should_404_a_post_to_any_other_path(server):
     status, _ = _anfrage(server, "POST", "/d/x", b"{}", {"Origin": HERKUNFT})
     assert status == HTTPStatus.NOT_FOUND
+
+
+# --- Browser: Knopf gegen eine Artikelseite mit COOP (chat-hub#151) ---------
+
+ARTIKEL_COOP = "https://artikel.example/probe-151"
+
+
+@pytest.fixture
+def browser_seite(server, monkeypatch):
+    sync_api = pytest.importorskip("playwright.sync_api")
+    basis = f"http://127.0.0.1:{server.server_address[1]}"
+    monkeypatch.setattr(le, "HERKUENFTE", le.HERKUENFTE | {basis})
+    with sync_api.sync_playwright() as pw:
+        try:
+            browser = pw.chromium.launch()
+        except Exception as fehler:  # kein Chromium installiert
+            pytest.skip(f"Chromium fehlt: {fehler}")
+        kontext = browser.new_context()
+        # Die Artikelseite trennt Popups ab — wie die Seite, an der der Knopf
+        # am 2026-09-30 still scheiterte.
+        kontext.route(
+            "https://artikel.example/**",
+            lambda route: route.fulfill(
+                status=200,
+                headers={
+                    "Content-Type": "text/html; charset=utf-8",
+                    "Cross-Origin-Opener-Policy": "same-origin",
+                },
+                body="<title>Probe 151</title><article><p>Volltext der Probe</p></article>",
+            ),
+        )
+        yield basis, kontext
+        browser.close()
+
+
+def _ergebnis(seite) -> str:
+    seite.wait_for_function(
+        "['ok','fehler'].includes(document.getElementById('ergebnis').className)",
+        timeout=10_000,
+    )
+    return seite.eval_on_selector("#ergebnis", "e => e.className + ': ' + e.innerText")
+
+
+def test_should_store_the_article_although_the_page_cuts_the_opener(
+    browser_seite, tmp_path
+):
+    basis, kontext = browser_seite
+    artikel = kontext.new_page()
+    artikel.goto(ARTIKEL_COOP)
+    with kontext.expect_page() as neu:
+        artikel.evaluate(le.lesezeichen(basis)[len("javascript:") :])
+    lesen = neu.value
+    assert _ergebnis(lesen).startswith("ok: ✓ Abgelegt: Probe 151")
+    assert lesen.url == f"{basis}/lesen"  # Fragment aus Adresszeile entfernt
+    ablage = tmp_path / "lesen" / f"{le.ablage_schluessel(ARTIKEL_COOP)}.md"
+    assert "Volltext der Probe" in ablage.read_text(encoding="utf-8")
+
+
+def test_should_report_a_knopf_call_that_lost_its_article(browser_seite, tmp_path):
+    basis, kontext = browser_seite
+    seite = kontext.new_page()
+    seite.goto(f"{basis}/lesen?knopf=1")
+    assert _ergebnis(seite).startswith("fehler: Der Knopf kam an, der Artikel nicht.")
+    assert not (tmp_path / "lesen").exists()
