@@ -642,6 +642,52 @@ def test_should_still_flag_a_checkbox_line_without_an_anchor(tmp_path, capsys):
     assert rc == 1
 
 
+def test_should_flag_a_time_word_with_an_issue_without_number(tmp_path, capsys):
+    """Rueckfall 2026-09-30 (#3169): Zeitwort plus Issue ohne Nummer im Kommentar."""
+    daten = {
+        "body": "Deploy bricht ab.",
+        "comments": [
+            {
+                "id": 1,
+                "html_url": "https://example.invalid/c1",
+                "body": "Fix: Spiegel anlegen.\n\n"
+                "Mittelfristig: Ersatz fuer den Objektspeicher pruefen, eigenes Issue.",
+            }
+        ],
+    }
+    pfad = _eingabe_datei(tmp_path, daten)
+
+    rc = dac.main(["--eingabe", pfad, "--block"])
+    out = capsys.readouterr().out
+
+    assert rc == 1
+    assert "https://example.invalid/c1" in out
+
+
+def test_should_accept_the_same_issue_reference_with_a_number(tmp_path):
+    """Gegenprobe: dieselbe Zeile mit Issue-Nummer ist verankert."""
+    daten = {
+        "body": "Mittelfristig: Ersatz fuer den Objektspeicher pruefen, eigenes Issue #790.",
+        "comments": [],
+    }
+    pfad = _eingabe_datei(tmp_path, daten)
+
+    assert dac.main(["--eingabe", pfad, "--block"]) == 0
+
+
+@pytest.mark.parametrize(
+    "zeile",
+    [
+        "Langfristig wandert der Dienst auf den zweiten Host.",
+        "Dazu gibt es ein eigenes Issue.",
+        "Das kommt in einen eigenen PR.",
+    ],
+)
+def test_should_flag_each_new_deferral_wording(zeile):
+    """Jede der drei neuen Wendungen traegt fuer sich, ohne Anker."""
+    assert dac.finde_ankerlose_stellen(zeile)
+
+
 def test_should_error_on_issue_without_repo_or_eingabe(monkeypatch):
     """`--issue` ohne `--repo` und ohne `$GITHUB_REPOSITORY` ist ein Werkzeugfehler, kein Fund."""
     monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
