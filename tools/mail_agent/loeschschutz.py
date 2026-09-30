@@ -33,6 +33,12 @@ gehört. Zwei Stellen fragen es:
 **Fail-closed.** Ist der Index für die Gesendet-Prüfung nicht erreichbar, wirft
 `gesendet_an` — der Aufrufer verschiebt dann nichts in den Löschordner. Liegen
 lassen ist reversibel und billig; eine Personenmail im Löschordner nicht.
+
+**Owner-Übersteuerung (Lernordner).** Hat der Owner einen Absender oder eine
+Domain selbst in einen Lernordner gezogen (``lernordner.py``), steht der
+Eintrag unter ``rausch_regeln.owner_gelernt`` im Ledger. Für diese Absender
+entfällt die Gesendet-Prüfung — sein Zug ist die Entscheidung, auch wenn er
+ihnen einmal geschrieben hat. Eigene Adressen und Belege bleiben geschützt.
 """
 
 from __future__ import annotations
@@ -59,6 +65,23 @@ ROLLEN_REGISTRY = Path.home() / ".claude" / "mail-roles.json"
 #: Domains, unter denen JEDE Adresse eine eigene ist (Firma, Familie).
 #: Bereits unredigiert im Repo, siehe ``rausch_kandidaten.EIGENE_DOMAENEN``.
 EIGENE_KONTO_DOMAENEN = ("iil.gmbh", "dehnert.team")
+
+#: Freemail-Domains schicken Menschen, keine Newsletter — weder als Kandidat
+#: (``rausch_kandidaten.plausibel``) noch als gelernte Domain-Regel.
+FREEMAIL_DOMAENEN = (
+    "gmail.com", "googlemail.com", "gmx.de", "gmx.net", "gmx.at", "web.de",
+    "t-online.de", "yahoo.com", "yahoo.de", "outlook.com", "outlook.de",
+    "hotmail.com", "hotmail.de", "live.com", "icloud.com", "me.com",
+    "posteo.de", "mailbox.org", "freenet.de", "aol.com", "proton.me",
+    "protonmail.com",
+)  # fmt: skip
+
+#: Vorgangs-Ledger (lokal, nie im Repo) mit den Rauschregeln.
+LEDGER = Path.home() / ".claude" / "mail-vorgaenge.json"
+
+#: Schlüssel unter ``rausch_regeln``: Einträge, die der Owner per Lernordner
+#: selbst bestimmt hat (``lernordner.py``).
+GELERNT_SCHLUESSEL = "owner_gelernt"
 
 #: Beleg-Betreffe und -Anhangnamen (K1/K3). Lieber einmal zu viel liegen lassen:
 #: "zahlung" trifft auch "Zahlungserinnerung", "rechnung" auch "Abrechnung".
@@ -126,6 +149,28 @@ def ist_eigene_adresse(adresse: str, eigene: set[str]) -> bool:
     return any(domain == d or domain.endswith("." + d) for d in EIGENE_KONTO_DOMAENEN)
 
 
+def trifft_eintrag(adresse: str, eintrag: str) -> bool:
+    """Regel-Eintrag gegen eine Adresse: mit "@" exakt, sonst Domain samt Subdomains."""
+    eintrag = (eintrag or "").strip().lower()
+    if not eintrag or not adresse:
+        return False
+    if "@" in eintrag:
+        return adresse == eintrag
+    domain = adresse.rsplit("@", 1)[-1]
+    return domain == eintrag or domain.endswith("." + eintrag)
+
+
+def owner_gelernt(ledger: Path | None = None) -> list[str]:
+    """Die per Lernordner gelernten Einträge. Fehlt das Ledger, gibt es keine —
+    das nimmt nur die Übersteuerung weg, nie einen Schutz."""
+    try:
+        daten = json.loads((ledger or LEDGER).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    zeilen = (daten.get("rausch_regeln") or {}).get(GELERNT_SCHLUESSEL) or []
+    return [z["eintrag"] for z in zeilen if isinstance(z, dict) and z.get("eintrag")]
+
+
 def ist_beleg(betreff: str, anhaenge: Iterable[str] = ()) -> bool:
     return bool(BELEG_MUSTER.search(betreff or "")) or any(
         BELEG_MUSTER.search(a or "") for a in anhaenge
@@ -177,8 +222,13 @@ def pruefe(
     eigene: set[str],
     gesendet: set[str],
     anhaenge: Iterable[str] = (),
+    owner_entschieden: bool = False,
 ) -> Befund | None:
-    """Schutz-Befund für eine Mail — ``None`` heißt: darf in den Löschordner."""
+    """Schutz-Befund für eine Mail — ``None`` heißt: darf in den Löschordner.
+
+    ``owner_entschieden``: der Absender steht in ``owner_gelernt`` — dann
+    zählt die Gesendet-Historie nicht, eigene Adresse und Beleg schon.
+    """
     adresse = adresse_von(absender)
     if not adresse:
         return Befund("unbekannt", "Absenderadresse nicht lesbar")
@@ -186,7 +236,7 @@ def pruefe(
         return Befund("eigene_adresse", adresse)
     if ist_beleg(betreff, anhaenge):
         return Befund("beleg", (betreff or "")[:60])
-    if adresse in gesendet:
+    if adresse in gesendet and not owner_entschieden:
         return Befund("gesendet", adresse)
     return None
 
@@ -197,21 +247,32 @@ def filtere_verschiebung(
     *,
     eigene: set[str] | None = None,
     abfrage: Callable[[list[dict]], list[dict]] | None = None,
+    gelernt: Iterable[str] | None = None,
 ) -> tuple[list[tuple], list[tuple[tuple, Befund]]]:
     """K3: vor dem Verschieben die geschützten Mails aussortieren.
 
     ``hits`` sind die Tupel beider Werkzeuge: ``(id, datum, absender, betreff)``.
     Ist ``ziel`` nicht der Löschordner, geht alles unverändert durch.
+    ``gelernt`` sind die Owner-Einträge (Default: aus dem Ledger).
     Rückgabe: (verschiebbar, zurückgehalten mit Befund).
     """
     if not ist_loeschordner(ziel):
         return list(hits), []
     eigene = eigene_adressen() if eigene is None else eigene
+    gelernt = list(owner_gelernt() if gelernt is None else gelernt)
     gesendet = gesendet_an((adresse_von(h[2]) for h in hits), abfrage)
     frei: list[tuple] = []
     gehalten: list[tuple[tuple, Befund]] = []
     for h in hits:
-        befund = pruefe(h[2], h[3], eigene=eigene, gesendet=gesendet)
+        befund = pruefe(
+            h[2],
+            h[3],
+            eigene=eigene,
+            gesendet=gesendet,
+            owner_entschieden=any(
+                trifft_eintrag(adresse_von(h[2]), e) for e in gelernt
+            ),
+        )
         if befund:
             gehalten.append((h, befund))
         else:

@@ -31,6 +31,12 @@ RECHNUNG = "billing@cloud.example.com"
 WERBUNG = "news@shop.example.com"
 
 
+@pytest.fixture(autouse=True)
+def ohne_ledger(monkeypatch, tmp_path):
+    """Owner-Einträge (``owner_gelernt``) nie aus dem echten Ledger lesen."""
+    monkeypatch.setattr(ls, "LEDGER", tmp_path / "kein-ledger.json")
+
+
 def _index(gesendet_an=()):
     """Fake für ``suche.py --batch``: ``an``-Abfragen treffen Gesendet-Ordner."""
 
