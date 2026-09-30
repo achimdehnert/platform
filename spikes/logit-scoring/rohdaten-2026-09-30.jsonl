@@ -1,0 +1,109 @@
+{"runde": 1, "fall": 1, "gold": "rechnung", "weg": "text", "label": "rechnung", "roh": "rechnung", "ms": 95.19738610833883}
+{"runde": 1, "fall": 1, "gold": "rechnung", "weg": "logit", "label": "rechnung", "p": {"rechnung": 1.0, "termin": 0.0, "newsletter": 0.0, "anfrage": 0.0}, "ms": 28.287937166169286}
+{"runde": 1, "fall": 1, "gold": "rechnung", "weg": "kev", "label": "rechnung", "p": {"rechnung": 0.99, "termin": 0.0, "newsletter": 0.0, "anfrage": 0.0}, "ms": 68.57117102481425}
+{"runde": 1, "fall": 2, "gold": "rechnung", "weg": "text", "label": "rechnung", "roh": "rechnung", "ms": 107.43367485702038}
+{"runde": 1, "fall": 2, "gold": "rechnung", "weg": "logit", "label": "rechnung", "p": {"rechnung": 1.0, "termin": 0.0, "newsletter": 0.0, "anfrage": 0.0}, "ms": 29.144140891730785}
+{"runde": 1, "fall": 2, "gold": "rechnung", "weg": "kev", "label": "rechnung", "p": {"rechnung": 0.96, "termin": 0.01, "newsletter": 0.01, "anfrage": 0.02}, "ms": 69.79801505804062}
+{"runde": 1, "fall": 3, "gold": "rechnung", "weg": "text", "label": "rechnung", "roh": "rechnung", "ms": 109.60750700905919}
+{"runde": 1, "fall": 3, "gold": "rechnung", "weg": "logit", "label": "rechnung", "p": {"rechnung": 0.9999999759724006, "termin": 0.0, "newsletter": 7.22123460633051e-09, "anfrage": 1.6806364702590598e-08}, "ms": 26.847205823287368}
+{"runde": 1, "fall": 3, "gold": "rechnung", "weg": "kev", "label": "rechnung", "p": {"rechnung": 0.45, "termin": 0.08, "newsletter": 0.25, "anfrage": 0.22}, "ms": 68.21672501973808}
+{"runde": 1, "fall": 4, "gold": "termin", "weg": "text", "label": "termin", "roh": "termin", "ms": 64.8651858791709}
+{"runde": 1, "fall": 4, "gold": "termin", "weg": "logit", "label": "termin", "p": {"rechnung": 1.584724597689497e-07, "termin": 0.9999998415275403, "newsletter": 0.0, "anfrage": 0.0}, "ms": 29.858971014618874}
+{"runde": 1, "fall": 4, "gold": "termin", "weg": "kev", "label": "termin", "p": {"rechnung": 0.0, "termin": 0.98, "newsletter": 0.01, "anfrage": 0.01}, "ms": 68.577780155465}
+{"runde": 1, "fall": 5, "gold": "termin", "weg": "text", "label": "termin", "roh": "termin", "ms": 65.93166198581457}
+{"runde": 1, "fall": 5, "gold": "termin", "weg": "logit", "label": "termin", "p": {"rechnung": 8.337728112152938e-08, "termin": 0.9999999166227189, "newsletter": 0.0, "anfrage": 0.0}, "ms": 30.38130491040647}
+{"runde": 1, "fall": 5, "gold": "termin", "weg": "kev", "label": "termin", "p": {"rechnung": 0.0, "termin": 0.99, "newsletter": 0.0, "anfrage": 0.01}, "ms": 68.3890120126307}
+{"runde": 1, "fall": 6, "gold": "termin", "weg": "text", "label": "termin", "roh": "termin", "ms": 64.89524990320206}
+{"runde": 1, "fall": 6, "gold": "termin", "weg": "logit", "label": "termin", "p": {"rechnung": 1.6175560789326383e-07, "termin": 0.9999990292464164, "newsletter": 8.089979758210685e-07, "anfrage": 0.0}, "ms": 30.142329866066575}
+{"runde": 1, "fall": 6, "gold": "termin", "weg": "kev", "label": "termin", "p": {"rechnung": 0.0, "termin": 0.98, "newsletter": 0.02, "anfrage": 0.0}, "ms": 68.25301190838218}
+{"runde": 1, "fall": 7, "gold": "newsletter", "weg": "text", "label": "newsletter", "roh": "newsletter", "ms": 62.03895714133978}
+{"runde": 1, "fall": 7, "gold": "newsletter", "weg": "logit", "label": "newsletter", "p": {"rechnung": 2.009217684258981e-07, "termin": 0.0, "newsletter": 0.9999996784463352, "anfrage": 1.20631896396791e-07}, "ms": 28.877533972263336}
+{"runde": 1, "fall": 7, "gold": "newsletter", "weg": "kev", "label": "newsletter", "p": {"rechnung": 0.0, "termin": 0.0, "newsletter": 0.99, "anfrage": 0.0}, "ms": 69.94604598730803}
+{"runde": 1, "fall": 8, "gold": "newsletter", "weg": "text", "label": "newsletter", "roh": "newsletter", "ms": 66.17388385348022}
+{"runde": 1, "fall": 8, "gold": "newsletter", "weg": "logit", "label": "newsletter", "p": {"rechnung": 8.018624670913698e-06, "termin": 0.0, "newsletter": 0.9999916001189244, "anfrage": 3.812564047105714e-07}, "ms": 29.93599488399923}
+{"runde": 1, "fall": 8, "gold": "newsletter", "weg": "kev", "label": "newsletter", "p": {"rechnung": 0.01, "termin": 0.01, "newsletter": 0.98, "anfrage": 0.01}, "ms": 68.33174801431596}
+{"runde": 1, "fall": 9, "gold": "newsletter", "weg": "text", "label": "newsletter", "roh": "newsletter", "ms": 63.584871124476194}
+{"runde": 1, "fall": 9, "gold": "newsletter", "weg": "logit", "label": "newsletter", "p": {"rechnung": 3.6345631707347554e-07, "termin": 0.0, "newsletter": 0.9999988770246883, "anfrage": 7.595189947272972e-07}, "ms": 30.864198924973607}
+{"runde": 1, "fall": 9, "gold": "newsletter", "weg": "kev", "label": "newsletter", "p": {"rechnung": 0.01, "termin": 0.08, "newsletter": 0.9, "anfrage": 0.02}, "ms": 69.600431015715}
+{"runde": 1, "fall": 10, "gold": "anfrage", "weg": "text", "label": "anfrage", "roh": "anfrage", "ms": 85.40310501120985}
+{"runde": 1, "fall": 10, "gold": "anfrage", "weg": "logit", "label": "anfrage", "p": {"rechnung": 1.963335220836295e-08, "termin": 0.0, "newsletter": 0.0, "anfrage": 0.9999999803666477}, "ms": 28.70471985079348}
+{"runde": 1, "fall": 10, "gold": "anfrage", "weg": "kev", "label": "anfrage", "p": {"rechnung": 0.01, "termin": 0.02, "newsletter": 0.02, "anfrage": 0.95}, "ms": 69.81878308579326}
+{"runde": 1, "fall": 11, "gold": "anfrage", "weg": "text", "label": "anfrage", "roh": "anfrage", "ms": 87.87501603364944}
+{"runde": 1, "fall": 11, "gold": "anfrage", "weg": "logit", "label": "anfrage", "p": {"rechnung": 1.3266530008335623e-07, "termin": 0.0, "newsletter": 0.0, "anfrage": 0.9999998673346999}, "ms": 28.380705043673515}
+{"runde": 1, "fall": 11, "gold": "anfrage", "weg": "kev", "label": "anfrage", "p": {"rechnung": 0.01, "termin": 0.02, "newsletter": 0.02, "anfrage": 0.95}, "ms": 70.6735469866544}
+{"runde": 1, "fall": 12, "gold": "anfrage", "weg": "text", "label": "rechnung", "roh": "rechnung", "ms": 108.92165312543511}
+{"runde": 1, "fall": 12, "gold": "anfrage", "weg": "logit", "label": "rechnung", "p": {"rechnung": 0.9999991045422056, "termin": 0.0, "newsletter": 0.0, "anfrage": 8.954577943420066e-07}, "ms": 27.007830096408725}
+{"runde": 1, "fall": 12, "gold": "anfrage", "weg": "kev", "label": "anfrage", "p": {"rechnung": 0.21, "termin": 0.03, "newsletter": 0.03, "anfrage": 0.73}, "ms": 69.05531301163137}
+{"runde": 2, "fall": 1, "gold": "rechnung", "weg": "text", "label": "rechnung", "roh": "rechnung", "ms": 110.18371186219156}
+{"runde": 2, "fall": 1, "gold": "rechnung", "weg": "logit", "label": "rechnung", "p": {"rechnung": 1.0, "termin": 0.0, "newsletter": 0.0, "anfrage": 0.0}, "ms": 28.39297684840858}
+{"runde": 2, "fall": 1, "gold": "rechnung", "weg": "kev", "label": "rechnung", "p": {"rechnung": 0.99, "termin": 0.0, "newsletter": 0.0, "anfrage": 0.0}, "ms": 69.79132606647909}
+{"runde": 2, "fall": 2, "gold": "rechnung", "weg": "text", "label": "rechnung", "roh": "rechnung", "ms": 109.04090106487274}
+{"runde": 2, "fall": 2, "gold": "rechnung", "weg": "logit", "label": "rechnung", "p": {"rechnung": 1.0, "termin": 0.0, "newsletter": 0.0, "anfrage": 0.0}, "ms": 27.36218087375164}
+{"runde": 2, "fall": 2, "gold": "rechnung", "weg": "kev", "label": "rechnung", "p": {"rechnung": 0.96, "termin": 0.01, "newsletter": 0.01, "anfrage": 0.02}, "ms": 69.35854395851493}
+{"runde": 2, "fall": 3, "gold": "rechnung", "weg": "text", "label": "rechnung", "roh": "rechnung", "ms": 109.44512393325567}
+{"runde": 2, "fall": 3, "gold": "rechnung", "weg": "logit", "label": "rechnung", "p": {"rechnung": 0.9999999759724006, "termin": 0.0, "newsletter": 7.22123460633051e-09, "anfrage": 1.6806364702590598e-08}, "ms": 28.571712085977197}
+{"runde": 2, "fall": 3, "gold": "rechnung", "weg": "kev", "label": "rechnung", "p": {"rechnung": 0.45, "termin": 0.08, "newsletter": 0.25, "anfrage": 0.22}, "ms": 69.19723306782544}
+{"runde": 2, "fall": 4, "gold": "termin", "weg": "text", "label": "termin", "roh": "termin", "ms": 65.28175994753838}
+{"runde": 2, "fall": 4, "gold": "termin", "weg": "logit", "label": "termin", "p": {"rechnung": 1.584724597689497e-07, "termin": 0.9999998415275403, "newsletter": 0.0, "anfrage": 0.0}, "ms": 29.922314919531345}
+{"runde": 2, "fall": 4, "gold": "termin", "weg": "kev", "label": "termin", "p": {"rechnung": 0.0, "termin": 0.98, "newsletter": 0.01, "anfrage": 0.01}, "ms": 68.95840214565396}
+{"runde": 2, "fall": 5, "gold": "termin", "weg": "text", "label": "termin", "roh": "termin", "ms": 65.50067197531462}
+{"runde": 2, "fall": 5, "gold": "termin", "weg": "logit", "label": "termin", "p": {"rechnung": 8.337728112152938e-08, "termin": 0.9999999166227189, "newsletter": 0.0, "anfrage": 0.0}, "ms": 29.077518032863736}
+{"runde": 2, "fall": 5, "gold": "termin", "weg": "kev", "label": "termin", "p": {"rechnung": 0.0, "termin": 0.99, "newsletter": 0.0, "anfrage": 0.01}, "ms": 68.53864411823452}
+{"runde": 2, "fall": 6, "gold": "termin", "weg": "text", "label": "termin", "roh": "termin", "ms": 64.77512302808464}
+{"runde": 2, "fall": 6, "gold": "termin", "weg": "logit", "label": "termin", "p": {"rechnung": 1.6175560789326383e-07, "termin": 0.9999990292464164, "newsletter": 8.089979758210685e-07, "anfrage": 0.0}, "ms": 30.879399040713906}
+{"runde": 2, "fall": 6, "gold": "termin", "weg": "kev", "label": "termin", "p": {"rechnung": 0.0, "termin": 0.98, "newsletter": 0.02, "anfrage": 0.0}, "ms": 68.9613779541105}
+{"runde": 2, "fall": 7, "gold": "newsletter", "weg": "text", "label": "newsletter", "roh": "newsletter", "ms": 63.261688919737935}
+{"runde": 2, "fall": 7, "gold": "newsletter", "weg": "logit", "label": "newsletter", "p": {"rechnung": 2.009217684258981e-07, "termin": 0.0, "newsletter": 0.9999996784463352, "anfrage": 1.20631896396791e-07}, "ms": 29.87985103391111}
+{"runde": 2, "fall": 7, "gold": "newsletter", "weg": "kev", "label": "newsletter", "p": {"rechnung": 0.0, "termin": 0.0, "newsletter": 0.99, "anfrage": 0.0}, "ms": 68.91110609285533}
+{"runde": 2, "fall": 8, "gold": "newsletter", "weg": "text", "label": "newsletter", "roh": "newsletter", "ms": 65.44238398782909}
+{"runde": 2, "fall": 8, "gold": "newsletter", "weg": "logit", "label": "newsletter", "p": {"rechnung": 8.018624670913698e-06, "termin": 0.0, "newsletter": 0.9999916001189244, "anfrage": 3.812564047105714e-07}, "ms": 30.354809015989304}
+{"runde": 2, "fall": 8, "gold": "newsletter", "weg": "kev", "label": "newsletter", "p": {"rechnung": 0.01, "termin": 0.01, "newsletter": 0.98, "anfrage": 0.01}, "ms": 68.18514107726514}
+{"runde": 2, "fall": 9, "gold": "newsletter", "weg": "text", "label": "newsletter", "roh": "newsletter", "ms": 63.36981593631208}
+{"runde": 2, "fall": 9, "gold": "newsletter", "weg": "logit", "label": "newsletter", "p": {"rechnung": 3.6345631707347554e-07, "termin": 0.0, "newsletter": 0.9999988770246883, "anfrage": 7.595189947272972e-07}, "ms": 27.08854991942644}
+{"runde": 2, "fall": 9, "gold": "newsletter", "weg": "kev", "label": "newsletter", "p": {"rechnung": 0.01, "termin": 0.08, "newsletter": 0.9, "anfrage": 0.02}, "ms": 69.59470408037305}
+{"runde": 2, "fall": 10, "gold": "anfrage", "weg": "text", "label": "anfrage", "roh": "anfrage", "ms": 85.87809605523944}
+{"runde": 2, "fall": 10, "gold": "anfrage", "weg": "logit", "label": "anfrage", "p": {"rechnung": 1.963335220836295e-08, "termin": 0.0, "newsletter": 0.0, "anfrage": 0.9999999803666477}, "ms": 27.835425920784473}
+{"runde": 2, "fall": 10, "gold": "anfrage", "weg": "kev", "label": "anfrage", "p": {"rechnung": 0.01, "termin": 0.02, "newsletter": 0.02, "anfrage": 0.95}, "ms": 69.35187289491296}
+{"runde": 2, "fall": 11, "gold": "anfrage", "weg": "text", "label": "anfrage", "roh": "anfrage", "ms": 87.69916091114283}
+{"runde": 2, "fall": 11, "gold": "anfrage", "weg": "logit", "label": "anfrage", "p": {"rechnung": 1.3266530008335623e-07, "termin": 0.0, "newsletter": 0.0, "anfrage": 0.9999998673346999}, "ms": 27.21490105614066}
+{"runde": 2, "fall": 11, "gold": "anfrage", "weg": "kev", "label": "anfrage", "p": {"rechnung": 0.01, "termin": 0.02, "newsletter": 0.02, "anfrage": 0.95}, "ms": 69.64422296732664}
+{"runde": 2, "fall": 12, "gold": "anfrage", "weg": "text", "label": "rechnung", "roh": "rechnung", "ms": 108.80477400496602}
+{"runde": 2, "fall": 12, "gold": "anfrage", "weg": "logit", "label": "rechnung", "p": {"rechnung": 0.9999991045422056, "termin": 0.0, "newsletter": 0.0, "anfrage": 8.954577943420066e-07}, "ms": 28.900414938107133}
+{"runde": 2, "fall": 12, "gold": "anfrage", "weg": "kev", "label": "anfrage", "p": {"rechnung": 0.21, "termin": 0.03, "newsletter": 0.03, "anfrage": 0.73}, "ms": 68.97987402044237}
+{"runde": 3, "fall": 1, "gold": "rechnung", "weg": "text", "label": "rechnung", "roh": "rechnung", "ms": 109.63411489501595}
+{"runde": 3, "fall": 1, "gold": "rechnung", "weg": "logit", "label": "rechnung", "p": {"rechnung": 1.0, "termin": 0.0, "newsletter": 0.0, "anfrage": 0.0}, "ms": 26.934710796922445}
+{"runde": 3, "fall": 1, "gold": "rechnung", "weg": "kev", "label": "rechnung", "p": {"rechnung": 0.99, "termin": 0.0, "newsletter": 0.0, "anfrage": 0.0}, "ms": 68.92918609082699}
+{"runde": 3, "fall": 2, "gold": "rechnung", "weg": "text", "label": "rechnung", "roh": "rechnung", "ms": 110.82126316614449}
+{"runde": 3, "fall": 2, "gold": "rechnung", "weg": "logit", "label": "rechnung", "p": {"rechnung": 1.0, "termin": 0.0, "newsletter": 0.0, "anfrage": 0.0}, "ms": 29.69706803560257}
+{"runde": 3, "fall": 2, "gold": "rechnung", "weg": "kev", "label": "rechnung", "p": {"rechnung": 0.96, "termin": 0.01, "newsletter": 0.01, "anfrage": 0.02}, "ms": 70.30017301440239}
+{"runde": 3, "fall": 3, "gold": "rechnung", "weg": "text", "label": "rechnung", "roh": "rechnung", "ms": 111.23425303958356}
+{"runde": 3, "fall": 3, "gold": "rechnung", "weg": "logit", "label": "rechnung", "p": {"rechnung": 0.9999999759724006, "termin": 0.0, "newsletter": 7.22123460633051e-09, "anfrage": 1.6806364702590598e-08}, "ms": 27.609860058873892}
+{"runde": 3, "fall": 3, "gold": "rechnung", "weg": "kev", "label": "rechnung", "p": {"rechnung": 0.45, "termin": 0.08, "newsletter": 0.25, "anfrage": 0.22}, "ms": 69.01830597780645}
+{"runde": 3, "fall": 4, "gold": "termin", "weg": "text", "label": "termin", "roh": "termin", "ms": 66.41786801628768}
+{"runde": 3, "fall": 4, "gold": "termin", "weg": "logit", "label": "termin", "p": {"rechnung": 1.584724597689497e-07, "termin": 0.9999998415275403, "newsletter": 0.0, "anfrage": 0.0}, "ms": 28.293009847402573}
+{"runde": 3, "fall": 4, "gold": "termin", "weg": "kev", "label": "termin", "p": {"rechnung": 0.0, "termin": 0.98, "newsletter": 0.01, "anfrage": 0.01}, "ms": 69.65996813960373}
+{"runde": 3, "fall": 5, "gold": "termin", "weg": "text", "label": "termin", "roh": "termin", "ms": 64.8407549597323}
+{"runde": 3, "fall": 5, "gold": "termin", "weg": "logit", "label": "termin", "p": {"rechnung": 8.337728112152938e-08, "termin": 0.9999999166227189, "newsletter": 0.0, "anfrage": 0.0}, "ms": 29.607771895825863}
+{"runde": 3, "fall": 5, "gold": "termin", "weg": "kev", "label": "termin", "p": {"rechnung": 0.0, "termin": 0.99, "newsletter": 0.0, "anfrage": 0.01}, "ms": 68.34549293853343}
+{"runde": 3, "fall": 6, "gold": "termin", "weg": "text", "label": "termin", "roh": "termin", "ms": 66.78445916622877}
+{"runde": 3, "fall": 6, "gold": "termin", "weg": "logit", "label": "termin", "p": {"rechnung": 1.6175560789326383e-07, "termin": 0.9999990292464164, "newsletter": 8.089979758210685e-07, "anfrage": 0.0}, "ms": 29.457499971613288}
+{"runde": 3, "fall": 6, "gold": "termin", "weg": "kev", "label": "termin", "p": {"rechnung": 0.0, "termin": 0.98, "newsletter": 0.02, "anfrage": 0.0}, "ms": 69.00657806545496}
+{"runde": 3, "fall": 7, "gold": "newsletter", "weg": "text", "label": "newsletter", "roh": "newsletter", "ms": 64.11376502364874}
+{"runde": 3, "fall": 7, "gold": "newsletter", "weg": "logit", "label": "newsletter", "p": {"rechnung": 2.009217684258981e-07, "termin": 0.0, "newsletter": 0.9999996784463352, "anfrage": 1.20631896396791e-07}, "ms": 29.85450718551874}
+{"runde": 3, "fall": 7, "gold": "newsletter", "weg": "kev", "label": "newsletter", "p": {"rechnung": 0.0, "termin": 0.0, "newsletter": 0.99, "anfrage": 0.0}, "ms": 68.52062791585922}
+{"runde": 3, "fall": 8, "gold": "newsletter", "weg": "text", "label": "newsletter", "roh": "newsletter", "ms": 64.32310794480145}
+{"runde": 3, "fall": 8, "gold": "newsletter", "weg": "logit", "label": "newsletter", "p": {"rechnung": 8.018624670913698e-06, "termin": 0.0, "newsletter": 0.9999916001189244, "anfrage": 3.812564047105714e-07}, "ms": 29.4387168250978}
+{"runde": 3, "fall": 8, "gold": "newsletter", "weg": "kev", "label": "newsletter", "p": {"rechnung": 0.01, "termin": 0.01, "newsletter": 0.98, "anfrage": 0.01}, "ms": 69.17699403129518}
+{"runde": 3, "fall": 9, "gold": "newsletter", "weg": "text", "label": "newsletter", "roh": "newsletter", "ms": 65.16331294551492}
+{"runde": 3, "fall": 9, "gold": "newsletter", "weg": "logit", "label": "newsletter", "p": {"rechnung": 3.6345631707347554e-07, "termin": 0.0, "newsletter": 0.9999988770246883, "anfrage": 7.595189947272972e-07}, "ms": 29.546652920544147}
+{"runde": 3, "fall": 9, "gold": "newsletter", "weg": "kev", "label": "newsletter", "p": {"rechnung": 0.01, "termin": 0.08, "newsletter": 0.9, "anfrage": 0.02}, "ms": 69.38017695210874}
+{"runde": 3, "fall": 10, "gold": "anfrage", "weg": "text", "label": "anfrage", "roh": "anfrage", "ms": 88.82614807225764}
+{"runde": 3, "fall": 10, "gold": "anfrage", "weg": "logit", "label": "anfrage", "p": {"rechnung": 1.963335220836295e-08, "termin": 0.0, "newsletter": 0.0, "anfrage": 0.9999999803666477}, "ms": 28.018994024023414}
+{"runde": 3, "fall": 10, "gold": "anfrage", "weg": "kev", "label": "anfrage", "p": {"rechnung": 0.01, "termin": 0.02, "newsletter": 0.02, "anfrage": 0.95}, "ms": 70.04353404045105}
+{"runde": 3, "fall": 11, "gold": "anfrage", "weg": "text", "label": "anfrage", "roh": "anfrage", "ms": 87.0962031185627}
+{"runde": 3, "fall": 11, "gold": "anfrage", "weg": "logit", "label": "anfrage", "p": {"rechnung": 1.3266530008335623e-07, "termin": 0.0, "newsletter": 0.0, "anfrage": 0.9999998673346999}, "ms": 27.56662806496024}
+{"runde": 3, "fall": 11, "gold": "anfrage", "weg": "kev", "label": "anfrage", "p": {"rechnung": 0.01, "termin": 0.02, "newsletter": 0.02, "anfrage": 0.95}, "ms": 69.125842070207}
+{"runde": 3, "fall": 12, "gold": "anfrage", "weg": "text", "label": "rechnung", "roh": "rechnung", "ms": 111.8675940670073}
+{"runde": 3, "fall": 12, "gold": "anfrage", "weg": "logit", "label": "rechnung", "p": {"rechnung": 0.9999991045422056, "termin": 0.0, "newsletter": 0.0, "anfrage": 8.954577943420066e-07}, "ms": 28.852798976004124}
+{"runde": 3, "fall": 12, "gold": "anfrage", "weg": "kev", "label": "anfrage", "p": {"rechnung": 0.21, "termin": 0.03, "newsletter": 0.03, "anfrage": 0.73}, "ms": 70.10167790576816}
+{"meta": {"modell": "qwen2.5:7b", "runden": 3, "faelle": 12}}
