@@ -97,13 +97,7 @@ LLM_TIMEOUT_SEKUNDEN = 120
 LLM_MAX_ANTWORT_TOKEN = 4000
 
 #: K2-Plausibilität: Freemail-Domains schicken Menschen, keine Newsletter.
-FREEMAIL_DOMAENEN = (
-    "gmail.com", "googlemail.com", "gmx.de", "gmx.net", "gmx.at", "web.de",
-    "t-online.de", "yahoo.com", "yahoo.de", "outlook.com", "outlook.de",
-    "hotmail.com", "hotmail.de", "live.com", "icloud.com", "me.com",
-    "posteo.de", "mailbox.org", "freenet.de", "aol.com", "proton.me",
-    "protonmail.com",
-)  # fmt: skip
+FREEMAIL_DOMAENEN = loeschschutz.FREEMAIL_DOMAENEN
 
 #: K2-Plausibilität: ``vorname.nachname`` (auch mit Bindestrich/Unterstrich).
 PERSONEN_MUSTER = re.compile(r"^[a-zäöüß]{2,}[._-][a-zäöüß]{2,}$")
