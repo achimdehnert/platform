@@ -17,9 +17,10 @@ Ein Auftrag ist erledigt, wenn er im Zielkontext fehlerfrei durchläuft
 - **Melder** — misst den Zustand der Flotte, nicht den PR. Rot ist ein Fund, kein Merge-Hindernis.
 
 Formal sperrt nur, was im Ruleset `main-required-checks` steht (Spalte „Pflicht",
-gelesen 2026-09-30). Ein Verweis auf #3646 erfüllt die Pflicht-Prüfung
-„Aufgeschobene Arbeit braucht einen Anker", weil sie jede Issue-Referenz als Anker zählt
-(`tools/deferral_anchor_check.py`, Muster `ANKER`).
+gelesen 2026-09-30). Die Pflicht-Prüfung „Aufgeschobene Arbeit braucht einen Anker"
+**warnt seit 2026-10-01 nur** (Owner-Wort „K1 bleibt, warnen", #3645): ein Fund färbt
+sie nicht mehr rot, rot bleibt allein ein Werkzeugfehler. Sie steht weiter im Ruleset,
+damit eine Prüfung ohne Verdikt den Merge aufhält.
 
 ## Inventar (PR-Trigger, platform)
 
@@ -28,7 +29,7 @@ gelesen 2026-09-30). Ein Verweis auf #3646 erfüllt die Pflicht-Prüfung
 | `guardian.yml` | guardian | ✅ | Substanz |
 | `ci-security.yml` | gitleaks secret scan | ✅ | Substanz |
 | `tools-tests.yml` | pytest tools/tests/ + CI-tote Testorte | ✅ | Substanz |
-| `aufschub-anker-gate.yml` | Aufgeschobene Arbeit braucht einen Anker | ✅ | Redaktion (Anker = #3646 genügt) |
+| `aufschub-anker-gate.yml` | Aufgeschobene Arbeit braucht einen Anker | ✅ | Redaktion (warnt nur, rot nur bei Werkzeugfehler) |
 | `tools-tests.yml` | Gate-Verankerung (Drill · Positivkontrolle · Messpunkt) | | Substanz |
 | `deploy-sh-gate.yml` | Syntax + Migrations-Vertrag | | Substanz |
 | `validate-workflows.yml` | Validate Syntax | | Substanz |
