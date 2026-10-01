@@ -16,6 +16,12 @@ Was es liest (Claude-Code-JSONL, ein Inhaltsblock je Zeile):
                      (fängt auch Fehler mit `is_error: False`, z. B. Playwright-TimeoutError
                      hinter einer Pipe — die Lücke, die die Widerlegungsbahn benannte)
   - `type=user` mit Text (nicht `<…>`)            → Nutzer-Nachrichten
+  - `type=attachment`, `attachment.type=queued_command` mit `origin.kind=human`
+        → Nutzer-Nachricht, die WÄHREND eines laufenden Zugs eingereiht wurde, markiert
+          „(eingereiht)". Ohne diese Zeile fehlte sie ganz: Retro 02b7f5 (2026-09-24, #19)
+          — ein „47 go" um 16:31 erschien erst mit der späteren Wiederholung um 17:04, und
+          die Widerlegungsbahn warf der Sitzung eine vorweggenommene Freigabe vor.
+          Eingereihte Systemmeldungen (`commandMode=task-notification`) zählen nicht.
   - `type=assistant`, `content[].type=text`       → sichtbare Texte an den Nutzer
   - `type=attachment`, `attachment.type=silent_turn_reminder` → Hinweis „hasn't heard from you",
         mit Abstand bis zum nächsten sichtbaren Text
@@ -68,6 +74,17 @@ def _ergebnis_text(inhalt) -> str:
     return " ".join(x.get("text", "") for x in (inhalt or []) if isinstance(x, dict))
 
 
+def _ist_eingereihte_nutzernachricht(anhang: dict) -> bool:
+    """Ein vom Menschen mitten im Zug eingereihter Prompt — nicht eine Systemmeldung."""
+    herkunft = anhang.get("origin") or {}
+    return (
+        anhang.get("type") == "queued_command"
+        and (herkunft.get("kind") == "human" or anhang.get("humanTurn") is True)
+        and isinstance(anhang.get("prompt"), str)
+        and bool(anhang["prompt"].strip())
+    )
+
+
 def _im_fenster(ts: str, von: str | None, bis: str | None) -> bool:
     return (von is None or ts >= von) and (bis is None or ts <= bis)
 
@@ -85,8 +102,11 @@ def lies(zeilen, von: str | None = None, bis: str | None = None) -> Kennzahlen:
             continue
         typ = d.get("type")
         if typ == "attachment":
-            if (d.get("attachment") or {}).get("type") == "silent_turn_reminder":
+            anhang = d.get("attachment") or {}
+            if anhang.get("type") == "silent_turn_reminder":
                 k.reminder.append(ts)
+            elif _ist_eingereihte_nutzernachricht(anhang):
+                k.nutzer.append((ts, "(eingereiht) " + _kurz(anhang["prompt"], 200)))
             continue
         inhalt = (d.get("message") or {}).get("content")
         if typ == "assistant" and isinstance(inhalt, list):
@@ -262,6 +282,26 @@ _FIXTURE = [
         "timestamp": "2026-01-01T10:05:00Z",
         "message": {"content": [{"type": "text", "text": "Zwischenstand."}]},
     },
+    {
+        "type": "attachment",
+        "timestamp": "2026-01-01T10:06:00Z",
+        "attachment": {
+            "type": "queued_command",
+            "prompt": "47 go",
+            "commandMode": "prompt",
+            "humanTurn": True,
+            "origin": {"kind": "human"},
+        },
+    },
+    {
+        "type": "attachment",
+        "timestamp": "2026-01-01T10:07:00Z",
+        "attachment": {
+            "type": "queued_command",
+            "prompt": "<task-notification>fertig</task-notification>",
+            "commandMode": "task-notification",
+        },
+    },
 ]
 
 
@@ -274,7 +314,10 @@ def selbsttest() -> int:
         "Fehler ohne is_error": any("TimeoutError" in r for *_, r in k.fehler),
         "Silent-Reminder": k.reminder == ["2026-01-01T10:01:00Z"],
         "Sichtbarer Text": k.texte == ["2026-01-01T10:05:00Z"],
-        "Nutzer-Nachricht": k.nutzer == [("2026-01-01T10:00:00Z", "los geht's")],
+        "Nutzer-Nachricht": k.nutzer[:1] == [("2026-01-01T10:00:00Z", "los geht's")],
+        # Eingereiht (mitten im Zug) zählt, eingereihte Systemmeldung nicht:
+        "Eingereihte Nutzer-Nachricht": k.nutzer[1:]
+        == [("2026-01-01T10:06:00Z", "(eingereiht) 47 go")],
     }
     for name, ok in pruefungen.items():
         print(f"  {'✓' if ok else '✗'} {name}")

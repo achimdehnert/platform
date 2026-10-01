@@ -1,0 +1,32 @@
+{
+  "slug": "gh-poll-schleife-ohne-frist",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": "tools/claude-hooks/gh_poll_ohne_frist_scanner.py",
+  "drill": "tools/claude-hooks/tests/test_gh_poll_ohne_frist_scanner.py",
+  "built": "2026-09-29",
+  "ref": "https://github.com/achimdehnert/dev-hub/issues/404#issuecomment-5886185000 (Baustein C2)",
+  "note": "Ein Bash-Aufruf im Hintergrund (run_in_background, nohup, abschliessendes &) startet eine while/until-Schleife, die gh aufruft, ohne Frist (kein timeout <n>, kein $SECONDS-/date +%s-Vergleich, keine benannte Grenze). Auch ein per bash/sh gestartetes Skript wird gelesen (max. 64 KiB). Realfall 2026-09-28: Deploy-Waechter mit while true, 306 gh-Aufrufe an einem Tag mit erschoepftem Kontingent. Kalibrierung ueber 12 772 Bash-Aufrufe (7 Tage): 71 fristlose gh-Schleifen, 58 im Hintergrund. Vordergrund bleibt still, weil der Tool-Timeout dort die Frist ist; `while read` bleibt still, weil es ueber endliche Eingabe iteriert. PreToolUse(Bash), Klartext auf stdout wie cd-fehlschlag-kette-laeuft-weiter. Registrierung in ~/.claude/settings.json ist Owner-Sache.",
+  "faengt": [
+    {
+      "fall": "Realfall-Skript per bash gestartet",
+      "probe": "test_should_flag_realfall_script_started_via_bash"
+    },
+    {
+      "fall": "timeout 1800 bash x.sh begrenzt die Schleife und darf nicht feuern",
+      "probe": "test_should_accept_script_when_timeout_wraps_the_call"
+    },
+    {
+      "fall": "Vordergrund-Schleife ist durch den Tool-Timeout begrenzt",
+      "probe": "test_should_stay_silent_in_foreground_because_tool_timeout_bounds_it"
+    }
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-09-29",
+  "expires": "2026-10-31",
+  "expires_note": "blocking oder gestrichen bis dahin — wie bei den uebrigen advisory-Scannern (Owner-Entscheid E4, platform#2606).",
+  "positivkontrolle": {
+    "ref": "https://github.com/achimdehnert/dev-hub/issues/404#issuecomment-5886185000",
+    "datum": "2026-09-29"
+  }
+}

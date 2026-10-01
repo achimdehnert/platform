@@ -25,6 +25,22 @@ Arbeitsbeginn geklärt** — nicht während oder nach der Arbeit rekonstruiert.
    Scope-Checkpoint — Zielzustand aktualisieren + erneut akzeptieren
    lassen, nicht stillschweigend erweitern (`autonomy-gates.md`).
 
+## Fertig heißt, es läuft (User-Weisung 2026-09-30, platform#3645)
+
+- **Ein Auftrag ist erledigt, wenn er im Zielkontext fehlerfrei durchläuft**:
+  gemergt, ausgerollt, eingerichtet, einmal echt benutzt. Deploy, Neueinrichtung
+  und Probelauf **gehören zum Auftrag** — nicht zurückfragen, ob sie schon passiert
+  sind, sondern selbst nachsehen (Deploy-Lauf, Live-Stand) und Fehlendes selbst
+  erledigen. Die Freigabe-Zeile des Auftrags-Issues deckt Deploy und Einrichtung
+  genau dieser Änderung; Irreversibles (Datenlöschung, destruktive Migration)
+  bleibt Owner-Go. Geht es danach trotzdem nicht, ist das ein neuer Befund.
+- **Redaktionelles blockiert nicht:** Doku, Checklisten-Zeilen, CHANGELOG,
+  Formulierung, Übergabe-Nachträge und rote Prüfungen der Klasse *Redaktion*
+  (`docs/governance/gate-klassen.md`) halten keinen Merge auf und erzeugen keinen
+  eigenen PR und kein eigenes Issue — im laufenden PR miterledigen oder als
+  Kommentar an die [Nacharbeitsliste #3646](https://github.com/achimdehnert/platform/issues/3646);
+  sie wird einmal täglich in einem PR abgearbeitet.
+
 ## Right-Sizing (kein Bürokratie-Overhead)
 
 - **Trivial/mechanisch** (Typo, 1-Datei-Fix, eindeutige direkte Anweisung):

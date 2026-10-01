@@ -557,12 +557,19 @@ print(' '.join(sorted(r for r, s in erklaert.items() if s in erlaubt)))
 # lautlos aus der Abdeckung) — deshalb das eigene Wort UNABFRAGBAR.
 _deploy_probe() { # _deploy_probe <owner> <repo> → "<conclusion> <id> <waiting-min> <rejected>"
   local owner="$1" r="$2" out c id w rej=0
+  # Trenner `|` statt Leerzeichen: ein Run am Environment-Gate (`waiting`) hat
+  # `conclusion: ""`, nicht null — `// "none"` greift dann nicht, und `read`
+  # mit Leerzeichen-IFS verschluckte das leere Feld. Alle Felder rutschten eins
+  # nach links, der Rejected-Zaehler "0" landete als Zeitstempel in W und
+  # unterbot jeden Cutoff: Fehlalarm "waiting>24h" auf einem 12 min alten Gate
+  # (risk-hub, 2026-09-29).
   out=$(gh run list -R "$owner/$r" --workflow Deploy --limit 1 --json databaseId,conclusion \
-        --jq '"\(.[0].conclusion // "none") \(.[0].databaseId // "none")"' 2>/dev/null)
+        --jq '"\(.[0].conclusion // "")|\(.[0].databaseId // "")"' 2>/dev/null)
   if [ -z "$out" ]; then echo "UNABFRAGBAR"; return; fi
-  read -r c id <<EOF
+  IFS='|' read -r c id <<EOF
 $out
 EOF
+  c=${c:-none}; id=${id:-none}
   # `waiting` server-seitig, fenster- und frequenzunabhaengig (Begruendung 0.7).
   w=$(gh run list -R "$owner/$r" --workflow Deploy --status waiting --limit 100 \
       --json createdAt --jq '[.[].createdAt]|min // "none"' 2>/dev/null)
@@ -1468,6 +1475,24 @@ if [ -f "$PLATFORM_DIR/tools/container_speicher_melder.py" ]; then
   esac
 else
   record "0.7.29 container-speicher" "SKIP" "tools/container_speicher_melder.py fehlt"
+fi
+
+# ── 0.7.30 Speicherdruck auf dem Sitzungs-Host: wer haelt den Speicher ─────────
+# platform#3607: am 2026-09-26 fuellten 16 Optimierer-Worker (22,4 GB) den Host binnen
+# Minuten, der Kernel toetete 35 kleine Prozesse, darunter den CI-Runner (#3606). Der
+# Timer speicher-druck.timer misst jede Minute; hier wird NUR das Ergebnis gelesen.
+# Exit 1 = Befund in den letzten 24 h, Exit 2 = kein frisches Ergebnis (Timer steht).
+if [ -f "$PLATFORM_DIR/tools/speicher_druck_melder.py" ]; then
+  # Ohne Pipe: `--lesen` gibt genau eine Zeile aus (Lehre platform#3373).
+  SD_OUT=$(python3 "$PLATFORM_DIR/tools/speicher_druck_melder.py" --lesen \
+             --ergebnis-datei "$MELDER_DIR/speicher-druck.json" 2>&1)
+  SD_RC=$?
+  case "$SD_RC" in
+    0) record "0.7.30 speicher-druck" "PASS" "$SD_OUT" ;;
+    *) record "0.7.30 speicher-druck" "WARN" "$SD_OUT" ;;
+  esac
+else
+  record "0.7.30 speicher-druck" "SKIP" "tools/speicher_druck_melder.py fehlt"
 fi
 
 # ── 0.7.24 Registry-Erreichbarkeit: die Strecke, an der vier Deploys starben ──

@@ -158,7 +158,66 @@ systemctl --user enable --now container-speicher.timer
 systemctl --user list-timers container-speicher.timer
 ```
 
+## Speicherdruck-Melder (platform#3607 — dev/session host, `--user`)
+
+`tools/speicher_druck_melder.py` misst jede Minute den Speicherdruck des Hosts, auf dem die
+Sitzungen laufen: PSI `some avg60`, `MemAvailable` und den Zähler `oom_kill`. Er liest
+dafür nur `/proc`. Bei einem Befund hält er die größten cgroups fest (anon + swap,
+Prozesszahl, Name, keine Kommandozeilen). Das Journal liegt unter
+`~/.claude/speicher-druck-journal.jsonl`, das Ergebnis unter
+`~/.repo-session/melder/speicher-druck.json` (Sitzungsstart 0.7.30 liest es). Anlass ist
+der OOM vom 2026-09-26 mit 35 Kills, darunter der CI-Runner. Den Speicher hielten 16
+Optimierer-Worker mit zusammen 22,4 GB.
+
+Install:
+```bash
+cp infra/host-maintenance/speicher-druck.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now speicher-druck.timer
+python3 tools/speicher_druck_melder.py --lesen   # Beleg: Exit 0 und eine Zeile
+```
+
+## systemd-oomd für die Sitzungen (platform#3616 — dev/session host, root)
+
+Der Speicherdruck-Melder meldet, verhindert aber keinen Kill. Am 2026-09-26 lagen
+zwischen 60 % frei und dem ersten Kernel-Kill 6 Minuten. Der Kernel wählt nach
+`oom_score_adj` und traf deshalb zuerst den CI-Runner, nicht die 16 Worker.
+`oomd-user-slice.conf` lässt `systemd-oomd` die `user.slice` überwachen: Nach 20 s
+über 60 % Druck beendet oomd die Sitzungs-cgroup mit der meisten Reclaim-Aktivität.
+**Preis:** Das ist eine ganze `session-*.scope`, auch eine Agenten-Sitzung, die den
+schweren Lauf selbst gestartet hat. `system.slice` (Runner, Docker) bleibt
+unüberwacht. Die Paket-Voreinstellung für `user@.service` (50 %) bleibt stehen.
+
+Install und Beleg:
+```bash
+sudo bash infra/host-maintenance/oomd-einspielen.sh            # idempotent
+sudo bash infra/host-maintenance/oomd-einspielen.sh --pruefen  # Exit 0 = wirksam laut oomctl
+```
+
+Rücknahme: `rm /etc/systemd/system/user.slice.d/10-oomd.conf && systemctl daemon-reload`.
+
+## Befund-Journal-Sicherung (KONZ-platform-054 §12.7 — dev/session host, `--user`)
+
+`befund-journal-sicherung.sh` legt `~/.claude/befund-journal.json` (offene Befunde,
+Urteile, Heilungsverlauf seit #3527) täglich 02:30 als gzip auf dem Dev-Server ab
+(`/opt/backups/befund-journal`, 700/600, Retention 30) und lädt das Archiv dort zur
+Probe. Ablageort nach dem Muster Mail-State (KONZ-platform-040 MVC-4) — bewusst nicht
+in diesem öffentlichen Repo (KONZ-054 §6.3).
+
+Install (per session host):
+```bash
+cp infra/host-maintenance/befund-journal-sicherung.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now befund-journal-sicherung.timer
+systemctl --user start befund-journal-sicherung.service   # Erstlauf + Probe
+```
+
+Restore: `ssh root@88.99.38.75 'gzip -dc /opt/backups/befund-journal/<datei>' > ~/.claude/befund-journal.json`
+
 ## Changelog
+- 2026-09-29: `oomd-user-slice.conf` + `oomd-einspielen.sh` (platform#3616, Owner-Go),
+  auf dev-desktop eingespielt, `--pruefen` Exit 0.
+- 2026-09-24: `befund-journal-sicherung.{sh,service,timer}` (KONZ-054 §12.7 Ablageort, Owner-Go).
 - 2026-09-07: Docker-Praevention dev-desktop hinzugefuegt (`docker-daemon.{json,md}`,
   `docker-prune.{sh,service,timer}`, platform#2895 Item 98). IaC-only, Apply = Owner.
 - 2026-06-28: `runner-nonprod-runbook.md` added (ADR-257 §Folge-Artefakt, REC-5/7) —

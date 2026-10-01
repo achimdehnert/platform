@@ -590,6 +590,97 @@ def test_should_show_missing_evidence_in_the_text_report(journal: Path) -> None:
     assert "entscheiden bis" in text
 
 
+def _runner(tmp_path: Path, *phasen: str) -> Path:
+    datei = tmp_path / "runner.sh"
+    datei.write_text("".join(f'record "{p}" "PASS" "ok"\n' for p in phasen))
+    return datei
+
+
+def test_should_close_finding_of_phase_removed_from_runner(
+    journal: Path, tmp_path: Path
+) -> None:
+    """#3569 K1: gestrichene Phase urteilt nie mehr — `--entfallen` schliesst, Historie bleibt."""
+    _lauf(["0.7.7 gate-wirkung\tWARN\tplatform\talt"], journal)
+    runner = _runner(tmp_path, "0.7.2 cron-melder")
+    rc = bj.main(
+        [
+            "--entfallen",
+            "0.7.7 gate-wirkung::platform",
+            "Phase gestrichen",
+            "--runner",
+            str(runner),
+            "--datei",
+            str(journal),
+        ]
+    )
+    assert rc == 0
+    daten = bj.lade(journal)
+    assert "0.7.7 gate-wirkung::platform" not in daten["befunde"]
+    assert daten["urteile"][-1]["urteil"] == bj.URTEIL_ENTFALLEN
+    assert daten["urteile"][-1]["eingabe"] == "alt"
+
+
+def test_should_refuse_entfallen_while_phase_still_runs(
+    journal: Path, tmp_path: Path, capsys
+) -> None:
+    """Kein Stummschalter: laeuft die Phase noch, bleibt der Befund und die Datei unberuehrt."""
+    _lauf(["0.7.2 cron-melder\tWARN\tplatform\trot"], journal)
+    vor = journal.read_bytes()
+    runner = _runner(tmp_path, "0.7.2 cron-melder")
+    rc = bj.main(
+        [
+            "--entfallen",
+            "0.7.2 cron-melder::platform",
+            "weg damit",
+            "--runner",
+            str(runner),
+            "--datei",
+            str(journal),
+        ]
+    )
+    assert rc == 2
+    assert "laeuft noch" in capsys.readouterr().err
+    assert journal.read_bytes() == vor
+
+
+def test_should_refuse_entfallen_when_runner_unreadable(
+    journal: Path, tmp_path: Path
+) -> None:
+    """Fehlt der Runner, ist die Streichung nicht belegt — Ablehnung statt Freibrief."""
+    _lauf(["0.7.7 gate-wirkung\tWARN\tplatform\talt"], journal)
+    vor = journal.read_bytes()
+    rc = bj.main(
+        [
+            "--entfallen",
+            "0.7.7 gate-wirkung::platform",
+            "x",
+            "--runner",
+            str(tmp_path / "fehlt.sh"),
+            "--datei",
+            str(journal),
+        ]
+    )
+    assert rc == 2
+    assert journal.read_bytes() == vor
+
+
+def test_should_not_count_entfallen_in_precision(journal: Path, tmp_path: Path) -> None:
+    _lauf(["0.7.7 gate-wirkung\tWARN\tplatform\talt"], journal)
+    bj.main(
+        [
+            "--entfallen",
+            "0.7.7 gate-wirkung::platform",
+            "x",
+            "--runner",
+            str(_runner(tmp_path, "0.1 x")),
+            "--datei",
+            str(journal),
+        ]
+    )
+    zeilen = bj.praezision(bj.lade(journal))
+    assert all(z["urteile"] == 0 for z in zeilen)
+
+
 def test_should_reject_unknown_id_for_echt_and_falsch(journal: Path, capsys) -> None:
     """#2863: eine erfundene ID darf kein Urteil unter einem Phantom-Schluessel anlegen."""
     _lauf([ZEILE], journal)

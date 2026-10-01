@@ -1,0 +1,11 @@
+[Unit]
+Description=Taegliche Sicherung des Befund-Journals
+
+[Timer]
+# Nach der Mail-State-Sicherung (02:15), damit sich die beiden SSH-Laeufe nicht ueberlappen.
+OnCalendar=*-*-* 02:30:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

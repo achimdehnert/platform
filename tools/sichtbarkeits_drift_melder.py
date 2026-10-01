@@ -17,7 +17,7 @@ Dinge, die vor dem Flip auf ihren Zielwert muessen:
 |----------|-------------------------------------------------------------|------|
 | aufrufer | Repos mit `uses: achimdehnert/platform/.github/…` oder Klon | 0    |
 | raw      | Repos mit `raw.githubusercontent.com/achimdehnert/platform` | 0    |
-| laufzeit | davon Treffer in Code ausserhalb CI/Klickdummy/Doku          | 0    |
+| laufzeit | davon Code ausserhalb CI/Klickdummy/Doku, plus `_deploy-*.yml` | 0  |
 | kopien   | Repos, die `_*.yml`-Bausteine halten (Kanon: iilgmbh/shared-ci) | 1 |
 | fristen  | aktive Konzepte mit abgelaufenem `review_by`                | 0    |
 
@@ -47,6 +47,7 @@ den er gebaut wurde.
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import re
@@ -75,10 +76,19 @@ KLON_MUSTER = r"git clone[^\n]*github\.com[:/]achimdehnert/platform"
 # Flotten-Workflows receive-windsurf-rules.yml (ADR-263) und silent-failure-lint.yml
 # holen platform so; mit GITHUB_TOKEN scheitert das nach dem Flip (23 Klone, 2026-09-16).
 CHECKOUT_MUSTER = r"repository: *achimdehnert/platform\b"
+# Ein Checkout mit eigenem Secret als Token (PAT) uebersteht den Flip, solange das
+# Secret platform lesen darf — Realfall mcp-hub ci.yml (PROJECT_PAT, #3234). Er
+# wird gelistet, zaehlt aber nicht; GITHUB_TOKEN bleibt ein Aufrufer.
+TOKEN_ZEILE_RE = re.compile(
+    r"^(?P<einzug> *)token: *['\"]?\$\{\{ *secrets\.(?!GITHUB_TOKEN\b)\w+ *\}\}"
+)
 RAW_MUSTER = r"raw\.githubusercontent\.com/achimdehnert/platform"
 # Raw-Treffer, die NICHT zur Laufzeit brechen: CI (eigene Klasse), Klickdummy-
 # Schema-Verweise, Doku.
 NICHT_LAUFZEIT = re.compile(r"(^|/)(\.github/|klickdummy/|docs/)|\.md$")
+# Ausnahme von der CI-Klasse: Deploy-Bausteine laden zur Deploy-Zeit, ein Abbruch
+# dort stoppt jeden Deploy jedes Callers (shared-ci _deploy-*.yml, #3596).
+DEPLOY_BAUSTEIN = re.compile(r"(^|/)\.github/workflows/_deploy-[^/]*\.ya?ml$")
 # Konzepte, deren Frist niemanden mehr bindet.
 INAKTIV = {"sunset", "stale", "done", "superseded", "archived", "rejected"}
 ORIGIN_RE = re.compile(r"github\.com[:/]([^/\s]+)/([^/\s]+?)(?:\.git)?\s*$")
@@ -128,6 +138,57 @@ def _grep(repo_dir: Path, muster: str) -> list[str]:
     return sorted(z.split(":", 1)[1] for z in p.stdout.split() if ":" in z)
 
 
+def _zeige(repo_dir: Path, pfad: str) -> str | None:
+    """Inhalt von `origin/main:<pfad>` — None, wenn nicht lesbar."""
+    try:
+        p = subprocess.run(
+            ["git", "show", f"origin/main:{pfad}"],
+            cwd=repo_dir,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return p.stdout if p.returncode == 0 else None
+
+
+def nur_token_checkouts(text: str | None) -> bool:
+    """True, wenn jeder platform-Checkout der Datei ein eigenes Secret als Token
+    setzt und die Datei sonst nichts von platform holt (`uses:`, `git clone`).
+
+    Der Token muss im selben `with:`-Block stehen wie `repository:` — gleicher
+    Einzug, ohne dass ein flacherer Schluessel dazwischen den Block beendet. Im
+    Zweifel False: ein unlesbarer oder unklarer Checkout zaehlt als Aufrufer."""
+    if not text or re.search(AUFRUF_MUSTER, text) or re.search(KLON_MUSTER, text):
+        return False
+    zeilen = text.splitlines()
+    gefunden = False
+    for i, z in enumerate(zeilen):
+        m = re.match(r"^( *)" + CHECKOUT_MUSTER, z)
+        if not m:
+            if re.search(CHECKOUT_MUSTER, z):
+                return False  # z. B. Flow-Mapping `with: {repository: …}`
+            continue
+        gefunden = True
+        einzug = len(m.group(1))
+        block = []
+        for richtung in (range(i - 1, -1, -1), range(i + 1, len(zeilen))):
+            for j in richtung:
+                s = zeilen[j]
+                if not s.strip() or s.lstrip().startswith("#"):
+                    continue
+                if len(s) - len(s.lstrip(" ")) < einzug:
+                    break
+                block.append(s)
+        if not any(
+            (t := TOKEN_ZEILE_RE.match(s)) and len(t.group("einzug")) == einzug
+            for s in block
+        ):
+            return False
+    return gefunden
+
+
 def fetch_alter_tage(repo_dir: Path, jetzt: float | None = None) -> int | None:
     """Tage seit dem letzten Fetch — None, wenn nie gefetcht."""
     fh = repo_dir / ".git" / "FETCH_HEAD"
@@ -160,17 +221,25 @@ def scanne_lokal(
         alter = fetch_alter_tage(d)
         if alter is not None:
             FETCH_ALTER[repo] = max(FETCH_ALTER.get(repo, 0), alter)
-        aufruf = [
-            p
-            for p in _grep(d, AUFRUF_MUSTER) + _grep(d, CHECKOUT_MUSTER)
-            if p.startswith(".github/")
-        ]
+        aufruf = [p for p in _grep(d, AUFRUF_MUSTER) if p.startswith(".github/")]
+        mit_token = []
+        for p in _grep(d, CHECKOUT_MUSTER):
+            if not p.startswith(".github/"):
+                continue
+            if nur_token_checkouts(_zeige(d, p)):
+                mit_token.append(p)
+            else:
+                aufruf.append(p)
         aufruf += _grep(d, KLON_MUSTER)
         raw = _grep(d, RAW_MUSTER)
-        if aufruf or raw:
+        if aufruf or raw or mit_token:
             eintrag = treffer.setdefault(repo, {"aufruf": [], "raw": []})
             eintrag["aufruf"] = sorted(set(eintrag["aufruf"]) | set(aufruf))
             eintrag["raw"] = sorted(set(eintrag["raw"]) | set(raw))
+            if mit_token:
+                eintrag["mit_token"] = sorted(
+                    set(eintrag.get("mit_token", [])) | set(mit_token)
+                )
     return treffer
 
 
@@ -195,22 +264,42 @@ def suche_code(abfrage: str) -> list[tuple[str, str]]:
         return []
 
 
+def lies_datei_netz(repo: str, pfad: str) -> str | None:
+    """Dateiinhalt im Default-Branch per Contents-API — None, wenn nicht lesbar."""
+    out = _gh("api", f"repos/{repo}/contents/{pfad}", "--jq", ".content")
+    if not out:
+        return None
+    try:
+        return base64.b64decode(out).decode("utf-8", errors="replace")
+    except ValueError:
+        return None
+
+
 def scanne_netz() -> dict[str, dict[str, list[str]]]:
     treffer: dict[str, dict[str, list[str]]] = {}
     for klasse, abfrage in (
         ("aufruf", "uses: achimdehnert/platform/.github"),
-        ("aufruf", "repository: achimdehnert/platform"),
+        ("checkout", "repository: achimdehnert/platform"),
         ("raw", "raw.githubusercontent.com/achimdehnert/platform"),
     ):
         for repo, pfad in suche_code(abfrage):
             if repo == SELBST:
                 continue
             # Ein `uses:` in Doku (Realfall mcp-hub docs/ADR-160) ist kein Aufrufer.
-            if klasse == "aufruf" and not pfad.startswith(".github/"):
+            if klasse != "raw" and not pfad.startswith(".github/"):
                 continue
+            if klasse == "checkout":
+                klasse_hier = (
+                    "mit_token"
+                    if nur_token_checkouts(lies_datei_netz(repo, pfad))
+                    else "aufruf"
+                )
+            else:
+                klasse_hier = klasse
             e = treffer.setdefault(repo, {"aufruf": [], "raw": []})
-            if pfad not in e[klasse]:
-                e[klasse].append(pfad)
+            liste = e.setdefault(klasse_hier, [])
+            if pfad not in liste:
+                liste.append(pfad)
     return treffer
 
 
@@ -290,12 +379,20 @@ def abgelaufene_fristen(konzepte_dir: Path, heute: date) -> list[str]:
 def vereinige(
     *quellen: dict[str, dict[str, list[str]]],
 ) -> dict[str, dict[str, list[str]]]:
+    """Vereinigt je Klasse. Nennt eine Quelle einen Pfad Aufrufer, die andere
+    Token-Checkout, gewinnt Aufrufer — die Entwarnung braucht beide Seiten."""
     ges: dict[str, dict[str, list[str]]] = {}
     for q in quellen:
         for repo, e in q.items():
             z = ges.setdefault(repo, {"aufruf": [], "raw": []})
-            for k in ("aufruf", "raw"):
-                z[k] = sorted(set(z[k]) | set(e[k]))
+            for k in ("aufruf", "raw", "mit_token"):
+                if k in e:
+                    z[k] = sorted(set(z.get(k, [])) | set(e[k]))
+    for z in ges.values():
+        if "mit_token" in z:
+            z["mit_token"] = sorted(set(z["mit_token"]) - set(z["aufruf"]))
+            if not z["mit_token"]:
+                del z["mit_token"]
     return ges
 
 
@@ -308,10 +405,15 @@ def bewerte(
     aufrufer = sorted(r for r, e in konsumenten.items() if e["aufruf"])
     raw = sorted(r for r, e in konsumenten.items() if e["raw"])
     laufzeit = {
-        r: [p for p in e["raw"] if not NICHT_LAUFZEIT.search(p)]
+        r: [
+            p
+            for p in e["raw"]
+            if DEPLOY_BAUSTEIN.search(p) or not NICHT_LAUFZEIT.search(p)
+        ]
         for r, e in konsumenten.items()
     }
     laufzeit = {r: p for r, p in laufzeit.items() if p}
+    mit_token = {r: e["mit_token"] for r, e in konsumenten.items() if e.get("mit_token")}
     zaehler = {
         "aufrufer": len(aufrufer),
         "raw": len(raw),
@@ -331,6 +433,9 @@ def bewerte(
         "aufrufer": aufrufer,
         "raw": raw,
         "laufzeit": laufzeit,
+        # Gelistet, nicht gezaehlt: ob das Secret platform lesen darf, zeigt erst
+        # ein Lauf nach dem Flip (Flip-Checkliste #3234).
+        "mit_token": mit_token,
         "kopien": kopien,
         "fristen": fristen,
     }
@@ -443,6 +548,14 @@ def main(argv: list[str] | None = None) -> int:
     if ergebnis["laufzeit"]:
         print("## Laufzeit-Pfade (brechen beim Flip in laufenden Diensten)")
         for r, pfade in sorted(ergebnis["laufzeit"].items()):
+            print(f"- {r}: {', '.join(pfade)}")
+        print()
+    if ergebnis["mit_token"]:
+        print(
+            "## Checkouts mit eigenem Token (zaehlen nicht; nach dem Flip "
+            "einmal echt laufen lassen)"
+        )
+        for r, pfade in sorted(ergebnis["mit_token"].items()):
             print(f"- {r}: {', '.join(pfade)}")
         print()
     if ergebnis["kopien"]:

@@ -1,0 +1,13 @@
+[Unit]
+Description=Speicherdruck jede Minute messen (platform#3607)
+
+[Timer]
+# 1 min: am 2026-09-26 lagen zwischen 60 % frei (sar 08:00) und dem ersten Kill (08:06)
+# nur Minuten. Ein Lauf liest nur /proc, gemessen 2026-09-29 mit Schnappschuss ueber
+# 723 Prozesse: 0,06 s.
+OnCalendar=*:*:00
+AccuracySec=5s
+Persistent=false
+
+[Install]
+WantedBy=timers.target

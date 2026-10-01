@@ -366,7 +366,13 @@ gerendert. Wirkt visuell wie ein Tipp/Warnung-Kasten ohne extra-Auszeichnung.
 
 Der Print-Agent setzt automatisch:
 - `page-break-after: avoid` auf H2/H3/H4 (kein Heading am Seitenende ohne Body).
-- `page-break-inside: avoid` auf Tabellen und Diagramme.
+- `page-break-inside: avoid` auf Diagrammen, der Meta-Tabelle und **kurzen
+  Tabellen** (bis `KURZE_TABELLE_MAX_ZEILEN` = 6 Datenzeilen, Konstante in
+  `tabellen_umbruch.py`).
+- **Lange Tabellen fließen** über die Seitengrenze: die Kopfzeile wiederholt
+  sich auf jeder Seite, keine Zeile wird zerschnitten. Vorher wurde jede
+  Tabelle als Block auf die nächste Seite geschoben und ließ die halbe Seite
+  davor leer (Realfall 2026-09-29).
 
 **Manuelle Seitenumbrüche:** Klasse `break-before` auf H2 setzen:
 

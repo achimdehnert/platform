@@ -88,7 +88,13 @@ AUFSCHUB = re.compile(
     r"|(nachziehen|angleichen|migrieren|umstellen) nur,? wenn"
     r"|wenn wir (es|ihn|sie|das) (ohnehin|sowieso|eh) anfass"
     r"|vorerst (nicht|unveraendert|unverändert|so belassen)"
-    r"|noch nicht (umgesetzt|migriert|angeglichen|nachgezogen))",
+    r"|noch nicht (umgesetzt|migriert|angeglichen|nachgezogen)"
+    # Ergaenzt 2026-09-30 aus einem gemessenen Rueckfall (Retro 97a9a1, #3169):
+    # ein Issue-Kommentar vertagte einen Ersatz mit Zeitwort plus Verweis auf
+    # ein Issue ohne Nummer. Keine Wendung der Liste traf, das Gate meldete
+    # den Kommentar als verankert. Kalibriert an 400 gemergten PR-Texten:
+    # genau ein zusaetzlicher Fund (#3606), und der war ein echter Aufschub.
+    r"|mittelfristig|langfristig|eigene[sn]? (Issue|Ticket|PR)\b)",
     re.IGNORECASE,
 )
 

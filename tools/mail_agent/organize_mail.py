@@ -36,8 +36,10 @@ from email.header import decode_header
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import bodystructure as bs  # noqa: E402  (platform#3627)
 from read_mail import _mailbox_arg as _read_mail_mailbox_arg  # noqa: E402
 from send_mail import CONFIG_FILE, load_credentials, login_name, parse_env  # noqa: E402
+import loeschschutz  # noqa: E402  (platform#3176 K3)
 
 TRASH_CANDIDATES = (
     "INBOX.Trash",
@@ -211,8 +213,44 @@ def _matches(
                 continue
             if subj_sub and subj_sub.lower() not in subj.lower():
                 continue
-            hits.append((uid, _decode(msg.get("Date"))[:22], frm[:40], subj[:55]))
+            # Ungekürzt: der Löschschutz (platform#3176) liest Adresse und Betreff
+            # hieraus — gekürzt wird erst in der Anzeige.
+            hits.append((uid, _decode(msg.get("Date"))[:22], frm, subj))
     return hits
+
+
+def namen_aus_bodystructure(zeile: bytes) -> list[str] | None:
+    """Dateinamen aller Teile einer FETCH-Antwort, ohne Dubletten. ``None``,
+    wenn die Struktur nicht lesbar ist — auch ein eingebettetes Bild zählt,
+    denn ein Beleg kann inline kommen."""
+    teile = bs.aus_fetch_antwort(zeile)
+    if teile is None:
+        return None
+    return list(dict.fromkeys(t.dateiname for t in teile if t.dateiname))
+
+
+def anhang_namen(
+    imap: imaplib.IMAP4_SSL, source: str, hits: list[tuple]
+) -> dict[str, list[str] | None]:
+    """Anhangnamen je UID direkt aus dem Postfach (platform#3627).
+
+    Nur die BODYSTRUCTURE wird geholt, nie ein Inhalt. Antwortet der Server
+    für eine UID nicht, steht ``None`` da — der Löschschutz hält die Mail dann.
+    """
+    imap.select(_mailbox_arg(source), readonly=True)
+    namen: dict[str, list[str] | None] = {}
+    for uid, *_ in hits:
+        schluessel = uid.decode() if isinstance(uid, (bytes, bytearray)) else str(uid)
+        try:
+            typ, md = imap.uid("FETCH", schluessel, "(BODYSTRUCTURE)")
+        except (imaplib.IMAP4.error, OSError):
+            typ, md = "NO", None
+        if typ != "OK" or not md or md == [None]:
+            namen[schluessel] = None
+            continue
+        blob = b"".join(p[0] + p[1] if isinstance(p, tuple) else (p or b"") for p in md)
+        namen[schluessel] = namen_aus_bodystructure(blob)
+    return namen
 
 
 def faehigkeiten(imap: imaplib.IMAP4_SSL) -> frozenset[str]:
@@ -301,6 +339,19 @@ def cmd_move(
     if not hits:
         print("Keine passenden Mails gefunden — nichts verschoben.")
         return
+    # K3 (platform#3176): geschützte Mails bleiben vor dem Löschordner liegen;
+    # ist der Index nicht erreichbar, wird nichts dorthin verschoben (fail-closed).
+    # Anhangnamen kommen direkt aus dem Postfach (platform#3627).
+    try:
+        hits, gehalten = loeschschutz.filtere_verschiebung(
+            target, hits, anhang_namen=lambda h: anhang_namen(imap, source, h)
+        )
+    except RuntimeError as e:
+        sys.exit(f"FEHLER: Löschschutz nicht prüfbar ({e}) — nichts verschoben.")
+    loeschschutz.melde_zurueckgehalten(gehalten)
+    if not hits:
+        print("Nach dem Löschschutz bleibt nichts zu verschieben.")
+        return
     krit = (
         " & ".join(
             filter(
@@ -317,7 +368,7 @@ def cmd_move(
         f"Verschieben aus '{source}' nach '{target}'  (Kriterium: {krit}) — reversibel:"
     )
     for _, date, frm, subj in hits:
-        print(f"  · {date:<22} {frm:<40} {subj}")
+        print(f"  · {date:<22} {frm[:40]:<40} {subj[:55]}")
     print(f"  = {len(hits)} Mail(s)")
     if not yes:
         try:
@@ -378,7 +429,7 @@ def cmd_flag(
     )
     print(f"{label} in '{source}'  (Kriterium: {krit}) — reversibel:")
     for _, date, frm, subj in hits:
-        print(f"  · {date:<22} {frm:<40} {subj}")
+        print(f"  · {date:<22} {frm[:40]:<40} {subj[:55]}")
     print(f"  = {len(hits)} Mail(s)")
     if not yes:
         try:

@@ -56,7 +56,9 @@ ERLAUBT: dict[str, tuple[str, str]] = {
     # ist mechanisch und rueckbaubar.
     "0.4.4 basis-abstand": (
         "{n} Arbeitskopien liegen weit hinter dem Hauptstand. Soll ich sie nachziehen?",
-        "Worktrees auf origin/main mergen, je Repo ein Lauf",
+        # Nicht „mergen": das Wort steht auf der Sperrliste in chat-hub
+        # `gesperrt_wegen()` und sperrte die eigene Frage (#3394).
+        "Worktrees auf den Stand von origin/main nachziehen, je Repo ein Lauf",
     ),
     # Eine Prio-Zeile, die auf etwas Geschlossenes zeigt, ist eine Luege im
     # Handover — das Nachziehen aendert nur Text.
@@ -209,8 +211,16 @@ def als_text(fragen: list[dict]) -> str:
         zeilen.append(
             f"{nr}. {f['frage']} ({f['laeufe']} Laeufe) — ich wuerde: {f['tat']}"
         )
+    # Ein Daumen bindet die ganze Nachricht. Bei mehreren Punkten muss das
+    # dastehen, sonst ist offen, welcher gemeint war (#3394).
+    zustimmung = "einverstanden"
+    if len(fragen) > 1:
+        zustimmung = (
+            f"einverstanden mit allen {len(fragen)} Punkten; "
+            "nur einzelne? Dann die Nummern nennen"
+        )
     zeilen.append(
-        "Daumen hoch auf diese Nachricht = einverstanden. Schweigen heisst nein."
+        f"Daumen hoch auf diese Nachricht = {zustimmung}. Schweigen heisst nein."
     )
     return "\n".join(zeilen)
 

@@ -1,0 +1,13 @@
+[Unit]
+Description=Befund-Journal auf den Dev-Server sichern (KONZ-platform-054 §12.7)
+Documentation=https://github.com/achimdehnert/platform/tree/main/infra/host-maintenance
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash %h/github/platform/infra/host-maintenance/befund-journal-sicherung.sh
+Nice=10
+IOSchedulingClass=idle
+# Fehlschlag = 'failed' in 'systemctl --user --failed' — dieselbe Sichtbarkeit wie kettencheck.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=befund-journal-sicherung

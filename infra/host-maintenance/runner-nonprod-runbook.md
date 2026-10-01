@@ -67,6 +67,7 @@ hat den `ALLOWED_EXTRA`-Hook) wird **erweitert** — kein neues Gate:
 - [ ] Secret-Scope: Staging-Runner bekommt **nur** CI-Secrets (Test-DB, Registry-**Read**). **Keine** Prod-Deploy-Keys — die bleiben am `prod-server`/`infra-deploy`-Runner (ADR-156-Carve-out).
 - [ ] `STATIC_ROOT`/Scratch auf tmpfs oder Job-eindeutigem Pfad (Präzedenz: Runner-Pollution-Fix).
 - [ ] Patch-Kadenz für den Host dokumentiert (unattended-upgrades aktiv).
+- [ ] **Resilienz-Drop-in** eingespielt: `sudo bash infra/host-maintenance/runner-resilienz-einspielen.sh`, Beleg `… --pruefen` → Exit 0 (`OOMPolicy=continue`, `Restart=on-failure`). Ohne das Drop-in legte am 2026-09-26 ein OOM-Kill eines 44-kB-`gpg-agent` den Runner für 3 Tage still. Der tägliche `runner-health.yml` meldet jeden Offline-Runner rot.
 - [ ] Resource-Limits: Runner-Service mit `Nice=10`, optional `CPUQuota=`/`MemoryMax=` via systemd-drop-in, damit CI die Staging-Stacks nicht verdrängt.
 
 ## 6. Hygiene-Check (REC-6/8 — Mess-Gate, speist ADR-257 Kill-Gate)

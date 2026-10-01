@@ -8,16 +8,27 @@ Verhalten, nicht nur Medium.
 
 Ablauf:
     1. Owner oeffnet den Artikel im eigenen Browser (angemeldet).
-    2. Lesezeichen „An Lotse" oeffnet `/lesen` und reicht URL, Titel und Text
-       per postMessage hinein; die Seite legt sie per POST ab. Ohne Lesezeichen:
-       Text markieren, kopieren, auf `/lesen` einfuegen.
+    2. Lesezeichen „An Lotse" oeffnet `/lesen?knopf=1#lotse=<JSON>` — URL, Titel
+       und Text reisen im Fragment mit; die Seite legt sie per POST ab. Ohne
+       Lesezeichen: Text markieren, kopieren, auf `/lesen` einfuegen.
+
+Warum Fragment statt postMessage (iilgmbh/chat-hub#151): postMessage braucht
+`window.opener`. Setzt die Artikelseite `Cross-Origin-Opener-Policy` (oder
+trennt ein Anmelde-Umweg die Fenster), ist opener im neuen Fenster null — die
+Seite blieb dann stumm, ohne Ablage und ohne Fehlermeldung. Das Fragment geht
+nicht an den Server (kein Artikeltext im Zugriffslog) und haengt an keiner
+Fensterbeziehung. `knopf=1` steht dagegen im Log: ein Knopf-Aufruf ohne
+folgenden POST ist das Signal, auf das chat-hub (lotse_lesen.py knopf-pruefen)
+achtet.
     3. Die Ablage landet unter ABLAGE/<schluessel>.md; der Lotse-Leser
        (chat-hub deploy/lotse_lesen.py) sieht dort nach, bevor er selbst abruft.
 
 Bewusste Grenzen:
   * Nur Daten, kein Auftrag. Die Ablage stoesst nichts an; Kommandokanal bleibt
     der Raum (Lotsen-Charta Art. 1). Der Text ist fuer den Lotsen Daten, keine
-    Befehle — das steht im Kopf jeder Ablage.
+    Befehle — das steht im Kopf jeder Ablage. Die Meldung im Raum schickt
+    chat-hub (lotse-ablage-melden.path, iilgmbh/chat-hub#142); auch sie stoesst
+    nichts an, erst das Owner-Wort „analysiere" im Raum.
   * Schutz: der Host liegt hinter Cloudflare Access; zusaetzlich nimmt der POST
     nur JSON von der eigenen Herkunft an (ein fremdes Formular kann kein JSON
     mit Content-Type application/json ohne Preflight senden).
@@ -41,6 +52,11 @@ from pathlib import Path
 ABLAGE = Path.home() / "shared" / "lesen"
 MAX_BYTES = 2_000_000
 MAX_TITEL = 300
+# Laengste URL, die das Lesezeichen oeffnet: Firefox kappt bei 1 MiB, Chrome bei
+# 2 MiB. Darueber halbiert das Lesezeichen den Text, bis er passt.
+MAX_URL = 1_000_000
+# Marke im Fragment; dieselbe Zeichenkette liest die Seite wieder aus.
+FRAGMENT = "#lotse="
 STANDARD_BASIS = "https://lotse.iil.pet"
 HERKUENFTE = frozenset(
     {
@@ -119,18 +135,20 @@ def basis_aus_host(host: str | None) -> str:
 
 
 def lesezeichen(basis: str) -> str:
-    """javascript:-Lesezeichen: oeffnet /lesen und reicht den Artikel hinein."""
-    ziel = json.dumps(basis + "/lesen")
-    herkunft = json.dumps(basis)
+    """javascript:-Lesezeichen: oeffnet /lesen mit dem Artikel im Fragment.
+
+    Ohne Fensterbeziehung (noopener) — siehe Modulkopf, chat-hub#151.
+    """
+    ziel = json.dumps(basis + "/lesen?knopf=1" + FRAGMENT)
     return (
         "javascript:(()=>{"
         "const a=document.querySelector('article')||document.body;"
-        "const d={typ:'lotse-lesen',url:location.href.split('#')[0],"
-        "titel:document.title,text:a.innerText};"
-        f"const w=window.open({ziel},'lotse-lesen');"
-        "const h=e=>{if(e.source===w&&e.data&&e.data.typ==='lotse-lesen-bereit')"
-        f"{{w.postMessage(d,{herkunft});removeEventListener('message',h)}}}};"
-        "addEventListener('message',h)})()"
+        "let t=a.innerText,u;"
+        "do{u="
+        f"{ziel}+encodeURIComponent(JSON.stringify("
+        "{url:location.href.split('#')[0],titel:document.title,text:t}));"
+        f"t=t.slice(0,t.length>>1)}}while(u.length>{MAX_URL}&&t);"
+        "window.open(u,'_blank','noopener')})()"
     )
 
 
@@ -177,11 +195,12 @@ body.uebergabe .karte{{display:none}}
 <li>Den blauen Knopf mit der Maus <b>in die Lesezeichenleiste ziehen</b>:<br>
 <a class="knopf" id="knopf" href="{knopf}">📎 An Lotse</a></li>
 </ol>
+<p class="klein">Knopf vor dem 30.09.2026 eingerichtet? Den alten löschen und diesen neu hineinziehen — der alte scheitert an manchen Seiten ohne Meldung.</p>
 <p><b>Danach, bei jedem Artikel:</b></p>
 <ol>
 <li>Artikel wie gewohnt öffnen.</li>
 <li>In der Lesezeichenleiste auf <b>An Lotse</b> klicken.</li>
-<li>Ein Fenster meldet <b>„Abgelegt“</b> und zeigt den Satz für den Raum.</li>
+<li>Ein Fenster meldet <b>„Abgelegt“</b>, der Lotse meldet sich im Raum. Dort <b>„analysiere“</b> schreiben.</li>
 </ol>
 </section>
 
@@ -214,7 +233,7 @@ async function ablegen(url,titel,text){{
     document.body.classList.remove('uebergabe');return;
   }}
   const befehl='analysiere '+url;
-  zeige('ok','<b>✓ Abgelegt:</b> '+esc(titel||url)+'<br>Jetzt im Raum schreiben:<code id="befehl">'+esc(befehl)+'</code><button type="button" id="kopieren">Satz kopieren</button>');
+  zeige('ok','<b>✓ Abgelegt:</b> '+esc(titel||url)+'<br>Der Lotse meldet die Ablage gleich im Raum. Dort nur <b>„analysiere“</b> schreiben.<p class="klein">Kommt keine Meldung, im Raum diesen Satz schreiben:</p><code id="befehl">'+esc(befehl)+'</code><button type="button" id="kopieren">Satz kopieren</button>');
   $('kopieren').onclick=async()=>{{try{{await navigator.clipboard.writeText(befehl);$('kopieren').textContent='✓ kopiert';}}catch(e){{$('kopieren').textContent='bitte von Hand kopieren';}}}};
 }}
 $('f').addEventListener('submit',e=>{{e.preventDefault();ablegen($('url').value.trim(),'',$('text').value);}});
@@ -223,7 +242,16 @@ addEventListener('message',e=>{{
   if(e.source!==window.opener||!e.data||e.data.typ!=='lotse-lesen')return;
   ablegen(e.data.url||'',e.data.titel||'',e.data.text||'');
 }});
-if(window.opener){{
+const fragment=location.hash.startsWith({json.dumps(FRAGMENT)})?location.hash.slice({len(FRAGMENT)}):'';
+const vomKnopf=new URLSearchParams(location.search).has('knopf');
+if(fragment||vomKnopf){{
+  // Artikeltext nicht in der Adresszeile/Chronik stehen lassen; neu laden legt nicht doppelt ab.
+  history.replaceState(null,'',location.pathname);
+  let d=null;
+  try{{d=JSON.parse(decodeURIComponent(fragment));}}catch(e){{}}
+  if(d&&typeof d==='object'){{document.body.classList.add('uebergabe');ablegen(String(d.url||''),String(d.titel||''),String(d.text||''));}}
+  else zeige('fehler','<b>Der Knopf kam an, der Artikel nicht.</b> Meist lag eine Anmeldung dazwischen. Bitte im Artikel noch einmal auf <b>An Lotse</b> klicken — sonst Weg B unten.');
+}}else if(window.opener){{
   document.body.classList.add('uebergabe');
   zeige('warte','Artikel wird übernommen …');
   window.opener.postMessage({{typ:'lotse-lesen-bereit'}},'*');

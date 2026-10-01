@@ -569,6 +569,167 @@ def test_should_book_draft_voucher_to_status_100_before_book_amount():
     )
 
 
+# ── entwurf_buchen: Fremdwaehrung (Befund 2026-09-13, Kurs doppelt gerechnet) ──
+
+
+def _fremdwaehrung_handler(positionen: list[dict], aufrufe: list[tuple[str, str]]):
+    """Ein-Positionen-Entwurf v1: 10,00 USD / 8,68 EUR — saveVoucher liefert
+    unveraenderte Fremdwaehrungssumme zurueck (der reparierte Fall)."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        pfad = request.url.path.replace("/api/v1", "")
+        aufrufe.append((request.method, pfad))
+        if pfad == "/VoucherPos":
+            return httpx.Response(200, json={"objects": positionen})
+        if pfad == "/Voucher/Factory/saveVoucher":
+            aufrufe.append(("BODY", request.read().decode()))
+            return httpx.Response(200, json={"objects": {"id": "v1", "status": "100"}})
+        if pfad == "/Voucher/v1":
+            return httpx.Response(
+                200,
+                json={
+                    "objects": [
+                        {
+                            "id": "v1",
+                            "status": "100",
+                            "sumGross": 8.68,
+                            "sumGrossForeignCurrency": 10.00,
+                        }
+                    ]
+                },
+            )
+        raise AssertionError(f"unerwartet: {request.method} {pfad}")
+
+    return handler
+
+
+def test_should_send_foreign_currency_sums_for_single_position_draft():
+    aufrufe: list[tuple[str, str]] = []
+    positionen = [{"id": "p1", "taxRate": 0}]
+    c = httpx.Client(
+        base_url="https://my.sevdesk.de/api/v1",
+        transport=httpx.MockTransport(_fremdwaehrung_handler(positionen, aufrufe)),
+    )
+    beleg = {
+        "id": "v1",
+        "status": "50",
+        "currency": "USD",
+        "sumNetForeignCurrency": 8.40,
+        "sumTaxForeignCurrency": 1.60,
+        "sumGrossForeignCurrency": 10.00,
+        "sumGross": 8.68,
+    }
+    danach = ka.entwurf_buchen(c, beleg)
+    assert danach["status"] == "100"
+    body = next(v for k, v in aufrufe if k == "BODY")
+    assert "voucher%5Bcurrency%5D=USD" in body
+    assert "voucherPosSave%5B0%5D%5Bnet%5D=false" in body
+    assert "voucherPosSave%5B0%5D%5BsumNet%5D=8.4" in body
+    assert "voucherPosSave%5B0%5D%5BsumTax%5D=1.6" in body
+    assert "voucherPosSave%5B0%5D%5BsumGross%5D=10.0" in body
+
+
+def test_should_not_send_sums_for_eur_draft():
+    aufrufe: list[tuple[str, str]] = []
+    positionen = [{"id": "p1", "taxRate": 19}]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        pfad = request.url.path.replace("/api/v1", "")
+        aufrufe.append((request.method, pfad))
+        if pfad == "/VoucherPos":
+            return httpx.Response(200, json={"objects": positionen})
+        if pfad == "/Voucher/Factory/saveVoucher":
+            aufrufe.append(("BODY", request.read().decode()))
+            return httpx.Response(200, json={"objects": {"id": "v1", "status": "100"}})
+        if pfad == "/Voucher/v1":
+            return httpx.Response(
+                200,
+                json={"objects": [{"id": "v1", "status": "100", "sumGross": 19.00}]},
+            )
+        raise AssertionError(f"unerwartet: {request.method} {pfad}")
+
+    c = httpx.Client(
+        base_url="https://my.sevdesk.de/api/v1", transport=httpx.MockTransport(handler)
+    )
+    beleg = {"id": "v1", "status": "50", "currency": "EUR", "sumGross": 19.00}
+    danach = ka.entwurf_buchen(c, beleg)
+    assert danach["status"] == "100"
+    body = next(v for k, v in aufrufe if k == "BODY")
+    assert "sumNet" not in body
+    assert "sumTax" not in body
+    assert "sumGross" not in body
+    assert "voucher%5Bcurrency%5D" not in body
+    assert "net%5D=false" not in body
+
+
+def test_should_raise_for_foreign_currency_draft_with_two_positions():
+    aufrufe: list[tuple[str, str]] = []
+    positionen = [
+        {"id": "p1", "taxRate": 0},
+        {"id": "p2", "taxRate": 0},
+    ]
+    c = httpx.Client(
+        base_url="https://my.sevdesk.de/api/v1",
+        transport=httpx.MockTransport(_fremdwaehrung_handler(positionen, aufrufe)),
+    )
+    beleg = {
+        "id": "v1",
+        "status": "50",
+        "currency": "USD",
+        "sumNetForeignCurrency": 8.40,
+        "sumTaxForeignCurrency": 1.60,
+        "sumGrossForeignCurrency": 10.00,
+        "sumGross": 8.68,
+    }
+    with pytest.raises(RuntimeError, match="2 Positionen"):
+        ka.entwurf_buchen(c, beleg)
+    assert not any(pfad == "/Voucher/Factory/saveVoucher" for _, pfad in aufrufe)
+
+
+def test_should_raise_when_foreign_currency_sum_changed_after_save():
+    aufrufe: list[tuple[str, str]] = []
+    positionen = [{"id": "p1", "taxRate": 0}]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        pfad = request.url.path.replace("/api/v1", "")
+        aufrufe.append((request.method, pfad))
+        if pfad == "/VoucherPos":
+            return httpx.Response(200, json={"objects": positionen})
+        if pfad == "/Voucher/Factory/saveVoucher":
+            return httpx.Response(200, json={"objects": {"id": "v1", "status": "100"}})
+        if pfad == "/Voucher/v1":
+            # Kurs doppelt gerechnet: 10.00 -> 8.68 (der urspruengliche Befund)
+            return httpx.Response(
+                200,
+                json={
+                    "objects": [
+                        {
+                            "id": "v1",
+                            "status": "100",
+                            "sumGross": 7.53,
+                            "sumGrossForeignCurrency": 8.68,
+                        }
+                    ]
+                },
+            )
+        raise AssertionError(f"unerwartet: {request.method} {pfad}")
+
+    c = httpx.Client(
+        base_url="https://my.sevdesk.de/api/v1", transport=httpx.MockTransport(handler)
+    )
+    beleg = {
+        "id": "v1",
+        "status": "50",
+        "currency": "USD",
+        "sumNetForeignCurrency": 8.40,
+        "sumTaxForeignCurrency": 1.60,
+        "sumGrossForeignCurrency": 10.00,
+        "sumGross": 8.68,
+    }
+    with pytest.raises(RuntimeError, match="veraendert"):
+        ka.entwurf_buchen(c, beleg)
+
+
 # ── Stufe "intern": Beleg ohne Dokument nach Regel (Bausteine 1/2/5, 2026-09-17) ──
 
 
