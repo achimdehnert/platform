@@ -23,7 +23,7 @@ Verwendung:
 
     # Batch-Modus (mehrere Repos)
     python .github/scripts/docu_update_agent.py \\
-        --repos risk-hub,coach-hub,billing-hub \\
+        --repos risk-hub,billing-hub \\
         --dry-run
 """
 
@@ -760,7 +760,7 @@ def main() -> int:
     group.add_argument("--issue-number", type=int, help="Single issue mode")
     group.add_argument(
         "--repos",
-        help="Batch mode: comma-separated repo names (e.g. risk-hub,coach-hub)",
+        help="Batch mode: comma-separated repo names (e.g. risk-hub,billing-hub)",
     )
     parser.add_argument("--dry-run", action="store_true", default=False)
     parser.add_argument(
