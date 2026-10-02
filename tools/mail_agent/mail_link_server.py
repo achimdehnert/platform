@@ -69,6 +69,7 @@ from mail_view import (  # noqa: E402
     render,
     slugify,
 )
+from privat_datei import schreibe_privat  # noqa: E402
 
 #: Kurz-ID → Ziel. Liegt neben dem Board unter ~/.claude, nie in einem Repo.
 LINK_REGISTRY = Path.home() / ".claude" / "mail-links.json"
@@ -286,7 +287,7 @@ def speichere_registry(
     daten: dict[str, dict[str, str]], pfad: Path = LINK_REGISTRY
 ) -> None:
     pfad.parent.mkdir(parents=True, exist_ok=True)
-    pfad.write_text(json.dumps(daten, indent=2, ensure_ascii=False), encoding="utf-8")
+    schreibe_privat(pfad, json.dumps(daten, indent=2, ensure_ascii=False))
 
 
 def owa_link(graph_id: str) -> str:

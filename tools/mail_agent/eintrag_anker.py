@@ -85,6 +85,7 @@ from referenzen import (
     verlauf_eintraege,
 )
 from send_mail import parse_env
+from privat_datei import schreibe_privat  # noqa: E402
 
 #: Vorgangs-Konto → IMAP-Konten, in denen seine Nummern liegen koennen. `default`
 #: ist die namenlose mail.env (AD) — so heisst das Konto auch in den Ankern, die
@@ -513,8 +514,8 @@ def main() -> int:
         # geschrieben und mit anderen Tagen verglichen, nie mit Uhrzeiten.
         neu_tot = uebernehme_tot(ergebnisse, tot, date.today().isoformat())  # noqa: DTZ011
         if neu_tot != tot:
-            Path(args.tot).write_text(
-                json.dumps(neu_tot, ensure_ascii=False, indent=2), encoding="utf-8"
+            schreibe_privat(
+                Path(args.tot), json.dumps(neu_tot, ensure_ascii=False, indent=2)
             )
             print(f"Unaufloesbar befundet: {len(neu_tot)} → {Path(args.tot).name}")
     return 0

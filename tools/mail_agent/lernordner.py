@@ -48,6 +48,8 @@ from typing import Iterable
 HIER = Path(__file__).resolve().parent
 sys.path.insert(0, str(HIER))
 
+from privat_datei import schreibe_privat  # noqa: E402
+
 import loeschschutz  # noqa: E402
 
 KONTEN = ("iil", "hnu", "ad")
@@ -359,8 +361,8 @@ def lauf(
     lernungen = [ln for lg, _, _ in gelesen.values() for ln in lg]
     neu = ledger_ergaenzen(ledger, lernungen, dt.date.today().isoformat())
     if neu and apply:
-        ledger_pfad.write_text(
-            json.dumps(ledger, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        schreibe_privat(
+            ledger_pfad, json.dumps(ledger, ensure_ascii=False, indent=2) + "\n"
         )
     print(
         f"Gelernt: {len(neu)} neue Einträge"

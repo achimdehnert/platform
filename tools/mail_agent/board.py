@@ -72,6 +72,8 @@ from urllib.parse import quote
 #: (`kopf_laden`, `setze_anker_aus_referenz`, `_letzte_referenz`) brauchen sie.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from privat_datei import schreibe_privat  # noqa: E402
+
 TOOL_VERSION = "board.py/1"
 
 #: Alle vier Dateien liegen unter ~/.claude, nie in einem Repo (Charta Art. 2).
@@ -1210,8 +1212,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"FEHLER: {fehler}", file=sys.stderr)
             return 1
 
-        ledger_pfad.write_text(
-            json.dumps(ledger, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        schreibe_privat(
+            ledger_pfad, json.dumps(ledger, ensure_ascii=False, indent=2) + "\n"
         )
         if kopf.get("message_id") and not args.ohne_anker:
             import anker as _anker
@@ -1240,8 +1242,8 @@ def main(argv: list[str] | None = None) -> int:
                 f"--frist {args.frist!r} ist keine gueltige Nummer (ohne --neu)."
             )
         vorgang = setze_frist(ledger, nr, args.datum, args.grund)
-        ledger_pfad.write_text(
-            json.dumps(ledger, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        schreibe_privat(
+            ledger_pfad, json.dumps(ledger, ensure_ascii=False, indent=2) + "\n"
         )
         print(
             f"#{nr} '{vorgang.get('kurz')}': frist={vorgang.get('frist')!r}"
@@ -1309,8 +1311,8 @@ def main(argv: list[str] | None = None) -> int:
                 f"{vorgang.get('erledigt_am')} — keine Aenderung."
             )
             return 0
-        ledger_pfad.write_text(
-            json.dumps(ledger, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        schreibe_privat(
+            ledger_pfad, json.dumps(ledger, ensure_ascii=False, indent=2) + "\n"
         )
         print(
             f"#{args.erledigt} '{vorgang.get('kurz')}': "
@@ -1331,8 +1333,8 @@ def main(argv: list[str] | None = None) -> int:
                 f"#{args.wiedereroeffnen} '{vorgang.get('kurz')}': war nicht geschlossen — keine Aenderung."
             )
             return 0
-        ledger_pfad.write_text(
-            json.dumps(ledger, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        schreibe_privat(
+            ledger_pfad, json.dumps(ledger, ensure_ascii=False, indent=2) + "\n"
         )
         print(
             f"#{args.wiedereroeffnen} '{vorgang.get('kurz')}': bucket={vorgang.get('bucket')!r}"
@@ -1341,8 +1343,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.vergib_nummern:
         ledger, neu = vergib_nummern(ledger)
-        ledger_pfad.write_text(
-            json.dumps(ledger, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        schreibe_privat(
+            ledger_pfad, json.dumps(ledger, ensure_ascii=False, indent=2) + "\n"
         )
         if neu:
             for nr, kurz in neu:

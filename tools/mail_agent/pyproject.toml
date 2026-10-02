@@ -37,6 +37,7 @@ py-modules = [
   "mail_view",
   "organize_mail",
   "port_freigeben",
+  "privat_datei",
   "read_mail",
   "referenzpostfach",
   "regeln",
