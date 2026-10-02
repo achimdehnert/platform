@@ -14,6 +14,10 @@ archived:
     github: achimdehnert/bfagent
     description: Book Factory Agent — AI-assisted book creation
     lifecycle: archived
+  coach-hub:
+    github: achimdehnert/coach-hub
+    description: Coaching-/Beratungsplattform (Risikoschutz-Themen)
+    lifecycle: archived
   onboarding-hub:
     github: achimdehnert/onboarding-hub
     description: Schulungs-/Onboarding-Plattform (schulungspass.de). Nicht weiterentwickelt (Auth via
