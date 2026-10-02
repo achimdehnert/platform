@@ -32,6 +32,7 @@ TARGET_REPO="${1:-platform}"
 PLATTFORM_REPO="platform"
 PROD_HOST="88.198.191.108"
 STAGING_HOST="88.99.38.75"
+DEVHUB_WEB_CONTAINER="devhub_web"   # 0.7.31: Leser von `manage.py hintergrund_wache`
 
 declare -a P_NAME P_STATUS P_NOTE P_REPO P_UNGEPRUEFT P_DAUER
 FAILED=0
@@ -153,7 +154,7 @@ else
 fi
 VORLAUF_MAX="${SESSION_CHECKS_PARALLEL:-8}"
 # Zweite, viel engere Spur fuer alles, was `ssh` zu den Prod-Hosts oeffnet
-# (neun Werkzeuge, per grep bestimmt, nicht geschaetzt). Grund, gemessen am
+# (zehn Werkzeuge, per grep bestimmt, nicht geschaetzt). Grund, gemessen am
 # 2026-09-22 im ersten Vorlauf-Lauf: bei einer einzigen Spur mit 8 Auftraegen
 # meldete 0.7.12 "Melder nicht auswertbar" und 0.7.18 "Melder nicht gelaufen",
 # 0.7.1/0.7.1b brachen mit einem Dekodierfehler ab — sshd nimmt nur eine
@@ -632,6 +633,8 @@ vorlauf2_ssh gpu-leerlauf timeout 180 python3 "$PLATFORM_DIR/tools/gpu_leerlauf.
 vorlauf_ssh  host-kopien  python3 "$PLATFORM_DIR/tools/host_datei_drift.py" --quiet
 vorlauf_ssh  opt-platform "$PLATFORM_DIR/tools/opt-platform-drift.sh" --quiet
 vorlauf2_ssh registry-err timeout 120 python3 "$PLATFORM_DIR/tools/registry_erreichbarkeit_melder.py" --quiet
+vorlauf_ssh  hg-wache     timeout 60 ssh -o BatchMode=yes -o ConnectTimeout=5 "root@$PROD_HOST" \
+                          "docker exec $DEVHUB_WEB_CONTAINER python manage.py hintergrund_wache"
 
 # git-Spur (Breite 1), teuerster zuerst
 vorlauf_git sicht-drift timeout 120 python3 "$PLATFORM_DIR/tools/sichtbarkeits_drift_melder.py" --kurz \
@@ -1494,6 +1497,30 @@ if [ -f "$PLATFORM_DIR/tools/speicher_druck_melder.py" ]; then
 else
   record "0.7.30 speicher-druck" "SKIP" "tools/speicher_druck_melder.py fehlt"
 fi
+
+# ── 0.7.31 Hintergrund-Wache dev-hub: Status geschrieben, aber nie gelesen ──────
+# dev-hub#388: der Celery-Task `session_governance` lief 82 Tage in 1958 von 1958
+# Laeufen rot, ohne dass es jemand bemerkte — es gab einen Status, aber keinen Leser.
+# `manage.py hintergrund_wache` (dev-hub#424) ist rein lesend und meldet dauerrote
+# Agent-Typen (>= 3x in Folge seit dem letzten Erfolg) sowie tote, fehlende oder
+# umgebogene Beat-Eintraege; Exit 1 bei Befund, eine Zeile je Befund. Diese Phase ist
+# sein Leser (platform#3667). Exit 1 ohne Ausgabe = das Kommando selbst ist
+# gescheitert; jeder andere Exit (ssh 255, timeout 124) = Prod nicht befragt, SKIP
+# und ausdruecklich KEINE Entwarnung.
+warte_auf hg-wache; HGW_RC=$ERNTE_RC; HGW_OUT=$(ernte hg-wache)
+case "$HGW_RC" in
+  0) record "0.7.31 hintergrund-wache" "PASS" "$(echo "$HGW_OUT" | tail -1)" ;;
+  1) if [ -n "$HGW_OUT" ]; then
+       record "0.7.31 hintergrund-wache" "WARN" \
+         "dev-hub: $(echo "$HGW_OUT" | wc -l) Befund(e) — $(echo "$HGW_OUT" | head -1)"
+       echo "$HGW_OUT" | tail -n +2
+     else
+       record "0.7.31 hintergrund-wache" "WARN" \
+         "dev-hub: hintergrund_wache scheiterte ohne Befundzeile — das Kommando selbst ist der Befund"
+     fi ;;
+  *) record "0.7.31 hintergrund-wache" "SKIP" \
+       "dev-hub auf Prod nicht befragt (Exit $HGW_RC) — keine Entwarnung" ;;
+esac
 
 # ── 0.7.24 Registry-Erreichbarkeit: die Strecke, an der vier Deploys starben ──
 # Am 2026-09-02 erreichte prod ghcr.io nur in 4 von 10 Versuchen, bei 10 von 10

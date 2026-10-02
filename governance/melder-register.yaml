@@ -395,6 +395,12 @@ melder:
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.7.30"
+  - phase: "0.7.31 hintergrund-wache"
+    leser: "Session-Start-Board → Agent (dauerroten Agent-Typ reparieren oder stilllegen, tote Beat-Zeile per Datenmigration loeschen; Muster dev-hub#388/#424) (platform#3667)"
+    wiedervorlage_tage: 7
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.31"
   - phase: "0.7.26 ci-deckung"
     leser: "Session-Start-Board → Agent (Ziel gedeckt/verzichtet nachziehen, dann `make <ziel>` in den Workflow oder Grund in governance/ci-deckung-verzicht.yaml); Owner bei Scope-Fragen ueber Repo-Grenzen"
     wiedervorlage_tage: 14
