@@ -681,20 +681,27 @@ def _find_messages(tok: str, from_sub: str, source_path: str, subject_sub: str =
 def anhang_namen(tok: str, hits: list[tuple]) -> dict[str, list[str] | None]:
     """Anhangnamen je messageId direkt aus dem Postfach (platform#3627).
 
-    Ein Abruf je Mail; nur ``name`` wird geholt, nie der Inhalt. Antwortet
-    Graph nicht mit 200, steht ``None`` da — der Löschschutz hält die Mail dann.
+    Ein Abruf je Mail und Seite (``@odata.nextLink``, platform#3644); nur
+    ``name`` wird geholt, nie der Inhalt. Antwortet Graph auf eine Seite nicht
+    mit 200 oder bricht die Verbindung ab, steht ``None`` da — der Löschschutz
+    hält die Mail dann, die übrigen Mails werden weiter geprüft.
     """
     namen: dict[str, list[str] | None] = {}
     for mid, *_ in hits:
-        r = _http(
-            "GET",
-            f"{_basis()}/messages/{mid}/attachments?$select=name",
-            headers=_auth(tok),
-        )
-        if r.status_code != 200:
-            namen[mid] = None
-            continue
-        namen[mid] = [a.get("name") or "" for a in r.json().get("value", [])]
+        url = f"{_basis()}/messages/{mid}/attachments?$select=name"
+        liste: list[str] | None = []
+        while url:
+            try:
+                r = _http("GET", url, headers=_auth(tok))
+                seite = r.json() if r.status_code == 200 else None
+            except (OSError, ValueError):
+                seite = None
+            if seite is None:
+                liste = None
+                break
+            liste += [a.get("name") or "" for a in seite.get("value", [])]
+            url = seite.get("@odata.nextLink")
+        namen[mid] = liste
     return namen
 
 

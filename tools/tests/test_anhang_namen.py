@@ -156,6 +156,66 @@ class TestGraphAnhaenge:
             "m2": None,
         }
 
+    def test_should_follow_next_link_to_find_invoice_on_second_page(self, monkeypatch):
+        """platform#3644: der Beleg steht erst auf Seite 2 — ohne nextLink fehlte er."""
+        gm = self.gm
+        monkeypatch.setattr(gm, "_basis", lambda: "https://graph.example")
+        seite2 = "https://graph.example/messages/m1/attachments?$skiptoken=2"
+        abgerufen = []
+
+        def fake_http(method, url, **k):
+            abgerufen.append(url)
+            if url == seite2:
+                return gm._Resp(200, '{"value": [{"name": "Rechnung_4711.pdf"}]}')
+            if "/messages/m1/" in url:
+                return gm._Resp(
+                    200,
+                    '{"value": [{"name": "flyer.jpg"}], "@odata.nextLink": "%s"}'
+                    % seite2,
+                )
+            return gm._Resp(200, '{"value": []}')
+
+        monkeypatch.setattr(gm, "_http", fake_http)
+        namen = gm.anhang_namen("tok", HITS)
+        assert namen == {"m1": ["flyer.jpg", "Rechnung_4711.pdf"], "m2": []}
+        assert seite2 in abgerufen
+        # Positivkontrolle: mit beiden Seiten greift der Beleg-Schutz.
+        assert ls.ist_beleg("", namen["m1"])
+        assert not ls.ist_beleg("", ["flyer.jpg"])
+
+    @pytest.mark.parametrize(
+        "fehler", [OSError("Verbindung abgebrochen"), TimeoutError("timeout")]
+    )
+    def test_should_mark_none_on_network_error_and_check_the_rest(
+        self, monkeypatch, fehler
+    ):
+        gm = self.gm
+        monkeypatch.setattr(gm, "_basis", lambda: "https://graph.example")
+
+        def fake_http(method, url, **k):
+            if "/messages/m1/" in url:
+                raise fehler
+            return gm._Resp(200, '{"value": [{"name": "flyer.jpg"}]}')
+
+        monkeypatch.setattr(gm, "_http", fake_http)
+        assert gm.anhang_namen("tok", HITS) == {"m1": None, "m2": ["flyer.jpg"]}
+
+    def test_should_mark_none_when_later_page_fails(self, monkeypatch):
+        gm = self.gm
+        monkeypatch.setattr(gm, "_basis", lambda: "https://graph.example")
+
+        def fake_http(method, url, **k):
+            if "skiptoken" in url:
+                return gm._Resp(503, "")
+            return gm._Resp(
+                200,
+                '{"value": [{"name": "a.jpg"}], "@odata.nextLink": "%s?$skiptoken=2"}'
+                % url.split("?")[0],
+            )
+
+        monkeypatch.setattr(gm, "_http", fake_http)
+        assert gm.anhang_namen("tok", HITS) == {"m1": None, "m2": None}
+
     def test_should_keep_invoice_attachment_out_of_deletion_folder(self, monkeypatch):
         gm = self.gm
         monkeypatch.setattr(gm, "loeschschutz", ls)

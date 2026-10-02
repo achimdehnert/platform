@@ -29,6 +29,7 @@ ls = _load("loeschschutz")
 BEHALTEN_ADRESSE = "autorin@letters.example.com"
 BEHALTEN_DOMAIN = "wissen.example.org"
 WERBUNG = "promo@letters.example.com"
+FREMD = "angebot@shop.example.net"
 
 
 def _ledger(pfad, behalten, gelernt=()):
@@ -131,11 +132,100 @@ class TestFiltereVerschiebung:
         assert [h[0] for h in frei] == ["m2"]
         assert gehalten[0][1].klasse == "owner_behalten"
 
+    @pytest.mark.parametrize(
+        "ziel", ["INBOX.Zur Loeschung", "INBOX/Zur Löschung", "zur_loeschung"]
+    )
+    def test_should_hold_kept_address_in_imap_spelling(self, ziel):
+        """platform#3644: der Behalten-Schutz greift in jeder Schreibweise des Ordners."""
+        frei, gehalten = ls.filtere_verschiebung(
+            ziel, self.HITS, eigene=set(), abfrage=_kein_index,
+            gelernt=["letters.example.com"], behalten=[BEHALTEN_ADRESSE],
+        )  # fmt: skip
+        assert [h[0] for h in frei] == ["m2"]
+        assert [(h[0], b.klasse) for h, b in gehalten] == [("m1", "owner_behalten")]
+
     def test_should_not_hold_outside_deletion_folder(self):
         frei, _ = ls.filtere_verschiebung(
             "Archiv/2026", self.HITS, eigene=set(), behalten=[BEHALTEN_ADRESSE]
         )
         assert frei == self.HITS
+
+
+class _Postfach:
+    """Ein Konto mit den Lernordnern; zeichnet jede Verschiebung auf."""
+
+    def __init__(self, lernen_domain):
+        self.inhalt = {
+            "inbox": [],
+            "Zur Löschung": [],
+            "Lernen Absender loeschen": [],
+            "Lernen Domain loeschen": list(lernen_domain),
+        }
+        self.bewegungen = []
+
+    def ordner(self):
+        return list(self.inhalt)
+
+    def liste(self, pfad):
+        return list(self.inhalt.get(pfad, []))
+
+    def verschiebe(self, quelle, ziel, kennungen):
+        self.bewegungen.append((quelle, ziel, list(kennungen)))
+        return len(kennungen)
+
+    def schliessen(self):
+        pass
+
+
+class TestVerdrahtung:
+    """platform#3644: beide Verschiebe-Werkzeuge lesen „behalten" aus dem Ledger."""
+
+    HITS = TestFiltereVerschiebung.HITS
+
+    @pytest.fixture
+    def ledger(self, monkeypatch, tmp_path):
+        pfad = _ledger(
+            tmp_path / "l.json", {BEHALTEN_ADRESSE: "Owner"}, ["letters.example.com"]
+        )
+        monkeypatch.setattr(ls, "LEDGER", pfad)
+        return pfad
+
+    def test_should_not_move_kept_sender_via_imap(self, monkeypatch, ledger):
+        om = _load("organize_mail")
+        monkeypatch.setattr(om, "loeschschutz", ls)
+        monkeypatch.setattr(
+            om, "list_folders", lambda _i: ["INBOX", "INBOX.Zur Loeschung"]
+        )
+        monkeypatch.setattr(om, "_matches", lambda *a, **k: list(self.HITS))
+        monkeypatch.setattr(
+            om, "anhang_namen", lambda _i, _s, hits: {h[0]: [] for h in hits}
+        )
+        bewegt = []
+        monkeypatch.setattr(om, "_move", lambda _i, _s, _t, uids: bewegt.extend(uids))
+
+        om.cmd_move(object(), "INBOX", "INBOX.Zur Loeschung", "", None, True)
+
+        assert bewegt == ["m2"]
+
+    def test_should_not_move_kept_sender_via_graph(self, monkeypatch, ledger):
+        gm = _load("graph_mail")
+        monkeypatch.setattr(gm, "loeschschutz", ls)
+        monkeypatch.setattr(gm, "_find_messages", lambda *a, **k: list(self.HITS))
+        monkeypatch.setattr(gm, "ensure_path", lambda *a, **k: "zielid")
+        monkeypatch.setattr(gm, "_basis", lambda: "https://graph.example")
+        bewegt = []
+
+        def fake_http(method, url, **k):
+            if method == "GET":
+                return gm._Resp(200, '{"value": []}')
+            bewegt.append(url.split("/messages/")[1].split("/")[0])
+            return gm._Resp(201, "{}")
+
+        monkeypatch.setattr(gm, "_http", fake_http)
+
+        gm.cmd_move("tok", "example", "Zur Loeschung", "inbox", True)
+
+        assert bewegt == ["m2"]
 
 
 class TestLernordner:
@@ -157,37 +247,31 @@ class TestLernordner:
     ):
         lo = self._lo(monkeypatch)
         ledger = _ledger(tmp_path / "l.json", {BEHALTEN_ADRESSE: "Owner"})
-
-        class Postfach:
-            def __init__(self):
-                self.inhalt = {
-                    "inbox": [],
-                    "Zur Löschung": [],
-                    "Lernen Absender loeschen": [],
-                    "Lernen Domain loeschen": [
-                        ("l1", "2026-09-28", WERBUNG, "Sale"),
-                    ],
-                }
-                self.bewegungen = []
-
-            def ordner(self):
-                return list(self.inhalt)
-
-            def liste(self, pfad):
-                return list(self.inhalt.get(pfad, []))
-
-            def verschiebe(self, quelle, ziel, kennungen):
-                self.bewegungen.append((quelle, ziel, list(kennungen)))
-                return len(kennungen)
-
-            def schliessen(self):
-                pass
-
-        pf = Postfach()
+        pf = _Postfach([("l1", "2026-09-28", WERBUNG, "Sale")])
         lo.lauf(["iil"], apply=True, oeffnen=lambda _k: pf, ledger_pfad=ledger)
         regeln = json.loads(ledger.read_text())["rausch_regeln"]
         assert regeln["nach_ordner_zur_loeschung"] == []
         assert pf.bewegungen == [("Lernen Domain loeschen", "inbox", ["l1"])]
+
+    def test_should_learn_unrelated_sender_in_same_run_as_kept_one(
+        self, monkeypatch, tmp_path
+    ):
+        """platform#3644: Gegenstück — der Behalten-Treffer blockiert den Rest nicht."""
+        lo = self._lo(monkeypatch)
+        ledger = _ledger(tmp_path / "l.json", {BEHALTEN_ADRESSE: "Owner"})
+        pf = _Postfach(
+            [
+                ("l1", "2026-09-28", WERBUNG, "Sale"),
+                ("l2", "2026-09-28", FREMD, "Angebot"),
+            ]
+        )
+        lo.lauf(["iil"], apply=True, oeffnen=lambda _k: pf, ledger_pfad=ledger)
+        regeln = json.loads(ledger.read_text())["rausch_regeln"]
+        assert regeln["nach_ordner_zur_loeschung"] == ["shop.example.net"]
+        assert sorted(pf.bewegungen) == [
+            ("Lernen Domain loeschen", "Zur Löschung", ["l2"]),
+            ("Lernen Domain loeschen", "inbox", ["l1"]),
+        ]
 
 
 class TestRauschKandidaten:
