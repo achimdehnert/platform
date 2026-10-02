@@ -37,7 +37,7 @@ jobs:
     name: Nennt dieser PR ein Issue, ohne es zu schliessen?
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Die Gate-Logik muss korrekt sein, bevor ihr Verdikt jemanden erreicht.
       # Muster uebernommen von test-claim-check.yml / aufschub-anker-gate.yml.
