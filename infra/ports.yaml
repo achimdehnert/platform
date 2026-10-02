@@ -251,13 +251,13 @@ services:
                                # scheiterte mit Permission denied; chown 1000:1000
                                # wie auf prod. Alle 3 Namen per Marker nachgewiesen.
     container_name: coach_hub_web
-    domain_prod: coach-hub.iil.pet
     betriebsstatus: stillgelegt
     betriebsstatus_grund: "Owner-Entscheid 2026-08-23 (platform#2215), bestaetigt 2026-08-30. Auf prod-b seit ~2026-08-20 alle 5 Container Exited(0). Auf prod lief bis 2026-08-30 ein zweiter Stack weiter (25 h, coach_hub_web in Dauerschleife DB not ready; Ursache im DB-Log: role coach_hub_app existiert dort nicht) — gestoppt mit restart=no, Volumes bleiben. Die vier vhosts coach-hub.iil.pet, kiohnerisiko.de, staging-coaching.iil.pet, staging.kiohnerisiko.de auf prod deaktiviert (/root/stillgelegt-vhosts-2026-08-30/), der prod-b-vhost war bereits weg. 14 Tage nginx: coach-hub.iil.pet 5, kiohnerisiko.de 681 Requests — alle Status 444, kein Nutzerverkehr. Reste (DNS, Runner, Volumes, Repo): platform#2480"
-    domain_staging: staging-coaching.iil.pet
-    domain_aliases:
-      - kiohnerisiko.de
-      - www.kiohnerisiko.de      # ergaenzt 2026-08-04: stand nur im vhost
+    # Domains am 2026-10-02 ausgetragen, vor dem Archivieren des Repos (Owner-Go, platform#2480):
+    # domain_prod coach-hub.iil.pet, domain_staging staging-coaching.iil.pet, domain_aliases
+    # kiohnerisiko.de + www.kiohnerisiko.de. Port und prod_host bleiben reserviert, solange die
+    # Volumes auf prod liegen. DNS-Reste am 2026-10-02: staging-coaching.iil.pet und
+    # staging.kiohnerisiko.de loesen noch auf (Cloudflare) — Abbau ueber platform#2480.
     repo: achimdehnert/coach-hub
 
   pptx-hub:
