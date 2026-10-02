@@ -33,6 +33,7 @@ from urllib.parse import quote
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from anker import ANKER_DATEI  # noqa: E402
 from referenzen import finde, schluessel_kandidaten, verlauf_eintraege  # noqa: E402
+from privat_datei import schreibe_privat  # noqa: E402
 
 HIER = Path(__file__).resolve().parent
 LEDGER = Path.home() / ".claude" / "mail-vorgaenge.json"
@@ -84,7 +85,7 @@ def index_lesen(seit: str, limit: int, cache: Path | None) -> list[dict]:
         raise RuntimeError(f"Mail-Index nicht erreichbar: {roh.stderr[:160]}")
     daten = json.loads(roh.stdout)
     if cache:
-        cache.write_text(json.dumps(daten, ensure_ascii=False), encoding="utf-8")
+        schreibe_privat(cache, json.dumps(daten, ensure_ascii=False))
     return daten.get("treffer", [])
 
 
@@ -243,8 +244,8 @@ def main() -> int:
             f"  #{nr}: " + ", ".join(f"{k}→{e['datum']}" for k, e in eintraege.items())
         )
     if args.schreibe:
-        Path(args.schreibe).write_text(
-            json.dumps(ergebnis, ensure_ascii=False, indent=2), encoding="utf-8"
+        schreibe_privat(
+            Path(args.schreibe), json.dumps(ergebnis, ensure_ascii=False, indent=2)
         )
         print(f"Geschrieben: {Path(args.schreibe).name}")
     return 0

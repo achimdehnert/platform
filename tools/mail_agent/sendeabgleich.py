@@ -34,6 +34,10 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from privat_datei import schreibe_privat  # noqa: E402
+
 LEDGER = Path.home() / ".claude" / "mail-vorgaenge.json"
 HIER = Path(__file__).resolve().parent
 
@@ -369,9 +373,7 @@ def main() -> int:
             print(f"{kopf} offen      keine passende Mail im Sendeordner")
 
     if args.apply and geschrieben:
-        pfad.write_text(
-            json.dumps(ledger, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
+        schreibe_privat(pfad, json.dumps(ledger, ensure_ascii=False, indent=2))
         print(f"\n{geschrieben} Vorgang/Vorgaenge auf 'warten' gestellt.")
     elif not args.apply:
         print("\n(Anzeige — mit --apply werden die TREFFER ins Ledger geschrieben.)")

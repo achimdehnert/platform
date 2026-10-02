@@ -47,6 +47,7 @@ from read_mail import (
     decode_hdr,
 )
 from send_mail import parse_env
+from privat_datei import schreibe_privat  # noqa: E402
 
 #: Ankerspeicher. Schwester von ~/.claude/mail-action-board.md.
 ANKER_DATEI = Path.home() / ".claude" / "mail-anker.json"
@@ -111,11 +112,11 @@ def lade(pfad: Path = ANKER_DATEI) -> dict[str, Anker]:
 
 def speichere(anker: dict[str, Anker], pfad: Path = ANKER_DATEI) -> None:
     pfad.parent.mkdir(parents=True, exist_ok=True)
-    pfad.write_text(
+    schreibe_privat(
+        pfad,
         json.dumps(
             {k: asdict(v) for k, v in anker.items()}, indent=2, ensure_ascii=False
         ),
-        encoding="utf-8",
     )
 
 

@@ -41,6 +41,10 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from privat_datei import schreibe_privat  # noqa: E402
+
 REGELN_DATEI = Path.home() / ".claude" / "mail-regeln.json"
 PROTOKOLL_DATEI = Path.home() / ".claude" / "mail-regeln-protokoll.jsonl"
 
@@ -463,15 +467,13 @@ def laden(pfad: str | Path | None = None) -> list[Regel]:
 def speichern(regeln: list[Regel], pfad: str | Path | None = None) -> Path:
     p = Path(pfad).expanduser() if pfad else REGELN_DATEI
     p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_suffix(p.suffix + ".tmp")
-    tmp.write_text(
+    schreibe_privat(
+        p,
         json.dumps(
             {"regeln": [asdict(r) for r in regeln]}, ensure_ascii=False, indent=2
         )
         + "\n",
-        encoding="utf-8",
     )
-    tmp.replace(p)
     return p
 
 

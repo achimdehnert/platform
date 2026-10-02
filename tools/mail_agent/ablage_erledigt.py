@@ -1446,6 +1446,7 @@ def _graph_nachziehen(nummern, ledger: dict) -> list:
     """Graph-Kurzlinks der bewegten Vorgaenge heilen — die Graph-Haelfte von `anker_nachziehen`."""
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import graph_anker  # noqa: PLC0415
+    from privat_datei import schreibe_privat  # noqa: PLC0415
 
     registry = _lade(LINKS, {})
     auswahl = {k: v for k, v in registry.items() if k in {str(n) for n in nummern}}
@@ -1463,9 +1464,7 @@ def _graph_nachziehen(nummern, ledger: dict) -> list:
         fenster=graph_anker.fenster_aus_ledger(ledger),
     )
     registry.update(auswahl)
-    LINKS.write_text(
-        json.dumps(registry, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    schreibe_privat(LINKS, json.dumps(registry, ensure_ascii=False, indent=2))
     return befunde
 
 
