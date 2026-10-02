@@ -113,7 +113,7 @@ jobs:
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
       # #1414 Zwilling-Muster: der Job laeuft immer, entscheidet aber selbst,
       # ob die teuren Steps noetig sind. Dieser Step ist der einzige, der auf
@@ -297,7 +297,7 @@ jobs:
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
       # Exit 1 = Befund (ein neu verankertes Gate ohne Drill/Positivkontrolle/
       # Messpunkt), Exit 2 = Werkzeugfehler (Basis nicht lesbar). Beides macht
