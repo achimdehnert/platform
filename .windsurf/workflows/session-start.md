@@ -109,6 +109,7 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
 | `0.7.28 gpu-leerlauf` | Dienst haelt >=4 GB Grafikspeicher und wurde >=3 Tage nicht gerufen | kein Dienst ueber beiden Schwellen | Zweck klaeren oder anhalten (`systemctl --user stop <unit>`); `SKIP` = Knoten nicht befragt, keine Entwarnung |
 | `0.7.29 container-speicher` | `oom_kill` gestiegen, anon > 70 % vom Limit, Limit-Treffer/24 h > 2× Basis, oder Timer steht (`NICHT GELAUFEN`) | `SAMMELPHASE` (Trend noch ohne Basis) | OOM: Ursache im Container; anon: Limit-PR vorschlagen, Prod-Schritt = Owner (#3400) |
 | `0.7.30 speicher-druck` | Speicherdruck in den letzten 24 h (PSI some avg60 >= 10 %, MemAvailable < 10 % oder `oom_kill` gestiegen), oder Timer steht | — | Groesste cgroup aus der Zeile ist der Verursacher: Lauf drosseln/beenden, Details in `~/.claude/speicher-druck-journal.jsonl`; `systemd-oomd` o. Ae. nur mit Owner-Go (#3607) |
+| `0.7.31 hintergrund-wache` | dev-hub: Agent-Typ >= 3x in Folge seit letztem Erfolg rot, oder Beat-Eintrag tot/fehlt/anderer Task | `OK: keine dauerroten Agenten …` | Agent reparieren oder stilllegen, tote Beat-Zeile per Datenmigration loeschen (Muster dev-hub#424); `SKIP` = Prod nicht befragt, keine Entwarnung (#3667) |
 | `0.7.23 melder-register` | Phase ohne Eintrag / `leser: UNBENANNT` / Karteileiche | — | `melder_register_check.py --kurz`, Leser benennen |
 
 **Jede `◌`/`nicht messbar`/`SAMMELPHASE`-Zeile ist eine Lücke, kein Pass — als solche ins Board.**
