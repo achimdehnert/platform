@@ -38,7 +38,7 @@ implementation_status: partial
 
 ## Decision Drivers
 
-- **Freigabe-Last**: Seit 2026-08-16 brauchten 118 von 434 über `pr_merge_sa.py` gemergten PRs (27 %) ein ausdrückliches Owner-Wort; 295 Merge-Versuche brachen mangels Mandat ab (`~/.claude/pr-merge-sa.jsonl`, ohne Trockenläufe).
+- **Freigabe-Last**: Auf 317 über `pr_merge_sa.py` gemergte PRs kommen 124 PRs mit ausdrücklichem Owner-Wort (39,1 %); 295 Merge-Versuche brachen mangels Mandat ab (`~/.claude/pr-merge-sa.jsonl`, ohne Trockenläufe).
 - **Analysen und Experimente hängen an Merges**: Auch reine Untersuchungen laufen heute über PRs in Produktiv-Repos und warten damit auf den Owner (platform#3685).
 - **Autonomie ohne Wirkung ist jetzt technisch möglich**: `tools/sandbox/` (#3686) prüft vor jedem Lauf mechanisch, dass kein Schreibweg aus der Sandbox hinausführt, und hält ein Budget.
 - **Weiterentwicklung braucht Messung**: Ohne Benchmarks optimiert ein autonomer Agent auf „viel geändert“ statt auf „besser“; ein Übernahme-Entscheid braucht Belege, keine Behauptungen.
@@ -52,11 +52,11 @@ Die Entwicklungsumgebung (Repos, Skills, Policies, Hooks, Merge-Werkzeug) soll s
 
 ### 1.1 Ist-Zustand
 
-| Messgröße (Quelle, Zeitraum 2026-08-16 – 2026-10-04) | Wert |
+| Messgröße (Quelle: gesamtes Journal, Stand 2026-10-04, `tools/sandbox/benchmark.py`) | Wert |
 |---|---|
-| Gemergte PRs über `pr_merge_sa.py` | 434 |
-| davon mit Owner-Wort | 118 (27 %) |
-| Merge-Abbrüche mangels Mandat (M0 123 · M1 145 · M2 19 · M3 8) | 295 |
+| Verschiedene PRs, über `pr_merge_sa.py` gemergt | 317 |
+| Verschiedene PRs mit Owner-Wort-Ereignis | 124 (39,1 %) |
+| Merge-Abbrüche mangels Mandat (Versuche; M0 123 · M1 145 · M2 19 · M3 8) | 295 |
 | Häufigste Abbruchgründe | fehlendes M1 bei W1, Ruleset-Approval, Governance-Pfade unter `.github/workflows/` |
 | Hook-Auslösungen gesamt / blockierend (`gate-hits.jsonl`) | 2338 / 1359 |
 | häufigster blockierender Hook | `claim-before-cheapest-check` (1117) |
@@ -87,7 +87,7 @@ Die Sandbox ist ein Zwilling der Produktiv-Umgebung: Repos, Skills, Policies und
 ### Option B: Freigaberegeln direkt in der Produktiv-Umgebung lockern
 
 **Pros:**
-- Schnellster Effekt auf die 27 %.
+- Schnellster Effekt auf die 39 %.
 
 **Cons:**
 - Kein Beleg, dass die Lockerung keinen der Realfälle wieder öffnet → **Abgelehnt weil:** Lockerung ohne Replay-Nachweis wiederholt genau die Vorfälle, aus denen die Regeln stammen.
@@ -133,7 +133,7 @@ Gemessen je Lauf und wöchentlich aggregiert. Harness und Daten liegen in `platf
 
 | # | Benchmark | Quelle | Baseline | Ziel / Grenze |
 |---|---|---|---|---|
-| B1 | Owner-Unterbrechungen je gemergtem PR | `pr-merge-sa.jsonl` | 27 % | sinkend; Zielwert setzt der Owner nach dem Pilot |
+| B1 | Owner-Unterbrechungen je gemergtem PR | `pr-merge-sa.jsonl`, verschiedene PRs; Wochenwert als Differenz zweier Messungen, weil Merge-Sätze keinen Zeitstempel tragen | 39,1 % | sinkend; Zielwert setzt der Owner nach dem Pilot |
 | B2 | Aufträge mit belegtem Ergebnis ohne Eingriff, Quote und Dauer | `status.json` der Läufe | – | ≥ 80 % `fertig` |
 | B3 | Übernahmequote der Sandbox-Vorschläge | Upstream-PRs mit Sandbox-Beleg | – | **Kill-Kriterium: < 1/3 nach dem Pilot** |
 | B4 | Qualität: CI grün, Revert oder Fix binnen 7 Tagen nach Übernahme | `git log`, CI | – | Revert/Fix-Quote nicht höher als bei Nicht-Sandbox-PRs |
