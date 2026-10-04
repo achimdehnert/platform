@@ -387,7 +387,8 @@ services:
     domain_staging: staging.schutztat.de
     domain_aliases:
       - schutztat.com
-      - kiohnerisiko.de
+    # kiohnerisiko.de am 2026-10-04 ausgetragen: loeste nicht mehr auf (nur MX),
+    # Domain wird gekuendigt (Owner-Entscheid, platform#3687).
     repo: iilgmbh/risk-hub
 
   # bfagent entfernt (ADR-275 Hygiene, #1143): decommissioned 2026-06-03

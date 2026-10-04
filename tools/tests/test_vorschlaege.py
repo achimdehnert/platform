@@ -192,7 +192,7 @@ _CHAT_HUB = (
     Path(os.environ.get("GITHUB_DIR") or Path.home() / "github")
     / "chat-hub"
     / "deploy"
-    / "lotse_zuordnung.py"
+    / "lotse_zuordnung.py"  # Sperrliste dort seit chat-hub#177
 )
 
 

@@ -40,6 +40,7 @@ import re
 import subprocess
 import sys
 from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 
 from bot_review_kandidaten import juengste_je_name
 
@@ -482,7 +483,10 @@ JOURNAL = pathlib.Path.home() / ".claude" / "pr-merge-sa.jsonl"
 def journal(zeile: dict) -> None:
     """Jede Entscheidung wird protokolliert. Die Policy verlangt eine Ratsche
     ("erste Fehlanwendung setzt zurueck") — ohne Zaehlung waere sie nicht
-    pruefbar, und eine unpruefbare Ratsche ist keine."""
+    pruefbar, und eine unpruefbare Ratsche ist keine. Der Zeitstempel macht
+    Wochenwerte moeglich (Sandbox-Benchmark B1, platform#3685); Format wie
+    beim Owner-Wort-Hook, damit beide Satzarten dieselbe Woche ergeben."""
+    zeile = {"ts": datetime.now(timezone.utc).isoformat(timespec="seconds"), **zeile}
     try:
         JOURNAL.parent.mkdir(parents=True, exist_ok=True)
         with JOURNAL.open("a") as f:

@@ -9,6 +9,7 @@ Zwei Dinge muessen bewiesen sein, nicht nur behauptet:
 import base64
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -321,6 +322,7 @@ def test_should_journal_every_decision(monkeypatch, tmp_path):
     assert len(zeilen) == 1
     assert zeilen[0]["pr"] == 7 and zeilen[0]["erlaubt"] is True
     assert zeilen[0]["dry_run"] is True
+    assert datetime.fromisoformat(zeilen[0]["ts"]).tzinfo is not None
 
 
 def test_should_not_block_merge_when_journal_is_unwritable(monkeypatch, tmp_path):
