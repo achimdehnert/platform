@@ -50,6 +50,7 @@ class Zaehler:
     kosten_usd: float | None = None
     ergebnis: str | None = None
     ergebnis_art: str | None = None
+    ist_fehler: bool = False
 
     @property
     def tokens(self) -> int:
@@ -74,6 +75,8 @@ class Zaehler:
             self.kosten_usd = ereignis.get("total_cost_usd")
             self.ergebnis = ereignis.get("result")
             self.ergebnis_art = ereignis.get("subtype")
+            # subtype "success" kann einen API-Fehler tragen (gemessen 2026-10-04: „Credit balance is too low“)
+            self.ist_fehler = bool(ereignis.get("is_error"))
         if self.tokens > self.max_tokens:
             return "max_tokens"
         if len(self.agenten) > self.max_agenten:
@@ -86,6 +89,8 @@ def status_von(zaehler: Zaehler, grenze: str | None, rc: int | None) -> str:
         return f"abgebrochen: Budget ({grenze})"
     if zaehler.ergebnis_art and "budget" in zaehler.ergebnis_art:
         return "abgebrochen: Budget (max_usd)"
+    if zaehler.ist_fehler:
+        return f"fehler (rc={rc}): {(zaehler.ergebnis or zaehler.ergebnis_art or 'ohne Meldung')[:200]}"
     if rc == 0 and zaehler.ergebnis_art == "success":
         return "fertig"
     return f"fehler (rc={rc}, {zaehler.ergebnis_art or 'kein Ergebnis'})"

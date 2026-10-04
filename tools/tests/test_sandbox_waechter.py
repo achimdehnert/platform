@@ -52,3 +52,9 @@ def test_should_never_report_budget_end_as_done():
     z.verarbeite(json.dumps({"type": "result", "subtype": "error_max_budget_usd"}))
     assert w.status_von(z, None, 1) == "abgebrochen: Budget (max_usd)"
     assert w.status_von(w.Zaehler(1, 1), None, 1).startswith("fehler")
+
+
+def test_should_report_api_error_despite_success_subtype():
+    z = w.Zaehler(max_tokens=10, max_agenten=1)
+    z.verarbeite(json.dumps({"type": "result", "subtype": "success", "is_error": True, "result": "Credit balance is too low"}))
+    assert w.status_von(z, None, 1) == "fehler (rc=1): Credit balance is too low"

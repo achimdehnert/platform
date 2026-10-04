@@ -13,7 +13,7 @@ sp = importlib.util.module_from_spec(_spec)
 sys.modules["selbstpruefung"] = sp
 _spec.loader.exec_module(sp)
 
-ORG = "iil-sandbox"
+ORG = "iilsandbox"
 
 
 def test_should_require_sandbox_marker():
@@ -22,7 +22,7 @@ def test_should_require_sandbox_marker():
 
 
 def test_should_reject_foreign_credentials_but_allow_model_and_sandbox_token():
-    assert sp.pruefe_umgebung({"ANTHROPIC_API_KEY": "x", "GH_TOKEN": "y", "PATH": "/bin"}) == []
+    assert sp.pruefe_umgebung({"ANTHROPIC_API_KEY": "x", "CLAUDE_CODE_OAUTH_TOKEN": "z", "GH_TOKEN": "y", "PATH": "/bin"}) == []
     befund = sp.pruefe_umgebung({"CF_ACCESS_CLIENT_SECRET": "x", "LIVE_TOKEN": "y"})
     assert "CF_ACCESS_CLIENT_SECRET" in befund[0] and "LIVE_TOKEN" in befund[0]
 

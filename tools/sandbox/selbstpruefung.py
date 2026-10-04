@@ -27,7 +27,7 @@ import sys
 import urllib.request
 from pathlib import Path
 
-ERLAUBTE_ZUGANGSDATEN = {"ANTHROPIC_API_KEY", "GH_TOKEN"}
+ERLAUBTE_ZUGANGSDATEN = {"ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN", "GH_TOKEN"}
 ZUGANGSDATEN_MUSTER = re.compile(r"(TOKEN|SECRET|PASSWORD|PASSWD|API_KEY|PRIVATE|CREDENTIAL)", re.IGNORECASE)
 SCHLUESSEL_MUSTER = re.compile(r"^(id_[a-z0-9]+|.*\.pem|.*\.key)$")
 DOCKER_SOCKETS = ("/var/run/docker.sock", "/run/docker.sock")
