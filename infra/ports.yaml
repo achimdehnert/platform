@@ -129,11 +129,6 @@ infra:
     server: prod
     domain_prod: grafana.iil.pet
 
-  uptime-kuma:
-    port: 3001
-    server: staging
-    domain_staging: uptime.iil.pet
-
   minio:
     port: 9010
     server: prod
