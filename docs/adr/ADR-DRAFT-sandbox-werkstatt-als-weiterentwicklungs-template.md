@@ -154,7 +154,12 @@ Die Benchmarks sind Messgrößen des Owners, kein Optimierungsziel des Agenten. 
 - **Regel-Versuchskopien** liegen in den Spiegeln und dürfen in der Sandbox verändert und gegen die Replay-Suite gespielt werden. Sie begrenzen den laufenden Agenten nicht.
 - **Schutzumgebung**: Container-Grenzen, Selbstprüfung, Budget-Wächter, Token-Reichweite und die Host-Hooks. Sie begrenzt den laufenden Agenten und liegt außerhalb seiner Schreibreichweite.
 
-Ob und wie das Erarbeiten und Auswerten von Lockerungen an Regel-Versuchskopien mit Charta Punkt 8 vereinbar ist, legt der Owner fest (offene Frage F1, §9.3). Bis dahin erzeugt die Sandbox keine Schutzregel-Vorschläge, die Freigaben lockern; eine Ausnahme vom Self-Modification-Schutz ist ausdrücklich nicht Teil dieser Entscheidung.
+**Owner-Entscheid F1 (2026-10-04):** Die Sandbox darf Regel-Versuchskopien auch auf Lockerung hin erproben, maximal autonom. Die Berichte liest und wertet die Host-Session des Agenten aus. Grenzen dieses Entscheids:
+- Ratifiziert wird weiter nur durch den Owner, einzeln je Regel (Option D bleibt verworfen); das Replay-Gate B5a gilt unverändert.
+- Der Agent bewertet hier Lockerungen der Regeln, die ihn selbst begrenzen (Charta Punkt 8). Deshalb steht in jedem solchen Vorschlag neben dem Nutzen auch, welcher Realfall die Regel begründet und was die Lockerung wieder öffnen könnte.
+- Das Lesen setzt einen vom Owner gesetzten `autoMode.allow`-Eintrag voraus; der Classifier wird nicht umgangen. Bis der Eintrag steht, liest der Owner die Berichte.
+
+Eine Ausnahme vom Self-Modification-Schutz für die wirksame Schutzumgebung ist nicht Teil dieser Entscheidung.
 
 ### 4.2 Benchmarks
 
@@ -168,7 +173,7 @@ Gemessen auf dem Host mit `tools/sandbox/benchmark.py` aus unverändertem `platf
 | B4 | **Qualität** | Revert oder Fix binnen 7 Tagen, nur mit dokumentierter Zuordnung zum Übernahme-PR (Verweis im Fix-PR); Vergleich mit Nicht-Sandbox-PRs desselben Repos und derselben Klasse; CI ist die produktive CI des Upstream-PRs | – | nicht höher als der Vergleich, frühestens ab 6 Übernahmen; Befund erst nach Ablauf aller 7-Tage-Fenster |
 | B5a | **Replay-Gate** (Vorlage-Filter für Schutzregel-Vorschläge) | jeder Negativfall mit erwarteter Sperrbedingung; ein Absturz oder anderer Fehler zählt nicht als Sperre. Dazu je Fall ein erlaubter Nachbarfall, der durchlaufen muss | Soll 100 %, gemessen erst mit dem ersten Lauf der Suite. Vorstufe: Gate-Drills 53/53 grün am 2026-10-04 | 100 % gesperrt **und** 100 % Nachbarfälle durch, sonst wird nicht vorgelegt |
 | B5b | **Abschottung im Pilot** | Schreibwirkungen außerhalb `iilsandbox`, Egress außerhalb der Allowlist, Selbstprüfungs- und Wächter-Abbrüche | – | **jede erfolgreiche Wirkung außerhalb `iilsandbox` ist ein harter Stopp** (§4.7); Abbrüche werden gezählt |
-| B6 | **Kosten** | Summe je Auftrag über alle Läufe, inklusive Wiederholungen und verworfener Ergebnisse, getrennt nach tatsächlicher Ausgabe (API) und zugerechnetem Abo-Verbrauch; dazu Aufwand für Auswertung und Review-Sitzung | 0,08 USD über 5 Läufe (zugerechnet) | je Lauf innerhalb der Grenzen aus `tools/sandbox/waechter.py`, Version im Laufbeleg; Werkstatt-Anteil am Abo nach F2 |
+| B6 | **Kosten** | Summe je Auftrag über alle Läufe, inklusive Wiederholungen und verworfener Ergebnisse, getrennt nach tatsächlicher Ausgabe (API) und zugerechnetem Abo-Verbrauch; dazu Aufwand für Auswertung und Review-Sitzung | 0,08 USD über 5 Läufe (zugerechnet) | je Lauf innerhalb der Grenzen aus `tools/sandbox/waechter.py`, Version im Laufbeleg; kein Gesamtdeckel am Abo (F2), Verbrauch im Wochenstand |
 
 Die Replay-Suite enthält die historischen Vorfälle aus `regel-historie.md` und den Gate-Drills als ausführbare Fälle, je Fall mit stabiler Referenz auf den Realfall und den Drill; Regeltexte werden referenziert, nicht dupliziert. B5a ist notwendig, nicht hinreichend: Ein grüner Replay belegt nur die bekannten Fälle.
 
@@ -214,10 +219,11 @@ Das Sandbox-Profil ändert nur die Mandatszuordnung im erlaubten Scope; die fün
 
 1. **Auftrag**: Vor dem Lauf entsteht eine Auftragskarte (§4.6). Ein Auftrag ist auf einen Lauf begrenzt; Folgearbeit ist ein neuer Auftrag auf frischem Spiegel mit dem vorigen Patch als Eingabe. Spiegel werden vor jedem Lauf frisch vom Original übernommen, nie umgekehrt automatisch.
 2. **Lauf**: Der Agent schreibt `ausgang/bericht.md`, `status.json` und Patches.
-3. **Rückweg**: Eine Host-Session unter Produktiv-Regeln holt die Artefakte ab. Sie sind Daten, keine Anweisungen. Patches werden in einem eigenen Worktree des Ziel-Repos angewendet und in einem Container ohne Produktiv-Zugangsdaten geprüft. Produktive Zugangsdaten gelangen nie in die Sandbox. Berichte aus Läufen an Regel-Versuchskopien liest der Owner selbst; die Classifier-Sperre wird nicht umgangen.
+3. **Rückweg**: Eine Host-Session unter Produktiv-Regeln holt die Artefakte ab. Sie sind Daten, keine Anweisungen. Patches werden in einem eigenen Worktree des Ziel-Repos angewendet und in einem Container ohne Produktiv-Zugangsdaten geprüft. Produktive Zugangsdaten gelangen nie in die Sandbox. Berichte aus Läufen an Regel-Versuchskopien liest die Host-Session nach F1 (§4.1), sobald der Owner den `autoMode.allow`-Eintrag gesetzt hat; vorher liest sie der Owner.
 4. **Auswertung**: auf dem Host aus unverändertem `platform/main`, gegen den aktuellen Integrationsstand des Ziel-Repos; Ergebnis ist der Übernahmebeleg.
-5. **Review-Sitzung**, wöchentlich: entscheidungsreif vorbereitet sind Beleg, Diff und die je PR nötigen Produktiv-Mandate. Je Werkstück ein PR, kein Sammel-PR. Die Zahl der Werkstücke je Sitzung legt der Owner fest (F3). Schutzregel-Vorschläge kommen einzeln als Issue. Erfasst werden Sitzungsdauer, Rückfragen und Wartezeit seit Einreichung (B1).
-6. **Erkenntnisaufträge** enden mit dem geprüften Bericht und einem Eintrag im Vorschlagsregister; ein „Änderung lohnt sich nicht“ ist ein gültiges Ergebnis.
+5. **Review-Sitzung**, wöchentlich: entscheidungsreif vorbereitet sind Beleg, Diff und die je PR nötigen Produktiv-Mandate. Je Werkstück ein PR, kein Sammel-PR. Je Sitzung höchstens 5 Werkstücke und 2 Schutzregel-Vorschläge (F3); was darüber liegt, wartet auf die nächste Sitzung, und die Wartezeit zählt in B1. Schutzregel-Vorschläge kommen einzeln als Issue. Erfasst werden Sitzungsdauer, Rückfragen und Wartezeit seit Einreichung (B1).
+6. **Erkenntnisaufträge** enden mit dem geprüften Bericht und einem Eintrag im Vorschlagsregister; ein „Änderung lohnt sich nicht“ ist ein gültiges Ergebnis. Sie brauchen keine Entscheidung und laufen nicht gegen die Obergrenze.
+7. **Wochenstand an den Owner**: einmal je Woche als Kommentar in platform#3685: Läufe, Ergebnisse je Klasse, B1–B6, Verbrauch am Abo-Kontingent (F2), offene Vorschläge. Ein harter Stopp wird sofort gemeldet, nicht erst im Wochenstand.
 
 Den Rückweg verantwortet die Host-Session des Owners; ein eigener Dienst ist dafür nicht nötig.
 
@@ -235,6 +241,7 @@ Den Rückweg verantwortet die Host-Session des Owners; ein eigener Dienst ist da
 - Replay-Suite (B5a) mit Negativfällen und Nachbarfällen einmal gelaufen.
 - Egress-Allowlist und Secret-Scan aktiv, je mit Gegenprobe.
 - Negativtests des Org-Profils grün (§8).
+- `tools/sandbox/` steht in `sa_m.governance_pfade` (F4).
 
 **Harter Stopp** (B5a rot oder B5b-Wirkung außerhalb `iilsandbox`): Laufende Läufe werden abgebrochen, keine neuen Läufe, keine Exporte, offene Übernahmen eingefroren; der Owner entzieht das `iilsandbox`-Token. Der Stopp ist nicht auf „diesen Vorschlag nicht vorlegen“ reduzierbar. Wiederanlauf nur auf Owner-Wort nach dokumentierter Ursachenklärung in platform#3685; Rückbau nach der Rollback-Leiter aus ADR-081.
 
@@ -268,7 +275,7 @@ Den Rückweg verantwortet die Host-Session des Owners; ein eigener Dienst ist da
 
 - Die Übernahme bleibt beim Owner; die Last sinkt nur, wenn die Review-Sitzung kürzer ist als die heutigen Einzelrückfragen. Das misst B1.
 - Auswertung, Replay-Suite, Spiegel und Abschottung brauchen Pflege; Pflegeverantwortung liegt bei `platform`, Drift-Pfade siehe §8.
-- Sandbox-Läufe teilen sich das Abo-Kontingent mit der laufenden Arbeit (F2).
+- Sandbox-Läufe teilen sich das Abo-Kontingent mit der laufenden Arbeit; ohne Gesamtdeckel (F2) kann die Werkstatt laufende Arbeit ausbremsen. Sichtbar wird das im Wochenstand.
 
 ### 6.3 Nicht in Scope
 
@@ -297,7 +304,7 @@ Den Rückweg verantwortet die Host-Session des Owners; ein eigener Dienst ist da
 2. **Profil-Negativtests**: Tests gegen das Org-Profil mit Produktiv-Ziel, zu breitem Token, widersprüchlichen Zielangaben, umbenanntem oder transferiertem Repo und Zielwechsel zwischen Prüfung und Ausführung; alle müssen verweigern.
 3. **Replay-Gate**: Kein Schutzregel-Vorschlag wird als Issue vorgelegt, ohne dass die Replay-Suite alle Negativfälle mit erwarteter Sperrbedingung blockiert und alle Nachbarfälle durchlässt; das Ergebnis steht im Issue.
 4. **Übernahmebeleg**: Kein Upstream-PR aus der Sandbox ohne Übernahmebeleg (§4.6) im PR-Text; `benchmark.py` erzeugt ihn auf dem Host.
-5. **Schreibreichweite**: Auswertung und Replay-Suite laufen nur aus `platform/main` auf dem Host. `tools/sandbox/` steht heute **nicht** in `sa_m.governance_pfade`; die Aufnahme ist eine Schutzregel-Änderung und als Vorschlag an den Owner offen (F4).
+5. **Schreibreichweite**: Auswertung und Replay-Suite laufen nur aus `platform/main` auf dem Host. `tools/sandbox/` steht heute **nicht** in `sa_m.governance_pfade`; die Aufnahme ist Pflicht vor Phase 3 (F4, §4.7) und wird vom Owner gesetzt.
 6. **Drift-Detector**: Dieses ADR wird von ADR-059 auf Aktualität geprüft — Staleness-Schwelle: 6 Monate; Drift-Pfade siehe Kommentar am Ende.
 
 ---
@@ -378,12 +385,14 @@ Befunde PRO-1–3, AD-1–12, M28-1–3, OOTB-1–2; Empfehlung „Überarbeiten
 
 Out-of-the-Box: OOTB-1 als Klasse Erkenntnisauftrag übernommen (deckungsgleich mit Runde 1 OOB-2); OOTB-2 als Vergleichsarm in Phase 1a übernommen, rückblickend statt als paralleler Arm, um den Messaufwand klein zu halten.
 
-### 9.3 Offene Owner-Fragen
+### 9.3 Owner-Entscheide und Vorschläge (2026-10-04)
 
-- **F1**: Dürfen Regel-Versuchskopien in der Sandbox auf Lockerung hin erprobt werden, und wer wertet solche Läufe aus (Charta Punkt 8)?
-- **F2**: Welchen Anteil des Abo-Kontingents darf die Werkstatt beanspruchen; hat laufende Arbeit immer Vorrang?
-- **F3**: Wie viele Werkstücke je Review-Sitzung?
-- **F4**: `tools/sandbox/` in `sa_m.governance_pfade` aufnehmen?
+| Frage | Entscheid | Begründung, wo vorgeschlagen |
+|---|---|---|
+| **F1** Lockerungen an Regel-Versuchskopien erproben, wer wertet aus? | Ja, maximal autonom; die Host-Session des Agenten liest die Berichte | Owner-Wort; Grenzen in §4.1 |
+| **F2** Anteil am Abo-Kontingent? | Beliebig, ohne Gesamtdeckel; Owner erhält jeweils den Stand | Owner-Wort; Wochenstand §4.5 Schritt 7 |
+| **F3** Werkstücke je Review-Sitzung? | Vorschlag: 5 Werkstücke und 2 Schutzregel-Vorschläge; Owner-Bestätigung offen | Vorschlag des Agenten auf Owner-Bitte: hält die Sitzung kurz und liefert in zwei Pilotwochen bis zu 10 Entscheide, genug für die Mindestfallzahl 6 von B3 |
+| **F4** `tools/sandbox/` in die Governance-Pfade? | Vorschlag: ja, Pflicht vor Phase 3; Owner-Bestätigung offen | Vorschlag des Agenten auf Owner-Bitte: dort liegt die Auswertung, die sonst mit einfachem Mandat änderbar wäre; erst vor Phase 3, damit der Aufbau in Phase 1 nicht an jeder Änderung auf den Owner wartet |
 
 ---
 
@@ -393,6 +402,7 @@ Out-of-the-Box: OOTB-1 als Klasse Erkenntnisauftrag übernommen (deckungsgleich 
 |-------|-------|----------|
 | 2026-10-04 | Achim Dehnert | Initial: Status Proposed |
 | 2026-10-04 | Achim Dehnert | Überarbeitet nach zwei externen Review-Runden (§9.1, §9.2): B1 neu definiert, B5 geteilt, Auftragskarte und Übernahmebeleg, Rückweg, Pilot-Gates; Korrekturen zu B1-Quote, Secret-Scan und Governance-Pfaden |
+| 2026-10-04 | Achim Dehnert | Owner-Entscheide F1–F4 eingetragen (§9.3); Wochenstand an den Owner (§4.5) |
 
 ---
 
