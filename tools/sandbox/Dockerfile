@@ -8,7 +8,7 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 RUN npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
 
-COPY selbstpruefung.py waechter.py start.sh /sandbox/
+COPY selbstpruefung.py waechter.py egress_proxy.py start.sh /sandbox/
 RUN chmod 0555 /sandbox/*.py /sandbox/start.sh
 
 USER node

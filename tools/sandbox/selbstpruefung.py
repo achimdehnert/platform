@@ -12,6 +12,10 @@ startet den Agenten nur nach Exit 0.
   (c) GH_TOKEN darf in KEINEM Repo ausserhalb der Sandbox-Org schreiben —
       geprueft gegen die GitHub-API ueber alle sichtbaren Repos (Invariante,
       keine Stichprobe)
+  (c) Remotes per API aufgeloest: Umbenennung/Transfer aus der Org faellt auf
+  (d) Egress nur ueber die Allowlist (ADR-308 §4.3) — mit Gegenproben: direkt und
+      per DNS kommt nichts raus, ein gesperrtes Ziel bekommt 403, ein erlaubtes 200
+  (d) kein Host-Kontext: Einstellungen/Hooks, Memory, Policies, gh-/Git-Zugaenge
   (e) IIL_SANDBOX=1 gesetzt
 
 Nur Standardbibliothek: der Container soll nichts nachladen muessen.
@@ -22,8 +26,10 @@ from __future__ import annotations
 import json
 import os
 import re
+import socket
 import subprocess
 import sys
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -34,6 +40,23 @@ ZUGANGSDATEN_MUSTER = re.compile(
 SCHLUESSEL_MUSTER = re.compile(r"^(id_[a-z0-9]+|.*\.pem|.*\.key)$")
 DOCKER_SOCKETS = ("/var/run/docker.sock", "/run/docker.sock")
 GITHUB_API = "https://api.github.com"
+# Host-Kontext, der nie in den Container darf (ADR-308 §4.3): Einstellungen samt
+# Hooks, Memory, Policies, Uebergabeschleuse, gespeicherte Git-/gh-Zugaenge.
+HOST_KONTEXT = (
+    ".claude/settings.json",
+    ".claude/settings.local.json",
+    ".claude/projects",
+    ".claude/policies",
+    "shared",
+    ".config/gh/hosts.yml",
+    ".git-credentials",
+    ".netrc",
+)
+# Egress-Gegenproben: direkt (ohne DNS), DNS, gesperrtes und erlaubtes Ziel ueber den Proxy.
+DIREKT_PROBE = ("1.1.1.1", 443)
+DNS_PROBE = "example.com"
+GESPERRTE_PROBE = ("example.com", 443)
+OFFENE_PROBE = ("api.github.com", 443)
 
 
 def pruefe_kennung(env: dict) -> list[str]:
@@ -74,6 +97,77 @@ def pruefe_dateisystem(
     return befunde
 
 
+def pruefe_host_kontext(home: Path) -> list[str]:
+    gefunden = [p for p in HOST_KONTEXT if (home / p).exists()]
+    return [f"Host-Kontext im Container: {', '.join(gefunden)}"] if gefunden else []
+
+
+def direkt_erreichbar(ziel: tuple[str, int], timeout: float = 5) -> bool:
+    try:
+        socket.create_connection(ziel, timeout=timeout).close()
+        return True
+    except OSError:
+        return False
+
+
+def dns_aufloesbar(name: str) -> bool:
+    try:
+        socket.getaddrinfo(name, 443)
+        return True
+    except OSError:
+        return False
+
+
+def proxy_status(proxy: str, ziel: tuple[str, int], timeout: float = 10) -> int | None:
+    """HTTP-Status der CONNECT-Antwort des Proxys; None, wenn er nicht antwortet."""
+    teile = urllib.parse.urlsplit(proxy)
+    try:
+        with socket.create_connection(
+            (teile.hostname, teile.port or 3128), timeout=timeout
+        ) as s:
+            s.sendall(f"CONNECT {ziel[0]}:{ziel[1]} HTTP/1.1\r\n\r\n".encode())
+            zeile = s.recv(256).split(b"\r\n", 1)[0].split()
+        return int(zeile[1]) if len(zeile) >= 2 and zeile[1].isdigit() else None
+    except OSError:
+        return None
+
+
+def bewerte_egress(
+    proxy: str,
+    direkt: bool,
+    dns: bool,
+    gesperrt: int | None,
+    offen: int | None,
+) -> list[str]:
+    if not proxy:
+        return ["Egress ohne Allowlist: HTTPS_PROXY fehlt"]
+    befunde = []
+    if direkt:
+        befunde.append(f"direkter Egress offen ({DIREKT_PROBE[0]}:{DIREKT_PROBE[1]})")
+    if dns:
+        befunde.append(f"DNS nach aussen aufloesbar ({DNS_PROBE})")
+    if gesperrt != 403:
+        befunde.append(f"Proxy sperrt {GESPERRTE_PROBE[0]} nicht (Status {gesperrt})")
+    if offen != 200:
+        befunde.append(
+            f"Gegenprobe rot: {OFFENE_PROBE[0]} ueber Proxy nicht erreichbar (Status {offen})"
+        )
+    return befunde
+
+
+def pruefe_egress(env: dict) -> list[str]:
+    proxy = env.get("HTTPS_PROXY", "")
+    if not proxy:
+        return bewerte_egress("", False, False, None, None)
+    return bewerte_egress(
+        proxy,
+        direkt_erreichbar(DIREKT_PROBE),
+        dns_aufloesbar(DNS_PROBE),
+        proxy_status(proxy, GESPERRTE_PROBE),
+        proxy_status(proxy, OFFENE_PROBE),
+    )
+
+
 def remote_erlaubt(url: str, org: str) -> bool:
     if not org:
         return False
@@ -108,6 +202,39 @@ def pruefe_token_scope(repos: list[dict], org: str) -> list[str]:
         return []
     zeige = ", ".join(fremd[:5]) + (f" … (+{len(fremd) - 5})" if len(fremd) > 5 else "")
     return [f"GH_TOKEN schreibt ausserhalb der Sandbox-Org: {zeige}"]
+
+
+def pruefe_aufgeloeste_remotes(
+    aufloesung: dict[str, str | None], org: str
+) -> list[str]:
+    """aufloesung: {remote-url: full_name laut GitHub-API oder None}.
+
+    Ein umbenanntes oder transferiertes Repo leitet GitHub weiter — die URL nennt
+    noch die Sandbox-Org, der Push landet aber beim neuen Eigentuemer.
+    """
+    befunde = []
+    for url, name in sorted(aufloesung.items()):
+        if name is None:
+            befunde.append(f"Remote nicht aufloesbar: {url}")
+        elif name.split("/")[0].lower() != (org or "").lower():
+            befunde.append(f"Remote {url} zeigt nach Umbenennung/Transfer auf {name}")
+    return befunde
+
+
+def repo_aufloesen(url: str, token: str) -> str | None:
+    pfad = re.sub(r"^(https://github\.com/|git@github\.com:)", "", url)
+    req = urllib.request.Request(
+        f"{GITHUB_API}/repos/{pfad.removesuffix('.git')}",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as antwort:
+            return json.load(antwort).get("full_name")
+    except OSError:
+        return None
 
 
 def remotes_im_arbeitsbereich(wurzel: Path) -> dict[str, list[str]]:
@@ -150,9 +277,9 @@ def main() -> int:
     befunde = (
         pruefe_kennung(env) + pruefe_umgebung(env) + pruefe_dateisystem(Path.home())
     )
-    befunde += pruefe_remotes(
-        remotes_im_arbeitsbereich(Path(env.get("SANDBOX_ARBEIT", "/arbeit"))), org
-    )
+    befunde += pruefe_host_kontext(Path.home()) + pruefe_egress(env)
+    remotes = remotes_im_arbeitsbereich(Path(env.get("SANDBOX_ARBEIT", "/arbeit")))
+    befunde += pruefe_remotes(remotes, org)
     token = env.get("GH_TOKEN", "")
     if token:
         if not org:
@@ -162,6 +289,10 @@ def main() -> int:
                 befunde += pruefe_token_scope(sichtbare_repos(token), org)
             except OSError as fehler:
                 befunde.append(f"Token-Scope nicht pruefbar: {fehler}")
+            urls = {u for us in remotes.values() for u in us if remote_erlaubt(u, org)}
+            befunde += pruefe_aufgeloeste_remotes(
+                {u: repo_aufloesen(u, token) for u in urls}, org
+            )
     if befunde:
         print("Selbstpruefung: KEINE Sandbox", file=sys.stderr)
         for b in befunde:
