@@ -1,5 +1,5 @@
 ---
-id: ADR-000
+id: ADR-308
 status: proposed
 decision_date: 2026-10-04
 deciders: Achim Dehnert
@@ -18,7 +18,7 @@ ai_sparring_by:
     summary: "Externer Anbieter (ChatGPT), Runde 2: Überarbeiten; 12 Empfehlungen, Tag-Tabelle in §9.2"
 ---
 
-# ADR-DRAFT: Adopt an autonomous sandbox workshop as the benchmarked development template for the production environment
+# ADR-308: Adopt an autonomous sandbox workshop as the benchmarked development template for the production environment
 
 ## Metadaten
 
