@@ -67,9 +67,14 @@ class Zaehler:
             # Dieselbe Nachricht kommt je Inhaltsblock einmal — Usage je Nachricht nur einmal zaehlen.
             ausgabe = (nachricht.get("usage") or {}).get("output_tokens") or 0
             mid = nachricht.get("id") or id(nachricht)
-            self.tokens_je_nachricht[mid] = max(self.tokens_je_nachricht.get(mid, 0), ausgabe)
+            self.tokens_je_nachricht[mid] = max(
+                self.tokens_je_nachricht.get(mid, 0), ausgabe
+            )
             for block in nachricht.get("content") or []:
-                if block.get("type") == "tool_use" and block.get("name") in AGENTEN_WERKZEUGE:
+                if (
+                    block.get("type") == "tool_use"
+                    and block.get("name") in AGENTEN_WERKZEUGE
+                ):
                     self.agenten.add(block.get("id"))
         elif ereignis.get("type") == "result":
             self.kosten_usd = ereignis.get("total_cost_usd")
@@ -114,10 +119,21 @@ def main() -> int:
     ausgang = arbeit / "ausgang"
     ausgang.mkdir(parents=True, exist_ok=True)
     auftrag = (arbeit / "eingang" / "auftrag.md").read_text(encoding="utf-8")
-    prompt = REGELN.format(arbeit=arbeit, org=os.environ.get("SANDBOX_ORG") or "(keine)", auftrag=auftrag)
+    prompt = REGELN.format(
+        arbeit=arbeit, org=os.environ.get("SANDBOX_ORG") or "(keine)", auftrag=auftrag
+    )
 
-    befehl = [a.claude, "-p", prompt, "--output-format", "stream-json", "--verbose",
-              "--dangerously-skip-permissions", "--max-budget-usd", str(a.max_usd)]
+    befehl = [
+        a.claude,
+        "-p",
+        prompt,
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--dangerously-skip-permissions",
+        "--max-budget-usd",
+        str(a.max_usd),
+    ]
     if a.modell:
         befehl += ["--model", a.modell]
     zaehler = Zaehler(a.max_tokens, a.max_agenten)
@@ -146,16 +162,31 @@ def main() -> int:
     status = status_von(zaehler, grenze, rc)
     bericht = ausgang / "bericht.md"
     if not bericht.exists():
-        bericht.write_text(f"# Kein Bericht vom Agenten\n\nStatus: {status}\n\n{zaehler.ergebnis or ''}\n", encoding="utf-8")
-    (ausgang / "status.json").write_text(json.dumps({
-        "status": status,
-        "ausgabe_tokens": zaehler.tokens,
-        "teilagenten": len(zaehler.agenten),
-        "kosten_usd": zaehler.kosten_usd,
-        "dauer_min": round((time.monotonic() - start) / 60, 1),
-        "grenzen": {"max_tokens": a.max_tokens, "max_agenten": a.max_agenten,
-                    "max_stunden": a.max_stunden, "max_usd": a.max_usd},
-    }, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        bericht.write_text(
+            f"# Kein Bericht vom Agenten\n\nStatus: {status}\n\n{zaehler.ergebnis or ''}\n",
+            encoding="utf-8",
+        )
+    (ausgang / "status.json").write_text(
+        json.dumps(
+            {
+                "status": status,
+                "ausgabe_tokens": zaehler.tokens,
+                "teilagenten": len(zaehler.agenten),
+                "kosten_usd": zaehler.kosten_usd,
+                "dauer_min": round((time.monotonic() - start) / 60, 1),
+                "grenzen": {
+                    "max_tokens": a.max_tokens,
+                    "max_agenten": a.max_agenten,
+                    "max_stunden": a.max_stunden,
+                    "max_usd": a.max_usd,
+                },
+            },
+            indent=2,
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     print(f"Waechter: {status}")
     return 0 if status == "fertig" else 2
 

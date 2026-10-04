@@ -15,8 +15,20 @@ _spec.loader.exec_module(w)
 
 
 def _assistant(mid: str, tokens: int, werkzeuge: tuple[str, ...] = ()) -> str:
-    inhalt = [{"type": "tool_use", "id": f"{mid}-{i}", "name": n} for i, n in enumerate(werkzeuge)]
-    return json.dumps({"type": "assistant", "message": {"id": mid, "usage": {"output_tokens": tokens}, "content": inhalt}})
+    inhalt = [
+        {"type": "tool_use", "id": f"{mid}-{i}", "name": n}
+        for i, n in enumerate(werkzeuge)
+    ]
+    return json.dumps(
+        {
+            "type": "assistant",
+            "message": {
+                "id": mid,
+                "usage": {"output_tokens": tokens},
+                "content": inhalt,
+            },
+        }
+    )
 
 
 def test_should_count_usage_once_per_message():
@@ -46,7 +58,16 @@ def test_should_ignore_non_json_lines():
 
 def test_should_never_report_budget_end_as_done():
     z = w.Zaehler(max_tokens=10, max_agenten=1)
-    z.verarbeite(json.dumps({"type": "result", "subtype": "success", "total_cost_usd": 0.1, "result": "ok"}))
+    z.verarbeite(
+        json.dumps(
+            {
+                "type": "result",
+                "subtype": "success",
+                "total_cost_usd": 0.1,
+                "result": "ok",
+            }
+        )
+    )
     assert w.status_von(z, None, 0) == "fertig"
     assert w.status_von(z, "max_tokens", 0) == "abgebrochen: Budget (max_tokens)"
     z.verarbeite(json.dumps({"type": "result", "subtype": "error_max_budget_usd"}))
@@ -56,5 +77,14 @@ def test_should_never_report_budget_end_as_done():
 
 def test_should_report_api_error_despite_success_subtype():
     z = w.Zaehler(max_tokens=10, max_agenten=1)
-    z.verarbeite(json.dumps({"type": "result", "subtype": "success", "is_error": True, "result": "Credit balance is too low"}))
+    z.verarbeite(
+        json.dumps(
+            {
+                "type": "result",
+                "subtype": "success",
+                "is_error": True,
+                "result": "Credit balance is too low",
+            }
+        )
+    )
     assert w.status_von(z, None, 1) == "fehler (rc=1): Credit balance is too low"

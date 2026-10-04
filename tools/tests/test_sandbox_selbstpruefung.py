@@ -22,7 +22,17 @@ def test_should_require_sandbox_marker():
 
 
 def test_should_reject_foreign_credentials_but_allow_model_and_sandbox_token():
-    assert sp.pruefe_umgebung({"ANTHROPIC_API_KEY": "x", "CLAUDE_CODE_OAUTH_TOKEN": "z", "GH_TOKEN": "y", "PATH": "/bin"}) == []
+    assert (
+        sp.pruefe_umgebung(
+            {
+                "ANTHROPIC_API_KEY": "x",
+                "CLAUDE_CODE_OAUTH_TOKEN": "z",
+                "GH_TOKEN": "y",
+                "PATH": "/bin",
+            }
+        )
+        == []
+    )
     befund = sp.pruefe_umgebung({"CF_ACCESS_CLIENT_SECRET": "x", "LIVE_TOKEN": "y"})
     assert "CF_ACCESS_CLIENT_SECRET" in befund[0] and "LIVE_TOKEN" in befund[0]
 
@@ -50,13 +60,18 @@ def test_should_allow_only_local_repos_or_sandbox_org_remotes():
     }
     befunde = sp.pruefe_remotes(remotes, ORG)
     assert len(befunde) == 2 and "/arbeit/c" in befunde[0] and "/arbeit/d" in befunde[1]
-    assert sp.pruefe_remotes({"/arbeit/b": [f"https://github.com/{ORG}/b.git"]}, "") != [], "ohne Org kein Remote"
+    assert (
+        sp.pruefe_remotes({"/arbeit/b": [f"https://github.com/{ORG}/b.git"]}, "") != []
+    ), "ohne Org kein Remote"
 
 
 def test_should_reject_token_with_push_outside_sandbox_org():
     repos = [
         {"full_name": f"{ORG}/spielwiese", "permissions": {"push": True}},
-        {"full_name": "achimdehnert/platform", "permissions": {"push": False, "pull": True}},
+        {
+            "full_name": "achimdehnert/platform",
+            "permissions": {"push": False, "pull": True},
+        },
     ]
     assert sp.pruefe_token_scope(repos, ORG) == []
     repos.append({"full_name": "achimdehnert/decks-hub", "permissions": {"push": True}})
@@ -64,12 +79,19 @@ def test_should_reject_token_with_push_outside_sandbox_org():
 
 
 def test_should_read_remotes_from_real_git_repos(tmp_path):
-    for name, url in (("lokal", None), ("fremd", "https://github.com/achimdehnert/x.git")):
+    for name, url in (
+        ("lokal", None),
+        ("fremd", "https://github.com/achimdehnert/x.git"),
+    ):
         repo = tmp_path / "eingang" / name
         repo.mkdir(parents=True)
         subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
         if url:
-            subprocess.run(["git", "remote", "add", "origin", url], cwd=repo, check=True)
+            subprocess.run(
+                ["git", "remote", "add", "origin", url], cwd=repo, check=True
+            )
     remotes = sp.remotes_im_arbeitsbereich(tmp_path)
     assert remotes[str(tmp_path / "eingang" / "lokal")] == []
-    assert sp.pruefe_remotes(remotes, ORG) == [f"{tmp_path / 'eingang' / 'fremd'}: Remote ausserhalb der Sandbox-Org: https://github.com/achimdehnert/x.git"]
+    assert sp.pruefe_remotes(remotes, ORG) == [
+        f"{tmp_path / 'eingang' / 'fremd'}: Remote ausserhalb der Sandbox-Org: https://github.com/achimdehnert/x.git"
+    ]
