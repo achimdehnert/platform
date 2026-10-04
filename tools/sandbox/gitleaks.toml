@@ -1,0 +1,4 @@
+# Sandbox-Secret-Scan (platform#3685): immer die gitleaks-Standardregeln.
+# Bewusst ohne eigene Allowlist; Ausnahmen nur per Fingerprint in gitleaks-ausnahmen.txt.
+[extend]
+useDefault = true

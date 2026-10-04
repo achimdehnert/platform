@@ -95,3 +95,64 @@ def test_should_read_remotes_from_real_git_repos(tmp_path):
     assert sp.pruefe_remotes(remotes, ORG) == [
         f"{tmp_path / 'eingang' / 'fremd'}: Remote ausserhalb der Sandbox-Org: https://github.com/achimdehnert/x.git"
     ]
+
+
+def test_should_reject_host_context_in_container(tmp_path):
+    assert sp.pruefe_host_kontext(tmp_path) == []
+    for pfad in sp.HOST_KONTEXT:
+        ziel = tmp_path / pfad
+        ziel.parent.mkdir(parents=True, exist_ok=True)
+        ziel.write_text("x")
+        befund = sp.pruefe_host_kontext(tmp_path)
+        assert len(befund) == 1 and pfad in befund[0]
+        ziel.unlink()
+
+
+def test_should_accept_egress_only_when_all_counter_probes_hold():
+    assert sp.bewerte_egress("http://egress:3128", False, False, 403, 200) == []
+
+
+def test_should_reject_each_open_egress_path_separately():
+    assert sp.bewerte_egress("", False, False, 403, 200) == [
+        "Egress ohne Allowlist: HTTPS_PROXY fehlt"
+    ]
+    for argumente, wort in (
+        ((True, False, 403, 200), "direkter Egress"),
+        ((False, True, 403, 200), "DNS"),
+        ((False, False, 200, 200), "sperrt"),
+        ((False, False, None, 200), "sperrt"),
+        ((False, False, 403, 403), "Gegenprobe"),
+        ((False, False, 403, None), "Gegenprobe"),
+    ):
+        befund = sp.bewerte_egress("http://egress:3128", *argumente)
+        assert len(befund) == 1 and wort in befund[0], argumente
+
+
+def test_should_read_connect_status_from_a_real_proxy_socket():
+    import socket
+    import threading
+
+    server = socket.create_server(("127.0.0.1", 0))
+
+    def antworten():
+        verbindung, _ = server.accept()
+        with verbindung:
+            verbindung.recv(1024)
+            verbindung.sendall(b"HTTP/1.1 403 Forbidden\r\n\r\n")
+
+    threading.Thread(target=antworten, daemon=True).start()
+    port = server.getsockname()[1]
+    assert sp.proxy_status(f"http://127.0.0.1:{port}", ("example.com", 443)) == 403
+    server.close()
+    assert sp.proxy_status(f"http://127.0.0.1:{port}", ("example.com", 443)) is None
+
+
+def test_should_reject_renamed_transferred_or_unresolvable_remotes():
+    url = "https://github.com/iilsandbox/platform.git"
+    assert sp.pruefe_aufgeloeste_remotes({url: "iilsandbox/platform"}, ORG) == []
+    assert (
+        "achimdehnert/platform"
+        in sp.pruefe_aufgeloeste_remotes({url: "achimdehnert/platform"}, ORG)[0]
+    )
+    assert "nicht aufloesbar" in sp.pruefe_aufgeloeste_remotes({url: None}, ORG)[0]
+    assert sp.pruefe_aufgeloeste_remotes({url: "iilsandbox/x"}, "") != []
