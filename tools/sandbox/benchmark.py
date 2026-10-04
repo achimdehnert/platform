@@ -5,18 +5,19 @@ Laeuft auf dem Host, nie im Container: Harness und Daten liegen ausserhalb der
 Schreibreichweite der Sandbox, damit die bewertete Partei das Mass nicht
 verschieben kann.
 
-  B1  Owner-Unterbrechungen: PRs mit Owner-Wort je gemergtem PR (Merge-Journal)
+  B1  Owner-Belastung: absolute Wochenwerte aus dem Merge-Journal
   B2  Laeufe mit Status `fertig` ohne Eingriff, Quote und Dauer (status.json)
   B3  Uebernahmequote der Sandbox-Vorschlaege       — ausstehend, noch keine Upstream-PRs
   B4  Revert/Fix binnen 7 Tagen nach Uebernahme     — ausstehend, noch keine Upstream-PRs
   B5  Realfall-Replay: Gate-Drills gruen (gate_drill_check), muss 100 % bleiben
   B6  Kosten je Lauf (status.json)
 
-B1 zaehlt verschiedene PRs, nicht Ereignisse: Das Journal fuehrt Merge-Versuche
-(ohne Zeitstempel) und Owner-Wort-Ereignisse (vom Hook, mit Zeitstempel) als
-zwei Satzarten; ein PR mit drei Owner-Worten ist eine Unterbrechungsstelle,
-nicht drei. Weil Merge-Saetze keinen Zeitstempel tragen, misst B1 den ganzen
-Journal-Bestand; Wochenwerte entstehen als Differenz zweier Messungen.
+B1 zaehlt je ISO-Woche absolute Mengen, keine Quote: Owner-Wort-Ereignisse,
+verschiedene PRs mit Owner-Wort, Merges und Merge-Abbrueche mangels Mandat.
+Eine Quote "PRs mit Owner-Wort je gemergtem PR" misst nichts, weil beide
+Mengen fast disjunkt sind (Stand 2026-10-04: Schnitt 1 von 125 bzw. 317 PRs).
+Saetze ohne Zeitstempel (Merge-Saetze vor dessen Einfuehrung) stehen getrennt
+unter `ohne_zeitstempel`, statt geschaetzt einer Woche zugeschlagen zu werden.
 
 Exit 3, wenn B5 gemessen wurde und unter 100 % liegt (harter Stopp, ADR §4.2);
 sonst Exit 0. Ausgabe: JSON (--json) oder Markdown-Tabelle.
@@ -27,6 +28,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections import Counter, defaultdict
+from datetime import datetime
 from pathlib import Path
 
 TOOLS = Path(__file__).resolve().parents[1]
@@ -44,24 +47,41 @@ def _zeilen(pfad: Path):
                 continue
 
 
-def b1_owner_unterbrechungen(journal: Path) -> dict:
-    gemergt: set[tuple] = set()
-    mit_wort: set[tuple] = set()
+def _woche(ts: str | None) -> str | None:
+    if not ts:
+        return None
+    try:
+        jahr, woche, _ = datetime.fromisoformat(ts).isocalendar()
+    except ValueError:
+        return None
+    return f"{jahr}-W{woche:02d}"
+
+
+def b1_owner_belastung(journal: Path) -> dict:
+    zaehler: dict[str, Counter] = defaultdict(Counter)
+    prs_mit_wort: dict[str, set] = defaultdict(set)
+    ohne_zeit: Counter = Counter(merges=0, abbrueche=0)
     for satz in _zeilen(journal):
-        pr = (satz.get("repo"), satz.get("pr"))
+        woche = _woche(satz.get("ts"))
         if "owner_wort" in satz:
-            if satz["owner_wort"]:
-                mit_wort.add(pr)
+            if satz["owner_wort"] and woche:
+                zaehler[woche]["owner_wort_ereignisse"] += 1
+                prs_mit_wort[woche].add((satz.get("repo"), satz.get("pr")))
             continue
-        if satz.get("dry_run") or not satz.get("erlaubt"):
+        if satz.get("dry_run"):
             continue
-        gemergt.add(pr)
-    quote = round(100 * len(mit_wort) / len(gemergt), 1) if gemergt else None
-    return {
-        "prs_mit_owner_wort": len(mit_wort),
-        "prs_gemergt": len(gemergt),
-        "quote_pct": quote,
+        art = "merges" if satz.get("erlaubt") else "abbrueche"
+        (zaehler[woche] if woche else ohne_zeit)[art] += 1
+    wochen = {
+        woche: {
+            "owner_wort_ereignisse": zaehler[woche]["owner_wort_ereignisse"],
+            "prs_mit_owner_wort": len(prs_mit_wort[woche]),
+            "merges": zaehler[woche]["merges"],
+            "abbrueche": zaehler[woche]["abbrueche"],
+        }
+        for woche in sorted(zaehler)
     }
+    return {"wochen": wochen, "ohne_zeitstempel": dict(ohne_zeit)}
 
 
 def laeufe(wurzel: Path) -> list[dict]:
@@ -122,7 +142,7 @@ def b5_replay() -> dict:
 def messen(journal: Path, wurzel: Path, mit_replay: bool) -> dict:
     laeufe_ = laeufe(wurzel)
     return {
-        "B1": b1_owner_unterbrechungen(journal),
+        "B1": b1_owner_belastung(journal),
         "B2": b2_durchlauf(laeufe_),
         "B3": {"ausstehend": "noch keine Upstream-PRs mit Sandbox-Beleg"},
         "B4": {"ausstehend": "noch keine Upstream-PRs mit Sandbox-Beleg"},
@@ -136,6 +156,11 @@ def messen(journal: Path, wurzel: Path, mit_replay: bool) -> dict:
 def als_markdown(ergebnis: dict) -> str:
     zeilen = ["| Benchmark | Wert |", "|---|---|"]
     for name, werte in ergebnis.items():
+        if name == "B1":
+            for woche, w in werte["wochen"].items():
+                text = " · ".join(f"{k} {v}" for k, v in w.items())
+                zeilen.append(f"| B1 {woche} | {text} |")
+            werte = {"ohne_zeitstempel": werte["ohne_zeitstempel"]}
         text = " · ".join(f"{k} {v}" for k, v in werte.items())
         zeilen.append(f"| {name} | {text} |")
     return "\n".join(zeilen)
