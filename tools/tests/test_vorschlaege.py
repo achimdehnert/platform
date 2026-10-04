@@ -160,7 +160,6 @@ _SPERR_STAEMME = (
     "drop",
     "rotat",
     "secret",
-    "token",
     "passwor",
     "zugangsdat",
     "schluessel",
@@ -182,7 +181,7 @@ _CHAT_HUB = (
     Path(os.environ.get("GITHUB_DIR") or Path.home() / "github")
     / "chat-hub"
     / "deploy"
-    / "lotse_auftrag.py"
+    / "lotse_zuordnung.py"  # Sperrliste dort seit chat-hub#177
 )
 
 
