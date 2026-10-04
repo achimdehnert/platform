@@ -139,14 +139,6 @@ infra:
     server: prod
     note: "Object Storage for risk-hub — API 9010, Console 9001"
 
-  llm-mcp:
-    port: 8001
-    server: prod
-    note: "LLM Gateway — internal only"
-    betriebsstatus: stillgelegt
-    betriebsstatus_grund: "Entscheid 2026-09-23 (mcp-hub#285, vom Owner delegiert in platform#3256). llm_gateway und mcp_hub_grafana liefen auf prod nicht mehr (0 Container/Images/Volumes auf prod, prod-b, odoo), sie waren vom Haupt-Deploy als Waisen entfernt worden, und niemand hat es bemerkt. Kein lebender Verbraucher: einzig bfagent/docker-compose.prod.yml deklariert den Dienst, bfagent ist eingefroren und laeuft nirgends. grafana.iil.pet liefert das odoo-Host-Grafana (KONZ-platform-055). Overlay, Build-Workflow, Dockerfile und grafana/ entfernt (mcp-hub#286). Das Paket llm_gateway bleibt fuer die Prod-Timer (task_descriptions). Host-Reste in /opt/mcp-hub werden archiviert, siehe #285."
-    repo: achimdehnert/mcp-hub
-
   gpu-ollama:
     port: 11434
     server: prod                     # der TUNNEL laeuft auf prod; der DIENST auf der GPU-Box
@@ -233,32 +225,6 @@ services:
     betriebsstatus: aktiv
     betriebsstatus_grund: "Owner-Freigabe 2026-09-09 (news-hub#3): DNS-CNAME news.iil.pet auf den Prod-Tunnel gesetzt (wie knowledge.iil.pet), nginx-Vhost auf 127.0.0.1:8113, Umgebungsdatei auf dem Server angelegt, Deploy-Secrets DEPLOY_HOST/USER/SSH_KEY im Repo, eigener CI-Schluessel news-hub-ci-deploy auf dem Prod-Host. Deploy bleibt auf workflow_dispatch, bis der erste echte Tageslauf steht"
     note: "ADR-299 · Digest liest den Mail-Agent-Bestand ueber die Lesenaht (dev-hub#307)"
-
-  coach-hub:
-    prod: 8007
-    staging: 8007
-    dev: 8007
-    prod_host: prod-b          # ADR-292 Long-Tail-Umzug 2026-08-04.
-                               # ⚠ kiohnerisiko.de wird von einem NACH DER DOMAIN
-                               # benannten vhost auf denselben Port 8007 geleitet —
-                               # ein Grep nach "coach" findet ihn nicht. Portbasiert
-                               # suchen: grep -RlE 'proxy_pass[[:space:]]+http://
-                               # 127\.0\.0\.1:8007' (-R wegen Symlinks!).
-                               # 12 RLS-Tabellen: Dump als Superuser coach_hub,
-                               # coach_hub_app auf dem Ziel als NOSUPERUSER neu
-                               # angelegt (SCRAM-Verifier von prod uebernommen).
-                               # beatdata-Volume auf dem Ziel gehoerte root — Beat
-                               # scheiterte mit Permission denied; chown 1000:1000
-                               # wie auf prod. Alle 3 Namen per Marker nachgewiesen.
-    container_name: coach_hub_web
-    betriebsstatus: stillgelegt
-    betriebsstatus_grund: "Owner-Entscheid 2026-08-23 (platform#2215), bestaetigt 2026-08-30. Auf prod-b seit ~2026-08-20 alle 5 Container Exited(0). Auf prod lief bis 2026-08-30 ein zweiter Stack weiter (25 h, coach_hub_web in Dauerschleife DB not ready; Ursache im DB-Log: role coach_hub_app existiert dort nicht) — gestoppt mit restart=no, Volumes bleiben. Die vier vhosts coach-hub.iil.pet, kiohnerisiko.de, staging-coaching.iil.pet, staging.kiohnerisiko.de auf prod deaktiviert (/root/stillgelegt-vhosts-2026-08-30/), der prod-b-vhost war bereits weg. 14 Tage nginx: coach-hub.iil.pet 5, kiohnerisiko.de 681 Requests — alle Status 444, kein Nutzerverkehr. Reste (DNS, Runner, Volumes, Repo): platform#2480"
-    # Domains am 2026-10-02 ausgetragen, vor dem Archivieren des Repos (Owner-Go, platform#2480):
-    # domain_prod coach-hub.iil.pet, domain_staging staging-coaching.iil.pet, domain_aliases
-    # kiohnerisiko.de + www.kiohnerisiko.de. Port und prod_host bleiben reserviert, solange die
-    # Volumes auf prod liegen. DNS-Reste am 2026-10-02: staging-coaching.iil.pet und
-    # staging.kiohnerisiko.de loesen noch auf (Cloudflare) — Abbau ueber platform#2480.
-    repo: achimdehnert/coach-hub
 
   pptx-hub:
     prod: 8020
@@ -402,25 +368,6 @@ services:
     domain_prod: billing.iil.pet
     domain_staging: staging-billing.iil.pet
     repo: achimdehnert/billing-hub
-
-  wedding-hub:
-    prod: 8093
-    staging: 8093
-    dev: 8093
-    prod_host: prod-b          # ADR-292 Long-Tail-Umzug 2026-08-04.
-                               # wedding-hub.iil.pet war ein A-RECORD auf die prod-IP
-                               # und wurde zum CNAME auf den prod-b-Tunnel: ein
-                               # A-Record auf prod-b ginge nicht, dort liegt kein
-                               # TLS-Zertifikat. Beide Namen per Marker nachgewiesen
-                               # (prod 0 bei 17249 Logzeilen, prod-b 2).
-    container_name: wedding_hub_web
-    domain_prod: wedding-hub.iil.pet
-    betriebsstatus: stillgelegt
-    betriebsstatus_grund: "Owner-Entscheid 2026-08-30 (nicht mehr aktiv), Reste platform#2480. Ausgefuehrt: 5 Container auf prod-b gestoppt mit restart=no, Volumes bleiben; DB-Dump /opt/backups/stilllegung-2026-08-30/wedding_hub_db.sql.gz (42 Tabellen, Kontrollprobe 42/42); vhost auf prod-b und die beiden Rest-vhosts auf prod nach /root/stillgelegt-vhosts-2026-08-30/. Gemessen 14 Tage nginx: 62 Requests, davon 25x 200 ausschliesslich auf /accounts/login/, keine Anmeldung, UA u.a. CMS-Checker. Cloudflare-Route/DNS steht noch (heute 502), Runner und Volumes ebenfalls."
-    domain_staging: staging-wedding.iil.pet
-    domain_aliases:
-      - wedding.iil.pet          # ergaenzt 2026-08-04: stand nur im vhost
-    repo: achimdehnert/wedding-hub
 
   cad-hub:
     prod: 8094
@@ -597,17 +544,6 @@ services:
     domain_staging: staging-docs.iil.pet
     repo: null  # bewusst repo-los, s. Kommentar oben
 
-  recruiting-hub:
-    prod: 8103
-    staging: 8103
-    dev: 8103
-    container_name: recruiting_hub_web
-    domain_prod: hr.iil.pet
-    betriebsstatus: stillgelegt
-    betriebsstatus_grund: "GitHub-Repo archiviert (gh api repos/achimdehnert/recruiting-hub .archived = true, seit ~2026-08-20); hr.iil.pet antwortet 502, das ist gewollt"
-    domain_staging: staging-hr.iil.pet
-    repo: achimdehnert/recruiting-hub
-
   dms-hub:
     prod: 8107
     staging: 8107
@@ -624,29 +560,6 @@ services:
     domain_prod: dms.iil.pet
     domain_staging: staging-dms.iil.pet
     repo: achimdehnert/dms-hub
-
-  onboarding-hub:
-    prod: 8108
-    staging: 8108
-    dev: 8108
-    container_name: onboarding_hub_web
-    domain_prod: schulungspass.de
-    domain_staging: staging-schulungspass.iil.pet
-    repo: achimdehnert/onboarding-hub
-    betriebsstatus: stillgelegt
-    betriebsstatus_grund: "Owner-Entscheid 2026-09-07 (Kapitaens-Kanal, platform#2895 Item 50). Gemessen am 2026-09-07: kein Container onboarding_hub_* auf prod, prod-b, odoo, staging-dedicated, netcup (docker ps -a); auf prod kein nginx-vhost und kein Tunnel-Ingress fuer schulungspass.de; die Domain antwortet nur mit dem Cloudflare-Access-Login (302), dahinter kein Origin. Runner-Phase 0.7.16 meldete fallback-zertifikat seit 2026-08-25. Reste (Cloudflare-Access-App, DNS, Repo) offen — siehe platform#2895."
-
-  bahn-hub:
-    prod: 8110
-    staging: 8110
-    dev: 8110
-    container_name: bahn_hub_web
-    domain_prod: bahn.iil.pet
-    domain_staging: staging-bahn.iil.pet
-    repo: achimdehnert/bahn-hub
-    betriebsstatus: stillgelegt
-    betriebsstatus_grund: "Owner-Entscheid 2026-09-07 (Kapitaens-Kanal, platform#2895 Item 49). Gemessen am 2026-09-07: bahn.iil.pet antwortet am Cloudflare-Edge 520 (Origin nicht erreichbar), auf prod kein nginx-vhost, kein Tunnel-Ingress in /etc/cloudflared/config.yml, kein Container bahn_hub_* auf prod, prod-b oder odoo; Runner-Phase 0.7.11 meldete route-ohne-backend seit 2026-08-23 (71 Laeufe), 0.7.16 fallback-zertifikat seit 2026-08-31. Reste (DNS-Record, Repo, Deploy-Gate im Repo) offen — siehe platform#2895."
-    note: "FastAPI + DuckDB — kein Django"
 
   decks-hub:
     prod: 8112
