@@ -531,7 +531,7 @@ MELDER_DIR="${MELDER_DIR:-$HOME/.repo-session/melder}"
 mkdir -p "$MELDER_DIR" 2>/dev/null || true
 # ausschreibungs-hub fehlte hier (2026-07-21 ergaenzt) — iilgmbh-Repos loesen
 # ueber den Transfer-Redirect auch unter $OWNER auf, geprueft fuer risk-hub.
-DEPLOY_REPOS="risk-hub billing-hub cad-hub coach-hub trading-hub travel-beat weltenhub wedding-hub pptx-hub ausschreibungs-hub"
+DEPLOY_REPOS="risk-hub billing-hub cad-hub trading-hub travel-beat weltenhub pptx-hub ausschreibungs-hub"
 # Stillgelegte/ruhende Repos (Owner-Entscheid in infra/ports.yaml) deployen nicht
 # mehr und bleiben es auch nach `git log` nie wieder tun — ihr letzter Run bleibt
 # fuer immer `failure`/`waiting`. Kein Befund, analog zur bewusst abgelehnten
