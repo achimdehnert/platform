@@ -20,35 +20,51 @@ def _journal(tmp_path: Path, saetze: list[dict]) -> Path:
     return pfad
 
 
-def test_should_count_distinct_prs_not_events_for_b1(tmp_path):
+KW39 = "2026-09-22T10:00:00+00:00"
+KW40 = "2026-09-29T10:00:00+00:00"
+
+
+def test_should_count_absolute_weekly_values_for_b1(tmp_path):
     journal = _journal(
         tmp_path,
         [
-            {"repo": "o/a", "pr": 1, "erlaubt": True, "dry_run": False},
-            {"repo": "o/a", "pr": 1, "erlaubt": True, "dry_run": False},
-            {"repo": "o/a", "pr": 2, "erlaubt": True, "dry_run": False},
-            {"repo": "o/a", "pr": 1, "owner_wort": "go", "state": "OPEN"},
-            {"repo": "o/a", "pr": 1, "owner_wort": "go", "state": "OPEN"},
+            {"ts": KW39, "repo": "o/a", "pr": 1, "owner_wort": "go", "state": "OPEN"},
+            {"ts": KW39, "repo": "o/a", "pr": 1, "owner_wort": "go", "state": "OPEN"},
+            {"ts": KW39, "repo": "o/a", "pr": 2, "erlaubt": True, "dry_run": False},
+            {"ts": KW40, "repo": "o/a", "pr": 3, "erlaubt": False, "dry_run": False},
+            {"ts": KW40, "repo": "o/a", "pr": 4, "owner_wort": "ok", "state": "OPEN"},
         ],
     )
-    assert b.b1_owner_unterbrechungen(journal) == {
-        "prs_mit_owner_wort": 1,
-        "prs_gemergt": 2,
-        "quote_pct": 50.0,
+    assert b.b1_owner_belastung(journal)["wochen"] == {
+        "2026-W39": {
+            "owner_wort_ereignisse": 2,
+            "prs_mit_owner_wort": 1,
+            "merges": 1,
+            "abbrueche": 0,
+        },
+        "2026-W40": {
+            "owner_wort_ereignisse": 1,
+            "prs_mit_owner_wort": 1,
+            "merges": 0,
+            "abbrueche": 1,
+        },
     }
 
 
-def test_should_ignore_dry_runs_and_denied_merges_for_b1(tmp_path):
+def test_should_keep_rows_without_timestamp_separate_for_b1(tmp_path):
     journal = _journal(
         tmp_path,
         [
-            {"repo": "o/a", "pr": 1, "erlaubt": True, "dry_run": True},
+            {"repo": "o/a", "pr": 1, "erlaubt": True, "dry_run": False},
             {"repo": "o/a", "pr": 2, "erlaubt": False, "dry_run": False},
-            {"repo": "o/a", "pr": 3, "owner_wort": "", "state": "OPEN"},
+            {"repo": "o/a", "pr": 3, "erlaubt": True, "dry_run": True},
+            {"ts": KW39, "repo": "o/a", "pr": 4, "owner_wort": "", "state": "OPEN"},
         ],
     )
-    assert b.b1_owner_unterbrechungen(journal)["quote_pct"] is None
-    assert b.b1_owner_unterbrechungen(journal)["prs_mit_owner_wort"] == 0
+    assert b.b1_owner_belastung(journal) == {
+        "wochen": {},
+        "ohne_zeitstempel": {"merges": 1, "abbrueche": 1},
+    }
 
 
 def _lauf(wurzel: Path, name: str, **status) -> None:
