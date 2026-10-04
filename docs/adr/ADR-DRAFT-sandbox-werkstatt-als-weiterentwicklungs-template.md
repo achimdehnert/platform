@@ -32,7 +32,7 @@ implementation_status: partial
 | `dev-hub`      | Sekundär   | Pilot-Repo                                  |
 | `decks-hub`    | Sekundär   | Pilot-Repo                                  |
 | `chat-hub`     | Sekundär   | Pilot-Repo (Org `iilgmbh`)                  |
-| `mcp-hub`      | Sekundär   | Pilot-Repo — **unbestätigt**: der Owner nannte „mch-hub“, das es in keiner Org gibt |
+| `mcp-hub`      | Sekundär   | Pilot-Repo (vom Owner bestätigt 2026-10-04) |
 
 ---
 
