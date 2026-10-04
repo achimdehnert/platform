@@ -1,7 +1,7 @@
 {
-  "generated": "2026-09-28",
-  "total": 253,
-  "next_free": 308,
+  "generated": "2026-10-04",
+  "total": 254,
+  "next_free": 309,
   "adrs": [
     {
       "number": 7,
@@ -5849,6 +5849,21 @@
         "ADR-292"
       ],
       "implementation_status": "none"
+    },
+    {
+      "number": 308,
+      "id": "ADR-308",
+      "file": "ADR-308-sandbox-werkstatt-als-weiterentwicklungs-template.md",
+      "title": "Adopt an autonomous sandbox workshop as the benchmarked development template for the production environment",
+      "status": "proposed",
+      "date": "2026-10-04",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "partial"
     },
     {
       "number": 400,
