@@ -385,14 +385,14 @@ Befunde PRO-1–3, AD-1–12, M28-1–3, OOTB-1–2; Empfehlung „Überarbeiten
 
 Out-of-the-Box: OOTB-1 als Klasse Erkenntnisauftrag übernommen (deckungsgleich mit Runde 1 OOB-2); OOTB-2 als Vergleichsarm in Phase 1a übernommen, rückblickend statt als paralleler Arm, um den Messaufwand klein zu halten.
 
-### 9.3 Owner-Entscheide und Vorschläge (2026-10-04)
+### 9.3 Owner-Entscheide (2026-10-04)
 
 | Frage | Entscheid | Begründung, wo vorgeschlagen |
 |---|---|---|
 | **F1** Lockerungen an Regel-Versuchskopien erproben, wer wertet aus? | Ja, maximal autonom; die Host-Session des Agenten liest die Berichte | Owner-Wort; Grenzen in §4.1 |
 | **F2** Anteil am Abo-Kontingent? | Beliebig, ohne Gesamtdeckel; Owner erhält jeweils den Stand | Owner-Wort; Wochenstand §4.5 Schritt 7 |
-| **F3** Werkstücke je Review-Sitzung? | Vorschlag: 5 Werkstücke und 2 Schutzregel-Vorschläge; Owner-Bestätigung offen | Vorschlag des Agenten auf Owner-Bitte: hält die Sitzung kurz und liefert in zwei Pilotwochen bis zu 10 Entscheide, genug für die Mindestfallzahl 6 von B3 |
-| **F4** `tools/sandbox/` in die Governance-Pfade? | Vorschlag: ja, Pflicht vor Phase 3; Owner-Bestätigung offen | Vorschlag des Agenten auf Owner-Bitte: dort liegt die Auswertung, die sonst mit einfachem Mandat änderbar wäre; erst vor Phase 3, damit der Aufbau in Phase 1 nicht an jeder Änderung auf den Owner wartet |
+| **F3** Werkstücke je Review-Sitzung? | 5 Werkstücke und 2 Schutzregel-Vorschläge (Owner bestätigt) | Vorschlag des Agenten auf Owner-Bitte: hält die Sitzung kurz und liefert in zwei Pilotwochen bis zu 10 Entscheide, genug für die Mindestfallzahl 6 von B3 |
+| **F4** `tools/sandbox/` in die Governance-Pfade? | Ja, Pflicht vor Phase 3 (Owner bestätigt) | Vorschlag des Agenten auf Owner-Bitte: dort liegt die Auswertung, die sonst mit einfachem Mandat änderbar wäre; erst vor Phase 3, damit der Aufbau in Phase 1 nicht an jeder Änderung auf den Owner wartet |
 
 ---
 
