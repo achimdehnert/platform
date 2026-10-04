@@ -136,7 +136,7 @@ zones:
   kiohnerisiko.de:
     universal_ssl: true
     acm_required: false
-    notes: "Alias-Domain risk-hub — Prod-Redirect, kein Staging."
+    notes: "Ehemals Alias-Domain risk-hub. Alias am 2026-10-04 ausgetragen, Domain wird gekuendigt (platform#3687); Eintrag faellt mit der Zone."
 
   137herz.de:
     universal_ssl: true
