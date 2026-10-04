@@ -140,8 +140,8 @@ def test_should_print_status_over_the_command_line(tmp_path):
 
 # ── #3394: Ausgabe dieses Netzes einmal durch das andere schicken ──────────
 #
-# Das zweite Netz ist `gesperrt_wegen()` in iilgmbh/chat-hub
-# `deploy/lotse_auftrag.py` (Stand 25e9b2b). Es sperrt den Daumen-Weg fuer
+# Das zweite Netz ist `gesperrt_wegen()` in iilgmbh/chat-hub, die Sperrliste
+# liegt seit chat-hub#176 in `deploy/lotse_zuordnung.py` (Stand 6147b52). Es sperrt den Daumen-Weg fuer
 # jeden Entwurf, der nach Aussenwirkung klingt. Ein Vorschlagstext, der die
 # Sperre ausloest, macht die eigene Frage unbeantwortbar — der Fehler liegt
 # dann in der Formulierung, nicht in der Sperre. Die Staemme sind hier
@@ -160,7 +160,6 @@ _SPERR_STAEMME = (
     "drop",
     "rotat",
     "secret",
-    "token",
     "passwor",
     "zugangsdat",
     "schluessel",
@@ -169,9 +168,20 @@ _SPERR_STAEMME = (
     "berechtigung",
 )
 _SPERR_GANZ = ("tag", "tags")
+# „Token" ist seit chat-hub#176 kein Stamm mehr: gesperrt ist nur das
+# Zugangs-Token (Kompositum oder mit veraenderndem Verb), nicht das Messwort.
+_SPERR_TOKEN = (
+    r"\w*(?:api|zugangs|access|auth|bot|bearer|github|refresh)[-_ ]?token\w*",
+    (
+        r"\btokens?\b(?:\W+\w+){0,3}?\W+"
+        r"(?:anlegen|erneuern|erzeugen|tauschen|ersetzen|widerrufen|hinterlegen)\w*"
+    ),
+)
 _SPERRE = re.compile(
     "|".join(
-        [rf"\w*{s}\w*" for s in _SPERR_STAEMME] + [rf"\b{w}\b" for w in _SPERR_GANZ]
+        [rf"\w*{s}\w*" for s in _SPERR_STAEMME]
+        + [rf"\b{w}\b" for w in _SPERR_GANZ]
+        + list(_SPERR_TOKEN)
     ),
     re.IGNORECASE,
 )
@@ -182,7 +192,7 @@ _CHAT_HUB = (
     Path(os.environ.get("GITHUB_DIR") or Path.home() / "github")
     / "chat-hub"
     / "deploy"
-    / "lotse_auftrag.py"
+    / "lotse_zuordnung.py"
 )
 
 
@@ -194,6 +204,12 @@ def _gesperrt(text: str) -> str | None:
 def test_should_detect_blocked_word_with_mirrored_check():
     """Positivkontrolle: die gespiegelte Sperre faengt den Anlassfall von #3394."""
     assert _gesperrt("Worktrees auf origin/main mergen") == "mergen"
+
+
+def test_should_block_access_token_but_not_token_count():
+    """Gespiegelte `_TOKEN`-Muster: Zugangs-Token gesperrt, Messwort frei."""
+    assert _gesperrt("GitHub-Token erneuern") is not None
+    assert _gesperrt("Modellverbrauch: 12000 Tokens pro Woche") is None
 
 
 def test_should_phrase_every_allowed_proposal_without_blocked_words():
@@ -213,9 +229,10 @@ def test_should_render_morning_text_without_blocked_words():
     not _CHAT_HUB.exists(), reason="chat-hub nicht als Nachbar-Klon vorhanden"
 )
 def test_should_mirror_chat_hub_block_list():
-    """Drift-Wache: gespiegelte Staemme == chat-hub `_STAEMME`/`_GANZE_WOERTER`."""
-    spec = importlib.util.spec_from_file_location("lotse_auftrag", _CHAT_HUB)
+    """Drift-Wache: Spiegel == chat-hub `_STAEMME`/`_GANZE_WOERTER`/`_TOKEN`."""
+    spec = importlib.util.spec_from_file_location("lotse_zuordnung", _CHAT_HUB)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     assert tuple(mod._STAEMME) == _SPERR_STAEMME
     assert tuple(mod._GANZE_WOERTER) == _SPERR_GANZ
+    assert tuple(mod._TOKEN) == _SPERR_TOKEN
