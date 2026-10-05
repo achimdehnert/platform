@@ -382,7 +382,9 @@ def test_should_read_the_fallback_tool_from_origin_main_not_the_worktree(
     _git(klon, "config", "user.name", "T")
     _git(klon, "add", "-A")
     _git(klon, "commit", "-qm", "tool")
-    _git(klon, "update-ref", "refs/remotes/origin/main", _git(klon, "rev-parse", "HEAD"))
+    _git(
+        klon, "update-ref", "refs/remotes/origin/main", _git(klon, "rev-parse", "HEAD")
+    )
     # Arbeitsbaum danach unbrauchbar machen: gelesen werden muss der Ref.
     (klon / "tools" / "agent-handover" / "fragments.py").write_text(
         "import sys\nsys.exit(3)\n", encoding="utf-8"
