@@ -637,8 +637,11 @@ vorlauf_ssh  hg-wache     timeout 60 ssh -o BatchMode=yes -o ConnectTimeout=5 "r
                           "docker exec $DEVHUB_WEB_CONTAINER python manage.py hintergrund_wache"
 
 # git-Spur (Breite 1), teuerster zuerst
+# --messreihe: ein Eintrag je Tag, Grundlage fuer Prognose und K5-Serie (#3234);
+# hostlokal, weil sie Kunden-Repos nennt.
 vorlauf_git sicht-drift timeout 120 python3 "$PLATFORM_DIR/tools/sichtbarkeits_drift_melder.py" --kurz \
-                       --ergebnis-datei "$MELDER_DIR/sichtbarkeit.json"
+                       --ergebnis-datei "$MELDER_DIR/sichtbarkeit.json" \
+                       --messreihe "$MELDER_DIR/sichtbarkeit-messreihe.jsonl"
 for LANE in skills commands hooks; do
   vorlauf_git "skill-doctor:$LANE" timeout 120 python3 "$PLATFORM_DIR/tools/cc-skill-dist/doctor.py" --kind "$LANE"
 done

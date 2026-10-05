@@ -29,18 +29,36 @@ haengt, braucht den Fristen-Melder im selben Werkzeug.
 
 ## Lebenszyklus
 
-Vor dem Flip: WARN, solange ein Zaehler ueber Ziel liegt; PASS bei 0 / 0 / 1 / 0 —
-sieben PASS in Folge geben den Flip frei (K5 in KONZ-039). Nach dem Flip dreht sich
-die Rolle: jeder neue Treffer ist Rueckfall. Sunset, wenn platform PRIVATE ist und
-der Melder 30 Tage nichts meldet — dann ist die Frage beantwortet.
+Zielzustand (Owner-Entscheid 2026-10-04, #3234): platform zieht in die Org iilgmbh
+und wird DORT privat — nicht privat im Privatkonto, das kostet Secret-Scanning,
+Push-Schutz und freie Actions-Minuten (Wache unten). Ablauf:
+
+1. WARN, solange ein Zaehler ueber Ziel liegt; die Ausgabe nennt je Restposten den
+   naechsten Zug, die Messreihe das prognostizierte Null-Datum.
+2. PASS bei 0 / 0 / 1 / 0; eine PASS-Serie ueber sieben Kalendertage (K5) gibt den
+   Umzug frei. Der Umzug bricht verbliebene Reusable-Workflow-Aufrufer genau wie ein
+   Flip (G2-Probe 2026-10-05) — darum K5 VOR dem Transfer, nicht danach.
+3. Owner uebertraegt, dann privat. Ab da ist jeder neue Treffer Rueckfall, und die
+   Wache meldet fehlenden Schutz oder bezahlte Minuten.
+
+Sunset, wenn platform PRIVATE ist und der Melder 30 Tage nichts meldet.
+
+## Fuer die naechste Sitzung
+
+`--kurz` ist der Stand, `--json` der Stand mit `naechster_zug`. Kein Dokument muss
+nachgezogen werden: Issue, Konzept und Board verweisen hierher. In oeffentliche Texte
+(platform ist bis zum Umzug public) nur `--oeffentlich` — die volle Ausgabe nennt
+Kunden-Repos und Betraege.
 
 Grenzen: `gh search code` ist eine untere Schranke (Index, 100 Treffer je Abfrage).
 `--offline` laesst die Netz-Zaehler als `nicht messbar` stehen, statt sie mit 0 zu
 faelschen — ein Melder, der ohne Netz Entwarnung gibt, waere der blinde Melder, gegen
-den er gebaut wurde.
+den er gebaut wurde. Kosten brauchen den Billing-Scope des Tokens; fehlt er, bleibt
+die Wache vor dem Umzug still und macht den Status danach UNKLAR.
 
     python3 tools/sichtbarkeits_drift_melder.py --kurz
-    python3 tools/sichtbarkeits_drift_melder.py --json
+    python3 tools/sichtbarkeits_drift_melder.py --json --messreihe <hostlokal>.jsonl
+    python3 tools/sichtbarkeits_drift_melder.py --kurz --oeffentlich   # fuer Issues/PRs
     python3 tools/sichtbarkeits_drift_melder.py --offline   # nur lokale Klone + Fristen
 """
 
@@ -60,29 +78,42 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import melder_ergebnis  # noqa: E402
 
-WERKZEUG_VERSION = "1"
+WERKZEUG_VERSION = "2"
 MELDER = "sichtbarkeits_drift_melder"
 SELBST = "achimdehnert/platform"
+# Zielort nach dem Umzug (Owner-Entscheid 2026-10-04, #3234): Die API leitet den
+# alten Namen weiter, Verweise auf den neuen zaehlen nach dem Umzug genauso —
+# ein `uses: iilgmbh/platform/…` in einem oeffentlichen Repo bricht beim Flip wie
+# der alte.
+ZIELORT = "iilgmbh/platform"
+SELBST_NAMEN = frozenset({SELBST, ZIELORT})
+# Normale Gruppe, kein (?:…): die Muster laufen auch durch `git grep -E` (POSIX-ERE).
+BESITZER_RE = r"(achimdehnert|iilgmbh)"
 KANON = "iilgmbh/shared-ci"
 KOPIEN_KANDIDATEN = (SELBST, "achimdehnert/shared-ci", KANON)
 ZIEL = {"aufrufer": 0, "raw": 0, "laufzeit": 0, "kopien": 1, "fristen": 0}
 AUFTRAG = "#3234"
+# K5: so viele Kalendertage muss die PASS-Serie ueberspannen, bevor der Umzug frei ist.
+K5_TAGE = 7
+# Prognose nur aus dem juengsten Fenster: der Abbau verlaeuft in Schueben, eine
+# Gerade ueber Monate unterschaetzt das Tempo nach einem Schub.
+PROGNOSE_FENSTER_TAGE = 30
 
 # Was beim Flip bricht. `uses:` faengt Reusable Workflows UND Composite Actions
 # (`.github/actions/…`) — Letztere waren im Konzept nicht gezaehlt (11 lokale Caller).
-AUFRUF_MUSTER = r"uses: *achimdehnert/platform/\.github/"
-KLON_MUSTER = r"git clone[^\n]*github\.com[:/]achimdehnert/platform"
+AUFRUF_MUSTER = rf"uses: *{BESITZER_RE}/platform/\.github/"
+KLON_MUSTER = rf"git clone[^\n]*github\.com[:/]{BESITZER_RE}/platform"
 # actions/checkout mit `repository: achimdehnert/platform` in fremder CI — die
 # Flotten-Workflows receive-windsurf-rules.yml (ADR-263) und silent-failure-lint.yml
 # holen platform so; mit GITHUB_TOKEN scheitert das nach dem Flip (23 Klone, 2026-09-16).
-CHECKOUT_MUSTER = r"repository: *achimdehnert/platform\b"
+CHECKOUT_MUSTER = rf"repository: *{BESITZER_RE}/platform\b"
 # Ein Checkout mit eigenem Secret als Token (PAT) uebersteht den Flip, solange das
 # Secret platform lesen darf — Realfall mcp-hub ci.yml (PROJECT_PAT, #3234). Er
 # wird gelistet, zaehlt aber nicht; GITHUB_TOKEN bleibt ein Aufrufer.
 TOKEN_ZEILE_RE = re.compile(
     r"^(?P<einzug> *)token: *['\"]?\$\{\{ *secrets\.(?!GITHUB_TOKEN\b)\w+ *\}\}"
 )
-RAW_MUSTER = r"raw\.githubusercontent\.com/achimdehnert/platform"
+RAW_MUSTER = rf"raw\.githubusercontent\.com/{BESITZER_RE}/platform"
 # Raw-Treffer, die NICHT zur Laufzeit brechen: CI (eigene Klasse), Klickdummy-
 # Schema-Verweise, Doku.
 NICHT_LAUFZEIT = re.compile(r"(^|/)(\.github/|klickdummy/|docs/)|\.md$")
@@ -208,7 +239,7 @@ def scanne_lokal(
         return treffer
     for d in sorted(github_dir.iterdir()):
         repo = _origin(d) if d.is_dir() else None
-        if not repo or repo == SELBST:
+        if not repo or repo in SELBST_NAMEN:
             continue
         if fetch:
             subprocess.run(
@@ -277,13 +308,18 @@ def lies_datei_netz(repo: str, pfad: str) -> str | None:
 
 def scanne_netz() -> dict[str, dict[str, list[str]]]:
     treffer: dict[str, dict[str, list[str]]] = {}
-    for klasse, abfrage in (
-        ("aufruf", "uses: achimdehnert/platform/.github"),
-        ("checkout", "repository: achimdehnert/platform"),
-        ("raw", "raw.githubusercontent.com/achimdehnert/platform"),
-    ):
+    abfragen = [
+        (klasse, abfrage.format(ort=ort))
+        for ort in sorted(SELBST_NAMEN)
+        for klasse, abfrage in (
+            ("aufruf", "uses: {ort}/.github"),
+            ("checkout", "repository: {ort}"),
+            ("raw", "raw.githubusercontent.com/{ort}"),
+        )
+    ]
+    for klasse, abfrage in abfragen:
         for repo, pfad in suche_code(abfrage):
-            if repo == SELBST:
+            if repo in SELBST_NAMEN:
                 continue
             # Ein `uses:` in Doku (Realfall mcp-hub docs/ADR-160) ist kein Aufrufer.
             if klasse != "raw" and not pfad.startswith(".github/"):
@@ -352,6 +388,258 @@ def sichtbarkeit() -> str | None:
     return out.strip() if out else None
 
 
+# ── Wache: was der Flip selbst verschlechtern kann ───────────────────────────
+#
+# Die Zaehler oben messen, was beim Flip BRICHT. Die Wache misst, was er
+# VERSCHLECHTERT, ohne dass etwas bricht — gemessen 2026-10-04 (#3234):
+# - Secret-Scanning und Push-Schutz gibt es fuer private Repos eines Privatkontos
+#   nicht; in der Enterprise-Org iilgmbh bleiben sie an (G2-Probe 2026-10-05).
+# - Oeffentliche Repos rechnen Actions-Minuten nicht ab. platform verbraucht so
+#   viele, dass ein Flip ohne Kontingent laufende Kosten erzeugt.
+# Beides faellt erst nach dem Flip auf, und dann nur auf der Rechnung bzw. beim
+# naechsten durchgerutschten Secret — deshalb misst der Melder es vorher und danach.
+
+SCHUTZ_MERKMALE = ("secret_scanning", "secret_scanning_push_protection")
+
+
+def plattform_lage() -> dict | None:
+    """Besitzer (nach Weiterleitung), Sichtbarkeit und fehlende Schutzmerkmale.
+
+    Liest NUR diese Felder (Whitelist) — die Repo-Antwort ist harmlos, aber die
+    Regel gilt fuer jede API-Antwort, die in ein Protokoll laufen kann."""
+    out = _gh(
+        "api",
+        f"repos/{SELBST}",
+        "--jq",
+        "{full_name, visibility, s: (.security_and_analysis // {})}",
+    )
+    if not out:
+        return None
+    try:
+        d = json.loads(out)
+        return {
+            "besitzer": d["full_name"],
+            "sichtbarkeit": str(d["visibility"]).upper(),
+            "schutz_fehlt": [
+                m
+                for m in SCHUTZ_MERKMALE
+                if (d["s"].get(m) or {}).get("status") != "enabled"
+            ],
+        }
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return None
+
+
+def actions_kosten(besitzer: str, heute: date) -> dict | None:
+    """Actions-Kosten von platform im laufenden Monat (USD, brutto/netto).
+
+    Konto oder Org je nach Besitzer — die Billing-API trennt beide Pfade. None =
+    nicht messbar (fehlender Billing-Scope); das ist vor dem Flip unkritisch,
+    danach UNKLAR. Brutto ist, was ein privates Repo ohne Kontingent kostete:
+    der Fruehindikator. Netto > 0 heisst, die Minuten werden bezahlt."""
+    eigentuemer, name = besitzer.split("/", 1)
+    basis = (
+        f"organizations/{eigentuemer}"
+        if eigentuemer != SELBST.split("/")[0]
+        else f"users/{eigentuemer}"
+    )
+    out = _gh(
+        "api",
+        f"{basis}/settings/billing/usage?year={heute.year}&month={heute.month}",
+        "--jq",
+        f'[.usageItems[] | select(.product == "actions" and .repositoryName == "{name}")'
+        " | {grossAmount, netAmount}]",
+    )
+    if out is None:
+        return None
+    try:
+        posten = json.loads(out)
+        return {
+            "brutto": round(sum(p["grossAmount"] for p in posten), 2),
+            "netto": round(sum(p["netAmount"] for p in posten), 2),
+        }
+    except (ValueError, KeyError, TypeError):
+        return None
+
+
+def wache(lage: dict | None, kosten: dict | None) -> dict:
+    """Alarm, wenn der Schutz fehlt oder Minuten bezahlt werden. Nicht messbar
+    zaehlt erst nach dem Flip als Luecke — davor ist beides gratis und an."""
+    privat = bool(lage) and lage["sichtbarkeit"] != "PUBLIC"
+    alarm, luecke = [], []
+    if lage is None:
+        luecke.append("lage")
+    elif lage["schutz_fehlt"]:
+        alarm.append("schutz")
+    if kosten is None:
+        if privat:
+            luecke.append("kosten")
+    elif kosten["netto"] > 0:
+        alarm.append("kosten")
+    return {
+        "besitzer": lage["besitzer"] if lage else None,
+        "schutz_fehlt": lage["schutz_fehlt"] if lage else None,
+        "kosten_usd": kosten,
+        "alarm": alarm,
+        "luecke": luecke,
+    }
+
+
+# ── Messreihe und Prognose ───────────────────────────────────────────────────
+#
+# Der Melder lief bis 2026-10-04 nur als Momentaufnahme: K5 verlangt sieben Tage
+# in Folge, aber nichts hielt die Tage fest — die Serie war unpruefbar. Die
+# Messreihe liegt hostlokal (Repo-Namen aus Kunden-Orgs gehoeren nicht in das
+# oeffentliche platform-Repo), ein Eintrag je Kalendertag, der letzte Lauf gewinnt.
+
+
+def rest(zaehler: dict) -> int | None:
+    """Summe der Ueberschreitungen ueber Ziel — 0 heisst K5-tauglich."""
+    if any(zaehler.get(k) is None for k in ZIEL):
+        return None
+    return sum(max(0, zaehler[k] - ZIEL[k]) for k in ZIEL)
+
+
+def lade_reihe(pfad: Path) -> list[dict]:
+    if not pfad.is_file():
+        return []
+    reihe = []
+    for zeile in pfad.read_text(encoding="utf-8").splitlines():
+        try:
+            reihe.append(json.loads(zeile))
+        except ValueError:
+            continue  # eine kaputte Zeile kostet einen Tag, nicht die Reihe
+    return sorted(reihe, key=lambda e: e["datum"])
+
+
+def eintrag_aus(ergebnis: dict, heute: date) -> dict:
+    return {
+        "datum": heute.isoformat(),
+        "status": ergebnis["status"],
+        "sichtbarkeit": ergebnis["sichtbarkeit"],
+        "besitzer": ergebnis["wache"]["besitzer"],
+        "zaehler": ergebnis["zaehler"],
+        "rest": rest(ergebnis["zaehler"]),
+        "repos": sorted(set(ergebnis["aufrufer"]) | set(ergebnis["raw"])),
+    }
+
+
+def schreibe_reihe(pfad: Path, reihe: list[dict], eintrag: dict) -> list[dict]:
+    neu = [e for e in reihe if e["datum"] != eintrag["datum"]] + [eintrag]
+    neu.sort(key=lambda e: e["datum"])
+    pfad.parent.mkdir(parents=True, exist_ok=True)
+    tmp = pfad.with_suffix(".tmp")
+    tmp.write_text(
+        "".join(json.dumps(e, ensure_ascii=False) + "\n" for e in neu),
+        encoding="utf-8",
+    )
+    tmp.replace(pfad)
+    return neu
+
+
+def prognose(reihe: list[dict], heute: date) -> dict:
+    """Trend, Null-Datum, PASS-Serie (K5) und Rueckfall aus der Messreihe.
+
+    - Null-Datum: lineare Regression des Rests ueber die juengsten
+      PROGNOSE_FENSTER_TAGE. Steigt oder stagniert der Rest, gibt es kein Datum —
+      eine Prognose, die immer ein Datum nennt, waere Beruhigung, keine Messung.
+    - PASS-Serie: PASS-Messungen in Folge vom juengsten Eintrag rueckwaerts; K5
+      gilt, wenn sie mindestens K5_TAGE Kalendertage ueberspannt. Luecken ohne
+      Messung brechen die Serie nicht (kein Lauf ist kein Rueckfall), eine
+      WARN-Messung schon.
+    - Rueckfall: Repos im juengsten Eintrag, die im vorigen fehlten."""
+    gemessen = [e for e in reihe if e.get("rest") is not None]
+    p: dict = {"messungen": len(gemessen), "null_am": None, "steigung_pro_tag": None}
+    fenster = [
+        e
+        for e in gemessen
+        if (heute - date.fromisoformat(e["datum"])).days <= PROGNOSE_FENSTER_TAGE
+    ]
+    if fenster and fenster[-1]["rest"] == 0:
+        p["null_am"] = fenster[-1]["datum"]
+    elif len(fenster) >= 2:
+        xs = [(date.fromisoformat(e["datum"]) - heute).days for e in fenster]
+        ys = [e["rest"] for e in fenster]
+        mx, my = sum(xs) / len(xs), sum(ys) / len(ys)
+        nenner = sum((x - mx) ** 2 for x in xs)
+        if nenner:
+            m = sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / nenner
+            p["steigung_pro_tag"] = round(m, 3)
+            if m < 0:
+                tage = int(-ys[-1] / m + 0.999)
+                p["null_am"] = date.fromordinal(heute.toordinal() + tage).isoformat()
+    serie = []
+    for e in reversed(gemessen):
+        if e["status"] != "PASS":
+            break
+        serie.append(e)
+    spanne = (
+        (date.fromisoformat(serie[0]["datum"]) - date.fromisoformat(serie[-1]["datum"])).days
+        + 1
+        if serie
+        else 0
+    )
+    p["pass_serie_tage"] = spanne
+    p["k5"] = spanne >= K5_TAGE
+    p["rueckfall"] = (
+        sorted(set(gemessen[-1]["repos"]) - set(gemessen[-2]["repos"]))
+        if len(gemessen) >= 2
+        else []
+    )
+    return p
+
+
+# ── Naechster Zug: der Wiedereinstieg steht in der Ausgabe, nicht in einem Dokument ──
+
+ZUG = {
+    "aufrufer": "Aufrufer auf {kanon}@<Tag> umhaengen (Reusable Workflows folgen "
+    "keiner Umzugs-Weiterleitung, G2)",
+    "raw": "Direkt-Downloads auf ein Release aus {kanon} oder einen lokalen Klon "
+    "umstellen",
+    "laufzeit": "Laufzeit-Pfade zuerst umstellen — sie treffen beim Umzug laufende "
+    "Dienste, nicht nur CI",
+    "kopien": "Bausteine `_*.yml` in platform loeschen, sobald Aufrufer = 0 "
+    "(Kanon {kanon})",
+    "fristen": "review_by erneuern oder Konzept-Status setzen",
+    "schutz": "Secret-Scanning/Push-Schutz fehlt: platform gehoert in die Org "
+    "{zielorg}, nicht privat ins Privatkonto",
+    "kosten": "Actions-Minuten werden bezahlt: Kontingent der Org pruefen oder "
+    "Workflows auf self-hosted",
+}
+
+
+def naechster_zug(e: dict) -> list[str]:
+    fmt = {"kanon": KANON, "zielorg": ZIELORT.split("/")[0]}
+    zuege = [ZUG[k].format(**fmt) for k in e["ueber_ziel"]]
+    zuege += [ZUG[k].format(**fmt) for k in e["wache"]["alarm"]]
+    if e["status"] == "PASS" and e["sichtbarkeit"] == "PUBLIC":
+        p = e.get("prognose") or {}
+        zuege.append(
+            f"K5 erfuellt: Owner uebertraegt platform nach {ZIELORT} und schaltet "
+            "dort privat — nicht waehrend eines Deploys (Deploy-Keys ~1 min gesperrt, G2)"
+            if p.get("k5")
+            else f"PASS-Serie {p.get('pass_serie_tage', 0)}/{K5_TAGE} Tage abwarten (K5)"
+        )
+    return zuege
+
+
+def oeffentlich(e: dict) -> dict:
+    """Fassung fuer oeffentliche Texte (platform-Issues, PRs): nur Zahlen.
+
+    Die volle Ausgabe nennt Repos aus Kunden-Orgs und Betraege — in einem Issue
+    von platform waere beides veroeffentlicht (Befund D5, 2026-10-04)."""
+    p = e.get("prognose") or {}
+    return {
+        "status": e["status"],
+        "sichtbarkeit": e["sichtbarkeit"],
+        "zaehler": e["zaehler"],
+        "ziel": e["ziel"],
+        "wache_alarm": e["wache"]["alarm"],
+        "prognose": {k: p.get(k) for k in ("null_am", "pass_serie_tage", "k5")}
+        | {"rueckfall": len(p.get("rueckfall") or [])},
+    }
+
+
 # ── Fristen ──────────────────────────────────────────────────────────────────
 
 
@@ -401,7 +689,16 @@ def bewerte(
     kopien: list[str] | None,
     fristen: list[str],
     sichtbar: str | None,
+    wache_: dict | None = None,
 ) -> dict:
+    if wache_ is None:
+        wache_ = {
+            "besitzer": None,
+            "schutz_fehlt": None,
+            "kosten_usd": None,
+            "alarm": [],
+            "luecke": [],
+        }
     aufrufer = sorted(r for r, e in konsumenten.items() if e["aufruf"])
     raw = sorted(r for r, e in konsumenten.items() if e["raw"])
     laufzeit = {
@@ -422,14 +719,19 @@ def bewerte(
         "fristen": len(fristen),
     }
     ueber_ziel = [k for k, v in zaehler.items() if v is not None and v > ZIEL[k]]
-    messbar = kopien is not None and sichtbar is not None
-    status = "WARN" if ueber_ziel else ("PASS" if messbar else "UNKLAR")
+    messbar = kopien is not None and sichtbar is not None and not wache_["luecke"]
+    status = (
+        "WARN"
+        if ueber_ziel or wache_["alarm"]
+        else ("PASS" if messbar else "UNKLAR")
+    )
     return {
         "status": status,
         "sichtbarkeit": sichtbar,
         "zaehler": zaehler,
         "ziel": ZIEL,
         "ueber_ziel": ueber_ziel,
+        "wache": wache_,
         "aufrufer": aufrufer,
         "raw": raw,
         "laufzeit": laufzeit,
@@ -441,7 +743,23 @@ def bewerte(
     }
 
 
-def kurzzeile(e: dict) -> str:
+def _trend(e: dict) -> str:
+    p = e.get("prognose")
+    if not p or not p.get("messungen"):
+        return ""
+    teile = []
+    if e["status"] == "PASS":
+        teile.append(f"Serie {p['pass_serie_tage']}/{K5_TAGE} Tage")
+    elif p.get("null_am"):
+        teile.append(f"Prognose 0 am {p['null_am']}")
+    elif p.get("steigung_pro_tag") is not None:
+        teile.append("kein Abbau-Trend")
+    if p.get("rueckfall"):
+        teile.append(f"RUECKFALL {len(p['rueckfall'])} neu")
+    return f" [{'; '.join(teile)}]" if teile else ""
+
+
+def kurzzeile(e: dict, oeffentlich_: bool = False) -> str:
     z = e["zaehler"]
     kop = "◌" if z["kopien"] is None else str(z["kopien"])
     sicht = e["sichtbarkeit"] or "◌"
@@ -449,19 +767,25 @@ def kurzzeile(e: dict) -> str:
         f"Aufrufer {z['aufrufer']} · Raw {z['raw']} (Laufzeit {z['laufzeit']}) · "
         f"Kopien {kop} · Fristen {z['fristen']}"
     )
+    trend = _trend(e)
+    alarm = e["wache"]["alarm"]
     if e["status"] == "PASS":
         rolle = (
             "kein Rueckfall"
             if sicht == "PRIVATE"
-            else "Flip-Freigabe nach 7 Tagen (K5)"
+            else f"Umzug-Freigabe nach {K5_TAGE} Tagen (K5)"
         )
-        return f"Sichtbarkeits-Drift: 0/0/1/0 erreicht — platform {sicht}, {rolle}"
+        return f"Sichtbarkeits-Drift: 0/0/1/0 erreicht — platform {sicht}, {rolle}{trend}"
     if e["status"] == "UNKLAR":
-        return f"Sichtbarkeits-Drift: {stand} — Netz-Zaehler nicht messbar (offline)"
+        luecke = ", ".join(e["wache"]["luecke"]) or "offline"
+        return f"Sichtbarkeits-Drift: {stand} — Teile nicht messbar ({luecke}){trend}"
+    wach = f"; Wache: {', '.join(alarm)}" if alarm else ""
+    if oeffentlich_:
+        return f"Sichtbarkeits-Drift: {stand} — platform {sicht}{wach}{trend}"
     laufzeit = ", ".join(sorted(e["laufzeit"])) or "–"
     return (
         f"Sichtbarkeits-Drift: {stand} — platform {sicht}, Ziel 0/0/1/0 ({AUFTRAG}); "
-        f"Laufzeit: {laufzeit}"
+        f"Laufzeit: {laufzeit}{wach}{trend}"
     )
 
 
@@ -494,13 +818,25 @@ def main(argv: list[str] | None = None) -> int:
         help="Ergebnis zusaetzlich in der gemeinsamen Melder-Huelle ablegen "
         "(tools/melder_ergebnis.py) — die Sieben-Tage-Reihe fuer K5 liest von dort.",
     )
+    p.add_argument(
+        "--messreihe",
+        default=None,
+        help="hostlokale JSONL-Messreihe (ein Eintrag je Tag) — Grundlage fuer "
+        "Prognose, PASS-Serie (K5) und Rueckfall; nie ins Repo legen",
+    )
+    p.add_argument(
+        "--oeffentlich",
+        action="store_true",
+        help="nur Zahlen, keine Repo-Namen/Betraege — fuer Issues und PRs in platform",
+    )
     a = p.parse_args(argv)
     heute = date.fromisoformat(a.heute) if a.heute else date.today()
 
     lokal = scanne_lokal(Path(a.github_dir), fetch=a.fetch)
     netz = {} if a.offline else scanne_netz()
     kopien = None if a.offline else zaehle_kopien()
-    sicht = None if a.offline else sichtbarkeit()
+    lage = None if a.offline else plattform_lage()
+    kosten = actions_kosten(lage["besitzer"], heute) if lage else None
     konsumenten = vereinige(lokal, netz)
     archiviert: list[str] = []
     if not a.offline:
@@ -509,8 +845,20 @@ def main(argv: list[str] | None = None) -> int:
         konsumenten,
         kopien,
         abgelaufene_fristen(Path(a.konzepte_dir), heute),
-        sicht,
+        lage["sichtbarkeit"] if lage else None,
+        None if a.offline else wache(lage, kosten),
     )
+    if a.messreihe:
+        reihe = lade_reihe(Path(a.messreihe))
+        # Nur vollstaendige Messungen zaehlen: ein Offline-Lauf mit Rest 0 waere
+        # sonst ein PASS-Tag, den niemand gemessen hat, und ein Offline-WARN
+        # ueberschriebe die volle Messung desselben Tages.
+        if ergebnis["status"] != "UNKLAR" and rest(ergebnis["zaehler"]) is not None:
+            reihe = schreibe_reihe(
+                Path(a.messreihe), reihe, eintrag_aus(ergebnis, heute)
+            )
+        ergebnis["prognose"] = prognose(reihe, heute)
+    ergebnis["naechster_zug"] = naechster_zug(ergebnis)
     ergebnis["quellen"] = {"lokal": len(lokal), "netz": len(netz)}
     ergebnis["archiviert_ignoriert"] = archiviert
     ergebnis["fetch_alter_tage_max"] = max(FETCH_ALTER.values(), default=None)
@@ -526,15 +874,43 @@ def main(argv: list[str] | None = None) -> int:
             werkzeug_version=WERKZEUG_VERSION,
         )
     if a.als_json:
-        json.dump(ergebnis, sys.stdout, ensure_ascii=False, indent=2)
+        json.dump(
+            oeffentlich(ergebnis) if a.oeffentlich else ergebnis,
+            sys.stdout,
+            ensure_ascii=False,
+            indent=2,
+        )
         print()
         return 0
     if a.kurz:
-        print(kurzzeile(ergebnis))
+        print(kurzzeile(ergebnis, a.oeffentlich))
         return 0
 
     print(f"# Sichtbarkeits-Drift platform ({ergebnis['sichtbarkeit'] or 'offline'})\n")
-    print(kurzzeile(ergebnis) + "\n")
+    print(kurzzeile(ergebnis, a.oeffentlich) + "\n")
+    if ergebnis["naechster_zug"]:
+        print("## Naechster Zug")
+        for z in ergebnis["naechster_zug"]:
+            print(f"- {z}")
+        print()
+    if a.oeffentlich:
+        return 0
+    w = ergebnis["wache"]
+    if w["besitzer"]:
+        k = w["kosten_usd"]
+        print("## Wache")
+        print(f"- Besitzer: {w['besitzer']}")
+        print(f"- Secret-Schutz fehlt: {', '.join(w['schutz_fehlt']) or 'nichts'}")
+        print(
+            "- Actions-Kosten platform, laufender Monat: "
+            + (f"brutto {k['brutto']} USD, netto {k['netto']} USD" if k else "nicht messbar")
+        )
+        print()
+    if ergebnis.get("prognose"):
+        print("## Prognose (Messreihe)")
+        for schluessel, wert in ergebnis["prognose"].items():
+            print(f"- {schluessel}: {wert}")
+        print()
     for titel, schluessel in (
         ("Aufrufer (uses:/clone)", "aufrufer"),
         ("Raw-Downloads", "raw"),
