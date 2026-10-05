@@ -19,6 +19,7 @@ SECRET_LESEN="$HIER/../secret_lesen.sh"
 BILD="iil-sandbox:latest"
 LAEUFE="${SANDBOX_LAEUFE:-$HOME/sandbox-laeufe}"
 ORG="iilsandbox"  # vom Owner angelegt 2026-10-04
+PILOT_REPOS="$HIER/pilot-repos.txt"
 # Modell-Zugang: Abo-Token (`claude setup-token`) vor API-Schluessel, falls vorhanden.
 ABO_TOKEN="$HOME/.secrets/claude_oauth_token"
 MODELL_SCHLUESSEL="$HOME/.secrets/anthropic_api_key"
@@ -38,6 +39,17 @@ while [ $# -gt 0 ]; do
   esac
 done
 [ -n "$NUR_PRUEFEN" ] || [ -f "$AUFTRAG" ] || { echo "--auftrag <datei.md> fehlt" >&2; exit 64; }
+
+# GitHub-Modus: Spiegel vor dem Lauf auffrischen (ADR-308 §4.5 Punkt 1, platform#3784 SB5).
+# Quelle ist das origin des lokalen Klons; gespiegelt wird nur, was in pilot-repos.txt steht.
+# Liegen im Spiegel noch Branches eines frueheren Laufs, bricht spiegeln.sh ab: erst abholen.
+if [ -n "$TOKEN_DATEI" ] && [ -z "$NUR_PRUEFEN" ]; then
+  for repo in "${REPOS[@]}"; do
+    quelle="$(git -C "$repo" remote get-url origin | sed -E 's#^(git@github\.com:|https://github\.com/)##; s#\.git$##')"
+    grep -qxF "$quelle" "$PILOT_REPOS" || { echo "kein Pilot-Repo: $quelle ($repo)" >&2; exit 64; }
+    "$HIER/spiegeln.sh" "$quelle"
+  done
+fi
 
 docker build -q -t "$BILD" "$HIER" >/dev/null
 
