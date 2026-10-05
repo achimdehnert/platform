@@ -56,6 +56,40 @@ def test_should_not_flag_realfall_criterion_with_negativprobe() -> None:
     assert scanner.entscheide(REALFALL_MIT_PROBE) is None
 
 
+# --- Positivkontrolle Rev 2: Statuscode als Rechte-Beleg (Retro eb9de7 #7) ---
+
+# Wortlaut aus tools/sandbox/selbstpruefung.py (Stand vor #3724 Z7): die Probe
+# las 403/404 als „Recht fehlt" — ein Rate-Limit-403 waere so fail-open geworden.
+REALFALL_STATUS_OHNE_PROBE = (
+    "Antworten einer Probe, die belegen, dass dem Token das Recht fehlt: 403, 404. "
+    "Alles andere (auch 422 = Recht da, nur die Eingabe ungueltig) zaehlt als "
+    "Recht — fail-closed."
+)
+
+
+def test_should_flag_realfall_status_code_as_proof_without_negativprobe() -> None:
+    """probe: statuscode_als_beleg — der Realfall-Wortlaut ohne Gegenprobe meldet."""
+    grund = scanner.entscheide(REALFALL_STATUS_OHNE_PROBE)
+    assert grund is not None and "check-ohne-positivkontrolle" in grund
+    # Je Zeile zaehlt ein Label; beide neuen Muster tragen auch allein.
+    for zeile, label in (
+        ("Die Probe wertet 403 und 404 als fehlendes Recht.", "statuscode-als-beleg"),
+        ("Unbekannte Antworten zaehlen als Recht — fail-closed.", "fail-closed"),
+    ):
+        assert scanner.finde_schutz_kriterien(zeile) == [(label, zeile)]
+
+
+def test_should_not_flag_status_code_brief_with_rate_limit_probe() -> None:
+    mit_probe = REALFALL_STATUS_OHNE_PROBE + (
+        "\nTest: ein 403 mit x-ratelimit-remaining 0 wird nicht als fehlendes Recht gewertet."
+    )
+    assert scanner.entscheide(mit_probe) is None
+
+
+def test_should_not_treat_longer_numbers_as_status_codes() -> None:
+    assert scanner.finde_schutz_kriterien("Siehe platform#4030 und Port 14040.") == []
+
+
 # --- Zweiter Positivfall: kein Schreibzugriff + DELETE/PUT/PATCH-Probe -----
 
 KEIN_SCHREIBZUGRIFF_MIT_PROBE = (

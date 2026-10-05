@@ -26,13 +26,14 @@ WAS DER HOOK PRUEFT
 1. Findet **Schutz-Kriterien** im Brief: Zeilen/Saetze mit `strikt`, `nie`,
    `niemals`, `kein(e) Schreib-/Upload-/Delete-/Loesch-…`, `nicht
    durchreichen`, `nur lesend`, `verworfen`, `nie geloggt`, `ohne
-   Schreibfunktion`, `Allowlist`, `Projektion` (Liste in `SCHUTZ_MUSTER`,
-   Wortgrenzen, bewusst eng — lieber ein uebersehenes Kriterium als viele
-   Fehlalarme).
+   Schreibfunktion`, `Allowlist`, `Projektion`, seit Rev 2 auch `fail-closed`
+   und HTTP-Statuscodes als Beleg fuer ein Recht (`401/403/404/422/429`)
+   (Liste in `SCHUTZ_MUSTER`, Wortgrenzen, bewusst eng — lieber ein
+   uebersehenes Kriterium als viele Fehlalarme).
 2. Prueft, ob DERSELBE Brief irgendwo eine **Negativ-Probe** verlangt: eine
    Zeile mit `Test` UND einer Verneinung (`nicht ankommt`/`durchkommt`/
    `moeglich`, `nichts … kommt an`, `abgewiesen`, `verworfen wird`, `keine …
-   (ab)gesetzt`, `rot wird`, `Mutationstest`).
+   (ab)gesetzt`, `rot wird`, `Mutationstest`, `nicht als … gewertet`).
 3. Fehlt sie bei mindestens einem gefundenen Schutz-Kriterium: advisory
    Meldung auf stdout, Exit 0 — nie blockieren.
 
@@ -71,7 +72,7 @@ GATE_HEADER = {
     "slug": "check-ohne-positivkontrolle",
     "mode": "advisory",
     "owner": "achim",
-    "last_drill_pass": "2026-09-17",
+    "last_drill_pass": "2026-10-05",
     "evidence": "tools/claude-hooks/tests/test_subagent_brief_negativprobe.py",
 }
 
@@ -108,6 +109,10 @@ SCHUTZ_MUSTER: list[tuple[str, re.Pattern[str]]] = [
     ("ohne-schreibfunktion", re.compile(r"\bohne\s+Schreibfunktion\b", re.IGNORECASE)),
     ("allowlist", re.compile(r"\ballowlist\b", re.IGNORECASE)),
     ("projektion", re.compile(r"\bprojektion\b", re.IGNORECASE)),
+    # Rev 2 (#3722 G3, Retro eb9de7 #7): eine Rechte-Probe, die einen Statuscode
+    # als Beleg liest, ist ein Schutz-Kriterium — 403 heisst auch „Rate-Limit".
+    ("fail-closed", re.compile(r"\bfail-closed\b", re.IGNORECASE)),
+    ("statuscode-als-beleg", re.compile(r"\b(?:401|403|404|422|429)\b")),
 ]
 
 #: Negativ-Probe: eine VERNEINUNG, wie sie ein Test benennt, der einen
@@ -121,7 +126,8 @@ NEGATIVPROBE_MUSTER = re.compile(
     r"|verworfen\s+wird"
     r"|keine\b.{0,40}\b(?:ab)?gesetzt\b"
     r"|\brot\s+wird\b"
-    r"|\bMutationstest\b",
+    r"|\bMutationstest\b"
+    r"|nicht\s+als\b.{0,60}\bgewertet\b",
     re.IGNORECASE,
 )
 
