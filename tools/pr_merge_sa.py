@@ -89,6 +89,11 @@ FREIGABE_VERMERK = re.compile(
 PROD_IM_APPROVAL = re.compile(
     r"\b(deploy|prod|production|publish|release)\b", re.IGNORECASE
 )
+# Ein Approval, das sich selbst als "kein inhaltliches Urteil" ausweist, ist kein
+# Mandat fuer einen Merge durch die Sitzung (Owner-Entscheid 2026-10-05). Der Satz
+# steht im Text des Bot-Reviews (`.github/workflows/bot-review.yml`); ein Test haelt
+# beide Stellen zusammen.
+OHNE_INHALTLICHES_URTEIL = re.compile(r"kein\s+inhaltliches\s+Urteil", re.IGNORECASE)
 # Nur fuer den Issue-Vermerk-Pfad (#2814 Review-Befund): PROD_IM_APPROVAL matcht
 # auch "prod"/"release"/"publish" und wuerde einen M1-Vermerk wie "PR #2804
 # (Prod-Rueckstand)" versehentlich zu M3 machen. Der Owner hat den Vermerk
@@ -395,12 +400,21 @@ def mandat_des_prs(repo: str, nummer: int, pr: dict) -> str:
     # wenn ein Code-Owner approved hat. Gemessen an platform#2348: latestReviews
     # trug "wirdigital:APPROVED", reviewDecision war leer, mergeState CLEAN.
     # Massgeblich ist also die Review-Liste, nicht die Gesamtentscheidung.
-    approvals = [
+    alle_approvals = [
         rv
         for rv in (pr.get("latestReviews") or pr.get("reviews") or [])
         if rv.get("state") == "APPROVED"
     ]
-    if approvals or pr.get("reviewDecision") == "APPROVED":
+    approvals = [
+        rv
+        for rv in alle_approvals
+        if not OHNE_INHALTLICHES_URTEIL.search(rv.get("body") or "")
+    ]
+    # Die Gesamtentscheidung traegt nur, wenn sie nicht allein auf Approvals ohne
+    # Urteil beruht — sonst kaeme das ausgeschlossene Approval hier wieder herein.
+    if approvals or (
+        pr.get("reviewDecision") == "APPROVED" and not alle_approvals
+    ):
         for rv in approvals:
             if PROD_IM_APPROVAL.search(rv.get("body") or ""):
                 return "M3"

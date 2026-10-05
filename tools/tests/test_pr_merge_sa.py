@@ -587,6 +587,51 @@ def test_should_read_m3_when_approval_names_prod():
     assert pr_merge_sa.mandat_des_prs("owner/repo", 1, pr) == "M3"
 
 
+# --- Approval ohne inhaltliches Urteil ist kein Mandat (Owner-Entscheid 2026-10-05) ---
+
+_OHNE_URTEIL = "Bot-Review: alle Checks gruen. Kein inhaltliches Urteil."
+
+
+def test_should_not_read_mandat_from_an_approval_without_judgement(monkeypatch):
+    import pr_merge_sa
+
+    monkeypatch.setattr(
+        pr_merge_sa, "_gh", lambda *_a, **_k: {"body": "", "state": "OPEN"}
+    )
+    pr = {
+        "reviewDecision": "APPROVED",
+        "latestReviews": [{"state": "APPROVED", "body": _OHNE_URTEIL}],
+        "body": "",
+    }
+    assert pr_merge_sa.mandat_des_prs("owner/repo", 1, pr) == "M0"
+
+
+def test_should_still_read_m2_when_a_second_approval_carries_a_judgement():
+    """Gegenprobe: das Approval mit Urteil daneben zaehlt weiter."""
+    import pr_merge_sa
+
+    pr = {
+        "reviewDecision": None,
+        "latestReviews": [
+            {"state": "APPROVED", "body": _OHNE_URTEIL},
+            {"state": "APPROVED", "body": "Diff gelesen, passt."},
+        ],
+    }
+    assert pr_merge_sa.mandat_des_prs("owner/repo", 1, pr) == "M2"
+
+
+def test_should_keep_the_bot_review_text_recognisable():
+    """Der Bot-Review-Text und der Waechter muessen denselben Satz meinen."""
+    import pr_merge_sa
+
+    workflow = Path(pr_merge_sa.__file__).resolve().parents[1] / (
+        ".github/workflows/bot-review.yml"
+    )
+    assert pr_merge_sa.OHNE_INHALTLICHES_URTEIL.search(
+        workflow.read_text(encoding="utf-8")
+    )
+
+
 def test_should_not_read_mandat_from_a_changes_requested_review(monkeypatch):
     import pr_merge_sa
 
