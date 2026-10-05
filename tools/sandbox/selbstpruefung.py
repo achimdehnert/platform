@@ -194,6 +194,10 @@ def pruefe_remotes(remotes: dict[str, list[str]], org: str) -> list[str]:
 #: Antworten einer Probe, die belegen, dass dem Token das Recht fehlt. Alles andere
 #: (auch 422 = Recht da, nur die Eingabe ungueltig) zaehlt als Recht — fail-closed.
 VERWEIGERT = (403, 404)
+#: Status, den probe_status() fuer eine vom Rate-Limit beantwortete Probe liefert.
+#: GitHub sagt dann 403 wie bei fehlendem Recht — ohne diese Trennung belegte ein
+#: erschoepftes Kontingent „Recht fehlt“, die Pruefung waere fail-open (#3724).
+RATENLIMIT = 429
 #: Ref auf einen Null-Commit: mit Schreibrecht 422 („Object does not exist“), ohne 403/404.
 SCHREIBPROBE = {"ref": "refs/heads/schreibprobe-nie-angelegt", "sha": "0" * 40}
 #: Repo ohne Namen: mit Anlegerecht 422 („name must not be blank“), ohne 403/404.
@@ -204,6 +208,21 @@ ACTIONSPROBE = {"enabled": "schalterprobe-kein-boolean"}
 
 def ausserhalb(voller_name: str, org: str) -> bool:
     return voller_name.split("/")[0].lower() != (org or "").lower()
+
+
+def ist_ratenlimit(status: int, kopf) -> bool:
+    """403/429 mit erschoepftem Kontingent oder Retry-After (sekundaeres Limit)."""
+    return status in (403, 429) and (
+        kopf.get("x-ratelimit-remaining") == "0" or kopf.get("retry-after") is not None
+    )
+
+
+def gebremst(proben: dict[str, int]) -> list[str]:
+    """Vom Rate-Limit beantwortete Proben belegen nichts — weder Recht noch Fehlen."""
+    namen = sorted(n for n, status in proben.items() if status == RATENLIMIT)
+    if not namen:
+        return []
+    return [f"Probe vom Rate-Limit beantwortet, kein Beleg: {', '.join(namen)}"]
 
 
 def pruefe_token_scope(proben: dict[str, int], org: str) -> list[str]:
@@ -217,16 +236,19 @@ def pruefe_token_scope(proben: dict[str, int], org: str) -> list[str]:
     fremd = sorted(
         n
         for n, status in proben.items()
-        if ausserhalb(n, org) and status not in VERWEIGERT
+        if ausserhalb(n, org) and status not in (*VERWEIGERT, RATENLIMIT)
     )
+    befunde = gebremst(proben)
     if not fremd:
-        return []
+        return befunde
     zeige = ", ".join(fremd[:5]) + (f" … (+{len(fremd) - 5})" if len(fremd) > 5 else "")
-    return [f"GH_TOKEN schreibt ausserhalb der Sandbox-Org: {zeige}"]
+    return [f"GH_TOKEN schreibt ausserhalb der Sandbox-Org: {zeige}", *befunde]
 
 
 def pruefe_repo_anlegen(status: int, org: str) -> list[str]:
     """Ersatz fuer die im Free-Plan fehlende Sperre oeffentlicher Repos (ADR-308 §4.3, §8.2)."""
+    if status == RATENLIMIT:
+        return gebremst({f"{org} (Repo anlegen)": status})
     if status in VERWEIGERT:
         return []
     return [f"GH_TOKEN kann in {org} Repos anlegen (HTTP {status})"]
@@ -240,10 +262,13 @@ def pruefe_actions_aendern(proben: dict[str, int], org: str) -> list[str]:
     """
     if not proben:
         return [f"Actions-Probe nicht moeglich: kein Repo in {org} sichtbar"]
-    offen = sorted(n for n, status in proben.items() if status not in VERWEIGERT)
+    offen = sorted(
+        n for n, status in proben.items() if status not in (*VERWEIGERT, RATENLIMIT)
+    )
+    befunde = gebremst(proben)
     if not offen:
-        return []
-    return [f"GH_TOKEN kann Actions-Einstellungen aendern: {', '.join(offen)}"]
+        return befunde
+    return [f"GH_TOKEN kann Actions-Einstellungen aendern: {', '.join(offen)}", *befunde]
 
 
 def pruefe_aufgeloeste_remotes(
@@ -310,6 +335,8 @@ def probe_status(token: str, pfad: str, daten: dict, methode: str = "POST") -> i
         with urllib.request.urlopen(req, timeout=30) as antwort:
             return antwort.status
     except urllib.error.HTTPError as fehler:
+        if ist_ratenlimit(fehler.code, fehler.headers):
+            return RATENLIMIT
         return fehler.code
 
 
