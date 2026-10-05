@@ -1,0 +1,10 @@
+{
+  "_doc": "Deckel auf die Startlast (V2, platform#3785, Owner-Wort 2026-10-05 'V0 -> V1 -> V2 go'). Bytes je Session-Skill, gemessen an der Quelle in .windsurf/workflows/. Ratsche: ein Wert darf nur sinken. Waechst ein Skill ueber seinen Deckel, gehoert der Zuwachs (Herleitung, Realfall, Messung) in docs/governance/session-skills-lehren/, nicht in den Skill. Geprueft von tools/tests/test_startlast_deckel.py.",
+  "_ziel_doc": "Ziel aus der Diaet vom 2026-09-02 (platform#2690): alle drei zusammen hoechstens 60000 Bytes. Am 2026-10-05 waren es 96818; jede Kuerzung senkt den Deckel im selben PR.",
+  "ziel_summe": 60000,
+  "skills": {
+    "session-start": 25927,
+    "session-ende": 32295,
+    "session-retro": 38596
+  }
+}

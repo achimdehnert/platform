@@ -28,6 +28,29 @@
 CWD="$(pwd)"
 [ -e "${CWD}/.git" ] || exit 0   # nur in Git-Repos (Datei ODER Verzeichnis, siehe oben)
 
+# Deckel auf die Startlast (V2, platform#3785). Am 2026-10-05 spiegelte dieser
+# Hook in platform 115 offene Faeden und rund 60 kuratierte Zeilen, 32 KB bei
+# jedem Start und nach jeder Kontext-Verdichtung. Das ist ein Rueckstand, keine
+# Prio, und als Liste nicht mehr salient. Gespiegelt werden deshalb die neuesten
+# Faeden und die ersten kuratierten Zeilen; der Rest bleibt vollstaendig im
+# gerenderten Stand und wird mit seiner Anzahl genannt, nie still weggelassen.
+# HANDOVER_PRIO_VOLL=1 hebt den Deckel auf.
+MAX_FAEDEN=15
+MAX_KURATIERT=10
+
+# deckeln ITEMS MAX HINWEIS — die ersten MAX Zeilen, dazu eine Zeile mit der Anzahl
+# der weggelassenen und wo sie stehen.
+deckeln() {
+    local n
+    n="$(printf '%s\n' "$1" | grep -c .)"
+    if [ "${HANDOVER_PRIO_VOLL:-0}" = "1" ] || [ "${n}" -le "$2" ]; then
+        printf '%s' "$1"
+        return
+    fi
+    printf '%s\n' "$1" | head -n "$2"
+    printf '  … %d weitere %s' "$((n - $2))" "$3"
+}
+
 REPO_NAME="$(basename "${CWD}")"
 HANDOVER="${CWD}/AGENT_HANDOVER.md"
 NEXT="${CWD}/NEXT.md"
@@ -142,6 +165,7 @@ if [ -f "${HANDOVER}" ]; then
         insec && /^([-*][ \t]|[0-9]+\.[ \t])/ { line=$0; sub(/^[ \t]+/, "", line); print "  " line }
     ' "${HANDOVER}" "${HANDOVER}")"
     [ -n "${ITEMS}" ] && SRC="AGENT_HANDOVER.md (kuratiert)"
+    ITEMS="$(deckeln "${ITEMS}" "${MAX_KURATIERT}" "kuratierte Zeilen in AGENT_HANDOVER.md")"
 fi
 
 # 1b) Offene Faeden aus den Sitzungs-Fragmenten (#1944 K6, KONZ-027 render-on-read).
@@ -182,6 +206,7 @@ if [ -f "${FRAG_TOOL}" ] && git -C "${CWD}" rev-parse --verify --quiet origin/ma
     FRAG_ITEMS="$(printf '%s\n' "${FRAG_ROH}" \
         | awk '/^## Offene Fäden aus Sitzungen/{insec=1; next} /^## /{insec=0} insec && /^- / && $0 != "- keine" {print "  " $0}')"
     if [ -n "${FRAG_ITEMS}" ]; then
+        FRAG_ITEMS="$(deckeln "${FRAG_ITEMS}" "${MAX_FAEDEN}" "offene Fäden (ältere Sitzungen): python3 tools/agent-handover/fragments.py render --ref origin/main")"
         ITEMS="${FRAG_ITEMS}${ITEMS:+
 ${ITEMS}}"
         SRC="docs/handover.d (Sitzungs-Fragmente)${SRC:+ + ${SRC}}"
