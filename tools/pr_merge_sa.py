@@ -77,10 +77,26 @@ def regeln(pfad=None) -> dict:
     return block
 
 
+# `_build-docker.yml` ist der gemeinsam genutzte Ablauf, der ein Image baut und in
+# die Registry schiebt — der Aufruf selbst nennt kein Marker-Wort, wirkt aber so.
 PROD_MARKER = re.compile(
-    r"\b(prod|production|publish|pypi|ghcr\.io|docker\s+push|migrate)\b", re.IGNORECASE
+    r"\b(prod|production|publish|pypi|ghcr\.io|docker\s+push|migrate|_build-docker\.yml)\b",
+    re.IGNORECASE,
 )
 DEPLOY_MARKER = re.compile(r"\b(deploy|ship|release|ssh)\b", re.IGNORECASE)
+# Was an einer Workflow-Datei NICHT wirkt und deshalb vor der Marker-Suche
+# entfaellt (Owner-Wort 2026-10-05, dev-hub#453): Kommentare, das Verzeichnis
+# `deploy/` als Pfadbestandteil und der Aufruf eines gemeinsam genutzten Ablaufs,
+# der nur prueft. Realfaelle: robo-lab galt als Deploy-Repo, weil ein Testlauf
+# Dateien unter `/deploy/…` auscheckt; 20 Paket-Repos galten als Publish-Repos,
+# weil ihr Testlauf `_ci-pypi.yml` heisst. Die Liste nennt nur Ablaeufe, deren
+# Inhalt gelesen wurde — ein Deploy-Ablauf gehoert nie hinein.
+REINE_PRUEF_WORKFLOWS = ("_ci-pypi.yml",)
+_KOMMENTAR = re.compile(r"(^|\s)#.*$", re.MULTILINE)
+_VERZEICHNIS_DEPLOY = re.compile(r"\bdeploy/", re.IGNORECASE)
+_PRUEF_AUFRUF = re.compile(
+    r"uses:\s*\S*/(?:%s)@\S+" % "|".join(re.escape(n) for n in REINE_PRUEF_WORKFLOWS)
+)
 # Markdown-tolerant: `Freigabe:`, `**Freigabe:**`, `**Freigabe**:` — der Vermerk aus
 # /prompt (Auftrag-Modus) kam fett, der Regex las nur plain (#2603, Realfall #2602).
 FREIGABE_VERMERK = re.compile(
@@ -102,7 +118,9 @@ DEPLOY_IM_VERMERK = re.compile(r"\bdeploy\b", re.IGNORECASE)
 # Datenmigration (Migrationsdatei im Diff) und Irreversibles (Publish-Workflow,
 # den der Merge anstoesst). Security-Config faengt der Governance-Pfad (M2),
 # die echte Wahlfrage ist kein Werkzeug-Kriterium, sondern Urteil des Agenten VOR dem Aufruf.
-PUBLISH_MARKER = re.compile(r"\b(publish|pypi|ghcr\.io|docker\s+push)\b", re.IGNORECASE)
+PUBLISH_MARKER = re.compile(
+    r"\b(publish|pypi|ghcr\.io|docker\s+push|_build-docker\.yml)\b", re.IGNORECASE
+)
 MIGRATION_PFAD = re.compile(r"(^|/)migrations/[^/]+\.py$")
 # Issue-Verweise im PR-Text: `#123` (PR-Repo) oder `owner/repo#123`. Der Auftrag
 # eines Cross-Repo-Programms liegt im Leit-Repo (Realfall dev-hub#357 mit
@@ -360,6 +378,13 @@ def workflow_texte(repo: str) -> list:
     return texte
 
 
+def wirksamer_text(text: str) -> str:
+    """Der Teil einer Workflow-Datei, der etwas tut — Grundlage der Marker-Suche."""
+    text = _KOMMENTAR.sub(r"\1", text)
+    text = _PRUEF_AUFRUF.sub("uses:", text)
+    return _VERZEICHNIS_DEPLOY.sub("", text)
+
+
 def wirkung_des_merges(repo: str, dateien: list, r: dict) -> str:
     """Trigger lesen, nicht Dateinamen raten. Unlesbar => Unklar."""
     if repo in r.get("sync_only_repos", []):
@@ -367,6 +392,7 @@ def wirkung_des_merges(repo: str, dateien: list, r: dict) -> str:
 
     stufe = "W0"
     for text in workflow_texte(repo):
+        text = wirksamer_text(text)
         kopf = text.split("jobs:", 1)[0]
         if "push:" not in kopf or not re.search(r"\bmain\b", kopf):
             continue
@@ -386,6 +412,7 @@ def pruef_pflicht_gruende(repo: str, dateien: list, r: dict) -> list:
         gruende.append("Datenmigration im Diff")
     if repo not in r.get("sync_only_repos", []):
         for text in workflow_texte(repo):
+            text = wirksamer_text(text)
             kopf = text.split("jobs:", 1)[0]
             if "push:" not in kopf or not re.search(r"\bmain\b", kopf):
                 continue

@@ -1087,6 +1087,78 @@ def test_should_find_migration_and_publish_as_pruef_pflicht(monkeypatch):
     assert pr_merge_sa.pruef_pflicht_gruende("owner/app", ["docs/x.md"], REGELN) == []
 
 
+_PUSH_MAIN = "on:\n  push:\n    branches: [main]\n  pull_request:\njobs:\n  t:\n"
+
+
+def _urteil(monkeypatch, *texte):
+    """Wirkung und Pruef-Pflicht eines Code-PR bei den gegebenen Workflow-Texten."""
+    import pr_merge_sa
+
+    monkeypatch.setattr(pr_merge_sa, "workflow_texte", lambda repo: list(texte))
+    return (
+        pr_merge_sa.wirkung_des_merges("owner/app", ["app/x.py"], REGELN),
+        pr_merge_sa.pruef_pflicht_gruende("owner/app", ["app/x.py"], REGELN),
+    )
+
+
+def test_should_not_treat_a_deploy_directory_in_a_test_run_as_deploy(monkeypatch):
+    """Realfall robo-lab: der Testlauf checkt Dateien unter `/deploy/…` aus."""
+    text = _PUSH_MAIN + (
+        "    run: git sparse-checkout set --no-cone /deploy/pre_train/g1/motion.pt\n"
+        "    run: shellcheck deploy/*.sh && ruff check deploy/ tests/\n"
+    )
+    assert _urteil(monkeypatch, text) == ("W0", [])
+
+
+def test_should_ignore_marker_words_in_comments(monkeypatch):
+    text = (
+        "# Der Deploy laeuft NICHT automatisch, Prod bleibt unberuehrt.\n"
+        + _PUSH_MAIN
+        + "    run: pytest  # vgl. publish-pypi.yml, ghcr.io\n"
+    )
+    assert _urteil(monkeypatch, text) == ("W0", [])
+
+
+def test_should_not_count_main_in_a_comment_as_trigger(monkeypatch):
+    """Realfall illustration-hub: `KEIN Trigger auf main` stand nur im Kommentar."""
+    text = (
+        "# KEIN Trigger auf `main`.\non:\n  push:\n    tags: ['v*']\n"
+        "jobs:\n  deploy:\n    name: Deploy production\n"
+    )
+    assert _urteil(monkeypatch, text) == ("W0", [])
+
+
+def test_should_not_treat_the_shared_package_test_run_as_publish(monkeypatch):
+    text = _PUSH_MAIN + (
+        "    uses: iilgmbh/shared-ci/.github/workflows/_ci-pypi.yml@v1.1.11\n"
+    )
+    assert _urteil(monkeypatch, text) == ("W0", [])
+
+
+def test_should_keep_deploy_and_publish_for_workflows_that_act(monkeypatch):
+    publish = ["Publish-Workflow auf main (irreversibel)"]
+    deploy = _PUSH_MAIN + "    name: Deploy\n    run: ./deploy.sh\n"
+    assert _urteil(monkeypatch, deploy) == ("W2", [])
+    prod = _PUSH_MAIN + "    run: docker build --target production .\n"
+    assert _urteil(monkeypatch, prod) == ("W3", [])
+    twine = _PUSH_MAIN + "    run: twine upload --repository pypi dist/*\n"
+    assert _urteil(monkeypatch, twine) == ("W3", publish)
+    eigener = _PUSH_MAIN + "    uses: ./.github/workflows/publish-pypi.yml\n"
+    assert _urteil(monkeypatch, eigener) == ("W3", publish)
+
+
+def test_should_treat_the_shared_image_build_as_publish(monkeypatch):
+    """Realfall: der Aufruf nennt kein Marker-Wort, schiebt aber ein Image."""
+    text = _PUSH_MAIN + (
+        "    uses: iilgmbh/shared-ci/.github/workflows/_build-docker.yml@v1.1.18\n"
+        "    with:\n      image_name: app-web   # -> ghcr.io/owner/app-web\n"
+    )
+    assert _urteil(monkeypatch, text) == (
+        "W3",
+        ["Publish-Workflow auf main (irreversibel)"],
+    )
+
+
 def test_should_read_the_auftrag_from_a_cross_repo_issue_reference(monkeypatch):
     """Realfall dev-hub#357: der Auftrag liegt in platform#3234, der PR in dev-hub."""
     import pr_merge_sa
