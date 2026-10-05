@@ -184,18 +184,22 @@ Die Replay-Suite enthält die historischen Vorfälle aus `regel-historie.md` und
 - Container mit `--cap-drop ALL`, `no-new-privileges`, Speicher-, CPU- und Prozessgrenzen; Repos als Kopie per `git clone --no-local`.
 - Budget-Wächter je Lauf.
 
-**Ausstehend (Phase 1b, Pflicht vor Phase 3):**
-- **Netzwerk-Egress**: heute offen (Standard-Netz des Containers). Erlaubt werden nur Modell-API und GitHub; die Selbstprüfung prüft das mit einer Gegenprobe.
-- **Secret-Scan**: `gitleaks` über die volle Git-Historie jedes Spiegels und jeder Kopie, vor dem Spiegeln und vor jeder Auffrischung, mit Positivkontrolle. Die Erstfassung nannte ihn als bestehend; in `tools/sandbox/` gibt es ihn nicht.
-- `settings.json`, Memory und Mail-/Kontodaten werden nicht kopiert.
-- GitHub Actions in `iilsandbox` aus (Org-Einstellung, vom Owner).
+**Phase 1b (umgesetzt 2026-10-05, #3695, #3702, #3707):**
+- **Netzwerk-Egress**: Jeder Lauf bekommt ein internes Docker-Netz ohne Gateway. Nach außen geht es nur über einen Allowlist-Proxy (`egress_proxy.py`) zu Modell-API und GitHub, Port 443. Das Protokoll liegt außerhalb des Laufs. Die Selbstprüfung macht die Gegenprobe: Direktverbindung, DNS und ein gesperrtes Ziel müssen scheitern, GitHub muss erreichbar sein. Belegt: `--nur-pruefen` ist grün. Im Standard-Netz ergibt dieselbe Prüfung 4 Funde und Exit 1.
+- **Secret-Scan**: `geheimnis_scan.py` lässt `gitleaks` mit erzwungenen Standardregeln über die volle Historie laufen. Eine eigene `.gitleaks.toml` des gescannten Repos wirkt nicht. Vorher läuft eine Positivkontrolle mit einem Kanarienrepo. Der Scan läuft vor jeder Kopie (`sandbox.sh`) und vor jedem Spiegeln oder Auffrischen (`spiegeln.sh`). Ausnahmen stehen nur mit Owner-Begründung je Fingerprint in `gitleaks-ausnahmen.txt`. Fingerprints hängen am Commit. Deshalb werden sie aus der Kopie mit nur dem Standard-Branch gewonnen, nicht aus einem Vollklon, der dieselbe Stelle an einem anderen Commit melden kann.
+- **Host-Kontext**: `settings.json`, `settings.local.json`, Memory, Policies, `~/shared` und Git- oder gh-Zugangsdaten werden nicht kopiert. Die Selbstprüfung bricht ab, wenn sie davon etwas im Container findet. Kein Pilot-Repo versioniert eine `.claude/settings.json`.
+- **Spiegel**: Die fünf Pilot-Repos liegen privat in `iilsandbox`, nur mit dem Standard-Branch. Actions sind je Repo aus. `spiegeln.sh` prüft beides vor jedem Push.
+- **Dependabot**: Versions-Updates laufen trotz Actions aus, weil die `dependabot.yml` des Originals mitkommt. `spiegeln.sh` schließt deren PRs und löscht die Branches nach jedem Auffrischen (Owner-Entscheid D1 a, 2026-10-05). Zwischen zwei Auffrischungen können solche PRs entstehen. Sie zählen nicht in B1–B4.
+- **Öffentliche Repos**: Im Free-Plan von `iilsandbox` lässt sich das Anlegen öffentlicher Repos nicht sperren. Die Option ist ausgegraut, und die API meldet `members_can_create_public_repositories=true`. Ersatz (Owner-Entscheid S2, 2026-10-05): Das Sandbox-Token ist fine-grained, nur auf die Spiegel beschränkt und ohne Administration-Recht. Es kann also keine Repos anlegen. Der Gegentest steht in §8.2.
+
+**Noch offen vor Phase 3:** Profil-Negativtests (§8.2) nach dem Setzen des Org-Profils durch den Owner.
 
 **Abweichungen der Sandbox von der Produktiv-Umgebung** (begrenzen, was ein Sandbox-Ergebnis belegt):
 
 | Bereich | Sandbox | Produktiv | Folge für den Nachweis |
 |---|---|---|---|
 | Permissions | keine Rückfragen | Auto-Mode mit Classifier | Freigabe-Verhalten nicht belegbar, nur über Replay |
-| Hooks | Host-Hooks laufen im Container nicht (Hypothese, in Phase 1b prüfen) | aktiv | Hook-Wirkung nur über Replay belegbar |
+| Hooks | Host-Hooks laufen im Container nicht (belegt 2026-10-05: keine Host-Einstellungen im Container, kein Pilot-Repo versioniert `.claude/settings.json`) | aktiv | Hook-Wirkung nur über Replay belegbar |
 | `settings.json`, Memory | nicht kopiert | vorhanden | Ergebnisse ohne Memory-Kontext |
 | GitHub Actions | aus | an | CI-Nachweis erst am Upstream-PR (B4) |
 | Netzwerk | Allowlist (ab Phase 1b) | offen | Integrationen außerhalb nicht prüfbar |
@@ -256,8 +260,8 @@ Den Rückweg verantwortet die Host-Session des Owners; ein eigener Dienst ist da
 | `platform` `tools/sandbox/` | 0 Sandbox-Kern | ✅ Abgeschlossen | 2026-10-04 | #3686: Selbstprüfung, Wächter, Lokal-Modus belegt |
 | `platform` | 1 Benchmark-Harness | 🟡 Teilweise | 2026-10-04 | #3691 gemergt; offen: B1 auf absolute Wochenwerte umstellen, Zeitstempel auf Merge-Sätzen in `pr_merge_sa.py`, Vorschlagsregister, Auftragskarte, Replay-Suite mit Nachbarfällen |
 | `platform` | 1a Rückschau | ⬜ Ausstehend | – | Journal-Auswertung ohne Sandbox: welche Abbrüche hätte eine vorab eingeholte oder pfadbezogene Freigabe vermieden (Vergleichsarm „bessere Vorbereitung“); `claim-before-cheapest-check` als erster Erkenntnisauftrag |
-| `platform` `tools/sandbox/` | 1b Abschottung nachrüsten | ⬜ Ausstehend | – | Egress-Allowlist, `gitleaks` über Historie, Profil-Negativtests, Hook-Verhalten im Container prüfen |
-| `iilsandbox` | 2 Spiegel der Pilot-Repos, Org-Token | ⬜ Ausstehend | – | erstes Repo und Token durch den Owner |
+| `platform` `tools/sandbox/` | 1b Abschottung nachrüsten | 🟡 Teilweise | 2026-10-05 | #3695, #3702, #3707: Egress-Allowlist und Secret-Scan je mit Gegenprobe, Host-Kontext, Hooks belegt (§4.3); offen: Profil-Negativtests (§8.2) |
+| `iilsandbox` | 2 Spiegel der Pilot-Repos, Org-Token | 🟡 Teilweise | 2026-10-05 | fünf Spiegel privat, Actions aus, nur Standard-Branch; offen: Sandbox-Token ohne Administration-Recht, Org-Profil durch den Owner |
 | Pilot-Repos | 3 Pilot, 2 Wochen | ⬜ Ausstehend | – | nur nach Checkliste §4.7 |
 | `platform` | 4 Entscheid: ausweiten, Rückfallposition oder stoppen | ⬜ Ausstehend | – | nach Ablauf aller B4-Fenster (§4.7) |
 
@@ -301,7 +305,7 @@ Den Rückweg verantwortet die Host-Session des Owners; ein eigener Dienst ist da
 ## 8. Confirmation
 
 1. **Selbstprüfung**: `tools/sandbox/selbstpruefung.py` läuft vor jedem Agenten-Start; ohne Exit 0 startet kein Lauf (Tests `tools/tests/test_sandbox_selbstpruefung.py`). Ab Phase 1b prüft sie Egress-Allowlist und Secret-Scan, je mit Gegenprobe.
-2. **Profil-Negativtests**: Tests gegen das Org-Profil mit Produktiv-Ziel, zu breitem Token, widersprüchlichen Zielangaben, umbenanntem oder transferiertem Repo und Zielwechsel zwischen Prüfung und Ausführung; alle müssen verweigern.
+2. **Profil-Negativtests**: Tests gegen das Org-Profil mit Produktiv-Ziel, zu breitem Token, widersprüchlichen Zielangaben, umbenanntem oder transferiertem Repo und Zielwechsel zwischen Prüfung und Ausführung; alle müssen verweigern. Dazu kommt ein Gegentest: Das Sandbox-Token darf in `iilsandbox` kein Repo anlegen (Ersatz für die im Free-Plan fehlende Sperre öffentlicher Repos, §4.3).
 3. **Replay-Gate**: Kein Schutzregel-Vorschlag wird als Issue vorgelegt, ohne dass die Replay-Suite alle Negativfälle mit erwarteter Sperrbedingung blockiert und alle Nachbarfälle durchlässt; das Ergebnis steht im Issue.
 4. **Übernahmebeleg**: Kein Upstream-PR aus der Sandbox ohne Übernahmebeleg (§4.6) im PR-Text; `benchmark.py` erzeugt ihn auf dem Host.
 5. **Schreibreichweite**: Auswertung und Replay-Suite laufen nur aus `platform/main` auf dem Host. `tools/sandbox/` steht heute **nicht** in `sa_m.governance_pfade`; die Aufnahme ist Pflicht vor Phase 3 (F4, §4.7) und wird vom Owner gesetzt.
@@ -403,6 +407,7 @@ Out-of-the-Box: OOTB-1 als Klasse Erkenntnisauftrag übernommen (deckungsgleich 
 | 2026-10-04 | Achim Dehnert | Initial: Status Proposed |
 | 2026-10-04 | Achim Dehnert | Überarbeitet nach zwei externen Review-Runden (§9.1, §9.2): B1 neu definiert, B5 geteilt, Auftragskarte und Übernahmebeleg, Rückweg, Pilot-Gates; Korrekturen zu B1-Quote, Secret-Scan und Governance-Pfaden |
 | 2026-10-04 | Achim Dehnert | Owner-Entscheide F1–F4 eingetragen (§9.3); Wochenstand an den Owner (§4.5) |
+| 2026-10-05 | Achim Dehnert | Phase 1b nachgetragen (§4.3): Egress, Secret-Scan, Host-Kontext, Spiegel; Hooks belegt; Owner-Entscheide S2 (enges Token statt Org-Sperre, Free-Plan) und D1 a (Dependabot-PRs beim Auffrischen schließen); Gegentest „kein Repo anlegen“ in §8.2 |
 
 ---
 
