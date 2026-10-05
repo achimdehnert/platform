@@ -208,3 +208,10 @@ def test_should_still_check_a_heredoc_that_feeds_a_shell():
     rumpf = f"cat {_DIR}/synthetic_token"
     assert _entscheidung(f"bash <<'EOF'\n{rumpf}\nEOF") == "deny"
     assert _entscheidung(f"cat <<'EOF' | sh\n{rumpf}\nEOF") == "deny"
+
+
+def test_should_still_check_a_note_with_unquoted_delimiter():
+    """Gegenprobe: ohne Quote expandiert die Shell den Rumpf, er bleibt Programmtext."""
+    rumpf = f"$(cat {_DIR}/synthetic_token)"
+    assert _entscheidung(f"cat > /tmp/notiz.md <<EOF\n{rumpf}\nEOF") == "deny"
+    assert _entscheidung(f"cat > /tmp/notiz.md <<'EOF'\n{rumpf}\nEOF") == "allow"

@@ -58,8 +58,8 @@
 # (2) EINGEBETTETE NOTIZ. Am 2026-09-24 blockte der Guard `cat > notiz <<'EOF'`,
 # weil im Notiztext der Pfad einer Token-Datei stand — der Text wurde als Argument
 # des Readers gelesen. Der Rumpf eines Heredocs wird jetzt vor der Pruefung
-# entfernt, aber NUR wenn `cat`/`tee` ihn erhaelt und die Zeile weder Pipe noch
-# Verkettung traegt. Ein Heredoc an eine Shell (`bash <<EOF`) oder in eine Pipe
+# entfernt, aber NUR wenn `cat`/`tee` ihn erhaelt, der Begrenzer gequotet ist und
+# die Zeile weder Pipe noch Verkettung traegt. Ein Heredoc an eine Shell (`bash <<EOF`) oder in eine Pipe
 # (`cat <<EOF | sh`) ist Programmtext und wird weiter geprueft.
 #
 # Doktrin: bei Parse-Zweifel (JSON/Quoting) ALLOW — Hook darf Arbeit nicht fälschlich
@@ -128,7 +128,9 @@ def ohne_notizen(text: str) -> str:
                 raus.append("; " + z)
             continue
         m = HEREDOC.search(z)
-        if m and NOTIZ_KOPF.match(z):
+        # Nur ein GEQUOTETER Begrenzer macht den Rumpf zu reinem Text. Ohne Quote
+        # expandiert die Shell den Rumpf (`$(...)`), er bleibt also Programmtext.
+        if m and m.group(1) and NOTIZ_KOPF.match(z):
             ende, programm = m.group(2), False
             raus.append(z)
         elif m and SHELL_WORT.search(z):
