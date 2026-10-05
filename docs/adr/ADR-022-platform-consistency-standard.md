@@ -347,7 +347,7 @@ jobs:
   build:
     needs: [ci]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    uses: achimdehnert/platform/.github/workflows/_build-docker.yml@v1
+    uses: iilgmbh/shared-ci/.github/workflows/_build-docker.yml@v1.1.22
     with:
       dockerfile: "docker/app/Dockerfile"
       scan_image: true
@@ -374,6 +374,11 @@ jobs:
 > (platform-Kopie retired via #1437, SSoT ist `iilgmbh/shared-ci`). Das Snippet bleibt als
 > Entscheidungsstand stehen; kopierfertig ist `docs/templates/ci.yml`
 > (dort `iilgmbh/shared-ci/.github/workflows/_ci-python.yml@v1.0.14`).
+>
+> ℹ️ **Kanon-Wechsel (nachgetragen 2026-10-05, #3779):** Kanon für `_build-docker.yml` ist seit
+> #3776 `iilgmbh/shared-ci` (#3775). Die platform-Kopie ist eingefroren; wer sie aufruft, bekommt
+> bei jedem Action-Bump einen Drift-Error. Der `build`-Job oben zeigt deshalb auf shared-ci, die
+> Inputs `dockerfile` und `scan_image` gibt es dort unverändert.
 
 ---
 

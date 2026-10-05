@@ -224,7 +224,7 @@ jobs:
     uses: achimdehnert/platform/.github/workflows/_ci-python.yml@v1
   build:
     needs: [ci]
-    uses: achimdehnert/platform/.github/workflows/_build-docker.yml@v1
+    uses: iilgmbh/shared-ci/.github/workflows/_build-docker.yml@v1.1.22
   deploy:
     needs: [build]
     uses: achimdehnert/platform/.github/workflows/_deploy-hetzner.yml@v1
@@ -232,8 +232,12 @@ jobs:
 
 > ℹ️ **Pfad-Hinweis (nachgetragen 2026-07-25, #1438):** Das Snippet zeigt den Stand von 2025.
 > `_ci-python.yml` liegt inzwischen unter `iilgmbh/shared-ci/.github/workflows/` (platform-Kopie
-> retired via #1437); `_build-docker.yml` und `_deploy-hetzner.yml` liegen weiterhin in platform.
+> retired via #1437); `_deploy-hetzner.yml` liegt weiterhin in platform.
 > Nicht als kopierfertige Vorlage verwenden — aktuelle Vorlage ist `docs/templates/ci.yml`.
+>
+> ℹ️ **Kanon-Wechsel (nachgetragen 2026-10-05, #3779):** Kanon für `_build-docker.yml` ist seit
+> #3776 `iilgmbh/shared-ci` (#3775). Die platform-Kopie ist eingefroren; wer sie aufruft, bekommt
+> bei jedem Action-Bump einen Drift-Error. Die `build`-Zeile oben zeigt deshalb auf shared-ci.
 
 ### 2.6 Secrets Inventory
 
