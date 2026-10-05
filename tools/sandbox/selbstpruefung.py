@@ -198,6 +198,8 @@ VERWEIGERT = (403, 404)
 SCHREIBPROBE = {"ref": "refs/heads/schreibprobe-nie-angelegt", "sha": "0" * 40}
 #: Repo ohne Namen: mit Anlegerecht 422 („name must not be blank“), ohne 403/404.
 ANLEGEPROBE = {"name": ""}
+#: Actions-Schalter mit Nicht-Boolean: mit Recht 422 (Schema), ohne 403/404 — aendert nie etwas.
+ACTIONSPROBE = {"enabled": "schalterprobe-kein-boolean"}
 
 
 def ausserhalb(voller_name: str, org: str) -> bool:
@@ -228,6 +230,20 @@ def pruefe_repo_anlegen(status: int, org: str) -> list[str]:
     if status in VERWEIGERT:
         return []
     return [f"GH_TOKEN kann in {org} Repos anlegen (HTTP {status})"]
+
+
+def pruefe_actions_aendern(proben: dict[str, int], org: str) -> list[str]:
+    """proben: {owner/repo in der Org: HTTP-Status der Actions-Probe} (ADR-308 §4.3, §8.2).
+
+    Actions aus ist die Grundlage des M0-Profils der Sandbox-Org — der Token darf
+    sie nicht einschalten koennen. Ohne Repo keine Probe, also kein Beleg: Befund.
+    """
+    if not proben:
+        return [f"Actions-Probe nicht moeglich: kein Repo in {org} sichtbar"]
+    offen = sorted(n for n, status in proben.items() if status not in VERWEIGERT)
+    if not offen:
+        return []
+    return [f"GH_TOKEN kann Actions-Einstellungen aendern: {', '.join(offen)}"]
 
 
 def pruefe_aufgeloeste_remotes(
@@ -279,11 +295,11 @@ def remotes_im_arbeitsbereich(wurzel: Path) -> dict[str, list[str]]:
     return ergebnis
 
 
-def probe_status(token: str, pfad: str, daten: dict) -> int:
-    """POST ohne Wirkung; liefert nur den HTTP-Status. Netzfehler gehen als OSError hoch."""
+def probe_status(token: str, pfad: str, daten: dict, methode: str = "POST") -> int:
+    """Anfrage ohne Wirkung; liefert nur den HTTP-Status. Netzfehler gehen als OSError hoch."""
     req = urllib.request.Request(
         f"{GITHUB_API}{pfad}",
-        method="POST",
+        method=methode,
         data=json.dumps(daten).encode(),
         headers={
             "Authorization": f"Bearer {token}",
@@ -330,11 +346,8 @@ def main() -> int:
             befunde.append("GH_TOKEN ohne SANDBOX_ORG")
         else:
             try:
-                fremde = [
-                    r["full_name"]
-                    for r in sichtbare_repos(token)
-                    if ausserhalb(r["full_name"], org)
-                ]
+                sichtbar = [r["full_name"] for r in sichtbare_repos(token)]
+                fremde = [n for n in sichtbar if ausserhalb(n, org)]
                 befunde += pruefe_token_scope(
                     {
                         n: probe_status(token, f"/repos/{n}/git/refs", SCHREIBPROBE)
@@ -344,6 +357,19 @@ def main() -> int:
                 )
                 befunde += pruefe_repo_anlegen(
                     probe_status(token, f"/orgs/{org}/repos", ANLEGEPROBE), org
+                )
+                befunde += pruefe_actions_aendern(
+                    {
+                        n: probe_status(
+                            token,
+                            f"/repos/{n}/actions/permissions",
+                            ACTIONSPROBE,
+                            "PUT",
+                        )
+                        for n in sichtbar
+                        if not ausserhalb(n, org)
+                    },
+                    org,
                 )
             except OSError as fehler:
                 befunde.append(f"Token-Scope nicht pruefbar: {fehler}")
