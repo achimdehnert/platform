@@ -441,6 +441,9 @@ def _ssot_state(monkeypatch, tag_inhalt: str, main_inhalt: str) -> dict:
 def test_should_use_shared_ci_as_canon_for_deploy_reusables():
     assert dc._kanon_repo("_deploy-unified.yml") == dc.SHARED_CI_REPO
     assert dc._kanon_repo("_deploy-hetzner.yml") == dc.SHARED_CI_REPO
+    # ADR-226 Amendment (2026-08-19) und #3775 (2026-10-05).
+    assert dc._kanon_repo("_ci-pypi.yml") == dc.SHARED_CI_REPO
+    assert dc._kanon_repo("_build-docker.yml") == dc.SHARED_CI_REPO
     # Nicht entschiedene Dateien behalten vorerst platform als Kanon.
     assert dc._kanon_repo("_ci-python.yml").endswith("/platform")
 

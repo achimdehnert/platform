@@ -1,6 +1,9 @@
 # ╔═══════════════════════════════════════════════════════════════════════════╗
 # ║  REUSABLE WORKFLOW: Docker Build & Push                                    ║
 # ║  Usage: uses: achimdehnert/platform/.github/workflows/_build-docker.yml@v1 ║
+# ║  DEPRECATED (Owner-Go 2026-10-05, #3775): Kanon ist                        ║
+# ║  iilgmbh/shared-ci/.github/workflows/_build-docker.yml — NICHT hier ändern.║
+# ║  Eingefroren; letzter Aufrufer bfagent ist archiviert (Stand 2026-10-05).  ║
 # ╚═══════════════════════════════════════════════════════════════════════════╝
 # ⚠️ CONSTRAINT: Reusable workflows (workflow_call) support permissions ONLY
 #    at workflow-level, NOT at job-level. Job-level permissions cause
