@@ -315,6 +315,7 @@ sa_m:
   governance_pfade: [".github/", "docs/adr/", "docs/governance/", "docs/konzepte/KONZ-platform-025-lotsen-charta.md", "policies/", "registry/", "packages/", "CODEOWNERS", "tools/pr_merge_sa.py"]
   sync_only_repos: ["achimdehnert/platform"]
   fail_closed: true
+  org_profile: {iilsandbox: {actions_aus: true}}   # ADR-308 §4.4: M0 je Wirkung, Actions je Lauf gemessen (2026-10-05, #3685)
 ```
 
 **Block ≠ Prosa, aufgelöst 2026-09-16 (Owner-Wort „Regel: solche Merges künftig
