@@ -92,6 +92,15 @@ GATE_HITS = os.environ.get(
 # einzelner Rueckfall auch der Lauf sein kann, in dem das Gate gebaut WURDE.
 RUECKFALL_SCHWELLE = 2
 
+# Ab so vielen VERWANDTEN Faellen nach dem Bau bekommt ein Gate ein eigenes Urteil
+# (platform#3754). Ohne Obergrenze entzoege der Marker `gates_verwandt` ein Gate
+# dauerhaft dem Urteil RUECKFAELLIG: jede Retro markiert, keine zaehlt. Haeufen sich
+# die Faelle neben dem Zuschnitt, ist der Zuschnitt der Befund.
+VERWANDT_SCHWELLE = 3
+URTEIL_ZUSCHNITT = "ZUSCHNITT-PRUEFEN"
+# Kuerzeste Begruendung, mit der eine Tabellenzeile den Marker tragen darf.
+VERWANDT_BEGRUENDUNG_MIN = 10
+
 _DATUM_AUS_NAME = re.compile(r"session-retro-(\d{4}-\d{2}-\d{2})-")
 _INLINE = re.compile(r"^recurring_findings\s*:\s*\[(.*?)\]", re.S | re.M)
 _BLOCK_START = re.compile(r"^recurring_findings\s*:\s*$")
@@ -123,14 +132,19 @@ _BLOCK_START_VERWANDT = re.compile(r"^gates_verwandt\s*:\s*$")
 _VERDIKT = re.compile(r"SURVIVES|REFUTED|WIDERLEGT")
 _PIPE = re.compile(r"(?<!\\)\|")
 _SLUG_TOKEN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)+")
-_ZEILE_GEFANGEN = re.compile(r"gates_caught|gates_verwandt")
+# `gates_verwandt` entlastet eine Zeile nur MIT Begruendung dahinter
+# (`gates_verwandt: Gate liest nur platform`), seit platform#3754. Der nackte Marker
+# ist eine Behauptung ohne Grund; die Zeile zaehlt dann wie eine unmarkierte.
+_ZEILE_GEFANGEN = re.compile(
+    r"gates_caught|gates_verwandt`?\s*:\s*[^|\s][^|]{%d,}" % (VERWANDT_BEGRUENDUNG_MIN - 1)
+)
 
 
 def _slugs_aus_tabelle(text: str) -> list[str]:
     """Slugs aus SURVIVES-Zeilen der Befund-Tabelle (letzte Spalte = Recurrence).
 
     Zeilen ohne Verdikt-Spalte, REFUTED-Zeilen und Zeilen mit `gates_caught`- oder
-    `gates_verwandt`-Marker
+    begruendetem `gates_verwandt`-Marker
     liefern nichts. Bewusst tolerant gegen Spaltenzahl und Verdikt-Schreibweisen
     (`SURVIVES (kommandobelegt)`, `**SURVIVES**`), weil 109 Retros 32 Varianten kennen.
     """
@@ -328,10 +342,15 @@ def bewerte(gates: list[dict], retros: list) -> list[dict]:
         # schlug vor, die Reihenfolge zu drehen — der reproduzierte Fehlfall verschwindet
         # aber bereits durch den Bau-Tag-Ausschluss oben, und das Drehen haette echte
         # Signale unterdrueckt. Bewusst nicht uebernommen.
+        verwandt_nachher = [d for d in verwandt if gebaut and d > gebaut]
         if not gebaut:
             urteil = "ohne-datum"
         elif len(nachher) >= RUECKFALL_SCHWELLE:
             urteil = "RUECKFAELLIG"
+        elif len(verwandt_nachher) >= VERWANDT_SCHWELLE:
+            # Steht wie RUECKFAELLIG vor der Fenster-Sperre: beobachtete Faelle sind
+            # Evidenz, egal wie kurz das Fenster ist.
+            urteil = URTEIL_ZUSCHNITT
         elif fenster < MIN_FENSTER:
             urteil = "zu-frueh"
         elif nachher:
@@ -357,7 +376,7 @@ def bewerte(gates: list[dict], retros: list) -> list[dict]:
                 "vorher_messbar": vorher_messbar,
                 "nachher": len(nachher),
                 "gefangen": len([d for d in gefangen if gebaut and d > gebaut]),
-                "verwandt": len([d for d in verwandt if gebaut and d > gebaut]),
+                "verwandt": len(verwandt_nachher),
                 "nur_tabelle": len(nur_tabelle_nachher),
                 "letzter_rueckfall": nachher[-1] if nachher else None,
                 "fenster_retros": fenster,
@@ -367,11 +386,12 @@ def bewerte(gates: list[dict], retros: list) -> list[dict]:
     # Rueckfaellige zuerst, danach nach Zahl der Rueckfaelle.
     rang = {
         "RUECKFAELLIG": 0,
-        "beobachten": 1,
-        "zu-frueh": 2,
-        "kein-vorher-fenster": 3,
-        "unerprobt": 4,
-        "wirksam": 5,
+        URTEIL_ZUSCHNITT: 1,
+        "beobachten": 2,
+        "zu-frueh": 3,
+        "kein-vorher-fenster": 4,
+        "unerprobt": 5,
+        "wirksam": 6,
     }
     ergebnis.sort(key=lambda e: (rang.get(e["urteil"], 9), -e["nachher"], e["slug"]))
     return ergebnis
@@ -696,6 +716,14 @@ def main() -> int:
             f"  ({len(verwandt_gesamt)} Gate(s) mit VERWANDTEN Faellen: {namen} — ausserhalb des "
             "Zuschnitts des Gates (`gates_verwandt`), kein Rueckfall; haeufen sie sich, ist der "
             "Zuschnitt die Frage, nicht das Gate.)"
+        )
+    zuschnitt = [e for e in bewertet if e["urteil"] == URTEIL_ZUSCHNITT]
+    if zuschnitt:
+        namen = ", ".join(e["slug"] for e in zuschnitt)
+        print(
+            f"→ {len(zuschnitt)} Gate(s) {URTEIL_ZUSCHNITT}: {namen} — mindestens "
+            f"{VERWANDT_SCHWELLE} verwandte Faelle nach dem Bau. Zuschnitt ausweiten oder "
+            "begruenden, warum die Faelle ausserhalb bleiben."
         )
     if zu_frueh:
         print(

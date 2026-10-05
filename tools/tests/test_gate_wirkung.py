@@ -584,11 +584,55 @@ def test_should_not_count_a_table_row_marked_gates_verwandt(tmp_path):
             f"2026-07-{tag}",
             f"z{i}",
             [],
+            "| 1 | Fall (gates_verwandt: anderes Repo, Gate liest nur platform) | k "
+            "| hoch | SURVIVES | b | `schludrige-behauptung` |\n",
+        )
+    e = _urteile(tmp_path, _GATE_VERWANDT)["schludrige-behauptung"]
+    assert e["nachher"] == 0
+
+
+def test_should_count_a_table_row_whose_verwandt_marker_has_no_reason(tmp_path):
+    """Gegenprobe (#3754): der nackte Marker entlastet die Zeile nicht."""
+    for i, tag in enumerate(["10", "11", "12"]):
+        _retro_mit_tabelle(
+            tmp_path,
+            f"2026-07-{tag}",
+            f"n{i}",
+            [],
             "| 1 | anderes Repo (gates_verwandt) | k | hoch | SURVIVES | b "
             "| `schludrige-behauptung` |\n",
         )
     e = _urteile(tmp_path, _GATE_VERWANDT)["schludrige-behauptung"]
-    assert e["nachher"] == 0
+    assert e["nachher"] == 3
+    assert e["urteil"] == "RUECKFAELLIG"
+
+
+def test_should_ask_for_the_scope_once_related_cases_pile_up(tmp_path):
+    """#3754: viele verwandte Faelle fuehren zu einem Urteil statt zu keinem."""
+    for i, tag in enumerate(["10", "11", "12"][: gw.VERWANDT_SCHWELLE]):
+        _retro_mit_listen(
+            tmp_path,
+            tag,
+            f"s{i}",
+            "recurring_findings: [schludrige-behauptung]\n"
+            "gates_verwandt: [schludrige-behauptung]\n",
+        )
+    e = _urteile(tmp_path, _GATE_VERWANDT)["schludrige-behauptung"]
+    assert e["urteil"] == gw.URTEIL_ZUSCHNITT
+
+
+def test_should_not_ask_for_the_scope_below_the_threshold(tmp_path):
+    """Gegenprobe: unter der Schwelle bleibt es beim bisherigen Urteil."""
+    for i, tag in enumerate(["10", "11"]):
+        _retro_mit_listen(
+            tmp_path,
+            tag,
+            f"t{i}",
+            "recurring_findings: [schludrige-behauptung]\n"
+            "gates_verwandt: [schludrige-behauptung]\n",
+        )
+    e = _urteile(tmp_path, _GATE_VERWANDT)["schludrige-behauptung"]
+    assert e["urteil"] != gw.URTEIL_ZUSCHNITT
 
 
 def test_should_let_an_unmarked_table_row_override_gates_verwandt(tmp_path):
