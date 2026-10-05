@@ -57,9 +57,9 @@ import yaml
 # abgleichen — ein Erzwingungspunkt, den die Buchhaltung nicht kannte.
 GATE_HEADER = {
     "slug": "melder-ohne-leser",
-    "mode": "advisory",
+    "mode": "blocking",
     "owner": "achim",
-    "last_drill_pass": "2026-09-07",
+    "last_drill_pass": "2026-10-05",
     "evidence": "tools/tests/test_melder_register_check.py",
 }
 
