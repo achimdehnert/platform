@@ -3,7 +3,7 @@
 #   "slug": "stale-local-clone-as-ground-truth"
 #   "mode": "advisory"
 #   "owner": "achim"
-#   "last_drill_pass": "2026-09-03"
+#   "last_drill_pass": "2026-10-05"
 #   "evidence": "tools/tests/test_foreign_clone_check.py"
 #
 # Claude Code PreToolUse(Bash) hook — Rueckstand eines FREMDEN Klons melden.
@@ -26,14 +26,28 @@
 set -uo pipefail
 
 GITHUB_DIR="${GITHUB_DIR:-$HOME/github}"
-# Der Merker haengt an der SITZUNG, nicht am Prozess: jeder Hook-Aufruf ist ein
-# eigener Prozess, mit $$ im Namen waere "einmal pro Sitzung" wirkungslos.
-MERKER="${TMPDIR:-/tmp}/claude-fremdklon-geprueft-${CLAUDE_SESSION_ID:-ohne}"
 
 # Die Eingabe kommt als JSON auf stdin; ohne jq reicht ein grober Auszug —
-# wir brauchen nur die Pfade, nicht die Struktur.
+# wir brauchen nur die Pfade und die Sitzungskennung, nicht die Struktur.
 eingabe="$(timeout 2 cat 2>/dev/null || true)"
 [ -n "$eingabe" ] || exit 0
+
+# Der Merker haengt an der SITZUNG, nicht am Prozess: jeder Hook-Aufruf ist ein
+# eigener Prozess, mit $$ im Namen waere "einmal pro Sitzung" wirkungslos.
+# Die Kennung steht im Ereignis-JSON (`session_id`). Bis 2026-10-05 las der Hook
+# nur CLAUDE_SESSION_ID — die setzt Claude Code im Hook-Prozess NICHT. Der
+# Merker hiess deshalb fuer jede Sitzung "-ohne", und "einmal pro Sitzung" wurde
+# "einmal ueberhaupt": frist-hub stand seit 2026-09-03 darin, schreib-hub seit
+# 2026-09-12, und am 2026-09-24 schwieg der Hook zu beiden, obwohl beide hinter
+# origin lagen (Retro 2026-09-24 meiki-hub 2a5c44, platform#3722 G7).
+# Ohne Kennung kein Merker: lieber bei jedem Zugriff pruefen als fuer immer
+# schweigen.
+sitzung="$(printf '%s' "$eingabe" \
+  | grep -oE '"session_id"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 \
+  | sed -E 's/.*:[[:space:]]*"([^"]*)"$/\1/' | tr -cd 'A-Za-z0-9._-')"
+[ -n "$sitzung" ] || sitzung="$(printf '%s' "${CLAUDE_SESSION_ID:-}" | tr -cd 'A-Za-z0-9._-')"
+MERKER=""
+[ -n "$sitzung" ] && MERKER="${TMPDIR:-/tmp}/claude-fremdklon-geprueft-${sitzung}"
 
 # Repo der laufenden Sitzung — es hat schon seinen eigenen Melder.
 eigenes=""
@@ -52,10 +66,18 @@ for repo in $kandidaten; do
   pfad="$GITHUB_DIR/$repo"
   [ -d "$pfad/.git" ] || continue
   # Je Repo nur einmal pro Sitzung
-  grep -qx "$repo" "$MERKER" 2>/dev/null && continue
-  echo "$repo" >> "$MERKER" 2>/dev/null || true
+  if [ -n "$MERKER" ]; then
+    grep -qx "$repo" "$MERKER" 2>/dev/null && continue
+    echo "$repo" >> "$MERKER" 2>/dev/null || true
+  fi
 
-  timeout 15 git -C "$pfad" fetch --quiet origin 2>/dev/null || continue
+  # Abruf gescheitert (kein Netz, kein Zugang): kein Urteil, aber auch keine
+  # Stille — ein Klon, dessen Stand niemand kennt, ist keine Quelle ohne Vorbehalt.
+  if ! timeout 15 git -C "$pfad" fetch --quiet origin 2>/dev/null; then
+    echo "ℹ FREMDER KLON UNGEPRUEFT: $repo — Abruf von origin fehlgeschlagen,"
+    echo "   Stand gegenueber origin unbekannt. Als QUELLE nur mit Vorbehalt lesen."
+    continue
+  fi
   ziel="origin/$(git -C "$pfad" branch --show-current 2>/dev/null)"
   git -C "$pfad" rev-parse --verify --quiet "$ziel" >/dev/null 2>&1 || ziel="origin/main"
   git -C "$pfad" rev-parse --verify --quiet "$ziel" >/dev/null 2>&1 || continue
