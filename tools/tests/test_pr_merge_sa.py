@@ -98,6 +98,58 @@ def test_should_accept_staging_deploy_after_approval():
     assert u.erlaubt is True
 
 
+DOKU_FREI = {**REGELN, "doku_ohne_mandat": True}
+
+
+def test_should_accept_doc_only_pr_in_deploy_repo_without_mandate():
+    """Owner-Wort 2026-10-05: reine Doku braucht kein Mandat, auch wenn der
+    Merge einen Deploy anstoesst."""
+    for wirkung in ("W1", "W2", "W3"):
+        u = classify(
+            _facts(wirkung=wirkung, mandat="M0", files=["docs/x.md", "README.md"]),
+            DOKU_FREI,
+        )
+        assert u.erlaubt is True, wirkung
+
+
+def test_should_keep_mandate_for_doc_only_pr_when_switch_is_off():
+    u = classify(_facts(wirkung="W2", mandat="M0", files=["docs/x.md"]), REGELN)
+    assert u.erlaubt is False
+    assert "M2" in u.grund
+
+
+def test_should_keep_mandate_when_one_file_is_not_doc():
+    u = classify(
+        _facts(
+            wirkung="W2", mandat="M0", files=["docs/x.md", "app/x.py"], checks_total=2
+        ),
+        DOKU_FREI,
+    )
+    assert u.erlaubt is False
+
+
+def test_should_keep_approval_for_governance_doc_despite_switch():
+    u = classify(
+        _facts(wirkung="W1", mandat="M0", files=["docs/adr/ADR-001.md"]), DOKU_FREI
+    )
+    assert u.erlaubt is False
+    assert "Governance-Pfad" in u.grund
+
+
+def test_should_keep_deploy_word_for_doc_pr_with_publish_workflow():
+    u = classify(
+        _facts(
+            wirkung="W3",
+            mandat="M0",
+            files=["README.md"],
+            pruef_pflicht=["Publish-Workflow"],
+        ),
+        DOKU_FREI,
+    )
+    assert u.erlaubt is False
+    assert "M3" in u.grund
+
+
 def test_should_accept_prod_when_approval_names_it():
     u = classify(
         _facts(wirkung="W3", mandat="M3", files=["app/x.py"], checks_total=2), REGELN

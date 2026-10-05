@@ -207,6 +207,13 @@ def classify(f: Facts, r: dict) -> Verdict:
         raise Unklar(f"Wirkung {f.wirkung} steht nicht in der Deckungstabelle")
     if f.wirkung == "W3" and f.pruef_pflicht:
         noetig = "M3"
+    # Reine Doku braucht kein Mandat (Owner-Wort 2026-10-05): der Deploy, den der
+    # Merge anstoesst, liefert unveraenderten Code aus. Die Pruef-Pflicht
+    # (Publish-Workflow) und die Governance-Pfade oben bleiben davon unberuehrt.
+    elif r.get("doku_ohne_mandat") and all(
+        ist_doku(p, r["doku_glob"]) for p in f.files
+    ):
+        noetig = "M0"
     if RANG[f.mandat] < RANG[noetig]:
         if noetig == "M3":
             anlass = f" ({'; '.join(f.pruef_pflicht)})" if f.pruef_pflicht else ""
