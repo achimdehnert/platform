@@ -15,3 +15,8 @@ ceb8be078b6b77f5ed5c1ff8243a5b586e3b2100:packages/creative-services/tests/prompt
 9e2125fc1b1bb1d528923ce0101e699fc1c922c4:grafana/provisioning/datasources/postgres.yml:generic-api-key:20
 9e2125fc1b1bb1d528923ce0101e699fc1c922c4:llm_mcp/.env:gcp-api-key:7
 9e2125fc1b1bb1d528923ce0101e699fc1c922c4:llm_mcp/.env:generic-api-key:8
+# mcp-hub — dieselben Fundstellen, wie sie der Scan der Standard-Branch-Kopie
+# meldet (aelterer Commit vom 2026-01-15 bzw. 2026-03-09); Owner-Begruendung wie oben
+77e37f6c6aa783f839d048b0488cef9145346943:grafana/provisioning/datasources/postgres.yml:generic-api-key:20
+856510986c5c2640ffd65d91b79380ad906e0b43:llm_mcp/.env:gcp-api-key:7
+856510986c5c2640ffd65d91b79380ad906e0b43:llm_mcp/.env:generic-api-key:8
