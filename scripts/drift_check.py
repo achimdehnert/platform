@@ -925,6 +925,84 @@ def nur_action_versionen_verschieden(
     )
 
 
+VERSIONEN_RUECKSTAND = "rueckstand"
+VERSIONEN_VORSPRUNG = "vorsprung"
+VERSIONEN_UNKLAR = "unklar"
+
+_VERSION_RE = re.compile(r"v?(\d+(?:\.\d+)*)")
+
+
+def _fremde_action_versionen(node: Any) -> list[tuple[str, str]]:
+    """(action, version) je `uses` einer fremden Action, in Baum-Reihenfolge."""
+    if isinstance(node, list):
+        return [p for v in node for p in _fremde_action_versionen(v)]
+    if not isinstance(node, dict):
+        return []
+    paare: list[tuple[str, str]] = []
+    for key in sorted(node, key=str):
+        value = node[key]
+        if (
+            key == "uses"
+            and isinstance(value, str)
+            and "@" in value
+            and not value.startswith((_SELF_REPO + "/", "./"))
+        ):
+            name, version = value.rsplit("@", 1)
+            paare.append((name, version))
+        else:
+            paare.extend(_fremde_action_versionen(value))
+    return paare
+
+
+def _versions_vergleich(tag_version: str, kanon_version: str) -> int | None:
+    """-1 Tag aelter, 1 Tag neuer, 0 gleich auf der gemeinsamen Stellenzahl.
+
+    None, wenn eine Seite keine Versionsnummer traegt (Branch, nackter SHA).
+    `v4` gegen `v4.37.9` gilt als gleich: der kurze Ref bewegt sich mit.
+    """
+    a = _VERSION_RE.fullmatch(tag_version)
+    b = _VERSION_RE.fullmatch(kanon_version)
+    if not a or not b:
+        return None
+    links = [int(x) for x in a.group(1).split(".")]
+    rechts = [int(x) for x in b.group(1).split(".")]
+    stellen = min(len(links), len(rechts))
+    links, rechts = links[:stellen], rechts[:stellen]
+    return (links > rechts) - (links < rechts)
+
+
+def action_versionen_richtung(
+    tagged: str, canonical: str, kanon_repo: str = _PLATFORM_REPO
+) -> str:
+    """Richtung eines reinen Versions-Unterschieds: liegt der Tag zurueck oder vorn?
+
+    Seit platform#3742 war jeder solche Unterschied eine Warnung, ohne Richtung.
+    Ein Tag mit AELTEREN Actions als der Kanon ist aber ein Rueckstand, den ein
+    neuer Tag behebt, und bleibt deshalb ein Error (platform#3756). Nur der
+    Vorsprung warnt. Eine einzige aeltere Action genuegt fuer "Rueckstand";
+    nicht vergleichbare Refs ergeben "unklar" und bleiben damit ebenfalls Error.
+    """
+    try:
+        tag_tree = yaml.safe_load(_normalisiere_pin_kommentare(tagged))
+        kanon_tree = yaml.safe_load(_normalisiere_pin_kommentare(canonical))
+    except yaml.YAMLError:
+        return VERSIONEN_UNKLAR
+    links = _fremde_action_versionen(_kanon_normalform(tag_tree, SHARED_CI_REPO))
+    rechts = _fremde_action_versionen(_kanon_normalform(kanon_tree, kanon_repo))
+    if len(links) != len(rechts):
+        return VERSIONEN_UNKLAR
+    urteile = [
+        _versions_vergleich(tv, kv)
+        for (tn, tv), (kn, kv) in zip(links, rechts)
+        if tn == kn and tv != kv
+    ]
+    if -1 in urteile:
+        return VERSIONEN_RUECKSTAND
+    if None in urteile or 1 not in urteile:
+        return VERSIONEN_UNKLAR
+    return VERSIONEN_VORSPRUNG
+
+
 def kanon_richtung(
     tagged: str, canonical: str, kanon_repo: str = _PLATFORM_REPO
 ) -> tuple[int, int]:
@@ -1017,6 +1095,7 @@ def _shared_ci_state(token: str) -> dict:
     stale_files: list[str] = []
     richtungen: dict[str, tuple[int, int]] = {}
     nur_versionen: list[str] = []
+    versions_richtung: dict[str, str] = {}
     if latest:
         listing = (
             _api_get(
@@ -1051,11 +1130,15 @@ def _shared_ci_state(token: str) -> dict:
                 richtungen[name] = kanon_richtung(tagged, canonical, kanon_repo)
                 if nur_action_versionen_verschieden(tagged, canonical, kanon_repo):
                     nur_versionen.append(name)
+                    versions_richtung[name] = action_versionen_richtung(
+                        tagged, canonical, kanon_repo
+                    )
     _SHARED_CI_STATE = {
         "latest_tag": latest,
         "stale_files": stale_files,
         "richtungen": richtungen,
         "nur_versionen": nur_versionen,
+        "versions_richtung": versions_richtung,
     }
     return _SHARED_CI_STATE
 
@@ -1135,13 +1218,19 @@ def check_shared_ci_tag_drift(
                 hinweis = "keine Seite ist Obermenge: zusammenfuehren, nicht portieren"
             # Unterschied nur in Versionen fremder Actions (platform#1745):
             # im Konsumenten gibt es nichts zu beheben → Warnung statt Error.
+            # Das gilt nur fuer den Vorsprung des Tags (platform#3756): liegt er
+            # zurueck oder ist die Richtung nicht messbar, bleibt es ein Error.
             nur_versionen = pinned_file in state.get("nur_versionen", [])
+            versionen = state.get("versions_richtung", {}).get(
+                pinned_file, VERSIONEN_UNKLAR
+            )
             if nur_versionen:
-                richtung += " — nur Action-Versionen verschieden"
+                richtung += " — nur Action-Versionen verschieden, Tag: " + versionen
+            nur_warnen = nur_versionen and versionen == VERSIONEN_VORSPRUNG
             drifts.append(
                 DriftItem(
                     rule="shared-ci-tag-stale",
-                    severity="warn" if nur_versionen else "error",
+                    severity="warn" if nur_warnen else "error",
                     file=f".github/workflows/{wf_file}",
                     message=(
                         f"shared-ci@{latest}/{pinned_file} ≠ {kanon_name} — "

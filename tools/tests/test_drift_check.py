@@ -480,7 +480,7 @@ def test_should_normalize_pin_comment_before_measuring_direction():
 # wurde. Positivkontrolle und Gegenproben stehen nebeneinander.
 
 
-def _stale_drifts(monkeypatch, nur_versionen: list[str]):
+def _stale_drifts(monkeypatch, nur_versionen: list[str], versionen: str | None = None):
     """Die Regel am Konsumenten, mit vorgegebenem Abgleich-Zustand."""
     pin = "    uses: iilgmbh/shared-ci/.github/workflows/_build.yml@v1.2.3\n"
     monkeypatch.setattr(dc, "_get_dir_files", lambda *a, **k: ["ci.yml"])
@@ -491,14 +491,49 @@ def _stale_drifts(monkeypatch, nur_versionen: list[str]):
         "richtungen": {"_build.yml": (1, 1)},
         "nur_versionen": nur_versionen,
     }
+    if versionen is not None:
+        state["versions_richtung"] = {"_build.yml": versionen}
     drifts = dc.check_shared_ci_tag_drift("a-hub", "t", state)
     return [d for d in drifts if d.rule == "shared-ci-tag-stale"]
 
 
 def test_should_warn_instead_of_error_when_only_action_versions_differ(monkeypatch):
-    (drift,) = _stale_drifts(monkeypatch, ["_build.yml"])
+    (drift,) = _stale_drifts(monkeypatch, ["_build.yml"], dc.VERSIONEN_VORSPRUNG)
     assert drift.severity == "warn"
     assert "nur Action-Versionen verschieden" in drift.message
+
+
+# platform#3756: die Herabstufung gilt nur fuer den Vorsprung des Tags.
+
+
+def test_should_keep_error_when_the_tag_lags_behind_in_action_versions(monkeypatch):
+    (drift,) = _stale_drifts(monkeypatch, ["_build.yml"], dc.VERSIONEN_RUECKSTAND)
+    assert drift.severity == "error"
+    assert dc.VERSIONEN_RUECKSTAND in drift.message
+
+
+def test_should_keep_error_when_the_version_direction_is_unknown(monkeypatch):
+    """Ein Zustand ohne gemessene Richtung wird nicht herabgestuft."""
+    (drift,) = _stale_drifts(monkeypatch, ["_build.yml"])
+    assert drift.severity == "error"
+
+
+def test_should_measure_a_lagging_tag_as_rueckstand():
+    tagged = _mini_workflow("actions/checkout@v4.37.6")
+    canonical = _mini_workflow(f"actions/checkout@{_SHA} # v4.37.9")
+    assert dc.action_versionen_richtung(tagged, canonical) == dc.VERSIONEN_RUECKSTAND
+
+
+def test_should_measure_a_leading_tag_as_vorsprung():
+    tagged = _mini_workflow("actions/checkout@v5")
+    canonical = _mini_workflow("actions/checkout@v4.37.9")
+    assert dc.action_versionen_richtung(tagged, canonical) == dc.VERSIONEN_VORSPRUNG
+
+
+def test_should_not_guess_a_direction_for_refs_without_version():
+    tagged = _mini_workflow("actions/checkout@main")
+    canonical = _mini_workflow("actions/checkout@v4.37.9")
+    assert dc.action_versionen_richtung(tagged, canonical) == dc.VERSIONEN_UNKLAR
 
 
 def test_should_keep_error_when_more_than_action_versions_differ(monkeypatch):
