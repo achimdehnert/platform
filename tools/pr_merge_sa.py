@@ -607,6 +607,14 @@ JOURNAL = pathlib.Path.home() / ".claude" / "pr-merge-sa.jsonl"
 #: dort gespiegelt und per Test gleichgehalten).
 ERGEBNIS_GEMERGT = "gemergt"
 ERGEBNIS_AUTO_MERGE = "auto_merge"
+#: Der PR war beim Aufruf schon gemergt: das Ziel ist erreicht, das ist kein
+#: Abbruch mangels Mandat (Rueckschau platform#3685, 49 von 353 Abbruechen).
+#: In benchmark.py gespiegelt wie die beiden oben.
+ERGEBNIS_BEREITS_GEMERGT = "bereits_gemergt"
+HINWEIS_WIEDERHOLUNG = (
+    "Unveraenderte Lage: der vorige Versuch auf diesen PR brach mit demselben "
+    "Grund ab. Erst die Ursache beheben, dann erneut aufrufen."
+)
 
 
 def journal(zeile: dict) -> None:
@@ -622,6 +630,32 @@ def journal(zeile: dict) -> None:
             f.write(json.dumps(zeile, ensure_ascii=False) + "\n")
     except OSError:
         pass  # ein blindes Journal darf keinen Merge verhindern
+
+
+def ist_wiederholung(repo: str, nummer: int, grund: str) -> bool:
+    """True, wenn der juengste echte Versuch auf diesen PR mit demselben Grund
+    abbrach. Trockenlaeufe und Owner-Wort-Zeilen des Hooks zaehlen nicht als
+    Versuch. Ein unlesbares Journal ergibt False — die Markierung ist Messung,
+    kein Gate."""
+    letzter = None
+    try:
+        with JOURNAL.open() as f:
+            for zeile in f:
+                try:
+                    satz = json.loads(zeile)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(satz, dict) or "owner_wort" in satz:
+                    continue
+                if satz.get("dry_run"):
+                    continue
+                if satz.get("repo") == repo and satz.get("pr") == nummer:
+                    letzter = satz
+    except OSError:
+        return False
+    return (
+        bool(letzter) and not letzter.get("erlaubt") and letzter.get("grund") == grund
+    )
 
 
 def main(argv=None) -> int:
@@ -659,9 +693,21 @@ def main(argv=None) -> int:
     # "ergebnis" das, was tatsaechlich geschah. Vorher stand eine von GitHub
     # abgelehnte Gegenprobe im Journal wie ein Merge (S9, #3724).
     code, ergebnis = 3, "abgebrochen"
+    wiederholung = (
+        not urteil.erlaubt
+        and not args.dry_run
+        and ist_wiederholung(repo, args.nummer, urteil.grund)
+    )
+    if wiederholung:
+        print(HINWEIS_WIEDERHOLUNG, file=sys.stderr)
     try:
         if not urteil.erlaubt:
-            code, ergebnis = 2, "nicht_gedeckt"
+            code = 2
+            ergebnis = (
+                ERGEBNIS_BEREITS_GEMERGT
+                if fakten.state == "MERGED"
+                else "nicht_gedeckt"
+            )
         elif args.dry_run:
             print("(dry-run — nicht gemergt)")
             code, ergebnis = 0, "dry_run"
@@ -679,6 +725,7 @@ def main(argv=None) -> int:
                 "dry_run": bool(args.dry_run),
                 "ergebnis": ergebnis,
                 "exit": code,
+                **({"wiederholung": True} if wiederholung else {}),
             }
         )
     return code

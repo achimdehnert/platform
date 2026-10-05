@@ -38,6 +38,8 @@ MERGE_JOURNAL = Path.home() / ".claude" / "pr-merge-sa.jsonl"
 #: (Gleichheit per Test); kein Import, damit die Auswertung ohne dessen
 #: Abhaengigkeiten laeuft.
 MERGE_ERGEBNISSE = frozenset({"gemergt", "auto_merge"})
+#: Spiegel von ERGEBNIS_BEREITS_GEMERGT: Ziel war schon erreicht, kein Abbruch.
+BEREITS_GEMERGT = "bereits_gemergt"
 LAEUFE = Path.home() / "sandbox-laeufe"
 EXIT_REPLAY_ROT = 3
 
@@ -80,14 +82,21 @@ def b1_owner_belastung(journal: Path) -> dict:
         if satz.get("erlaubt") and "ergebnis" in satz:
             if satz["ergebnis"] not in MERGE_ERGEBNISSE:
                 continue
+        if satz.get("ergebnis") == BEREITS_GEMERGT:
+            continue
         art = "merges" if satz.get("erlaubt") else "abbrueche"
-        (zaehler[woche] if woche else ohne_zeit)[art] += 1
+        ziel = zaehler[woche] if woche else ohne_zeit
+        ziel[art] += 1
+        # Derselbe Grund wie beim vorigen Versuch: Teilmenge der Abbrueche.
+        if satz.get("wiederholung"):
+            ziel["wiederholungen"] += 1
     wochen = {
         woche: {
             "owner_wort_ereignisse": zaehler[woche]["owner_wort_ereignisse"],
             "prs_mit_owner_wort": len(prs_mit_wort[woche]),
             "merges": zaehler[woche]["merges"],
             "abbrueche": zaehler[woche]["abbrueche"],
+            "wiederholungen": zaehler[woche]["wiederholungen"],
         }
         for woche in sorted(zaehler)
     }

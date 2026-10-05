@@ -665,6 +665,81 @@ def test_should_journal_once_even_when_merge_call_crashes(monkeypatch):
     assert zeilen[0]["ergebnis"] == "abgebrochen"
 
 
+def _journal_in_datei(monkeypatch, tmp_path, fakten):
+    """main() ohne Merge-Pfad gegen ein Journal in tmp_path; gibt dessen Zeilen zurueck."""
+    import pr_merge_sa
+
+    ziel = tmp_path / "journal.jsonl"
+    monkeypatch.setattr(pr_merge_sa, "JOURNAL", ziel)
+    monkeypatch.setattr(pr_merge_sa, "regeln", lambda *_a, **_k: REGELN)
+    monkeypatch.setattr(pr_merge_sa, "gather", lambda *_a, **_k: fakten)
+
+    def lauf(*argumente):
+        code = pr_merge_sa.main(["7", "owner/repo", *argumente])
+        return code, [json.loads(z) for z in ziel.read_text().splitlines()]
+
+    return lauf
+
+
+def test_should_journal_already_merged_pr_apart_from_missing_mandate(
+    monkeypatch, tmp_path
+):
+    """Rueckschau platform#3685: 49 von 353 „Abbruechen“ trafen einen PR, der
+    schon gemergt war — das Ziel war erreicht, kein Mandat fehlte."""
+    import pr_merge_sa
+
+    lauf = _journal_in_datei(monkeypatch, tmp_path, _facts(state="MERGED"))
+    code, zeilen = lauf()
+    assert code == 2
+    assert zeilen[0]["erlaubt"] is False
+    assert zeilen[0]["ergebnis"] == pr_merge_sa.ERGEBNIS_BEREITS_GEMERGT
+
+
+def test_should_mark_repeat_when_previous_attempt_had_same_reason(
+    monkeypatch, tmp_path, capsys
+):
+    """Rueckschau platform#3685: 72 Abbrueche trugen woertlich den Grund des
+    vorigen Versuchs auf denselben PR."""
+    import pr_merge_sa
+
+    lauf = _journal_in_datei(monkeypatch, tmp_path, _facts(wirkung="W1", mandat="M0"))
+    code, zeilen = lauf()
+    assert code == 2 and "wiederholung" not in zeilen[0]
+    assert pr_merge_sa.HINWEIS_WIEDERHOLUNG not in capsys.readouterr().err
+
+    code, zeilen = lauf()
+    assert code == 2 and zeilen[1]["wiederholung"] is True
+    assert zeilen[1]["ergebnis"] == "nicht_gedeckt"
+    assert pr_merge_sa.HINWEIS_WIEDERHOLUNG in capsys.readouterr().err
+
+
+def test_should_not_mark_repeat_for_dry_run_or_changed_reason(monkeypatch, tmp_path):
+    import pr_merge_sa
+
+    lauf = _journal_in_datei(monkeypatch, tmp_path, _facts(wirkung="W1", mandat="M0"))
+    lauf()
+    _, zeilen = lauf("--dry-run")
+    assert "wiederholung" not in zeilen[1]
+
+    # Ein Trockenlauf dazwischen unterbricht die Kette nicht: der juengste
+    # echte Versuch bleibt der Massstab.
+    _, zeilen = lauf()
+    assert zeilen[2]["wiederholung"] is True
+
+    monkeypatch.setattr(
+        pr_merge_sa, "gather", lambda *_a, **_k: _facts(wirkung="W3", mandat="M0")
+    )
+    _, zeilen = lauf()
+    assert "wiederholung" not in zeilen[3]
+
+
+def test_should_not_mark_repeat_when_journal_is_unreadable(monkeypatch, tmp_path):
+    import pr_merge_sa
+
+    monkeypatch.setattr(pr_merge_sa, "JOURNAL", tmp_path / "fehlt.jsonl")
+    assert pr_merge_sa.ist_wiederholung("owner/repo", 7, "egal") is False
+
+
 def test_should_not_block_merge_when_journal_is_unwritable(monkeypatch, tmp_path):
     """Ein blindes Journal darf keinen gedeckten Merge verhindern."""
     import pr_merge_sa
