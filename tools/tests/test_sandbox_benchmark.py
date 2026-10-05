@@ -67,6 +67,34 @@ def test_should_keep_rows_without_timestamp_separate_for_b1(tmp_path):
     }
 
 
+def test_should_count_only_executed_merges_for_b1(tmp_path):
+    """Realfall S9-Gegenprobe (#3724): erlaubt, aber von GitHub abgelehnt, ist kein Merge."""
+    erlaubt = {"ts": KW40, "repo": "o/a", "erlaubt": True, "dry_run": False}
+    journal = _journal(
+        tmp_path,
+        [
+            {**erlaubt, "pr": 1, "ergebnis": "gemergt", "exit": 0},
+            {**erlaubt, "pr": 2, "ergebnis": "auto_merge", "exit": 0},
+            {**erlaubt, "pr": 3, "ergebnis": "abgelehnt", "exit": 3},
+            {**erlaubt, "pr": 4, "ergebnis": "unklar", "exit": 3},
+            {**erlaubt, "pr": 5, "ergebnis": "abgebrochen", "exit": 3},
+            {**erlaubt, "pr": 6, "erlaubt": False, "ergebnis": "nicht_gedeckt"},
+        ],
+    )
+    woche = b.b1_owner_belastung(journal)["wochen"]["2026-W40"]
+    assert (woche["merges"], woche["abbrueche"]) == (2, 1)
+
+
+def test_should_name_merge_results_like_pr_merge_sa():
+    sys.path.insert(0, str(_SCRIPT.parents[1]))
+    import pr_merge_sa
+
+    assert b.MERGE_ERGEBNISSE == {
+        pr_merge_sa.ERGEBNIS_GEMERGT,
+        pr_merge_sa.ERGEBNIS_AUTO_MERGE,
+    }
+
+
 def _lauf(wurzel: Path, name: str, **status) -> None:
     ausgang = wurzel / name / "ausgang"
     ausgang.mkdir(parents=True)

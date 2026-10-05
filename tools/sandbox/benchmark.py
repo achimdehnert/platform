@@ -34,6 +34,10 @@ from pathlib import Path
 
 TOOLS = Path(__file__).resolve().parents[1]
 MERGE_JOURNAL = Path.home() / ".claude" / "pr-merge-sa.jsonl"
+#: Spiegel von ERGEBNIS_GEMERGT/ERGEBNIS_AUTO_MERGE in tools/pr_merge_sa.py
+#: (Gleichheit per Test); kein Import, damit die Auswertung ohne dessen
+#: Abhaengigkeiten laeuft.
+MERGE_ERGEBNISSE = frozenset({"gemergt", "auto_merge"})
 LAEUFE = Path.home() / "sandbox-laeufe"
 EXIT_REPLAY_ROT = 3
 
@@ -70,6 +74,12 @@ def b1_owner_belastung(journal: Path) -> dict:
             continue
         if satz.get("dry_run"):
             continue
+        # Zeilen vor #3724 J1 tragen kein "ergebnis": dort bleibt "erlaubt" der Merge.
+        # Erlaubt, aber nicht gemergt (von GitHub abgelehnt, UNKLAR kurz vor dem
+        # Merge) ist weder Merge noch Abbruch mangels Mandat.
+        if satz.get("erlaubt") and "ergebnis" in satz:
+            if satz["ergebnis"] not in MERGE_ERGEBNISSE:
+                continue
         art = "merges" if satz.get("erlaubt") else "abbrueche"
         (zaehler[woche] if woche else ohne_zeit)[art] += 1
     wochen = {
