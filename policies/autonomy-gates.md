@@ -299,6 +299,10 @@ oder Permissions bleiben selbstbetreffend und damit beim Owner — SA-M erlaubt 
   gleiche Mandatsschwelle. Der Diff entscheidet nicht über die Wirkung, der Trigger
   tut es. **Die Doku-Ausnahme gilt nur noch dort, wo der Workflow sie ausnimmt
   (`paths-ignore`) oder gar nicht existiert.**
+  **Aufgehoben durch Owner-Wort 2026-10-05 (dev-hub#453):** Ein PR, dessen Dateien
+  ausnahmslos auf `doku_glob` passen, braucht kein Mandat mehr, auch im Deploy-Repo —
+  der ausgelöste Deploy liefert unveränderten Code aus. Governance-Pfade verlangen
+  weiter ein Approval, ein Publish-Workflow weiter das Deploy-Wort.
 - SA-1 verlangte „CI-grün", ließ aber offen, was in einem Repo ganz ohne Checks
   gilt. Vorbedingung 1 entscheidet das jetzt ausdrücklich.
 
@@ -312,6 +316,7 @@ berührt.
 sa_m:
   deckung: {W0: M0, W1: M1, W2: M2, W3: M1}   # W3 = M1 + Prüffrage (2026-08-27); Block angeglichen 2026-09-16 (#3244)
   doku_glob: ["*.md", "docs/**", "README*", "CHANGELOG*"]
+  doku_ohne_mandat: true   # Owner-Wort 2026-10-05 (dev-hub#453, #3767): PR, dessen Dateien ALLE auf doku_glob passen, braucht kein Mandat; Governance-Pfade und Prüf-Pflicht bleiben
   governance_pfade: [".github/", "docs/adr/", "docs/governance/", "docs/konzepte/KONZ-platform-025-lotsen-charta.md", "policies/", "registry/", "packages/", "CODEOWNERS", "tools/pr_merge_sa.py", "tools/sandbox/"]   # tools/sandbox/: Selbstprüfung, Budget-Wächter, Spiegeln = Schutzregeln nach ADR-308 §151 (2026-10-05, #3724)
   sync_only_repos: ["achimdehnert/platform"]
   fail_closed: true
