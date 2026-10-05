@@ -334,6 +334,62 @@ def test_should_stay_silent_about_fragments_without_any_tool(tmp_path: Path) -> 
     out = _run_ohne_gh(repo, tmp_path)
     assert "Fragment-Faden" not in out
     assert "Preview-Tunnel starten" in out
+    # #3755: das Schweigen sah aus wie "keine offenen Faeden" — jetzt steht es da.
+    assert FRAGMENT_HINWEIS in out
+    assert "kein Fragment-Werkzeug gefunden" in out
+
+
+FRAGMENT_HINWEIS = "FRAGMENTE NICHT GELESEN"
+
+
+def _repo_nur_mit_fragment(tmp_path: Path) -> Path:
+    repo = _real_repo(tmp_path)
+    frag = "docs/handover.d/2026-09-16T08-00-00Z-fremd.md"
+    (repo / "docs" / "handover.d").mkdir(parents=True)
+    _advance_origin(repo, touch=frag, content=FRAGMENT)
+    return repo
+
+
+def test_should_not_hint_when_the_fallback_tool_answers(tmp_path: Path) -> None:
+    """Gegenprobe zu #3755: gelesene Fragmente erzeugen keinen Hinweis."""
+    repo = _repo_nur_mit_fragment(tmp_path)
+    out = _run_ohne_gh(repo, tmp_path, github_dir=_platform_klon(tmp_path))
+    assert "Fragment-Faden" in out
+    assert FRAGMENT_HINWEIS not in out
+
+
+def test_should_hint_when_the_fallback_tool_aborts(tmp_path: Path) -> None:
+    """#3755: ein Werkzeug, das abbricht, ist kein leerer Stand."""
+    repo = _repo_nur_mit_fragment(tmp_path)
+    github_dir = _platform_klon(tmp_path)
+    kaputt = github_dir / "platform" / "tools" / "agent-handover" / "fragments.py"
+    kaputt.write_text("import sys\nsys.exit(3)\n", encoding="utf-8")
+    out = _run_ohne_gh(repo, tmp_path, github_dir=github_dir)
+    assert "Fragment-Faden" not in out
+    assert FRAGMENT_HINWEIS in out
+    assert "Exit 3" in out
+
+
+def test_should_read_the_fallback_tool_from_origin_main_not_the_worktree(
+    tmp_path: Path,
+) -> None:
+    """#3755: der Arbeitsbaum des platform-Klons kann alt oder fremd sein."""
+    repo = _repo_nur_mit_fragment(tmp_path)
+    github_dir = _platform_klon(tmp_path)
+    klon = github_dir / "platform"
+    _git(klon, "init", "-q")
+    _git(klon, "config", "user.email", "t@example.org")
+    _git(klon, "config", "user.name", "T")
+    _git(klon, "add", "-A")
+    _git(klon, "commit", "-qm", "tool")
+    _git(klon, "update-ref", "refs/remotes/origin/main", _git(klon, "rev-parse", "HEAD"))
+    # Arbeitsbaum danach unbrauchbar machen: gelesen werden muss der Ref.
+    (klon / "tools" / "agent-handover" / "fragments.py").write_text(
+        "import sys\nsys.exit(3)\n", encoding="utf-8"
+    )
+    out = _run_ohne_gh(repo, tmp_path, github_dir=github_dir)
+    assert "Fragment-Faden" in out
+    assert FRAGMENT_HINWEIS not in out
 
 
 def test_should_keep_curated_source_when_no_fragments_exist(tmp_path: Path) -> None:
