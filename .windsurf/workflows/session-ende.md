@@ -47,6 +47,7 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_ende_checks.sh" "$TARGE
 | `E.8 worktree-hygiene` | ❌ verknüpfter Baum älter als 14 Tage (`SESSION_ENDE_WORKTREE_MAX_TAGE`); `prunable`-Einträge räumt der Runner selbst | kein Baum über der Grenze | entfernen (`repo-session.sh reap` / `git worktree remove`) oder Grund in `<gitdir>/behalten` |
 | `E.9 dist-drift` | verteilte Skills weichen von `.windsurf/workflows/` ab | Lanes synchron | `cc-skill-dist/generate.py` laufen lassen, Diff committen |
 | `E.10 session-abgleich` | ⚠️ `N Befund(e) dieser Sitzung: <refs>` (mit `--session-id` nur PRs der eigenen Branches; ohne: `kontoweit`) · ◌ Sitzung nicht zuordenbar | Exit 0 | je Ref Issue nachziehen oder Fehlalarm notieren (Zeile 25) |
+| `E.11 main-status` | ⚠️ `rot auf main: <repo>: <Workflow> (<Run-ID>)`, jüngster Push-Lauf von heute je Workflow · ◌ `nicht messbar` | kein Workflow zuletzt rot | **nicht auf ein rotes main mergen**; eigene Ursache: fixen oder `gh run rerun <id> --failed`; fremde oder bekannte Ursache: Issue-Link ins Board |
 
 **Läuft der Runner nicht** (Shell blockiert, keine Ausgabe nach 5 s): Session neu starten;
 bis dahin nur `Read`/`Write`/`Edit` + `mcp__github__*`, und **auf einem Branch, nie auf
@@ -469,6 +470,14 @@ Phase, also dort zuerst nachsehen, wenn die Zeile auffällig steigt. Herleitung 
 
 ## Changelog
 
+- 2026-10-05: **Runner-Phase E.11 main-status** (Retro 8a0235 R14). Anlass: main war nach einem
+  eigenen Merge 30 Minuten rot, eine fremde Sitzung mergte darauf, und ein zweiter Workflow blieb
+  stundenlang unbemerkt rot. E.11 meldet je berührtem Repo die Workflows, deren jüngster
+  Push-Lauf von heute auf main rot ist. Geplante Audit-Läufe zählen nicht, weil sie absichtlich
+  rot enden. Advisory, deshalb keine neue Checklisten-Zeile: Zeile 0 spiegelt jede WARN.
+  Zusätzlich fragen E.1 und E.11 jetzt unter dem Owner des berührten Repos ab. Bisher fragte E.1
+  ein Repo aus einer anderen Org unter dem falschen Owner ab und meldete „kein-Deploy“, obwohl
+  in Wahrheit ein Messfehler vorlag.
 - 2026-10-05: **Phase 3.4 Abschluss-Maßnahmen (PFLICHT) + Checklisten-Zeile 26** (Owner-Wort
   „dieses Vorgehen sollten wir etablieren", platform#3716). Anlass: Ein Abschluss, der die
   eigenen Prüfungen nacherzählte, ließ offen, was zu entscheiden war.
