@@ -6,6 +6,7 @@ liest die Identitaet daraus und grept die Dateien. Netz-Zaehler bleiben None.
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -155,7 +156,7 @@ def test_should_frist_nur_fuer_aktive_konzepte_melden(tmp_path):
 def test_should_pass_bei_zielwerten_und_rolle_nach_sichtbarkeit_unterscheiden():
     e = bewerte({}, kopien=["iilgmbh/shared-ci"], fristen=[], sichtbar="PUBLIC")
     assert e["status"] == "PASS"
-    assert "Flip-Freigabe nach 7 Tagen" in kurzzeile(e)
+    assert "Umzug-Freigabe nach 7 Tagen" in kurzzeile(e)
     e2 = bewerte({}, kopien=["iilgmbh/shared-ci"], fristen=[], sichtbar="PRIVATE")
     assert "kein Rueckfall" in kurzzeile(e2)
 
@@ -374,3 +375,259 @@ def test_should_bei_widerspruch_der_quellen_aufrufer_bevorzugen():
     netz = {"achimdehnert/m-hub": {"aufruf": [], "raw": [], "mit_token": [pfad]}}
     ges = sdm.vereinige(lokal, netz)
     assert ges["achimdehnert/m-hub"] == {"aufruf": [pfad], "raw": []}
+
+
+# ── Zielort iilgmbh/platform (Owner-Entscheid 2026-10-04, #3234) ─────────────
+
+
+def test_should_verweis_auf_zielort_als_aufrufer_zaehlen(tmp_path):
+    """Nach dem Umzug bricht `uses: iilgmbh/platform/…` beim Privat-Schalter genauso."""
+    _klon(
+        tmp_path,
+        "b-hub",
+        "achimdehnert/b-hub",
+        {
+            ".github/workflows/ci.yml": "uses: iilgmbh/platform/.github/workflows/_x.yml@v1\n",
+            "fetch.sh": "curl https://raw.githubusercontent.com/iilgmbh/platform/main/x\n",
+        },
+    )
+    treffer = scanne_lokal(tmp_path)
+    assert treffer["achimdehnert/b-hub"]["aufruf"] == [".github/workflows/ci.yml"]
+    assert treffer["achimdehnert/b-hub"]["raw"] == ["fetch.sh"]
+
+
+def test_should_platform_am_zielort_nicht_als_konsument_zaehlen(tmp_path):
+    _klon(
+        tmp_path,
+        "platform",
+        "iilgmbh/platform",
+        {".github/workflows/ci.yml": "uses: iilgmbh/platform/.github/actions/x@main\n"},
+    )
+    assert scanne_lokal(tmp_path) == {}
+
+
+def test_should_netzsuche_beide_orte_abfragen_und_beide_selbst_ausschliessen(
+    monkeypatch,
+):
+    gefragt = []
+
+    def fake_suche(abfrage):
+        gefragt.append(abfrage)
+        return [("iilgmbh/platform", "x.yml"), ("achimdehnert/platform", "y.yml")]
+
+    monkeypatch.setattr(sdm, "suche_code", fake_suche)
+    assert sdm.scanne_netz() == {}
+    assert any("iilgmbh/platform" in a for a in gefragt)
+    assert any("achimdehnert/platform" in a for a in gefragt)
+
+
+# ── Wache: Secret-Schutz und Actions-Kosten ──────────────────────────────────
+
+
+def test_should_plattform_lage_besitzer_nach_weiterleitung_und_schutzmaengel_lesen(
+    monkeypatch,
+):
+    antwort = (
+        '{"full_name": "iilgmbh/platform", "visibility": "private", "s": '
+        '{"secret_scanning": {"status": "enabled"}, '
+        '"secret_scanning_push_protection": {"status": "disabled"}}}'
+    )
+    monkeypatch.setattr(sdm, "_gh", lambda *a: antwort)
+    assert sdm.plattform_lage() == {
+        "besitzer": "iilgmbh/platform",
+        "sichtbarkeit": "PRIVATE",
+        "schutz_fehlt": ["secret_scanning_push_protection"],
+    }
+
+
+def test_should_plattform_lage_ohne_security_block_alles_als_fehlend_melden(
+    monkeypatch,
+):
+    """Privatkonto + privat: GitHub liefert den Block gar nicht — das ist der Befund."""
+    antwort = '{"full_name": "achimdehnert/platform", "visibility": "private", "s": {}}'
+    monkeypatch.setattr(sdm, "_gh", lambda *a: antwort)
+    assert sdm.plattform_lage()["schutz_fehlt"] == list(sdm.SCHUTZ_MERKMALE)
+
+
+def test_should_kosten_je_besitzer_ueber_konto_oder_org_pfad_lesen(monkeypatch):
+    pfade = []
+
+    def fake_gh(*a):
+        pfade.append(a[1])
+        return '[{"grossAmount": 1.5, "netAmount": 0}, {"grossAmount": 2.25, "netAmount": 0.5}]'
+
+    monkeypatch.setattr(sdm, "_gh", fake_gh)
+    heute = date(2026, 10, 5)
+    assert sdm.actions_kosten("achimdehnert/platform", heute) == {
+        "brutto": 3.75,
+        "netto": 0.5,
+    }
+    sdm.actions_kosten("iilgmbh/platform", heute)
+    assert pfade[0].startswith("users/achimdehnert/settings/billing/usage?")
+    assert pfade[1].startswith("organizations/iilgmbh/settings/billing/usage?")
+    assert "year=2026&month=10" in pfade[1]
+
+
+def test_should_kosten_ohne_billing_scope_als_nicht_messbar_melden(monkeypatch):
+    monkeypatch.setattr(sdm, "_gh", lambda *a: None)
+    assert sdm.actions_kosten("iilgmbh/platform", date(2026, 10, 5)) is None
+
+
+def _lage(sicht="PUBLIC", fehlt=()):
+    return {"besitzer": "iilgmbh/platform", "sichtbarkeit": sicht, "schutz_fehlt": list(fehlt)}
+
+
+def test_should_wache_bei_fehlendem_schutz_oder_bezahlten_minuten_alarmieren():
+    w = sdm.wache(_lage("PRIVATE", ["secret_scanning"]), {"brutto": 9.0, "netto": 1.0})
+    assert w["alarm"] == ["schutz", "kosten"]
+    e = bewerte({}, ["iilgmbh/shared-ci"], [], "PRIVATE", w)
+    assert e["status"] == "WARN"
+    assert "Wache: schutz, kosten" in kurzzeile(e)
+
+
+def test_should_brutto_kosten_bei_oeffentlichem_repo_nicht_alarmieren():
+    """Vor dem Umzug ist brutto > 0 normal — oeffentliche Repos zahlen netto 0."""
+    w = sdm.wache(_lage(), {"brutto": 190.0, "netto": 0.0})
+    assert w["alarm"] == [] and w["luecke"] == []
+    assert bewerte({}, ["iilgmbh/shared-ci"], [], "PUBLIC", w)["status"] == "PASS"
+
+
+def test_should_unmessbare_kosten_erst_nach_privat_schalter_unklar_machen():
+    assert sdm.wache(_lage("PUBLIC"), None)["luecke"] == []
+    w = sdm.wache(_lage("PRIVATE"), None)
+    assert w["luecke"] == ["kosten"]
+    e = bewerte({}, ["iilgmbh/shared-ci"], [], "PRIVATE", w)
+    assert e["status"] == "UNKLAR"
+    assert "nicht messbar (kosten)" in kurzzeile(e)
+
+
+# ── Messreihe, Prognose, K5 ──────────────────────────────────────────────────
+
+
+def _e(datum, rest_, status=None, repos=()):
+    return {
+        "datum": datum,
+        "status": status or ("PASS" if rest_ == 0 else "WARN"),
+        "rest": rest_,
+        "repos": list(repos),
+    }
+
+
+def test_should_messreihe_einen_eintrag_je_tag_halten_letzter_lauf_gewinnt(tmp_path):
+    pfad = tmp_path / "state" / "reihe.jsonl"
+    reihe = sdm.schreibe_reihe(pfad, [], _e("2026-10-04", 9))
+    reihe = sdm.schreibe_reihe(pfad, reihe, _e("2026-10-05", 8))
+    reihe = sdm.schreibe_reihe(pfad, reihe, _e("2026-10-05", 7))
+    geladen = sdm.lade_reihe(pfad)
+    assert [(e["datum"], e["rest"]) for e in geladen] == [
+        ("2026-10-04", 9),
+        ("2026-10-05", 7),
+    ]
+
+
+def test_should_kaputte_zeile_ueberspringen_statt_reihe_verlieren(tmp_path):
+    pfad = tmp_path / "reihe.jsonl"
+    pfad.write_text('{"datum": "2026-10-01", "rest": 3}\n{kaputt\n')
+    assert len(sdm.lade_reihe(pfad)) == 1
+
+
+def test_should_null_datum_aus_abbau_trend_prognostizieren():
+    reihe = [_e("2026-10-01", 8), _e("2026-10-03", 6), _e("2026-10-05", 4)]
+    p = sdm.prognose(reihe, date(2026, 10, 5))
+    assert p["steigung_pro_tag"] == -1.0
+    assert p["null_am"] == "2026-10-09"
+
+
+def test_should_ohne_abbau_kein_null_datum_nennen():
+    reihe = [_e("2026-10-01", 4), _e("2026-10-05", 5)]
+    p = sdm.prognose(reihe, date(2026, 10, 5))
+    assert p["null_am"] is None and p["steigung_pro_tag"] > 0
+    e = bewerte({"x/y": {"aufruf": ["a"], "raw": []}}, ["iilgmbh/shared-ci"], [], "PUBLIC")
+    e["prognose"] = p
+    assert "kein Abbau-Trend" in kurzzeile(e)
+
+
+def test_should_alte_messungen_ausserhalb_des_fensters_ignorieren():
+    reihe = [_e("2026-07-01", 50), _e("2026-10-01", 4), _e("2026-10-05", 4)]
+    p = sdm.prognose(reihe, date(2026, 10, 5))
+    assert p["steigung_pro_tag"] == 0.0 and p["null_am"] is None
+
+
+def test_should_k5_erst_bei_pass_serie_ueber_sieben_kalendertage_melden():
+    sechs = [_e(f"2026-10-0{t}", 0) for t in range(1, 7)]
+    assert sdm.prognose(sechs, date(2026, 10, 6))["k5"] is False
+    sieben = sechs + [_e("2026-10-07", 0)]
+    p = sdm.prognose(sieben, date(2026, 10, 7))
+    assert p["k5"] is True and p["pass_serie_tage"] == 7
+
+
+def test_should_luecke_ohne_messung_serie_nicht_brechen_warn_aber_schon():
+    mit_luecke = [_e("2026-10-01", 0), _e("2026-10-07", 0)]
+    assert sdm.prognose(mit_luecke, date(2026, 10, 7))["k5"] is True
+    mit_warn = [_e("2026-10-01", 0), _e("2026-10-04", 1), _e("2026-10-07", 0)]
+    assert sdm.prognose(mit_warn, date(2026, 10, 7))["pass_serie_tage"] == 1
+
+
+def test_should_neue_repos_als_rueckfall_melden():
+    reihe = [_e("2026-10-04", 1, repos=["a/x"]), _e("2026-10-05", 1, repos=["a/x", "b/neu"])]
+    assert sdm.prognose(reihe, date(2026, 10, 5))["rueckfall"] == ["b/neu"]
+
+
+def test_should_offline_lauf_nicht_in_messreihe_schreiben(tmp_path):
+    klone = tmp_path / "github"
+    _klon(
+        klone,
+        "a-hub",
+        "iilgmbh/a-hub",
+        {"deploy.sh": "git clone https://github.com/achimdehnert/platform.git\n"},
+    )
+    reihe = tmp_path / "reihe.jsonl"
+    reihe.write_text(json.dumps(_e("2026-10-05", 3)) + "\n")
+    main(
+        [
+            "--kurz",
+            "--offline",
+            "--github-dir",
+            str(klone),
+            "--konzepte-dir",
+            str(tmp_path),
+            "--heute",
+            "2026-10-05",
+            "--messreihe",
+            str(reihe),
+        ]
+    )
+    assert sdm.lade_reihe(reihe)[0]["rest"] == 3
+
+
+# ── Naechster Zug und oeffentliche Fassung ───────────────────────────────────
+
+
+def test_should_fuer_jeden_zaehler_und_jeden_alarm_einen_naechsten_zug_kennen():
+    """Invariante statt Stichprobe: ein neuer Zaehler ohne Zug-Text war der Live-Fehler
+    vom 2026-10-05 (KeyError 'laufzeit')."""
+    assert set(sdm.ZIEL) | {"schutz", "kosten"} <= set(sdm.ZUG)
+
+
+def test_should_bei_k5_den_umzug_als_naechsten_zug_nennen():
+    e = bewerte({}, ["iilgmbh/shared-ci"], [], "PUBLIC", sdm.wache(_lage(), None))
+    e["prognose"] = {"k5": False, "pass_serie_tage": 3}
+    assert sdm.naechster_zug(e) == ["PASS-Serie 3/7 Tage abwarten (K5)"]
+    e["prognose"] = {"k5": True, "pass_serie_tage": 7}
+    assert "Owner uebertraegt platform nach iilgmbh/platform" in sdm.naechster_zug(e)[0]
+
+
+def test_should_oeffentliche_fassung_keine_repo_namen_und_betraege_enthalten():
+    """Kontrollprobe D5: volle Fassung nennt Kunden-Repo und Betrag, oeffentliche nicht."""
+    konsumenten = {
+        "kunde-org/geheim-hub": {"aufruf": [], "raw": ["apps/core/x.py"]},
+    }
+    w = sdm.wache(_lage(), {"brutto": 123.45, "netto": 0.0})
+    e = bewerte(konsumenten, ["iilgmbh/shared-ci"], [], "PUBLIC", w)
+    e["prognose"] = sdm.prognose(
+        [_e("2026-10-05", 1, repos=["kunde-org/geheim-hub"])], date(2026, 10, 5)
+    )
+    voll = json.dumps(e) + kurzzeile(e)
+    assert "geheim-hub" in voll and "123.45" in voll
+    oeff = json.dumps(sdm.oeffentlich(e)) + kurzzeile(e, oeffentlich_=True)
+    assert "geheim-hub" not in oeff and "kunde-org" not in oeff and "123.45" not in oeff
