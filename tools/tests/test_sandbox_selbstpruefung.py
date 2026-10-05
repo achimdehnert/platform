@@ -96,6 +96,37 @@ def test_should_probe_actions_with_a_value_github_cannot_apply():
     assert not isinstance(sp.ACTIONSPROBE["enabled"], bool)
 
 
+def test_should_not_count_rate_limited_probe_as_missing_right():
+    rl = sp.RATENLIMIT
+    assert "Rate-Limit" in sp.pruefe_token_scope({"achimdehnert/platform": rl}, ORG)[0]
+    assert "Rate-Limit" in sp.pruefe_repo_anlegen(rl, ORG)[0]
+    befund = sp.pruefe_actions_aendern({f"{ORG}/a": 403, f"{ORG}/b": rl}, ORG)
+    assert len(befund) == 1 and f"{ORG}/b" in befund[0] and "Rate-Limit" in befund[0]
+
+
+def test_should_recognize_rate_limit_only_by_its_headers():
+    assert sp.ist_ratenlimit(403, {"x-ratelimit-remaining": "0"}) is True
+    assert sp.ist_ratenlimit(429, {"retry-after": "60"}) is True
+    assert sp.ist_ratenlimit(403, {"x-ratelimit-remaining": "4999"}) is False
+    assert sp.ist_ratenlimit(404, {"x-ratelimit-remaining": "0"}) is False
+
+
+def test_should_map_rate_limited_http_error_to_ratenlimit(monkeypatch):
+    import email.message
+    import urllib.error
+
+    kopf = email.message.Message()
+    kopf["X-RateLimit-Remaining"] = "0"
+
+    def antwort(*_a, **_k):
+        raise urllib.error.HTTPError("u", 403, "rate limit exceeded", kopf, None)
+
+    monkeypatch.setattr(sp.urllib.request, "urlopen", antwort)
+    assert sp.probe_status("t", "/x", {}) == sp.RATENLIMIT
+    kopf.replace_header("X-RateLimit-Remaining", "12")
+    assert sp.probe_status("t", "/x", {}) == 403
+
+
 def test_should_read_remotes_from_real_git_repos(tmp_path):
     for name, url in (
         ("lokal", None),
