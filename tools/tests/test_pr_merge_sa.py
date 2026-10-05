@@ -333,6 +333,50 @@ def test_should_refuse_profile_when_actions_run_in_sandbox():
         _profil(an=True)
 
 
+# --- Profil-Negativtests ADR-308 §8.2 (Rest steht oben und in selbstpruefung) ----
+
+
+@pytest.mark.parametrize(
+    "repo", ["achimdehnert/platform", "iilgmbh/risk-hub", "iilsandbox-fake/dev-hub"]
+)
+def test_should_apply_production_rules_to_production_targets(repo):
+    profil, repo_id = regeln_fuer(
+        repo, SANDBOX, aufloesen=pytest.fail, actions=pytest.fail
+    )
+    assert profil is SANDBOX and repo_id is None
+    u = classify(_facts(repo=repo, mandat="M0", files=["apps/x.py"]), profil)
+    assert u.erlaubt is False
+
+
+@pytest.mark.parametrize(
+    "org_profile",
+    [
+        {"iilsandbox": {"actions_aus": True}, "IILSandbox": {"actions_aus": True}},
+        {"iilsandbox": {"actions_aus": True, "deckung": {"W3": "M0"}}},
+        {"iilsandbox": {"action_aus": True}},
+        {"iilsandbox": {"actions_aus": False}},
+        {"iilsandbox": {}},
+        {"iilsandbox": True},
+        ["iilsandbox"],
+    ],
+)
+def test_should_refuse_contradictory_or_unknown_profile(org_profile):
+    r = {**REGELN, "org_profile": org_profile}
+    for repo in ("iilsandbox/dev-hub", "achimdehnert/platform"):
+        with pytest.raises(Unklar, match="org_profile"):
+            regeln_fuer(repo, r, aufloesen=pytest.fail, actions=pytest.fail)
+
+
+def test_should_accept_the_ratified_profile_from_the_policy():
+    profil, repo_id = regeln_fuer(
+        "iilsandbox/dev-hub",
+        regeln(),
+        aufloesen=lambda x: (x, 1),
+        actions=lambda x: False,
+    )
+    assert profil["actions_aus"] is True and repo_id == 1
+
+
 def test_should_not_merge_when_repo_target_changed_after_check(monkeypatch, capsys):
     import pr_merge_sa
 
