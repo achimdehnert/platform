@@ -31,12 +31,14 @@ _HEUTE = subprocess.run(
     ["date", "+%Y-%m-%d"], capture_output=True, text=True, check=True
 ).stdout.strip()
 
-# Der Stub antwortet auf genau die drei Aufrufformen, die der Runner kennt.
-# `run list` liefert einen erfolgreichen Deploy, `pr list` liefert nichts —
-# damit haengt kein Test an echten GitHub-Daten oder an Netz.
+# Der Stub antwortet auf die Aufrufformen, die der Runner kennt.
+# `run list --workflow Deploy` liefert einen erfolgreichen Deploy, `run list
+# --branch main` (E.11) keinen roten Workflow, `pr list` nichts — damit haengt
+# kein Test an echten GitHub-Daten oder an Netz.
 _GH_STUB = """#!/usr/bin/env bash
 args="$*"
 case "$args" in
+  *"--branch main"*)  : ;;
   *"run list"*)  echo "success completed 12345" ;;
   *"pr list"*)   : ;;
   *)             : ;;
@@ -158,11 +160,69 @@ def test_should_be_executable():
     assert os.access(_SKRIPT, os.X_OK), "Runner muss ohne `bash` davor startbar sein"
 
 
-def test_should_report_every_phase_from_e0_to_e9(umgebung):
+def test_should_report_every_phase_from_e0_to_e11(umgebung):
     ergebnis = _lauf(umgebung)
     phasen = _summary_zeilen(ergebnis.stdout)
-    fehlend = [f"E.{i}" for i in range(10) if f"E.{i}" not in phasen]
+    fehlend = [f"E.{i}" for i in range(12) if f"E.{i}" not in phasen]
     assert not fehlend, f"Phasen fehlen in der Summary: {fehlend}\n{ergebnis.stdout}"
+
+
+def _gh_main(umgebung: dict, antwort: str) -> None:
+    """Ersetzt die E.11-Antwort des Stubs, alle anderen Aufrufe bleiben."""
+    (umgebung["bin"] / "gh").write_text(
+        _GH_STUB.replace(
+            '*"--branch main"*)  : ;;', f'*"--branch main"*)  {antwort} ;;'
+        ),
+        encoding="utf-8",
+    )
+    (umgebung["bin"] / "gh").chmod(0o755)
+
+
+def test_should_pass_e11_when_no_main_workflow_is_red(umgebung):
+    assert _summary_zeilen(_lauf(umgebung).stdout)["E.11"] == "PASS"
+
+
+def test_should_warn_e11_when_a_main_workflow_is_red(umgebung):
+    """Positivkontrolle: Realfall 2026-10-05, main nach eigenem Merge rot."""
+    _gh_main(umgebung, r"printf 'ADR Schema Validation\t777\n'")
+    ergebnis = _lauf(umgebung)
+    assert _summary_zeilen(ergebnis.stdout)["E.11"] == "WARN", ergebnis.stdout
+    assert "ADR Schema Validation (777)" in ergebnis.stdout
+    assert "nicht darauf mergen" in ergebnis.stdout
+
+
+def test_should_skip_not_pass_e11_when_gh_fails(umgebung):
+    _gh_main(umgebung, "exit 1")
+    ergebnis = _lauf(umgebung)
+    assert _summary_zeilen(ergebnis.stdout)["E.11"] == "SKIP", ergebnis.stdout
+    assert "nicht messbar" in ergebnis.stdout
+
+
+def test_should_query_e11_under_the_owner_of_the_touched_repo(umgebung):
+    """Realfall meiki-hub: liegt in einer anderen Org als das Ziel-Repo.
+
+    Der Stub antwortet nur unter dem Owner aus dem origin-Remote von `beta`;
+    fragt der Runner unter dem Owner des Ziel-Repos, wird E.11 SKIP statt WARN.
+    """
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(umgebung["github"] / "beta"),
+            "remote",
+            "add",
+            "origin",
+            "git@github.com:andere-org/beta.git",
+        ],
+        check=True,
+    )
+    _gh_main(
+        umgebung,
+        'case "$*" in *"-R andere-org/beta "*) printf "Fremd-CI\\t9\\n" ;; *) exit 1 ;; esac',
+    )
+    ergebnis = _lauf(umgebung)
+    assert _summary_zeilen(ergebnis.stdout)["E.11"] == "WARN", ergebnis.stdout
+    assert "beta: Fremd-CI (9)" in ergebnis.stdout
 
 
 def test_should_end_with_result_ok_and_judgment_line(umgebung):

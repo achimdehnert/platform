@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # session_ende_checks.sh — deterministischer Runner für die mechanischen
-# /session-ende-Phasen (E.0–E.10). Gegenstück zu `session_start_checks.sh`.
+# /session-ende-Phasen (E.0–E.11). Gegenstück zu `session_start_checks.sh`.
 #
 # Motiv (#2690 K1 + K5): `/session-ende` ist 965 Zeilen lang und trägt den
 # mechanischen Bash-Code im Fliesstext — genau die Form, die ein Modell beim
@@ -83,6 +83,9 @@ HEUTE="$(date +%Y-%m-%d)"
 # (#2469) — ohne Deckel hält diese eine Phase die ganze Sitzung auf.
 ZUSAGEN_BUDGET="${SESSION_ENDE_ZUSAGEN_BUDGET:-120}"
 ZUSAGEN_MAX_PRS="${SESSION_ENDE_ZUSAGEN_MAX_PRS:-3}"
+# Obergrenze fuer E.11: Push-Laeufe auf main von heute je Repo (Realfall-Tag
+# platform: 220).
+MAIN_LAEUFE="${SESSION_ENDE_MAIN_LAEUFE:-500}"
 OLLAMA_HOST="${OLLAMA_HOST:-http://127.0.0.1:11434}"
 
 declare -a P_NAME P_STATUS P_NOTE P_REPO P_DAUER
@@ -274,6 +277,16 @@ if [ -z "$OWNER" ]; then
   [ -n "$OWNER" ] && echo "hinweis: Owner geraten aus $PLATFORM_DIR (kein origin-Remote in $TARGET_DIR)" >&2
 fi
 
+# Owner je BERUEHRTEM Repo (E.1, E.11): meiki-hub liegt in meiki-lra. Unter dem
+# Owner des Ziel-Repos fragte E.1 `achimdehnert/meiki-hub` ab und meldete
+# „kein-Deploy“ statt eines Messfehlers (Live-Lauf 2026-10-05, Retro 8a0235 R14).
+owner_von() { # owner_von <repo> — ohne origin-Remote: $OWNER
+  local o
+  o=$(git -C "$GITHUB_DIR/$1" remote get-url origin 2>/dev/null \
+      | sed -E 's#.*[:/]([^/]+)/[^/]+$#\1#; s#\.git$##')
+  echo "${o:-$OWNER}"
+}
+
 # ══ VORLAUF-SCHNITT (platform#3373) ═════════════════════════════════════════
 # Ab hier bis E.7 ist jede Phase ein reiner Leser, und fast jede wartet auf
 # GitHub (E.1/E.2/E.3/E.5/E.6/E.10) oder auf lokale Repo-Scans (E.7/E.9).
@@ -311,9 +324,17 @@ _handover_freshness() { # E.3 im Nicht-Fragment-Modus
 
 if command -v gh >/dev/null 2>&1 && [ -n "$OWNER" ]; then
   for r in $TOUCHED; do
-    vorlauf "deploy:$r" timeout 60 gh run list -R "$OWNER/$r" --workflow Deploy --limit 1 \
+    vorlauf "deploy:$r" timeout 60 gh run list -R "$(owner_von "$r")/$r" --workflow Deploy --limit 1 \
       --json conclusion,status,databaseId \
       --jq '"\(.[0].conclusion // "none") \(.[0].status // "none") \(.[0].databaseId // "none")"'
+    # E.11: je Workflow der juengste main-Lauf von heute, den ein Push (Merge)
+    # ausgeloest hat; nur abgeschlossene rote zaehlen.
+    vorlauf "main:$r" timeout 60 gh run list -R "$(owner_von "$r")/$r" --branch main --event push \
+      --created ">=$HEUTE" --limit "$MAIN_LAEUFE" \
+      --json workflowName,conclusion,status,databaseId,createdAt \
+      --jq 'group_by(.workflowName) | map(max_by(.createdAt)) | .[]
+            | select(.status == "completed" and (.conclusion | IN("failure", "timed_out", "startup_failure")))
+            | "\(.workflowName)\t\(.databaseId)"'
   done
   vorlauf handover-pr-body timeout 60 gh pr list --repo "$OWNER/$TARGET_REPO" \
     --search "AGENT_HANDOVER.md in:body" --state open \
@@ -843,6 +864,49 @@ else
         record "E.10 session-abgleich" "SKIP" \
           "session_abgleich.py ohne verwertbare RESULT-Zeile (rc=$SAB_RC): $(printf '%s' "$SAB_OUT" | head -1 | cut -c1-120)" "$TARGET_REPO" ;;
     esac
+  fi
+fi
+
+# ── E.11 main-Status je berührtem Repo (Retro 8a0235 R14) ───────────────────
+# E.1 schaut nur auf den Deploy-Workflow. Realfall 2026-10-05, platform: main
+# war nach einem eigenen Merge 30 Minuten rot („ADR Schema Validation“), eine
+# fremde Sitzung mergte in der Zeit darauf; ein zweiter Workflow („Sync
+# Policies to Orchestrator“) blieb stundenlang rot, und niemand bemerkte es.
+# Gemessen wird der juengste Lauf je Workflow unter den Push-Laeufen von heute
+# auf main. Ein festes Fenster („letzte 50 Laeufe“) reichte am Realfall-Tag nur
+# vier Stunden zurueck und haette den roten Sync-Lauf nicht gesehen. Geplante
+# Laeufe (schedule) zaehlen nicht: Audit-Melder enden absichtlich rot, wenn sie
+# etwas finden, und am Realfall-Tag waren das neun von zehn roten Workflows.
+if [ -z "$OWNER" ] || ! command -v gh >/dev/null 2>&1; then
+  record "E.11 main-status" "SKIP" "gh oder Owner nicht verfügbar"
+elif [ -z "$TOUCHED" ]; then
+  record "E.11 main-status" "SKIP" "kein berührtes Repo ermittelt (quelle=$TOUCHED_QUELLE) — keine Entwarnung"
+else
+  M_ROT=""; M_REPOS=""; M_LUECKE=""
+  for r in $TOUCHED; do
+    warte_auf "main:$r"; M_RC=$ERNTE_RC; M_OUT=$(ernte "main:$r")
+    if [ "$M_RC" -ne 0 ]; then
+      M_LUECKE="$M_LUECKE $r"
+      continue
+    fi
+    [ -z "$M_OUT" ] && continue
+    M_REPOS="$M_REPOS $r"
+    while IFS=$'\t' read -r WF ID; do
+      [ -n "$WF" ] && M_ROT="$M_ROT; $r: $WF ($ID)"
+    done <<EOF
+$M_OUT
+EOF
+  done
+  M_NOTE="quelle=$TOUCHED_QUELLE; Push-Läufe auf main seit $HEUTE"
+  [ -n "$M_LUECKE" ] && M_NOTE="$M_NOTE; nicht messbar:$M_LUECKE"
+  if [ -n "$M_ROT" ]; then
+    record "E.11 main-status" "WARN" \
+      "rot auf main: ${M_ROT#; } — nicht darauf mergen; Ursache als Issue oder rerun --failed; $M_NOTE" \
+      "$(echo "$M_REPOS" | sed -E 's/^ //' | tr ' ' ',')"
+  elif [ -n "$M_LUECKE" ]; then
+    record "E.11 main-status" "SKIP" "$M_NOTE — keine Entwarnung"
+  else
+    record "E.11 main-status" "PASS" "kein Workflow zuletzt rot; $M_NOTE"
   fi
 fi
 
