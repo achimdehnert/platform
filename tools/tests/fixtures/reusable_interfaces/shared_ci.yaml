@@ -88,3 +88,18 @@ iilgmbh/shared-ci/.github/workflows/_deploy-unified.yml@v1.1.18:
       - STAGING_SSH_FINGERPRINT
       - DISCORD_WEBHOOK
       - PROJECT_PAT
+
+# Nachgemessen 2026-10-05 am Tag v1.1.22 (Kanon seit #3775, platform-Kopie eingefroren).
+iilgmbh/shared-ci/.github/workflows/_build-docker.yml@v1.1.22:
+  inputs:
+    required: []
+    optional:
+      - dockerfile
+      - context
+      - platforms
+      - image_name
+      - scan_image
+      - push
+  secrets:
+    required: []
+    optional: []

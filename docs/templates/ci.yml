@@ -56,7 +56,8 @@ jobs:
     if: github.ref == 'refs/heads/main'
     # Image-Name = Repo-Name (Default), Tag = Commit-SHA; beides liefert das
     # Reusable selbst — `repo_name`/`image_tag` kennt es nicht als Input.
-    uses: achimdehnert/platform/.github/workflows/_build-docker.yml@main
+    # SSoT ist iilgmbh/shared-ci; die platform-Kopie ist eingefroren (#3775).
+    uses: iilgmbh/shared-ci/.github/workflows/_build-docker.yml@v1.1.22
     with:
       dockerfile: Dockerfile                           # ← anpassen
     secrets: inherit
