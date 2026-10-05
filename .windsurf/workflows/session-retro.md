@@ -310,8 +310,11 @@ Danach in fester Reihenfolge:
   `tools/gate_verankerung_check.py --neu` (session-ende 0f), sonst ist er ein Kandidat, kein
   Eintrag (#2234). **Zuschnitt prüfen (Owner-Wort 2026-10-05, #3734):** Je Rückfall-Zeile
   festhalten, ob das Gate den Fall nach seinem Zuschnitt sehen konnte. Konnte es das nicht,
-  bekommt die Tabellenzeile den Marker `gates_verwandt` mit einem Halbsatz Begründung; sie zählt
-  dann nicht gegen das Gate. Ein Befund zum Handover, der vor dem Sitzungsende entsteht, ist nur
+  bekommt die Tabellenzeile den Marker in der Form `gates_verwandt: <Begründung>` (mindestens
+  zehn Zeichen in derselben Zelle); sie zählt dann nicht gegen das Gate. Ein Marker ohne
+  Begründung entlastet nicht, die Zeile zählt als Rückfall. Ab drei verwandten Fällen seit dem
+  Bau meldet `gate_wirkung.py` das Gate als `ZUSCHNITT-PRUEFEN`: dann ist zu entscheiden, ob
+  der Zuschnitt zu eng ist (#3754). Ein Befund zum Handover, der vor dem Sitzungsende entsteht, ist nur
   dann ein Rückfall von `handover-stale-vor-merge`, wenn die Endprüfung trotzdem grün war. Sonst
   ist er `gates_verwandt`. (Warum: Lehren-Doku § Phase 4 Punkt 5a.)
 - **5b. Autonomie-Kalibrierung:** zwei KPIs gegen die Artefakte messen und im Frontmatter führen —
