@@ -43,6 +43,7 @@ REGELN = {
         "docs/konzepte/KONZ-platform-025-lotsen-charta.md",
         "CODEOWNERS",
         "tools/pr_merge_sa.py",
+        "tools/sandbox/",
     ],
     "sync_only_repos": ["achimdehnert/platform"],
 }
@@ -423,10 +424,24 @@ def test_should_recognize_doc_paths(pfad, erwartet):
 
 
 @pytest.mark.parametrize(
-    "pfad", [".github/workflows/ci.yml", "CODEOWNERS", "policies/x.md"]
+    "pfad",
+    [
+        ".github/workflows/ci.yml",
+        "CODEOWNERS",
+        "policies/x.md",
+        "tools/sandbox/waechter.py",
+        "tools/sandbox/selbstpruefung.py",
+    ],
 )
 def test_should_recognize_governance_paths(pfad):
     assert ist_governance(pfad, REGELN["governance_pfade"]) is True
+
+
+@pytest.mark.parametrize(
+    "pfad", ["tools/sandbox_hilfe.py", "tools/tests/test_sandbox_waechter.py"]
+)
+def test_should_not_treat_sandbox_lookalikes_as_governance(pfad):
+    assert ist_governance(pfad, REGELN["governance_pfade"]) is False
 
 
 # --- Journal: ohne Zaehlung keine pruefbare Ratsche ---------------------------
