@@ -1,5 +1,5 @@
 ---
-id: ADR-000
+id: ADR-309
 status: proposed
 decision_date: 2026-10-05
 deciders: [Achim Dehnert]
@@ -14,11 +14,11 @@ staleness_months: 3
 ---
 
 <!--
-  ADR-DRAFT — Basis: docs/templates/adr-template.md v2.1
+  ADR-309 — Basis: docs/templates/adr-template.md v2.1
   Nummer vergibt tools/adr_allocate.py kurz vor dem Merge (ADR-228).
 -->
 
-# ADR-DRAFT: platform zieht in die Org iilgmbh und wird erst dort privat
+# ADR-309: platform zieht in die Org iilgmbh und wird erst dort privat
 
 ## Metadaten
 
@@ -138,7 +138,7 @@ bricht verbliebene Reusable-Workflow-Aufrufer schon, solange das Repo noch öffe
 
 | id | Hypothese | Prüfung | Owner |
 |---|---|---|---|
-| H1 | Das Org-Kontingent deckt die Actions-Minuten von platform | Org-Billing, Kontingent gegen Monatslast | Owner |
+| H1 | Das Org-Kontingent deckt die Actions-Minuten von platform | Org-Billing, Kontingent gegen Monatslast | **Geprüft 2026-10-05, gilt heute mit Reserve.** Enterprise-Kontingent laut GitHub-Doku: 50 000 Linux-Minuten pro Monat. Lastsumme im September (Org plus platform): etwa drei Viertel davon, netto 0. Risiko: Die Last von platform hat sich von August auf September mehr als verdoppelt. Eine weitere Verdopplung sprengt das Kontingent. Die Wache des Melders meldet netto > 0 (KG2). |
 | H2 | Repo-Runner, Webhooks und Rulesets ziehen mit um | Schritt 2 gegen Schritt 4 | Sitzung |
 
 ## 5. Stand und Wiedereinstieg
@@ -168,6 +168,6 @@ Melder 30 Tage nichts meldet.
 
 ## 7. Offene Owner-Gates
 
-- **H1 prüfen:** das Org-Kontingent im Billing ablesen.
+- ~~**H1 prüfen:** das Org-Kontingent im Billing ablesen.~~ Erledigt 2026-10-05, siehe Hypothesen-Tabelle.
 - **Schritt 3 und 5 auslösen:** Transfer und Sichtbarkeitsschalter sind Owner-Sache
   (Security-Config-Gate).

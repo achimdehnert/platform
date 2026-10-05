@@ -1,7 +1,7 @@
 {
-  "generated": "2026-10-04",
-  "total": 254,
-  "next_free": 309,
+  "generated": "2026-10-05",
+  "total": 255,
+  "next_free": 310,
   "adrs": [
     {
       "number": 7,
@@ -5864,6 +5864,24 @@
       "amended_by": [],
       "related": [],
       "implementation_status": "partial"
+    },
+    {
+      "number": 309,
+      "id": "ADR-309",
+      "file": "ADR-309-platform-umzug-iilgmbh-dann-privat.md",
+      "title": "platform zieht in die Org iilgmbh und wird erst dort privat",
+      "status": "proposed",
+      "date": "2026-10-05",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-255",
+        "ADR-263"
+      ],
+      "implementation_status": "in_progress"
     },
     {
       "number": 400,
