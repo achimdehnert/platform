@@ -198,7 +198,9 @@ JOURNAL = Path(
 )
 
 #: Maschinenlesbarer Kopf (KONZ-038 D8) — muss im Modul stehen, nicht nur in der
-#: Registry, sonst verrottet er still.
+#: Registry, sonst verrottet er still. Das Modul traegt ZWEI registrierte Slugs;
+#: der Kopf nennt den ersten, der zweite steht als Konstante darunter (Muster wie
+#: `tools/session_abgleich.py`).
 GATE_HEADER = {
     "slug": "cross-repo-befund-ohne-artefakt-im-zielrepo",
     "mode": "process",
@@ -206,6 +208,9 @@ GATE_HEADER = {
     "last_drill_pass": "2026-08-16",
     "evidence": "tools/tests/test_befund_journal.py",
 }
+
+#: Zweiter Slug dieses Moduls: ``praezision()`` (Drill: tools/tests/test_befund_praezision.py).
+SLUG_PRAEZISION = "melder-ohne-praezisionsmass"
 
 #: Ab so vielen Laeufen gilt ein Befund als Altbefund und wird eigens ausgewiesen.
 #: Drei, weil zwei noch Zufall sein koennen und vier schon eine Woche ist.

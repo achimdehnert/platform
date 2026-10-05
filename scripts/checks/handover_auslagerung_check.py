@@ -66,6 +66,16 @@ from handover_refs import alle_refs  # noqa: E402
 DEFAULT_OWNER = "achimdehnert"
 DEFAULT_REPO = "platform"
 
+#: Maschinenlesbarer Kopf (KONZ-038 D8) — muss im Modul stehen, nicht nur in der
+#: Registry, sonst verrottet er still.
+GATE_HEADER = {
+    "slug": "handover-auslagerung-verschluckt-offenes",
+    "mode": "blocking",
+    "owner": "achim",
+    "last_drill_pass": "2026-10-05",
+    "evidence": "tools/tests/test_handover_auslagerung_check.py",
+}
+
 
 def schluessel(ref) -> str:
     return f"{ref.owner}/{ref.repo}#{ref.number}"
