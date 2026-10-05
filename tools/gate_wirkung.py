@@ -101,6 +101,15 @@ _BLOCK_START = re.compile(r"^recurring_findings\s*:\s*$")
 #: sind hier aber Evidenz FUER das Gate und nicht gegen es.
 _INLINE_GEFANGEN = re.compile(r"^gates_caught\s*:\s*\[(.*?)\]", re.S | re.M)
 _BLOCK_START_GEFANGEN = re.compile(r"^gates_caught\s*:\s*$")
+#: Dritte Liste seit 2026-10-05 (Vorlage platform#3722, Punkt G8): Slugs, deren Fall das
+#: Gate nach seinem ZUSCHNITT nicht sehen konnte (anderes Repo, anderer Pfad, vor seinem
+#: Messzeitpunkt). Der Befund ist echt und bleibt in `recurring_findings`; gegen das Gate
+#: zaehlt er nicht, er wird als "verwandt" ausgewiesen. Ohne diese Trennung fuehrte die
+#: Bilanz sieben Gates als rueckfaellig, von denen keines seinen eigenen Fall verfehlt
+#: hatte — dieselben Zeilen kamen in jeder Retro wieder. Die Markierung setzt die Retro
+#: je Fall, nicht das Werkzeug; die Zahl bleibt in der Ausgabe sichtbar.
+_INLINE_VERWANDT = re.compile(r"^gates_verwandt\s*:\s*\[(.*?)\]", re.S | re.M)
+_BLOCK_START_VERWANDT = re.compile(r"^gates_verwandt\s*:\s*$")
 # Zweite Quelle seit 2026-09-02 (platform#2374 Ziel A, PR #2615): die Befund-Tabelle (§2)
 # der Retro. Die Frontmatter ist selbst-etikettiert — ein Rueckfall stand dort nur, wenn der
 # Autor den Slug eintippte. Gemessen ueber 109 Retros: bei 12 von 33 Gates wich sie von der
@@ -114,13 +123,14 @@ _BLOCK_START_GEFANGEN = re.compile(r"^gates_caught\s*:\s*$")
 _VERDIKT = re.compile(r"SURVIVES|REFUTED|WIDERLEGT")
 _PIPE = re.compile(r"(?<!\\)\|")
 _SLUG_TOKEN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)+")
-_ZEILE_GEFANGEN = re.compile(r"gates_caught")
+_ZEILE_GEFANGEN = re.compile(r"gates_caught|gates_verwandt")
 
 
 def _slugs_aus_tabelle(text: str) -> list[str]:
     """Slugs aus SURVIVES-Zeilen der Befund-Tabelle (letzte Spalte = Recurrence).
 
-    Zeilen ohne Verdikt-Spalte, REFUTED-Zeilen und Zeilen mit `gates_caught`-Marker
+    Zeilen ohne Verdikt-Spalte, REFUTED-Zeilen und Zeilen mit `gates_caught`- oder
+    `gates_verwandt`-Marker
     liefern nichts. Bewusst tolerant gegen Spaltenzahl und Verdikt-Schreibweisen
     (`SURVIVES (kommandobelegt)`, `**SURVIVES**`), weil 109 Retros 32 Varianten kennen.
     """
@@ -179,6 +189,7 @@ def lies_retros(verzeichnisse: list[str]) -> list[tuple[str, list[str], str]]:
                 name,
                 _slugs_aus_frontmatter(text, _INLINE_GEFANGEN, _BLOCK_START_GEFANGEN),
                 _slugs_aus_tabelle(text),
+                _slugs_aus_frontmatter(text, _INLINE_VERWANDT, _BLOCK_START_VERWANDT),
             )
     return sorted(gesehen.values())
 
@@ -222,9 +233,10 @@ def _slugs_aus_frontmatter(
     return slugs
 
 
-def _zerlege(retro) -> tuple[str, list[str], str, list[str], list[str]]:
-    """(datum, slugs, name[, gefangen[, tabelle]]) — vierte Stelle seit 2026-08-20,
-    fuenfte (Slugs aus der Befund-Tabelle) seit 2026-09-02.
+def _zerlege(retro) -> tuple[str, list[str], str, list[str], list[str], list[str]]:
+    """(datum, slugs, name[, gefangen[, tabelle[, verwandt]]]) — vierte Stelle seit
+    2026-08-20, fuenfte (Slugs aus der Befund-Tabelle) seit 2026-09-02, sechste
+    (`gates_verwandt`) seit 2026-10-05.
 
     Aeltere Aufrufer und Tests reichen kuerzere Tupel; die werden weiter angenommen,
     statt sie mit einer Signaturaenderung stillzulegen.
@@ -235,6 +247,7 @@ def _zerlege(retro) -> tuple[str, list[str], str, list[str], list[str]]:
         retro[2],
         (retro[3] if len(retro) > 3 else []),
         (retro[4] if len(retro) > 4 else []),
+        (retro[5] if len(retro) > 5 else []),
     )
 
 
@@ -247,7 +260,7 @@ def bewerte(gates: list[dict], retros: list) -> list[dict]:
     wie eines, das nie gebraucht wurde — obwohl der Zeitraum davor schlicht fehlt.
     """
     zerlegt = [_zerlege(r) for r in retros]
-    aeltestes = min((d for d, _, _, _, _ in zerlegt), default="")
+    aeltestes = min((d for d, _, _, _, _, _ in zerlegt), default="")
     ergebnis = []
     for gate in gates:
         slug = gate.get("slug", "")
@@ -272,14 +285,24 @@ def bewerte(gates: list[dict], retros: list) -> list[dict]:
         # ODER SURVIVES-Zeile der Befund-Tabelle. "Gefangen" entlastet nur noch, wenn die
         # Tabelle KEINE ungefangene Zeile fuer den Slug traegt — sonst hat die Sitzung
         # beides erlebt, und der Rueckfall ist der Teil, der zaehlt.
-        gefangen = sorted(d for d, _, _, g, t in zerlegt if slug in g and slug not in t)
+        gefangen = sorted(
+            d for d, _, _, g, t, _ in zerlegt if slug in g and slug not in t
+        )
+        # "Verwandt" (seit 2026-10-05) folgt derselben engen Regel wie "gefangen": die
+        # Frontmatter-Liste entlastet nur, wenn die Tabelle keine unmarkierte Zeile fuer
+        # den Slug traegt. Steht der Slug in beiden Listen, gilt er als gefangen.
+        verwandt = sorted(
+            d
+            for d, _, _, g, t, v in zerlegt
+            if slug in v and slug not in g and slug not in t
+        )
         vorkommen = sorted(
             d
-            for d, slugs, _, g, t in zerlegt
-            if slug in t or (slug in slugs and slug not in g)
+            for d, slugs, _, g, t, v in zerlegt
+            if slug in t or (slug in slugs and slug not in g and slug not in v)
         )
         nur_tabelle = sorted(
-            d for d, slugs, _, _, t in zerlegt if slug in t and slug not in slugs
+            d for d, slugs, _, _, t, _ in zerlegt if slug in t and slug not in slugs
         )
         # Das Retro des BAU-TAGS zaehlt in keinen der beiden Toepfe. Es ist in aller
         # Regel genau der Befund, AUS DEM das Gate entstand — als "vorher" wuerde es
@@ -290,7 +313,7 @@ def bewerte(gates: list[dict], retros: list) -> list[dict]:
         # Befund #2). Der Kommentar an RUECKFALL_SCHWELLE behauptete genau das Gegenteil.
         vorher = [d for d in vorkommen if gebaut and d < gebaut]
         nachher = [d for d in vorkommen if gebaut and d > gebaut]
-        fenster = len({d for d, _, _, _, _ in zerlegt if gebaut and d > gebaut})
+        fenster = len({d for d, _, _, _, _, _ in zerlegt if gebaut and d > gebaut})
         nur_tabelle_nachher = [d for d in nur_tabelle if gebaut and d > gebaut]
         vorher_messbar = bool(gebaut) and bool(aeltestes) and gebaut > aeltestes
         # "vorher" heisst bei einem umgebauten Gate: vor dem Umbau, nicht vor dem
@@ -334,6 +357,7 @@ def bewerte(gates: list[dict], retros: list) -> list[dict]:
                 "vorher_messbar": vorher_messbar,
                 "nachher": len(nachher),
                 "gefangen": len([d for d in gefangen if gebaut and d > gebaut]),
+                "verwandt": len([d for d in verwandt if gebaut and d > gebaut]),
                 "nur_tabelle": len(nur_tabelle_nachher),
                 "letzter_rueckfall": nachher[-1] if nachher else None,
                 "fenster_retros": fenster,
@@ -664,6 +688,14 @@ def main() -> int:
         print(
             f"  ({len(gefangen_gesamt)} Gate(s) haben ihren Befund GEFANGEN: {namen} — "
             "diese Vorkommen zaehlen nicht als Rueckfall, sie sind der Wirksamkeits-Beleg.)"
+        )
+    verwandt_gesamt = [e for e in bewertet if e.get("verwandt")]
+    if verwandt_gesamt:
+        namen = ", ".join(f"{e['slug']} ({e['verwandt']}x)" for e in verwandt_gesamt)
+        print(
+            f"  ({len(verwandt_gesamt)} Gate(s) mit VERWANDTEN Faellen: {namen} — ausserhalb des "
+            "Zuschnitts des Gates (`gates_verwandt`), kein Rueckfall; haeufen sie sich, ist der "
+            "Zuschnitt die Frage, nicht das Gate.)"
         )
     if zu_frueh:
         print(
