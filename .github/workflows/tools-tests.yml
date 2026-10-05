@@ -196,15 +196,20 @@ jobs:
             --range "origin/${{ github.base_ref }}...HEAD" --format github
           exit 0
 
-      # Neue Module ohne Test-Spur — advisory (untested-tool-module-green-gate,
-      # platform#1650 Owner-Go 2026-08-12). Nur im PR HINZUGEFUEGTE .py unter
-      # tools/ + scripts/ (Bestandsschutz: die ~24 Altfaelle aus dem
-      # Ehrlichkeits-Hinweis oben bleiben unberuehrt — 0-FP-Baseline). Exit 1
-      # (Befund) laesst den Job gruen: advisory bis Kalibrierfenster
-      # (gate-registry frozen_note). Exit >=2 (Werkzeugfehler) macht ROT — ein
-      # Melder, der beim Ausfall schweigt, ist schlimmer als keiner.
-      - name: Neue Module ohne Test-Spur (advisory, non-gating)
+      # Neue Module ohne Test-Spur — BLOCKING seit 2026-10-05
+      # (untested-tool-module-green-gate, platform#1650; scharf gestellt nach
+      # Vorlage platform#3722 G1). Nur im PR HINZUGEFUEGTE .py unter tools/ +
+      # scripts/ (Bestandsschutz: die Altfaelle aus dem Ehrlichkeits-Hinweis oben
+      # bleiben unberuehrt). Messung vor dem Scharfstellen: 80 Merges
+      # rueckwirkend geprueft, 1 echter Treffer, 0 Fehlalarme. Exit 1 (Befund)
+      # macht ROT; Ausweg ist eine Zeile `Kein-Test-Grund: <Begruendung>` im
+      # PR-Text — das Werkzeug liest ihn aus PR_TEXT und gibt den Grund aus.
+      # Der PR-Text kommt ueber env, nie per ${{ }} in die Shell (Injection).
+      # Exit >=2 (Werkzeugfehler) macht ebenfalls ROT.
+      - name: Neue Module ohne Test-Spur (blocking)
         if: github.event_name == 'pull_request' && steps.relevanz.outputs.relevant == 'true'
+        env:
+          PR_TEXT: ${{ github.event.pull_request.body }}
         run: |
           set +e
           git fetch -q origin "${{ github.base_ref }}"
@@ -214,6 +219,10 @@ jobs:
           set -e
           if [ "$rc" -ge 2 ]; then
             echo "::error::check_new_module_tests.py brach mit Exit $rc ab (Werkzeugfehler, kein Verdikt)"
+            exit 1
+          fi
+          if [ "$rc" -eq 1 ]; then
+            echo "::error::Neues Modul ohne Test-Spur — Test nachliefern oder im PR-Text 'Kein-Test-Grund: <Begruendung>' ergaenzen"
             exit 1
           fi
           exit 0

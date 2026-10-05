@@ -82,14 +82,16 @@ class TestBefundeFuer:
 
 
 class TestMainExitVertrag:
-    """0 sauber · 1 Befund (advisory) · 2 Werkzeugfehler (nie still)."""
+    """0 sauber/Ausnahme · 1 Befund (blocking) · 2 Werkzeugfehler (nie still)."""
 
-    def _run(self, added, tmp_path):
+    def _run(self, added, tmp_path, pr_text=None):
+        env = {} if pr_text is None else {cnm.AUSNAHME_ENV: pr_text}
         with patch.object(cnm, "hinzugefuegte_dateien", return_value=added):
             with patch.object(
                 sys, "argv", ["x", "--range", "a...b", "--repo-root", str(tmp_path)]
             ):
-                return cnm.main()
+                with patch.dict(cnm.os.environ, env, clear=True):
+                    return cnm.main()
 
     def test_should_exit_0_when_clean(self, tmp_path):
         assert self._run([], tmp_path) == 0
@@ -100,6 +102,42 @@ class TestMainExitVertrag:
     def test_should_exit_2_when_git_fails(self, tmp_path):
         """Fetch-/git-Fehler ist kein sauberer Zustand."""
         assert self._run(None, tmp_path) == 2
+
+
+class TestAusnahmePerPrText:
+    """Rev 3 (platform#3722 G1): blocking mit begruendetem Ausweg.
+
+    Positivkontrolle: derselbe Befund ist ohne Begruendung rot (Exit 1) und nur
+    mit einer echten Begruendungszeile gruen. Gegenprobe: Platzhalter, leerer
+    Grund und eine blosse Erwaehnung der Marke im Fliesstext oeffnen NICHT.
+    """
+
+    _run = TestMainExitVertrag._run
+    BEFUND = ["tools/neu_ohne_test.py"]
+
+    def test_should_stay_red_without_reason(self, tmp_path):
+        assert self._run(self.BEFUND, tmp_path, pr_text="## Zweck\n\nNeues Werkzeug.") == 1
+
+    def test_should_pass_with_reason_line_and_print_it(self, tmp_path, capsys):
+        text = "## Zweck\n\nKein-Test-Grund: reine Datentabelle ohne Logik, Test waere Abschrift\n"
+        assert self._run(self.BEFUND, tmp_path, pr_text=text) == 0
+        out = capsys.readouterr().out
+        assert "tools/neu_ohne_test.py" in out
+        assert "reine Datentabelle ohne Logik" in out
+
+    def test_should_stay_red_with_placeholder_reason(self, tmp_path):
+        for text in ("Kein-Test-Grund: n/a", "Kein-Test-Grund:", "Kein-Test-Grund: -"):
+            assert self._run(self.BEFUND, tmp_path, pr_text=text) == 1
+
+    def test_should_stay_red_when_marker_is_only_mentioned_in_prose(self, tmp_path):
+        text = "Eine Zeile Kein-Test-Grund: braucht es hier nicht, der Test kommt nach."
+        assert self._run(self.BEFUND, tmp_path, pr_text=text) == 1
+
+    def test_should_accept_reason_in_list_or_quote_line(self):
+        assert cnm.ausnahme_grund("- Kein-Test-Grund: Wegwerf-Skript fuer eine Migration") == (
+            "Wegwerf-Skript fuer eine Migration"
+        )
+        assert cnm.ausnahme_grund(None) is None
 
 
 class TestHinzugefuegteDateien:

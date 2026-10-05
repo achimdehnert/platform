@@ -41,14 +41,23 @@ Ausweitungen, beide aus den Rueckfaellen selbst:
     kein Scanner (siehe `test-asserts-the-case-in-mind-not-the-harmful-one` in
     der declined-Liste).
 
-Exit: 0 = sauber · 1 = Befund (advisory — der CI-Step bleibt gruen, druckt aber
-die Warnung) · 2 = Werkzeugfehler (der CI-Step wird ROT: ein Melder, der beim
-Ausfall schweigt, ist schlimmer als keiner).
+REV 3 (2026-10-05, Vorlage platform#3722 G1): BLOCKING. Der CI-Step wird bei
+einem Befund rot. Messung vor dem Scharfstellen: die letzten 80 Merges auf main
+rueckwirkend geprueft, 1 Treffer (zwei Module ohne Test, echter Befund), 0
+Fehlalarme. Ausweg fuer den begruendeten Einzelfall: eine Zeile
+`Kein-Test-Grund: <Begruendung>` im PR-Text (der Workflow reicht ihn als
+Umgebungsvariable PR_TEXT durch). Der Grund wird im Lauf ausgegeben, die
+Befunde bleiben sichtbar — eine Ausnahme ist damit nie still.
+
+Exit: 0 = sauber oder begruendete Ausnahme · 1 = Befund (der CI-Step wird ROT)
+· 2 = Werkzeugfehler (ebenfalls ROT: ein Melder, der beim Ausfall schweigt, ist
+schlimmer als keiner).
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import subprocess
 import sys
@@ -58,9 +67,9 @@ from pathlib import Path
 # docs/governance/gates/ abgeglichen.
 GATE_HEADER = {
     "slug": "untested-tool-module-green-gate",
-    "mode": "advisory",  # blocking erst nach 0-FP-Kalibrierfenster (Registry-frozen_note)
+    "mode": "blocking",  # seit Rev 3 (2026-10-05): 80 Merges geprueft, 0 Fehlalarme
     "owner": "achim",
-    "last_drill_pass": "2026-09-07",
+    "last_drill_pass": "2026-10-05",
     "evidence": "tools/tests/test_check_new_module_tests.py",
 }
 
@@ -70,6 +79,25 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 MODUL_WURZELN = ("tools/", "scripts/")
 # Verzeichnisse, in denen nach Test-Spuren gesucht wird.
 TEST_WURZELN = ("tools", "tests", "scripts")
+
+# Rev 3: Ausweg aus dem blocking-Modus. Der Workflow legt den PR-Text in diese
+# Umgebungsvariable; eine Zeile `Kein-Test-Grund: <Begruendung>` laesst den Lauf
+# trotz Befund gruen. Die Mindestlaenge haelt Platzhalter ("-", "n/a") draussen.
+AUSNAHME_ENV = "PR_TEXT"
+AUSNAHME_MARKE = "Kein-Test-Grund:"
+AUSNAHME_MIN_ZEICHEN = 15
+
+
+def ausnahme_grund(text: str | None) -> str | None:
+    """Begruendung aus einer Zeile `Kein-Test-Grund: …`, sonst None."""
+    for zeile in (text or "").splitlines():
+        zeile = zeile.strip().lstrip(">*- ").strip()
+        if not zeile.startswith(AUSNAHME_MARKE):
+            continue
+        grund = zeile[len(AUSNAHME_MARKE) :].strip()
+        if len(grund) >= AUSNAHME_MIN_ZEICHEN:
+            return grund
+    return None
 
 
 def ist_pruefpflichtig(pfad: str) -> bool:
@@ -219,7 +247,7 @@ def drill_befunde_fuer(dateien: list[str], repo_root: Path) -> list[str]:
 
 def main() -> int:
     ap = argparse.ArgumentParser(
-        description="Neue tools/scripts-Module ohne Test melden (advisory)"
+        description="Neue tools/scripts-Module ohne Test melden (blocking)"
     )
     ap.add_argument(
         "--range",
@@ -269,9 +297,17 @@ def main() -> int:
                 f"   - {d} (weist sich als Gate/Drill aus, nennt aber keine "
                 "Gegenprobe/Positivkontrolle)"
             )
+    grund = ausnahme_grund(os.environ.get(AUSNAHME_ENV))
+    if grund:
+        print(
+            f"   → AUSNAHME per PR-Text ({AUSNAHME_MARKE} {grund}) — der Lauf bleibt "
+            "gruen, die Befunde oben bleiben stehen."
+        )
+        return 0
     print(
-        "   → Testdatei bzw. Gegenprobe nachliefern ODER im PR kurz begruenden, warum nicht"
-        " (Fehlalarm-Feedback fliesst in die Kalibrierung, das Gate ist advisory)."
+        "   → Testdatei bzw. Gegenprobe nachliefern ODER im PR-Text eine Zeile "
+        f"`{AUSNAHME_MARKE} <Begruendung>` (mind. {AUSNAHME_MIN_ZEICHEN} Zeichen) "
+        "ergaenzen. Das Gate ist blocking."
     )
     return 1
 
