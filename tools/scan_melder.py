@@ -260,7 +260,7 @@ def haengende(
     for d in dateien:
         if _ignoriert(d["pfad"], ignore_dirs, beobachtet_trotz):
             continue
-        alter = jetzt - d["mtime"]
+        alter = jetzt - d.get("eingang", d["mtime"])
         if alter < unten:
             continue
         if oben is not None and alter >= oben:
@@ -509,17 +509,33 @@ def sammle_zusatz(
 
 
 def sammle(wurzel: str, ssh: str | None) -> tuple[list[dict], bool]:
-    """Alle Dateien unter der Wurzel mit mtime und Groesse. Zweiter Wert: lesbar?"""
-    rc, out = _lauf(["find", wurzel, "-type", "f", "-printf", "%T@\\t%s\\t%P\\n"], ssh)
+    """Alle Dateien unter der Wurzel mit mtime, Eingang und Groesse. Zweiter Wert: lesbar?
+
+    `eingang` ist die ctime: wann die Datei in diesem Ordner angekommen ist. Das
+    Alter misst sich daran, nicht an der mtime — eine Kopie per Explorer/Samba
+    behaelt die mtime des Originals. Am 2026-09-30 kamen so sechs Stapel mit
+    13 Tage alter mtime in den Eingang, lagen sofort jenseits des Alarm-Fensters
+    und blieben fuenf Tage ohne Alarm-Issue liegen (doc-hub#19, doc-hub#23).
+    Die ctime laesst sich nicht zuruecksetzen und wird auch bei `mv`
+    fortgeschrieben (gemessen auf hetzner-prod, ext4, 2026-10-05).
+    """
+    rc, out = _lauf(
+        ["find", wurzel, "-type", "f", "-printf", "%T@\\t%C@\\t%s\\t%P\\n"], ssh
+    )
     if rc != 0:
         return [], False
     dateien = []
     for zeile in out.splitlines():
-        felder = zeile.split("\t", 2)
-        if len(felder) != 3:
+        felder = zeile.split("\t", 3)
+        if len(felder) != 4:
             continue
         dateien.append(
-            {"mtime": float(felder[0]), "groesse": int(felder[1]), "pfad": felder[2]}
+            {
+                "mtime": float(felder[0]),
+                "eingang": float(felder[1]),
+                "groesse": int(felder[2]),
+                "pfad": felder[3],
+            }
         )
     return dateien, True
 

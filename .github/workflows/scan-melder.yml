@@ -15,7 +15,8 @@
 #
 # LESER, beide benannt (kein Melder ohne Leser, #2284 K5):
 #   1. Der Owner ueber ein zugewiesenes Issue — aber nur beim ERSTEN Mal je Datei
-#      (`--neu-seit 60`). Ein stuendlicher Kommentar ueber dieselbe haengende Datei
+#      (`--neu-seit <Abstand zum vorigen Lauf>`, gemessen ab Ankunft im Ordner,
+#      seit doc-hub#23). Ein stuendlicher Kommentar ueber dieselbe haengende Datei
 #      waere Rauschen; genau daran ist der taegliche backup-deckung-Kommentar
 #      gestorben.
 #   2. `cron_melder_check.py` ueber den roten Lauf — der Job bleibt rot, solange
@@ -65,6 +66,7 @@ on:
 permissions:
   contents: read
   issues: write
+  actions: read # Abstand zum vorigen Lauf (Alarm-Fenster)
 
 concurrency:
   group: scan-melder
@@ -91,6 +93,8 @@ jobs:
 
       - name: "Frisch Haengendes messen (Alarm-Fenster)"
         id: neu
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set +e
           # --inventar '' : die Verlust-Erkennung gehoert in den ERSTEN Lauf.
@@ -98,7 +102,24 @@ jobs:
           # Inventar gegen sich selbst halten. --log-fenster 0 aus demselben Grund:
           # der "alles"-Lauf hat den Consumer-Log gerade erst gelesen und dessen
           # Exit-Code 5 bereits durchgereicht.
-          python3 tools/scan_melder.py --kurz --neu-seit 60 --inventar '' --log-fenster 0 > /dev/null
+          #
+          # Fenster = echter Abstand zum vorigen Lauf, nicht pauschal 60. GitHub
+          # startet den Cron unpuenktlich (2026-10-05: 05:46 -> 07:08, 82 min);
+          # bei festen 60 min rutscht eine Datei, die in der Luecke die Schwelle
+          # ueberschreitet, durch beide Fenster (doc-hub#23). Eine Minute
+          # Ueberlappung nimmt im seltenen Grenzfall einen Doppel-Alarm in Kauf
+          # statt eines verlorenen. Ohne Messung: 60, und das steht im Log.
+          vorher=$(gh run list --workflow scan-melder.yml -L 5 --json databaseId,createdAt \
+            --jq "[.[] | select(.databaseId != ${GITHUB_RUN_ID})][0].createdAt // empty")
+          fenster=60
+          if [ -n "$vorher" ]; then
+            abstand=$(( ( $(date -u +%s) - $(date -u -d "$vorher" +%s) ) / 60 + 1 ))
+            [ "$abstand" -gt "$fenster" ] && fenster=$abstand
+            echo "Alarm-Fenster: ${fenster} min (voriger Lauf ${vorher})"
+          else
+            echo "Alarm-Fenster: 60 min (voriger Lauf nicht ermittelbar)"
+          fi
+          python3 tools/scan_melder.py --kurz --neu-seit "$fenster" --inventar '' --log-fenster 0 > /dev/null
           echo "rc=$?" >> "$GITHUB_OUTPUT"
           set -e
 
