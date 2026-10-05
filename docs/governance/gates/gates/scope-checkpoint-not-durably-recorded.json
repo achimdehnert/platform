@@ -41,7 +41,7 @@
   "zustand": "schranke",
   "erzwungen_seit": "2026-08-02",
   "expires": "2026-10-31",
-  "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet.",
+  "expires_note": "V1d (platform#3785, Owner-Wort 2026-10-05): bleibt — gate_wirkung 2026-10-05 zaehlt 1 echten Fall nach dem Bau (letzter 2026-10-05), und ein echter Rueckfall schlaegt jede bestandene Probe. Zur Frist: scharf schalten per eigenem PR nach 0-FP-Kalibrierfenster (frozen_note) oder begruendet herabstufen. Streichen scheidet aus, solange der Fall wiederkehrt.",
   "positivkontrolle": {
     "ref": "tools/claude-hooks/tests/test_scope_checkpoint_scanner.py::test_should_warn_on_a_second_prod_step_after_a_checkpoint (rot auf Rev 9, gruen auf Rev 10); Gegenprobe test_should_not_flag_prod_that_already_ran_before_the_checkpoint bleibt stumm. Replay Realsitzung 7152dd: bis 15:30Z stumm, bis 15:36:30Z Meldung. Vorher (Rev 9): Form-D-Schweigefaelle + Replay 02b7f5, docs/retros/session-retro-2026-09-24-platform-e911bf.md",
     "datum": "2026-09-28"

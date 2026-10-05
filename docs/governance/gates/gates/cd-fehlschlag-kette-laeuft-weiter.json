@@ -23,8 +23,8 @@
   ],
   "zustand": "schranke",
   "erzwungen_seit": "2026-09-14",
-  "expires": "2026-10-31",
-  "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet.",
+  "ausgang": "still",
+  "ausgang_note": "V1c (platform#3785, Owner-Wort 2026-10-05): Verhaltens-Gate, das nur bei einem Treffer spricht und dem Modell sonst keinen Kontext kostet; kein Rueckfall seit Bau (gate_wirkung 2026-10-05). Eignungsprobe 3/3 bestanden: 0 ungeschuetzte cd-Ketten, jeder Lauf pruefte den Pfad vor dem Schreiben (https://github.com/achimdehnert/platform/issues/3785#issuecomment-6000515183). Frist entfaellt. Kehrt der Slug in einer Retro wieder, gilt V1d: scharf schalten oder umbauen.",
   "positivkontrolle": {
     "ref": "docs/retros/session-retro-2026-09-14-platform-b7822e.md",
     "datum": "2026-09-14"
