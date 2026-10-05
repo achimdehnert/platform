@@ -427,6 +427,21 @@ Der Prüfer läuft zusätzlich in der CI (`tools/tests/test_retro_report_check.p
 Required Check) über jeden Report ab dem Stichtag — die fünf älteren Lücken
 bleiben bewusst außerhalb, damit der erste Lauf nicht mit Altlasten rot wird.
 
+## Phase 9 — Abschluss: Maßnahmen statt Nacherzählung (PFLICHT, wenn etwas zu entscheiden ist; NEU 2026-10-05, Owner-Wort)
+
+Die Antwort, mit der die Retro übergeben wird, ist eine Entscheidungsvorlage — der Report
+liegt im Repo und wird nicht nacherzählt:
+
+1. **Erster Satz:** ob die Sitzung gefahrlos geschlossen werden kann.
+2. **Nummerierte Maßnahmenliste**, je Zeile: stabiles Kürzel · was zu entscheiden ist ·
+   die Empfehlung · ein Link auf ein bestehendes Issue oder einen PR. Getrennt nach
+   „dein Wort nötig" und „kann ich ohne dich". Quelle sind die Top-3-Maßnahmen und die
+   Verankerungs-Vorschläge aus Phase 4 — keine neuen Befunde.
+3. **Beispielantwort** am Ende („Z1 Z3 go, Z4 Liste").
+
+Die Liste ersetzt kein Tracking; Regel 4 (Verankerung entscheidet der Mensch) bleibt.
+Gibt es nichts zu entscheiden, entfällt die Liste — der erste Satz bleibt.
+
 ## Anti-Patterns
 - ❌ Aus dem eigenen Session-Kontext urteilen (in-context self-review).
 - ❌ Befund ohne harten Artefakt-Beleg.
@@ -484,6 +499,7 @@ bleiben bewusst außerhalb, damit der erste Lauf nicht mit Altlasten rot wird.
 | 19 | **Vierklang vorhanden: getan · angenommen · nicht verifizierbar · offen geblieben (Regel 5)** | ☐ |
 | 20 | `retro_report_check.py` über den Report gelaufen, Exit 0 (Phase 8) | ☐ |
 | 21 | **Finder (2) und Skeptiker (3) je in EINER Nachricht gestartet, Collect-Befehle gebündelt (Phase 1/2/3)** | ☐ |
+| 22 | Übergabe-Antwort: erster Satz „schließbar ja/nein", Maßnahmen mit Empfehlung + Link, Beispielantwort — oder nichts zu entscheiden (Phase 9) | ☐ |
 
 > **Pflicht-Selbstcheck (nicht überspringen):** zähle die als PFLICHT/NEU markierten
 > `##`/`###`-Überschriften oben gegen diese Tabelle — jede neue Pflicht-Phase braucht hier eine
@@ -493,6 +509,9 @@ bleiben bewusst außerhalb, damit der erste Lauf nicht mit Altlasten rot wird.
 
 Vollständige Historie: `docs/governance/session-skills-lehren/retro.md` § Changelog-Historie.
 
+- 2026-10-05: **Phase 9 Abschluss-Maßnahmen (PFLICHT) + Checklisten-Zeile 22** (Owner-Wort
+  „dieses Vorgehen sollten wir etablieren", platform#3716). Die Übergabe nennt, was zu
+  entscheiden ist, mit Empfehlung und Link, statt den Report nachzuerzählen.
 - 2026-09-22: **Nebenläufig starten statt nacheinander warten** (platform#3373, Auftrag
   „Session-Skills auf Laufzeit optimieren"). Phase 1 bündelt ihre Sammel-Befehle, Phase 2 und
   Phase 3 starten alle Subagenten in EINER Nachricht; Checklisten-Zeile 21. Kein Budget, keine
