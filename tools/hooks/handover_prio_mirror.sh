@@ -149,6 +149,12 @@ fi
 # der inzwischen gemergten Parallelsitzungen. Statusabfrage mit 3 s Deckel; laeuft
 # sie ab, gilt jeder Punkt als offen (lieber einmal zu viel zeigen).
 FRAG_TOOL="${CWD}/tools/agent-handover/fragments.py"
+# Repos ohne eigenes Werkzeug (#3729: meiki-hub, robo-lab) fuehren nur das
+# Verzeichnis; gelesen wird dann mit dem Werkzeug aus dem platform-Klon. Ohne
+# diesen Rueckgriff schriebe dort jede Sitzung Fragmente, die kein Start zeigt.
+if [ ! -f "${FRAG_TOOL}" ] && git -C "${CWD}" cat-file -e origin/main:docs/handover.d 2>/dev/null; then
+    FRAG_TOOL="${GITHUB_DIR:-$HOME/github}/platform/tools/agent-handover/fragments.py"
+fi
 if [ -f "${FRAG_TOOL}" ] && git -C "${CWD}" rev-parse --verify --quiet origin/main >/dev/null 2>&1; then
     FRAG_ITEMS="$(timeout 4 python3 "${FRAG_TOOL}" --wurzel "${CWD}" render --ref origin/main --timeout 3 2>/dev/null \
         | awk '/^## Offene Fäden aus Sitzungen/{insec=1; next} /^## /{insec=0} insec && /^- / && $0 != "- keine" {print "  " $0}')"
