@@ -41,9 +41,15 @@ Ausweitungen, beide aus den Rueckfaellen selbst:
     kein Scanner (siehe `test-asserts-the-case-in-mind-not-the-harmful-one` in
     der declined-Liste).
 
-Exit: 0 = sauber · 1 = Befund (advisory — der CI-Step bleibt gruen, druckt aber
-die Warnung) · 2 = Werkzeugfehler (der CI-Step wird ROT: ein Melder, der beim
-Ausfall schweigt, ist schlimmer als keiner).
+Exit: 0 = sauber · 1 = neues Modul ohne Test-Spur (blockierend seit Rev 3, der
+CI-Step wird ROT) · 2 = Werkzeugfehler (ROT: ein Melder, der beim Ausfall
+schweigt, ist schlimmer als keiner) · 3 = nur Gate-Drill ohne Falsifikationslauf
+(advisory, der CI-Step bleibt gruen und warnt).
+
+Rev 3 (2026-10-05, #3722 G1): Rueckblick ueber 300 Merges auf main — 4 Treffer.
+Die zwei Modul-Treffer waren echt, die zwei Drill-Treffer Fehlalarme (Testdateien,
+die sich „Drill“ nennen, ohne ein Gate zu pruefen). Deshalb blockiert nur der
+Modul-Zweig; der Drill-Zweig bleibt Melder.
 """
 
 from __future__ import annotations
@@ -125,6 +131,11 @@ def hat_test_spur(stem: str, repo_root: Path) -> bool:
             except OSError:
                 continue
     return False
+
+
+#: Exit-Vertrag (Modulkopf); der CI-Step in tools-tests.yml wertet genau diese Werte.
+EXIT_MODUL = 1
+EXIT_NUR_DRILL = 3
 
 
 #: Eine Testdatei weist sich SELBST als Gate-Drill aus, wenn eines dieser Woerter
@@ -269,11 +280,14 @@ def main() -> int:
                 f"   - {d} (weist sich als Gate/Drill aus, nennt aber keine "
                 "Gegenprobe/Positivkontrolle)"
             )
+    if befunde:
+        print("   → Testdatei nachliefern: ein neues Modul ohne Test-Spur blockiert den PR.")
+        return EXIT_MODUL
     print(
-        "   → Testdatei bzw. Gegenprobe nachliefern ODER im PR kurz begruenden, warum nicht"
-        " (Fehlalarm-Feedback fliesst in die Kalibrierung, das Gate ist advisory)."
+        "   → Gegenprobe nachliefern ODER im PR kurz begruenden, warum nicht"
+        " (Fehlalarm-Feedback fliesst in die Kalibrierung, der Drill-Zweig ist advisory)."
     )
-    return 1
+    return EXIT_NUR_DRILL
 
 
 if __name__ == "__main__":
