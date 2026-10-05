@@ -635,6 +635,46 @@ def test_should_never_require_review_without_a_rule():
     assert review_ist_pflicht(pr, hat_regel=False) is False
 
 
+def _rules_fehler(meldung: str):
+    import pr_merge_sa
+
+    def _fake(args):
+        raise pr_merge_sa.Unklar(f"gh {' '.join(args[:3])} …: {meldung}")
+
+    return _fake
+
+
+def test_should_read_no_rule_when_plan_has_no_rulesets(monkeypatch):
+    """Live-Test S9 (#3724), Wortlaut gemessen an iilsandbox/chat-hub#1: der
+    Free-Plan kennt keine Rulesets fuer private Repos, also gibt es keine Regel."""
+    import pr_merge_sa
+
+    monkeypatch.setattr(
+        pr_merge_sa,
+        "_gh",
+        _rules_fehler(
+            "gh: Upgrade to GitHub Pro or make this repository public to enable"
+            " this feature. (HTTP 403)"
+        ),
+    )
+    assert pr_merge_sa.pull_request_regel("iilsandbox/chat-hub", "main") is False
+
+
+@pytest.mark.parametrize(
+    "meldung",
+    [
+        "gh: API rate limit exceeded for user. (HTTP 403)",
+        "gh: Resource not accessible by personal access token (HTTP 403)",
+    ],
+)
+def test_should_stay_unklar_on_other_403_from_rules(monkeypatch, meldung):
+    import pr_merge_sa
+
+    monkeypatch.setattr(pr_merge_sa, "_gh", _rules_fehler(meldung))
+    with pytest.raises(pr_merge_sa.Unklar):
+        pr_merge_sa.pull_request_regel("iilsandbox/chat-hub", "main")
+
+
 def test_should_merge_clean_doc_pr_that_github_does_not_block():
     """Die Wirkung des Fixes am Urteil, nicht nur an der Hilfsfunktion:
     #2438-Form (nur AGENT_HANDOVER.md, CLEAN, kein Approval) ist erlaubt."""
