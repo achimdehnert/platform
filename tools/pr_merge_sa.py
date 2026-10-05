@@ -568,6 +568,12 @@ def repo_aus_cwd() -> str:
 
 JOURNAL = pathlib.Path.home() / ".claude" / "pr-merge-sa.jsonl"
 
+#: Journal-Feld "ergebnis" fuer einen ausgefuehrten Merge. Nur diese beiden
+#: zaehlt der Sandbox-Benchmark als Merge (tools/sandbox/benchmark.py,
+#: dort gespiegelt und per Test gleichgehalten).
+ERGEBNIS_GEMERGT = "gemergt"
+ERGEBNIS_AUTO_MERGE = "auto_merge"
+
 
 def journal(zeile: dict) -> None:
     """Jede Entscheidung wird protokolliert. Die Policy verlangt eine Ratsche
@@ -615,62 +621,75 @@ def main(argv=None) -> int:
             f"{marke} {repo}#{args.nummer}: {urteil.wirkung}/{urteil.mandat} — {urteil.grund}"
         )
 
-    journal(
-        {
-            "repo": repo,
-            "pr": args.nummer,
-            "wirkung": urteil.wirkung,
-            "mandat": urteil.mandat,
-            "erlaubt": urteil.erlaubt,
-            "grund": urteil.grund,
-            "dry_run": bool(args.dry_run),
-        }
-    )
+    # Eine Zeile je Aufruf, NACH dem Merge-Versuch: "erlaubt" ist das Urteil,
+    # "ergebnis" das, was tatsaechlich geschah. Vorher stand eine von GitHub
+    # abgelehnte Gegenprobe im Journal wie ein Merge (S9, #3724).
+    code, ergebnis = 3, "abgebrochen"
+    try:
+        if not urteil.erlaubt:
+            code, ergebnis = 2, "nicht_gedeckt"
+        elif args.dry_run:
+            print("(dry-run — nicht gemergt)")
+            code, ergebnis = 0, "dry_run"
+        else:
+            code, ergebnis = _merge(args.nummer, repo, repo_id, r, fakten, urteil)
+    finally:
+        journal(
+            {
+                "repo": repo,
+                "pr": args.nummer,
+                "wirkung": urteil.wirkung,
+                "mandat": urteil.mandat,
+                "erlaubt": urteil.erlaubt,
+                "grund": urteil.grund,
+                "dry_run": bool(args.dry_run),
+                "ergebnis": ergebnis,
+                "exit": code,
+            }
+        )
+    return code
 
-    if not urteil.erlaubt:
-        return 2
-    if args.dry_run:
-        print("(dry-run — nicht gemergt)")
-        return 0
 
+def _merge(nummer, repo, repo_id, r, fakten, urteil) -> tuple[int, str]:
+    """Gedeckter Merge mit den Pruefungen direkt davor → (Exit-Code, Ergebnis)."""
     if repo_id is not None:
         # Zielwechsel zwischen Pruefung und Merge (ADR-308 §8.2): dieselbe ID oder nichts
         try:
             jetzt = aufgeloestes_repo(repo)
         except Unklar as exc:
             print(f"UNKLAR: {exc}", file=sys.stderr)
-            return 3
+            return 3, "unklar"
         if jetzt[0].lower() != repo.lower() or jetzt[1] != repo_id:
             print(
                 f"UNKLAR: {repo} hat seit der Pruefung das Ziel gewechselt",
                 file=sys.stderr,
             )
-            return 3
+            return 3, "unklar"
 
     # Ohne Rulesets (iilsandbox) haelt nichts einen Push zwischen Pruefung und
     # Merge auf: gemergt wird genau der gepruefte Kopf oder nichts (#3724).
     if not fakten.head_sha:
         print("UNKLAR: Kopf-Commit des PR nicht lesbar — kein Merge", file=sys.stderr)
-        return 3
+        return 3, "unklar"
     if r.get("actions_aus"):
         # Neu gemessen, nicht aus regeln_fuer() geglaubt: Actions koennen seitdem an sein
         try:
             an = actions_an(repo)
         except Unklar as exc:
             print(f"UNKLAR: {exc}", file=sys.stderr)
-            return 3
+            return 3, "unklar"
         if an:
             print(
                 f"UNKLAR: {repo} hat seit der Pruefung Actions an — W0 gilt nicht mehr",
                 file=sys.stderr,
             )
-            return 3
+            return 3, "unklar"
 
     befehl = [
         "gh",
         "pr",
         "merge",
-        str(args.nummer),
+        str(nummer),
         "-R",
         repo,
         "--squash",
@@ -683,10 +702,10 @@ def main(argv=None) -> int:
     p = subprocess.run(befehl, capture_output=True, text=True)
     if p.returncode != 0:
         print(f"Merge fehlgeschlagen: {p.stderr.strip()[:300]}", file=sys.stderr)
-        return 3
+        return 3, "abgelehnt"
     wie = "Auto-Merge gesetzt" if urteil.auto else "gemergt"
-    print(f"{wie}: {repo}#{args.nummer} ({urteil.mandat} deckt {urteil.wirkung})")
-    return 0
+    print(f"{wie}: {repo}#{nummer} ({urteil.mandat} deckt {urteil.wirkung})")
+    return 0, ERGEBNIS_AUTO_MERGE if urteil.auto else ERGEBNIS_GEMERGT
 
 
 if __name__ == "__main__":

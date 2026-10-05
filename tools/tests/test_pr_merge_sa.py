@@ -528,6 +528,91 @@ def test_should_journal_every_decision(monkeypatch, tmp_path):
     assert datetime.fromisoformat(zeilen[0]["ts"]).tzinfo is not None
 
 
+class _Abgelehnt:
+    returncode = 1
+    stderr = "GraphQL: Head branch was modified. Review and try the merge again."
+
+
+def _journal_nach_merge(monkeypatch, fakten, lauf, zeilen):
+    """main() mit echtem Merge-Pfad; Journalzeilen landen in `zeilen`."""
+    import pr_merge_sa
+
+    monkeypatch.setattr(pr_merge_sa, "regeln", lambda *_a, **_k: REGELN)
+    monkeypatch.setattr(pr_merge_sa, "aufgeloestes_repo", lambda x: (x, 4711))
+    monkeypatch.setattr(pr_merge_sa, "gather", lambda *_a, **_k: fakten)
+    monkeypatch.setattr(pr_merge_sa, "journal", zeilen.append)
+    monkeypatch.setattr(pr_merge_sa.subprocess, "run", lauf)
+    return pr_merge_sa.main(["1", "owner/repo"])
+
+
+def test_should_journal_rejected_merge_as_not_merged(monkeypatch):
+    """Realfall S9-Gegenprobe (#3724): GitHub lehnte ab, das Journal sagte nur
+    „erlaubt“ — und der Sandbox-Benchmark zaehlte es als Merge."""
+    zeilen = []
+    code = _journal_nach_merge(
+        monkeypatch,
+        _facts(mandat="M0", head_sha="abc123"),
+        lambda b, **k: _Abgelehnt(),
+        zeilen,
+    )
+    assert code == 3
+    assert len(zeilen) == 1
+    assert zeilen[0]["erlaubt"] is True
+    assert (zeilen[0]["ergebnis"], zeilen[0]["exit"]) == ("abgelehnt", 3)
+
+
+def test_should_journal_merged_result_after_successful_merge(monkeypatch):
+    import pr_merge_sa
+
+    zeilen = []
+    code = _journal_nach_merge(
+        monkeypatch,
+        _facts(mandat="M0", head_sha="abc123"),
+        lambda b, **k: _Lauf(),
+        zeilen,
+    )
+    assert code == 0
+    assert len(zeilen) == 1
+    assert zeilen[0]["ergebnis"] == pr_merge_sa.ERGEBNIS_GEMERGT
+
+
+def test_should_journal_auto_merge_when_checks_still_run(monkeypatch):
+    import pr_merge_sa
+
+    zeilen = []
+    code = _journal_nach_merge(
+        monkeypatch,
+        _facts(mandat="M0", head_sha="abc123", checks_total=1, checks_pending=1),
+        lambda b, **k: _Lauf(),
+        zeilen,
+    )
+    assert code == 0
+    assert zeilen[0]["ergebnis"] == pr_merge_sa.ERGEBNIS_AUTO_MERGE
+
+
+def test_should_journal_unklar_when_check_before_merge_fails(monkeypatch):
+    zeilen, gerufen = [], []
+    code = _journal_nach_merge(
+        monkeypatch, _facts(mandat="M0"), lambda b, **k: gerufen.append(b), zeilen
+    )
+    assert code == 3
+    assert gerufen == []
+    assert (zeilen[0]["ergebnis"], zeilen[0]["exit"]) == ("unklar", 3)
+
+
+def test_should_journal_once_even_when_merge_call_crashes(monkeypatch):
+    def _absturz(b, **k):
+        raise FileNotFoundError("gh")
+
+    zeilen = []
+    with pytest.raises(FileNotFoundError):
+        _journal_nach_merge(
+            monkeypatch, _facts(mandat="M0", head_sha="abc123"), _absturz, zeilen
+        )
+    assert len(zeilen) == 1
+    assert zeilen[0]["ergebnis"] == "abgebrochen"
+
+
 def test_should_not_block_merge_when_journal_is_unwritable(monkeypatch, tmp_path):
     """Ein blindes Journal darf keinen gedeckten Merge verhindern."""
     import pr_merge_sa
