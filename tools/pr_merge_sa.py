@@ -129,6 +129,8 @@ class Facts:
     checks_pending: int = 0
     # Gruende, warum die Pruefrage bei W3 doch M3 verlangt (leer = M1 genuegt)
     pruef_pflicht: list = field(default_factory=list)
+    # Nur bei Org-Profil: per API aufgeloeste Repo-ID, vor dem Merge erneut verglichen
+    repo_id: int | None = None
 
 
 @dataclass
@@ -188,7 +190,7 @@ def classify(f: Facts, r: dict) -> Verdict:
             False,
             f"fehlt: gruenes CI ({f.checks_failing} Check(s) rot)",
         )
-    if f.checks_total == 0:
+    if f.checks_total == 0 and not r.get("actions_aus"):
         nicht_doku = [p for p in f.files if not ist_doku(p, r["doku_glob"])]
         if nicht_doku:
             return Verdict(
@@ -233,6 +235,48 @@ def _gh(args: list):
         return json.loads(p.stdout)
     except json.JSONDecodeError as exc:
         raise Unklar(f"gh-Antwort nicht lesbar: {exc}")
+
+
+def aufgeloestes_repo(repo: str) -> tuple[str, int]:
+    """(full_name, id) laut GitHub-API — nach Umbenennung/Transfer der NEUE Eigentuemer."""
+    daten = _gh(["api", f"repos/{repo}"])
+    try:
+        return daten["full_name"], int(daten["id"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise Unklar(f"Repo {repo} nicht aufloesbar: {exc}")
+
+
+def actions_an(repo: str) -> bool:
+    daten = _gh(["api", f"repos/{repo}/actions/permissions"])
+    if not isinstance(daten, dict) or "enabled" not in daten:
+        raise Unklar(f"Actions-Zustand von {repo} nicht lesbar")
+    return bool(daten["enabled"])
+
+
+def regeln_fuer(
+    repo: str, r: dict, aufloesen=None, actions=None
+) -> tuple[dict, int | None]:
+    """Org-Profil aus `sa_m.org_profile` (ADR-308 §4.4) — sonst die Grundregeln.
+
+    Sicherheitsvertrag: Das Profil gilt nur, wenn die API das Repo derselben Org
+    zuordnet wie der Aufruf. Leitet GitHub nach Umbenennung oder Transfer zu einem
+    anderen Eigentuemer weiter, ist das UNKLAR, nie die Grundregel. Die ID geht
+    mit, damit main() vor dem Merge einen Zielwechsel bemerkt. `actions_aus` wird
+    gemessen, nicht geglaubt: laufen Actions doch, ist das UNKLAR.
+    """
+    aufloesen = aufloesen or aufgeloestes_repo
+    actions = actions or actions_an
+    org = repo.split("/")[0].lower()
+    profile = {k.lower(): v for k, v in (r.get("org_profile") or {}).items()}
+    if org not in profile:
+        return r, None
+    voller_name, repo_id = aufloesen(repo)
+    if voller_name.lower() != repo.lower():
+        raise Unklar(f"{repo} zeigt laut API auf {voller_name} — Org-Profil verweigert")
+    profil = {**r, **profile[org]}
+    if profil.get("actions_aus") and actions(repo):
+        raise Unklar(f"Org-Profil {org} setzt Actions aus voraus, {repo} hat sie an")
+    return profil, repo_id
 
 
 def _paths_ignore_deckt_alles(kopf: str, dateien: list) -> bool:
@@ -456,8 +500,11 @@ def gather(repo: str, nummer: int, r: dict) -> Facts:
             failing,
             pending,
         ),
-        wirkung=wirkung_des_merges(repo, dateien, r),
-        pruef_pflicht=pruef_pflicht_gruende(repo, dateien, r),
+        # Actions aus (gemessen in regeln_fuer): kein Workflow kann wirken
+        wirkung="W0" if r.get("actions_aus") else wirkung_des_merges(repo, dateien, r),
+        pruef_pflicht=(
+            [] if r.get("actions_aus") else pruef_pflicht_gruende(repo, dateien, r)
+        ),
         mandat=mandat_des_prs(repo, nummer, pr),
         files=dateien,
         checks_total=len(roll),
@@ -507,7 +554,9 @@ def main(argv=None) -> int:
     try:
         r = regeln(args.policy)
         repo = args.repo or repo_aus_cwd()
+        r, repo_id = regeln_fuer(repo, r)
         fakten = gather(repo, args.nummer, r)
+        fakten.repo_id = repo_id
         urteil = classify(fakten, r)
     except Unklar as exc:
         print(f"UNKLAR: {exc}", file=sys.stderr)
@@ -541,6 +590,20 @@ def main(argv=None) -> int:
     if args.dry_run:
         print("(dry-run — nicht gemergt)")
         return 0
+
+    if repo_id is not None:
+        # Zielwechsel zwischen Pruefung und Merge (ADR-308 §8.2): dieselbe ID oder nichts
+        try:
+            jetzt = aufgeloestes_repo(repo)
+        except Unklar as exc:
+            print(f"UNKLAR: {exc}", file=sys.stderr)
+            return 3
+        if jetzt[0].lower() != repo.lower() or jetzt[1] != repo_id:
+            print(
+                f"UNKLAR: {repo} hat seit der Pruefung das Ziel gewechselt",
+                file=sys.stderr,
+            )
+            return 3
 
     befehl = [
         "gh",

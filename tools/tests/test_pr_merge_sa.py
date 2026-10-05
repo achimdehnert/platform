@@ -25,6 +25,7 @@ from pr_merge_sa import (  # noqa: E402
     ist_doku,
     ist_governance,
     regeln,
+    regeln_fuer,
     review_ist_pflicht,
 )
 
@@ -274,6 +275,84 @@ def test_should_read_rules_from_the_policy_itself():
     assert aus_policy["deckung"] == REGELN["deckung"]
     assert set(aus_policy["governance_pfade"]) == set(REGELN["governance_pfade"])
     assert aus_policy.get("sync_only_repos") == REGELN["sync_only_repos"]
+
+
+def test_should_keep_base_rules_outside_profiled_orgs():
+    r = {**REGELN, "org_profile": {"iilsandbox": {"actions_aus": True}}}
+    gerufen = []
+    profil, repo_id = regeln_fuer(
+        "achimdehnert/platform", r, aufloesen=lambda x: gerufen.append(x)
+    )
+    assert profil is r and repo_id is None and gerufen == []
+
+
+# --- Org-Profil (ADR-308 §4.4): Sandbox-Org mit M0, nur wenn gemessen -------------
+
+SANDBOX = {**REGELN, "org_profile": {"iilsandbox": {"actions_aus": True}}}
+
+
+def _profil(repo="iilsandbox/dev-hub", aufgeloest=None, an=False):
+    return regeln_fuer(
+        repo,
+        SANDBOX,
+        aufloesen=lambda x: (aufgeloest or x, 4711),
+        actions=lambda x: an,
+    )
+
+
+def test_should_merge_sandbox_code_pr_without_checks_and_mandat():
+    profil, repo_id = _profil()
+    assert repo_id == 4711
+    u = classify(
+        _facts(repo="iilsandbox/dev-hub", mandat="M0", files=["apps/x.py"]), profil
+    )
+    assert u.erlaubt is True
+
+
+def test_should_still_reject_code_pr_without_checks_outside_profile():
+    u = classify(_facts(mandat="M0", files=["apps/x.py"]), REGELN)
+    assert u.erlaubt is False
+
+
+def test_should_keep_governance_paths_under_approval_in_sandbox():
+    profil, _ = _profil()
+    u = classify(
+        _facts(repo="iilsandbox/platform", mandat="M0", files=["policies/x.md"]),
+        profil,
+    )
+    assert u.erlaubt is False and "Governance" in u.grund
+
+
+def test_should_refuse_profile_when_repo_was_transferred_out_of_sandbox():
+    with pytest.raises(Unklar, match="achimdehnert/dev-hub"):
+        _profil(aufgeloest="achimdehnert/dev-hub")
+
+
+def test_should_refuse_profile_when_actions_run_in_sandbox():
+    with pytest.raises(Unklar, match="Actions"):
+        _profil(an=True)
+
+
+def test_should_not_merge_when_repo_target_changed_after_check(monkeypatch, capsys):
+    import pr_merge_sa
+
+    gemergt = []
+    ids = iter([4711, 9999])
+    monkeypatch.setattr(pr_merge_sa, "regeln", lambda *_a, **_k: SANDBOX)
+    monkeypatch.setattr(pr_merge_sa, "aufgeloestes_repo", lambda x: (x, next(ids)))
+    monkeypatch.setattr(pr_merge_sa, "actions_an", lambda x: False)
+    monkeypatch.setattr(
+        pr_merge_sa,
+        "gather",
+        lambda *_a, **_k: _facts(repo="iilsandbox/dev-hub", mandat="M0"),
+    )
+    monkeypatch.setattr(pr_merge_sa, "journal", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        pr_merge_sa.subprocess, "run", lambda *a, **k: gemergt.append(a) or None
+    )
+    assert pr_merge_sa.main(["1", "iilsandbox/dev-hub"]) == 3
+    assert gemergt == []
+    assert "Ziel gewechselt" in capsys.readouterr().err
 
 
 def test_should_raise_unklar_when_policy_has_no_rule_block(tmp_path):
