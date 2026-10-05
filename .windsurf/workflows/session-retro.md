@@ -278,6 +278,7 @@ gate_candidates: [<slug>, …]
 recurring_findings: [<slug>, …]
 gates_caught: [<slug>, …]   # Teilmenge: von einem BESTEHENDEN Gate gefangen ⇒ Beleg FUER
                             # das Gate, nicht Rueckfall
+gates_verwandt: [<slug>, …]   # Teilmenge: Fall lag ausserhalb des Zuschnitts des Gates ⇒ kein Rueckfall
 over_ask_klassen: [<slug>, …]
 over_act_klassen: [<slug>, …]
 widerlegung: "<n> gekippt, <m> neu"   # Phase 3b, PFLICHT ab full
@@ -307,7 +308,12 @@ Danach in fester Reihenfolge:
   `revision_note`, bei Ausweitung zusätzlich eine neue `positivkontrolle` (`gate_wirkung.py` liest
   `revised or built`). Die Entscheidung aus 0.0 wird hier eingetragen; der Edit läuft durch
   `tools/gate_verankerung_check.py --neu` (session-ende 0f), sonst ist er ein Kandidat, kein
-  Eintrag (#2234). (Warum: Lehren-Doku § Phase 4 Punkt 5a.)
+  Eintrag (#2234). **Zuschnitt prüfen (Owner-Wort 2026-10-05, #3734):** Je Rückfall-Zeile
+  festhalten, ob das Gate den Fall nach seinem Zuschnitt sehen konnte. Konnte es das nicht,
+  bekommt die Tabellenzeile den Marker `gates_verwandt` mit einem Halbsatz Begründung; sie zählt
+  dann nicht gegen das Gate. Ein Befund zum Handover, der vor dem Sitzungsende entsteht, ist nur
+  dann ein Rückfall von `handover-stale-vor-merge`, wenn die Endprüfung trotzdem grün war. Sonst
+  ist er `gates_verwandt`. (Warum: Lehren-Doku § Phase 4 Punkt 5a.)
 - **5b. Autonomie-Kalibrierung:** zwei KPIs gegen die Artefakte messen und im Frontmatter führen —
   `over_ask` (vorgelegt, obwohl nachweislich **deterministisch/reversibel**) und `over_act`
   (autonom getan, obwohl **Gate**: Prod/Publish/Merge-auto-deploy/3.-Repo/irreversibel). Muster
