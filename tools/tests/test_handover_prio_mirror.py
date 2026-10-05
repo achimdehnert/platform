@@ -253,7 +253,7 @@ titel: "Parallelsitzung"
 """
 
 
-def _run_ohne_gh(repo: Path, tmp_path: Path) -> str:
+def _run_ohne_gh(repo: Path, tmp_path: Path, *, github_dir: Path | None = None) -> str:
     """Hook ohne Netz: ein `gh`, das scheitert, macht jeden Status "unbekannt"."""
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -261,7 +261,13 @@ def _run_ohne_gh(repo: Path, tmp_path: Path) -> str:
     (bin_dir / "gh").chmod(0o755)
     import os
 
-    env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"}
+    # GITHUB_DIR immer setzen: sonst faende der Rueckgriff den echten platform-Klon
+    # des Rechners und die Gegenprobe unten waere von der Umgebung abhaengig.
+    env = {
+        **os.environ,
+        "PATH": f"{bin_dir}:{os.environ['PATH']}",
+        "GITHUB_DIR": str(github_dir or tmp_path / "kein-github"),
+    }
     return subprocess.run(
         ["bash", str(HOOK)],
         cwd=repo,
@@ -297,6 +303,37 @@ def test_should_mirror_open_threads_from_fragments_on_origin_main(
     # Die kuratierte Prio bleibt dahinter sichtbar.
     assert "Preview-Tunnel starten" in out
     assert out.index("Fragment-Faden") < out.index("Preview-Tunnel starten")
+
+
+def _platform_klon(tmp_path: Path) -> Path:
+    github_dir = tmp_path / "github"
+    ziel = github_dir / "platform" / "tools" / "agent-handover" / "fragments.py"
+    ziel.parent.mkdir(parents=True)
+    ziel.write_text(FRAGMENT_TOOL.read_text(encoding="utf-8"), encoding="utf-8")
+    return github_dir
+
+
+def test_should_mirror_fragments_in_repo_without_own_tool(tmp_path: Path) -> None:
+    """#3729: Repo fuehrt nur docs/handover.d, das Werkzeug kommt aus platform."""
+    repo = _real_repo(tmp_path)
+    frag = "docs/handover.d/2026-09-16T08-00-00Z-fremd.md"
+    (repo / "docs" / "handover.d").mkdir(parents=True)
+    _advance_origin(repo, touch=frag, content=FRAGMENT)
+    assert not (repo / "tools" / "agent-handover" / "fragments.py").exists()
+    out = _run_ohne_gh(repo, tmp_path, github_dir=_platform_klon(tmp_path))
+    assert "Fragment-Faden" in out
+    assert "docs/handover.d (Sitzungs-Fragmente)" in out
+
+
+def test_should_stay_silent_about_fragments_without_any_tool(tmp_path: Path) -> None:
+    """Gegenprobe: kein Werkzeug im Repo und keins im platform-Klon ⇒ kein Faden."""
+    repo = _real_repo(tmp_path)
+    frag = "docs/handover.d/2026-09-16T08-00-00Z-fremd.md"
+    (repo / "docs" / "handover.d").mkdir(parents=True)
+    _advance_origin(repo, touch=frag, content=FRAGMENT)
+    out = _run_ohne_gh(repo, tmp_path)
+    assert "Fragment-Faden" not in out
+    assert "Preview-Tunnel starten" in out
 
 
 def test_should_keep_curated_source_when_no_fragments_exist(tmp_path: Path) -> None:
