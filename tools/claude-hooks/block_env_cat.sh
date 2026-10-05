@@ -5,7 +5,7 @@
 #   "slug": "secret-leak-via-safe-pattern"
 #   "mode": "blocking"
 #   "owner": "achim"
-#   "last_drill_pass": "2026-09-14"
+#   "last_drill_pass": "2026-10-05"
 #   "evidence": "tools/claude-hooks/tests/test_block_env_cat.py"
 #
 # Anlass: session-retro 2026-07-03 F1 (`cat .env` leakte DB_PASSWORD) +
@@ -41,6 +41,27 @@
 # Sourcing einer `.env`-Datei (legitimer Projektpfad) und Var-Indirektion
 # (`. "$DATEI"`) — der Pfad muss im Befehlstext stehen.
 #
+# v6 (2026-10-05, Vorlage platform#3722 G6 — Gate rueckfaellig): zwei Aenderungen.
+# (1) TRACE + UMGEBUNG. Am 2026-09-23 schrieb eine Ablaufverfolgung ein Passwort
+# ins Transkript (platform#3428): das verfolgte Kommando las die Umgebung eines
+# Containers in eine Variable, und der Trace druckte die expandierte Zuweisung.
+# v4 sah nur `bash -x <lokales skript>` mit Secret-PFAD im Skript — hier gab es
+# weder einen Pfad noch ein lokales Skript (der Aufruf lief entfernt). Jetzt gilt:
+# steht in EINEM Befehlstext sowohl eine Ablaufverfolgung (`bash|sh -x`, `set -x`,
+# `set -o xtrace`) als auch ein Kommando, das Umgebungswerte ausgibt (`docker
+# inspect`, `compose config`, `printenv`, nacktes `env`, `/proc/<pid>/environ`,
+# `export -p`, `declare -p|-x`) → deny. „Ein Befehlstext" ist die Kommandozeile
+# selbst oder ein zitierter Befehl hinter `bash -c`, `ssh`, `docker`, `kubectl`,
+# `sudo` (hoechstens zwei Ebenen). Ein lokales Skript unter `bash -x` wird
+# zusaetzlich auf dieselben Kommandos gelesen. Ein Zitat in einem PR-/Issue-Text
+# ist KEIN Befehlstext und bleibt frei (v3-Lehre).
+# (2) EINGEBETTETE NOTIZ. Am 2026-09-24 blockte der Guard `cat > notiz <<'EOF'`,
+# weil im Notiztext der Pfad einer Token-Datei stand — der Text wurde als Argument
+# des Readers gelesen. Der Rumpf eines Heredocs wird jetzt vor der Pruefung
+# entfernt, aber NUR wenn `cat`/`tee` ihn erhaelt und die Zeile weder Pipe noch
+# Verkettung traegt. Ein Heredoc an eine Shell (`bash <<EOF`) oder in eine Pipe
+# (`cat <<EOF | sh`) ist Programmtext und wird weiter geprueft.
+#
 # Doktrin: bei Parse-Zweifel (JSON/Quoting) ALLOW — Hook darf Arbeit nicht fälschlich
 # blocken. BEWUSSTE AUSNAHME (Risiko-Umkehr, retro f4a546 #1/incr #5): (a) Globs über
 # das Secrets-Verzeichnis (`.secrets/*`) kombiniert mit Reader/cut/awk → deny (Loop-
@@ -50,8 +71,10 @@
 # Dokumentierte GRENZEN (kein Vollständigkeits-Claim, incr #5): sed, python -c open(...),
 # Umkopieren (cp) und Var-Indirektion außerhalb von Globs werden NICHT erkannt —
 # bewusst, weil sed -i auf .env-Dateien ein legitimer Fix-Pfad ist (weltenhub 07-09).
-# `set -x` als eigenes Kommando (Trace fuer den Rest der Zeile) wird NICHT erkannt —
-# nur die Form `bash -x <skript>`. .env.example/.sample/.template/.dist/.schema sind
+# `set -x` als eigenes Kommando wird nur zusammen mit einem Umgebungs-Kommando im
+# selben Befehlstext erkannt (v6), nicht allein. Ein ENTFERNTES Skript unter
+# `bash -x` kann nicht gelesen werden — erkannt wird dort nur, was im Befehlstext
+# steht. .env.example/.sample/.template/.dist/.schema sind
 # ausgenommen (keine echten Secrets).
 set -euo pipefail
 
@@ -84,6 +107,49 @@ def is_secret(tok: str) -> bool:
 # (v5) Sourcing einer Datei unter dem Secrets-Verzeichnis (retro oqu6Z6 #10).
 SOURCERS = {".", "source"}
 SECRETS_DIR = re.compile(r'(^|/)\.secrets(/|$)')
+
+# (v6) Rumpf einer eingebetteten Notiz entfernen: nur `cat`/`tee` als Empfaenger,
+# Zeile ohne Pipe/Verkettung. Alles andere bleibt Programmtext.
+NOTIZ_KOPF = re.compile(
+    r'^[ \t]*(?:cat|tee)\b[^|;&\n]*<<-?[ \t]*(["\']?)([A-Za-z_][A-Za-z0-9_]*)\1[^|;&\n]*$')
+
+HEREDOC = re.compile(r'<<-?[ \t]*(["\']?)([A-Za-z_][A-Za-z0-9_]*)\1')
+SHELL_WORT = re.compile(r'(?:^|[\s|;&(])(?:bash|sh|dash|zsh)(?:\s|$)')
+
+def ohne_notizen(text: str) -> str:
+    """Notiz-Rumpf faellt weg; ein Rumpf, den eine Shell erhaelt, wird zu
+    Programmtext (je Zeile ein Kommando). Jedes andere Heredoc bleibt, wie es ist."""
+    raus, ende, programm = [], None, False
+    for z in text.split("\n"):
+        if ende is not None:
+            if z.strip() == ende:
+                ende = None
+            elif programm and z.strip():
+                raus.append("; " + z)
+            continue
+        m = HEREDOC.search(z)
+        if m and NOTIZ_KOPF.match(z):
+            ende, programm = m.group(2), False
+            raus.append(z)
+        elif m and SHELL_WORT.search(z):
+            ende, programm = m.group(2), True
+            raus.append(HEREDOC.sub("", z))
+        else:
+            raus.append(z)
+    return "\n".join(raus)
+
+cmd = ohne_notizen(cmd)
+
+# (v6) Ablaufverfolgung + Kommando, das Umgebungswerte ausgibt (platform#3428).
+_VOR = r'(?:^|[\s;&|(`])'
+TRACE = re.compile(
+    _VOR + r'(?:(?:bash|sh|dash|zsh)\s+(?:-[A-Za-z]+\s+)*-[A-Za-z]*x'
+    r'|set\s+-[A-Za-z]*x|set\s+-o\s+xtrace)')
+UMGEBUNG = re.compile(
+    _VOR + r'(?:docker\s+(?:container\s+)?inspect\b|docker[\s-]compose\b[^|;&\n]*\sconfig\b'
+    r'|printenv\b|env\s*(?:$|[|;&)>\n])|export\s+-p\b|declare\s+-[A-Za-z]*[px])'
+    r'|/proc/[^\s/]+/environ')
+TRAEGER = {"ssh", "docker", "kubectl", "sudo"}
 
 # (a) Glob über Secrets-Dir + Reader/cut/awk irgendwo -> Loop-Leak-Vektor (Incident 07-10)
 if re.search(r'\.secrets/\*', cmd) and re.search(
@@ -152,7 +218,36 @@ def skript_leakt(path: str):
     except OSError:
         return False
     return bool(SECRET.search(inhalt) and not EXAMPLE.search(inhalt)) or bool(
-        ERZEUGER.search(inhalt))
+        ERZEUGER.search(inhalt)) or bool(UMGEBUNG.search(inhalt))
+
+def befehlstexte(text: str, tiefe: int = 0, verfolgt: bool = False):
+    """(text, verfolgt) — die Kommandozeile OHNE ihre zitierten Argumente, dazu
+    rekursiv jeder zitierte Befehl hinter einer Shell (`-c`) oder einem Traeger
+    (ssh/docker/kubectl/sudo). Zitate hinter anderen Kommandos (gh, git, echo …)
+    sind Prosa und fallen weg. `verfolgt` erbt ein zitierter Befehl von der Shell,
+    die ihn mit `-x` startet, oder von einem `set -x` im umgebenden Text."""
+    z = zerlege(text)
+    if z is None:
+        return
+    segs, trenner = z
+    flach, kinder = [], []
+    for seg, sep in zip(segs, trenner):
+        cmdw, args = seg_parts([t for t in seg if t not in {"(", ")", "{", "}"}])
+        flach.extend(t for t in seg if not re.search(r'\s', t))
+        flach.append(sep or ";")
+        if tiefe < 2 and (cmdw in SHELLS or cmdw in TRAEGER):
+            mit_x = cmdw in SHELLS and any(re.match(r'^-[A-Za-z]*x', a) for a in args)
+            kinder.extend((a, mit_x) for a in args if re.search(r'\s', a))
+    flach_text = " ".join(flach)
+    gesetzt = verfolgt or bool(re.search(r'(?:^|[\s;&|(])set\s+-(?:[A-Za-z]*x|o\s+xtrace)',
+                                         flach_text))
+    for a, mit_x in kinder:
+        yield from befehlstexte(a, tiefe + 1, gesetzt or mit_x)
+    yield flach_text, verfolgt
+
+def trace_mit_umgebung(text: str) -> bool:
+    return any((verfolgt or TRACE.search(t)) and UMGEBUNG.search(t)
+               for t, verfolgt in befehlstexte(text))
 
 def sourct_secret(segs, tiefe: int = 0) -> bool:
     """True, wenn ein Segment `.`/`source` auf einen Pfad unter .secrets/ ausfuehrt —
@@ -175,6 +270,9 @@ def sourct_secret(segs, tiefe: int = 0) -> bool:
 
 if sourct_secret(segments):
     print("deny:source"); sys.exit(0)
+
+if trace_mit_umgebung(cmd):
+    print("deny:umgebung"); sys.exit(0)
 
 for idx, seg in enumerate(segments):
     cmdw, args = seg_parts(seg)
@@ -236,6 +334,11 @@ JSON
   deny:trace)
     cat <<'JSON'
 {"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Secret-Leak-Guard (retro b62038 #4, v4): bash -x auf ein Skript, das Secrets liest oder erzeugt, schreibt jede expandierte Variable — also das Geheimnis — auf stdout und damit ins Transkript. So stand am 2026-08-21 eine Passphrase-Erzeugung im Klartext im Trace. Ohne -x laufen lassen; zum Debuggen gezielte echo-Marker ohne Secret-Werte setzen oder den Trace in eine Datei ausserhalb des Transkripts umleiten (PS4 + exec 2>trace.log) und dort nur die Struktur pruefen."}}
+JSON
+    ;;
+  deny:umgebung)
+    cat <<'JSON'
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Secret-Leak-Guard (platform#3428, v6): Ablaufverfolgung (bash -x / set -x) zusammen mit einem Kommando, das Umgebungswerte ausgibt (docker inspect, compose config, printenv, env, /proc/<pid>/environ, export -p, declare -p). Der Trace druckt jede expandierte Zuweisung — so stand am 2026-09-23 ein Passwort im Transkript. Ohne Ablaufverfolgung laufen lassen und die Umgebung nur schluesselgenau lesen (grep -o '^NAME=' bzw. nur die Namen), nie als ganze Variable."}}
 JSON
     ;;
 esac
