@@ -614,12 +614,20 @@ def check_python_version(repo: str, token: str) -> list[DriftItem]:
 # nachgezogen"). Jeder Deploy-Fix musste so doppelt landen — genau das Doppel,
 # aus dem die Drift-Klasse "Tag ≠ main" entsteht. Fuer diese Dateien wird der
 # neueste Tag deshalb gegen shared-ci-main geprueft; eine platform-Kopie wird
-# gar nicht mehr gelesen. Alle uebrigen Dateien behalten vorerst den
-# platform-Kanon — ueber sie hat #3398 nicht entschieden.
+# gar nicht mehr gelesen.
+#
+# Dazu kommen `_ci-pypi.yml` (Kanon-Umzug schon 2026-08-19, ADR-226 Amendment,
+# hier nie nachgezogen) und `_build-docker.yml` (Owner-Go 2026-10-05, #3775):
+# beide Kopien wurden von eigenen Bots auf neue Action-Versionen gehoben, und
+# jeder Bump in platform meldete in jedem Aufrufer einen Error, obwohl shared-ci
+# seine eigenen Bumps ueber Dependabot und auto-release.yml zieht. Alle
+# uebrigen Dateien behalten vorerst den platform-Kanon.
 
 SHARED_CI_REPO = "iilgmbh/shared-ci"
 _PLATFORM_REPO = f"{GITHUB_ORG}/platform"
-SHARED_CI_SSOT_DATEIEN = frozenset({"_deploy-unified.yml", "_deploy-hetzner.yml"})
+SHARED_CI_SSOT_DATEIEN = frozenset(
+    {"_deploy-unified.yml", "_deploy-hetzner.yml", "_ci-pypi.yml", "_build-docker.yml"}
+)
 
 
 def _kanon_repo(name: str) -> str:
