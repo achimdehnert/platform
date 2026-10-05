@@ -350,10 +350,14 @@ def test_should_netz_checkout_nach_dateiinhalt_klassifizieren(monkeypatch):
     monkeypatch.setattr(
         sdm,
         "suche_code",
-        lambda q: [("achimdehnert/m-hub", ".github/workflows/ci.yml"),
-                   ("achimdehnert/x-hub", ".github/workflows/lint.yml")]
-        if q.startswith("repository:")
-        else [],
+        lambda q: (
+            [
+                ("achimdehnert/m-hub", ".github/workflows/ci.yml"),
+                ("achimdehnert/x-hub", ".github/workflows/lint.yml"),
+            ]
+            if q.startswith("repository:")
+            else []
+        ),
     )
     inhalte = {
         "achimdehnert/m-hub": _checkout(PAT, "          "),
@@ -480,7 +484,11 @@ def test_should_kosten_ohne_billing_scope_als_nicht_messbar_melden(monkeypatch):
 
 
 def _lage(sicht="PUBLIC", fehlt=()):
-    return {"besitzer": "iilgmbh/platform", "sichtbarkeit": sicht, "schutz_fehlt": list(fehlt)}
+    return {
+        "besitzer": "iilgmbh/platform",
+        "sichtbarkeit": sicht,
+        "schutz_fehlt": list(fehlt),
+    }
 
 
 def test_should_wache_bei_fehlendem_schutz_oder_bezahlten_minuten_alarmieren():
@@ -602,7 +610,9 @@ def test_should_ohne_abbau_kein_null_datum_nennen():
     reihe = [_e("2026-10-01", 4), _e("2026-10-05", 5)]
     p = sdm.prognose(reihe, date(2026, 10, 5))
     assert p["null_am"] is None and p["steigung_pro_tag"] > 0
-    e = bewerte({"x/y": {"aufruf": ["a"], "raw": []}}, ["iilgmbh/shared-ci"], [], "PUBLIC")
+    e = bewerte(
+        {"x/y": {"aufruf": ["a"], "raw": []}}, ["iilgmbh/shared-ci"], [], "PUBLIC"
+    )
     e["prognose"] = p
     assert "kein Abbau-Trend" in kurzzeile(e)
 
@@ -629,7 +639,10 @@ def test_should_luecke_ohne_messung_serie_nicht_brechen_warn_aber_schon():
 
 
 def test_should_neue_repos_als_rueckfall_melden():
-    reihe = [_e("2026-10-04", 1, repos=["a/x"]), _e("2026-10-05", 1, repos=["a/x", "b/neu"])]
+    reihe = [
+        _e("2026-10-04", 1, repos=["a/x"]),
+        _e("2026-10-05", 1, repos=["a/x", "b/neu"]),
+    ]
     assert sdm.prognose(reihe, date(2026, 10, 5))["rueckfall"] == ["b/neu"]
 
 

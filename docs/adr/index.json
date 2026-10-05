@@ -4679,7 +4679,9 @@
       "supersedes": [],
       "superseded_by": [],
       "amends": [],
-      "amended_by": [],
+      "amended_by": [
+        "ADR-309"
+      ],
       "related": [
         "ADR-230",
         "ADR-233"
@@ -5875,7 +5877,9 @@
       "domains": [],
       "supersedes": [],
       "superseded_by": [],
-      "amends": [],
+      "amends": [
+        "ADR-255"
+      ],
       "amended_by": [],
       "related": [
         "ADR-255",

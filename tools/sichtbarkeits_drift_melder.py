@@ -515,9 +515,7 @@ def kontingent_last(
     }
 
 
-def wache(
-    lage: dict | None, kosten: dict | None, last: dict | None = None
-) -> dict:
+def wache(lage: dict | None, kosten: dict | None, last: dict | None = None) -> dict:
     """Alarm, wenn der Schutz fehlt, Minuten bezahlt werden oder die Hochrechnung
     das Kontingent ueber der Schwelle belegt. Nicht messbar zaehlt erst nach dem
     Flip als Luecke — davor ist beides gratis und an."""
@@ -633,7 +631,10 @@ def prognose(reihe: list[dict], heute: date) -> dict:
             break
         serie.append(e)
     spanne = (
-        (date.fromisoformat(serie[0]["datum"]) - date.fromisoformat(serie[-1]["datum"])).days
+        (
+            date.fromisoformat(serie[0]["datum"])
+            - date.fromisoformat(serie[-1]["datum"])
+        ).days
         + 1
         if serie
         else 0
@@ -777,7 +778,9 @@ def bewerte(
         for r, e in konsumenten.items()
     }
     laufzeit = {r: p for r, p in laufzeit.items() if p}
-    mit_token = {r: e["mit_token"] for r, e in konsumenten.items() if e.get("mit_token")}
+    mit_token = {
+        r: e["mit_token"] for r, e in konsumenten.items() if e.get("mit_token")
+    }
     zaehler = {
         "aufrufer": len(aufrufer),
         "raw": len(raw),
@@ -788,9 +791,7 @@ def bewerte(
     ueber_ziel = [k for k, v in zaehler.items() if v is not None and v > ZIEL[k]]
     messbar = kopien is not None and sichtbar is not None and not wache_["luecke"]
     status = (
-        "WARN"
-        if ueber_ziel or wache_["alarm"]
-        else ("PASS" if messbar else "UNKLAR")
+        "WARN" if ueber_ziel or wache_["alarm"] else ("PASS" if messbar else "UNKLAR")
     )
     return {
         "status": status,
@@ -842,7 +843,9 @@ def kurzzeile(e: dict, oeffentlich_: bool = False) -> str:
             if sicht == "PRIVATE"
             else f"Umzug-Freigabe nach {K5_TAGE} Tagen (K5)"
         )
-        return f"Sichtbarkeits-Drift: 0/0/1/0 erreicht — platform {sicht}, {rolle}{trend}"
+        return (
+            f"Sichtbarkeits-Drift: 0/0/1/0 erreicht — platform {sicht}, {rolle}{trend}"
+        )
     if e["status"] == "UNKLAR":
         luecke = ", ".join(e["wache"]["luecke"]) or "offline"
         return f"Sichtbarkeits-Drift: {stand} — Teile nicht messbar ({luecke}){trend}"
@@ -971,7 +974,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"- Secret-Schutz fehlt: {', '.join(w['schutz_fehlt']) or 'nichts'}")
         print(
             "- Actions-Kosten platform, laufender Monat: "
-            + (f"brutto {k['brutto']} USD, netto {k['netto']} USD" if k else "nicht messbar")
+            + (
+                f"brutto {k['brutto']} USD, netto {k['netto']} USD"
+                if k
+                else "nicht messbar"
+            )
         )
         last = w.get("kontingent")
         print(
