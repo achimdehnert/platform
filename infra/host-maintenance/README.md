@@ -214,7 +214,26 @@ systemctl --user start befund-journal-sicherung.service   # Erstlauf + Probe
 
 Restore: `ssh root@88.99.38.75 'gzip -dc /opt/backups/befund-journal/<datei>' > ~/.claude/befund-journal.json`
 
+## Sichtbarkeits-Melder (ADR-309 §5, #3234 — dev/session host, `--user`)
+
+`tools/sichtbarkeits_drift_melder.py` zählt täglich 06:25, was beim Umzug und
+Privatschalten von platform bricht, und schreibt die Messreihe für Prognose und
+K5-Serie. Vorher lief er nur beim Sitzungsstart, ein Tag ohne Sitzung fehlte in der
+Reihe (Retro 8a0235 #6). Ergebnis und Messreihe unter `~/.repo-session/melder/`,
+dieselben Dateien wie der Sitzungsstart. Die Messreihe nennt Kunden-Repos und bleibt
+hostlokal. Braucht ein angemeldetes `gh` mit Billing-Scope für die Wache.
+
+Install (per session host):
+```bash
+cp infra/host-maintenance/sichtbarkeits-melder.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now sichtbarkeits-melder.timer
+systemctl --user start sichtbarkeits-melder.service   # Erstlauf
+journalctl --user -u sichtbarkeits-melder -n 3        # Beleg: eine Kurzzeile
+```
+
 ## Changelog
+- 2026-10-05: `sichtbarkeits-melder.{service,timer}` (Retro 8a0235 R5).
 - 2026-09-29: `oomd-user-slice.conf` + `oomd-einspielen.sh` (platform#3616, Owner-Go),
   auf dev-desktop eingespielt, `--pruefen` Exit 0.
 - 2026-09-24: `befund-journal-sicherung.{sh,service,timer}` (KONZ-054 §12.7 Ablageort, Owner-Go).
