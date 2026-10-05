@@ -29,6 +29,7 @@ import re
 import socket
 import subprocess
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -190,18 +191,43 @@ def pruefe_remotes(remotes: dict[str, list[str]], org: str) -> list[str]:
     ]
 
 
-def pruefe_token_scope(repos: list[dict], org: str) -> list[str]:
-    """repos: Eintraege aus GET /user/repos — Schreibrecht nur innerhalb der Sandbox-Org."""
+#: Antworten einer Probe, die belegen, dass dem Token das Recht fehlt. Alles andere
+#: (auch 422 = Recht da, nur die Eingabe ungueltig) zaehlt als Recht — fail-closed.
+VERWEIGERT = (403, 404)
+#: Ref auf einen Null-Commit: mit Schreibrecht 422 („Object does not exist“), ohne 403/404.
+SCHREIBPROBE = {"ref": "refs/heads/schreibprobe-nie-angelegt", "sha": "0" * 40}
+#: Repo ohne Namen: mit Anlegerecht 422 („name must not be blank“), ohne 403/404.
+ANLEGEPROBE = {"name": ""}
+
+
+def ausserhalb(voller_name: str, org: str) -> bool:
+    return voller_name.split("/")[0].lower() != (org or "").lower()
+
+
+def pruefe_token_scope(proben: dict[str, int], org: str) -> list[str]:
+    """proben: {owner/repo: HTTP-Status der Schreibprobe} — Schreibrecht nur in der Sandbox-Org.
+
+    Das Feld ``permissions`` aus GET /user/repos taugt dafuer nicht: Bei einem
+    fine-grained Token zeigt es die Rolle des Nutzers, nicht die des Tokens
+    (gemessen 2026-10-05: Admin ja auf allen Spiegeln, obwohl der Token kein
+    Administration-Recht hat).
+    """
     fremd = sorted(
-        r["full_name"]
-        for r in repos
-        if (r.get("permissions") or {}).get("push")
-        and r["full_name"].split("/")[0].lower() != (org or "").lower()
+        n
+        for n, status in proben.items()
+        if ausserhalb(n, org) and status not in VERWEIGERT
     )
     if not fremd:
         return []
     zeige = ", ".join(fremd[:5]) + (f" … (+{len(fremd) - 5})" if len(fremd) > 5 else "")
     return [f"GH_TOKEN schreibt ausserhalb der Sandbox-Org: {zeige}"]
+
+
+def pruefe_repo_anlegen(status: int, org: str) -> list[str]:
+    """Ersatz fuer die im Free-Plan fehlende Sperre oeffentlicher Repos (ADR-308 §4.3, §8.2)."""
+    if status in VERWEIGERT:
+        return []
+    return [f"GH_TOKEN kann in {org} Repos anlegen (HTTP {status})"]
 
 
 def pruefe_aufgeloeste_remotes(
@@ -253,6 +279,24 @@ def remotes_im_arbeitsbereich(wurzel: Path) -> dict[str, list[str]]:
     return ergebnis
 
 
+def probe_status(token: str, pfad: str, daten: dict) -> int:
+    """POST ohne Wirkung; liefert nur den HTTP-Status. Netzfehler gehen als OSError hoch."""
+    req = urllib.request.Request(
+        f"{GITHUB_API}{pfad}",
+        method="POST",
+        data=json.dumps(daten).encode(),
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as antwort:
+            return antwort.status
+    except urllib.error.HTTPError as fehler:
+        return fehler.code
+
+
 def sichtbare_repos(token: str) -> list[dict]:
     repos, seite = [], 1
     while True:
@@ -286,7 +330,21 @@ def main() -> int:
             befunde.append("GH_TOKEN ohne SANDBOX_ORG")
         else:
             try:
-                befunde += pruefe_token_scope(sichtbare_repos(token), org)
+                fremde = [
+                    r["full_name"]
+                    for r in sichtbare_repos(token)
+                    if ausserhalb(r["full_name"], org)
+                ]
+                befunde += pruefe_token_scope(
+                    {
+                        n: probe_status(token, f"/repos/{n}/git/refs", SCHREIBPROBE)
+                        for n in fremde
+                    },
+                    org,
+                )
+                befunde += pruefe_repo_anlegen(
+                    probe_status(token, f"/orgs/{org}/repos", ANLEGEPROBE), org
+                )
             except OSError as fehler:
                 befunde.append(f"Token-Scope nicht pruefbar: {fehler}")
             urls = {u for us in remotes.values() for u in us if remote_erlaubt(u, org)}

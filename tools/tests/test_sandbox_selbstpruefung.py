@@ -66,16 +66,20 @@ def test_should_allow_only_local_repos_or_sandbox_org_remotes():
 
 
 def test_should_reject_token_with_push_outside_sandbox_org():
-    repos = [
-        {"full_name": f"{ORG}/spielwiese", "permissions": {"push": True}},
-        {
-            "full_name": "achimdehnert/platform",
-            "permissions": {"push": False, "pull": True},
-        },
-    ]
-    assert sp.pruefe_token_scope(repos, ORG) == []
-    repos.append({"full_name": "achimdehnert/decks-hub", "permissions": {"push": True}})
-    assert "achimdehnert/decks-hub" in sp.pruefe_token_scope(repos, ORG)[0]
+    proben = {f"{ORG}/spielwiese": 422, "achimdehnert/platform": 404, "fremd/x": 403}
+    assert sp.pruefe_token_scope(proben, ORG) == []
+    proben["achimdehnert/decks-hub"] = 422
+    assert "achimdehnert/decks-hub" in sp.pruefe_token_scope(proben, ORG)[0]
+
+
+def test_should_fail_closed_on_unexpected_probe_status():
+    assert sp.pruefe_token_scope({"achimdehnert/platform": 500}, ORG) != []
+
+
+def test_should_reject_token_that_can_create_repos():
+    assert sp.pruefe_repo_anlegen(403, ORG) == []
+    assert sp.pruefe_repo_anlegen(404, ORG) == []
+    assert "Repos anlegen" in sp.pruefe_repo_anlegen(422, ORG)[0]
 
 
 def test_should_read_remotes_from_real_git_repos(tmp_path):
