@@ -180,6 +180,12 @@ nichts an: dann gilt W0, unabhängig von der Repo-Klasse.
 | M2 | Approval liegt vor | Owner, Zweit-Reviewer oder Bot im Rahmen seiner Tabu-Liste |
 | M3 | Approval **benennt** die Prod-Wirkung | Deploy/Publish steht in der Freigabezeile |
 
+**Owner-Go im Gespräch zählt als Auftrag (Owner-Wort 2026-10-05, dev-hub#453):** Sagt
+der Owner im Gespräch zu einem benannten Vorhaben wörtlich „go", darf die Sitzung die
+Auftragszeile (M1) im zugehörigen Issue selbst eintragen. Sie zitiert dabei das
+Owner-Wort wörtlich mit Datum und nennt die Sitzung. Ausgenommen bleiben
+Governance-Pfade und alles, was ein Deploy-Wort (M3) verlangt.
+
 **Deckung:** W0 braucht kein Mandat · W1 braucht M1 · W2 braucht M2 · W3 braucht
 M1 **plus** die Prüffrage unten (bis 2026-08-27: M3 — die Verschärfung ist durch
 die Owner-Weisung ersetzt, nicht ergänzt).
