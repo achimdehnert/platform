@@ -248,7 +248,7 @@ Den Rückweg verantwortet die Host-Session des Owners; ein eigener Dienst ist da
 - `tools/sandbox/` steht in `sa_m.governance_pfade` (F4) — #3731.
 - Merge nur des geprüften Kopfes, Actions-Stand vor dem Merge neu gemessen (§4.4) — #3736.
 - Rate-Limit-Antworten gelten in der Selbstprüfung nicht als fehlendes Recht — #3738.
-- Live-Merge-Test (S9): ein PR auf einem Spiegel in `iilsandbox` läuft einmal echt durch `pr_merge_sa.py`, mit Head-Pin und Gegenprobe (Push nach der Prüfung → kein Merge). Er läuft in einer eigenen Sitzung, weil der `autoMode`-Eintrag für `iilsandbox` erst dort greift (#3724).
+- Live-Merge-Test (S9): ein PR auf einem Spiegel in `iilsandbox` läuft einmal echt durch `pr_merge_sa.py`, mit Head-Pin und Gegenprobe (Push nach der Prüfung → kein Merge). Er läuft in einer eigenen Sitzung, weil der `autoMode`-Eintrag für `iilsandbox` erst dort greift (#3724). — Bestanden am 2026-10-05: Merge des geprüften Kopfes, Gegenprobe von GitHub abgelehnt („Head branch was modified“). Erst möglich nach #3747, vorher brach das Werkzeug an der Free-Plan-Antwort auf die Rulesets-Abfrage ab ([Beleg](https://github.com/achimdehnert/platform/issues/3724#issuecomment-5993595823)).
 
 **Harter Stopp** (B5a rot oder B5b-Wirkung außerhalb `iilsandbox`): Laufende Läufe werden abgebrochen, keine neuen Läufe, keine Exporte, offene Übernahmen eingefroren; der Owner entzieht das `iilsandbox`-Token. Der Stopp ist nicht auf „diesen Vorschlag nicht vorlegen“ reduzierbar. Wiederanlauf nur auf Owner-Wort nach dokumentierter Ursachenklärung in platform#3685; Rückbau nach der Rollback-Leiter aus ADR-081.
 
@@ -263,7 +263,7 @@ Den Rückweg verantwortet die Host-Session des Owners; ein eigener Dienst ist da
 | `platform` `tools/sandbox/` | 0 Sandbox-Kern | ✅ Abgeschlossen | 2026-10-04 | #3686: Selbstprüfung, Wächter, Lokal-Modus belegt |
 | `platform` | 1 Benchmark-Harness | 🟡 Teilweise | 2026-10-04 | #3691 gemergt; offen: B1 auf absolute Wochenwerte umstellen, Zeitstempel auf Merge-Sätzen in `pr_merge_sa.py`, Vorschlagsregister, Auftragskarte, Replay-Suite mit Nachbarfällen |
 | `platform` | 1a Rückschau | ⬜ Ausstehend | – | Journal-Auswertung ohne Sandbox: welche Abbrüche hätte eine vorab eingeholte oder pfadbezogene Freigabe vermieden (Vergleichsarm „bessere Vorbereitung“); `claim-before-cheapest-check` als erster Erkenntnisauftrag |
-| `platform` `tools/sandbox/` | 1b Abschottung nachrüsten | 🟡 Teilweise | 2026-10-05 | #3695, #3702, #3707: Egress-Allowlist und Secret-Scan je mit Gegenprobe, Host-Kontext, Hooks belegt (§4.3); Profil-Negativtests belegt (#3721); offen: #3731, #3736, #3738 und S9 (§4.7) |
+| `platform` `tools/sandbox/` | 1b Abschottung nachrüsten | ✅ Abgeschlossen | 2026-10-05 | #3695, #3702, #3707: Egress-Allowlist und Secret-Scan je mit Gegenprobe, Host-Kontext, Hooks belegt (§4.3); Profil-Negativtests belegt (#3721); #3731, #3736, #3738 gemergt; Live-Merge-Test S9 bestanden, Voraussetzung #3747 (§4.7) |
 | `iilsandbox` | 2 Spiegel der Pilot-Repos, Org-Token | ✅ Abgeschlossen | 2026-10-05 | fünf Spiegel privat, Actions aus, nur Standard-Branch; Sandbox-Token kann keine Repos anlegen (#3710, gemessen 403); Org-Profil vom Owner gesetzt (#3715) |
 | Pilot-Repos | 3 Pilot, 2 Wochen | ⬜ Ausstehend | – | nur nach Checkliste §4.7 |
 | `platform` | 4 Entscheid: ausweiten, Rückfallposition oder stoppen | ⬜ Ausstehend | – | nach Ablauf aller B4-Fenster (§4.7) |
@@ -311,7 +311,7 @@ Den Rückweg verantwortet die Host-Session des Owners; ein eigener Dienst ist da
 2. **Profil-Negativtests**: Tests gegen das Org-Profil mit Produktiv-Ziel, zu breitem Token, widersprüchlichen Zielangaben, umbenanntem oder transferiertem Repo und Zielwechsel zwischen Prüfung und Ausführung; alle müssen verweigern. Dazu kommt ein Gegentest: Das Sandbox-Token darf in `iilsandbox` kein Repo anlegen (Ersatz für die im Free-Plan fehlende Sperre öffentlicher Repos, §4.3).
 3. **Replay-Gate**: Kein Schutzregel-Vorschlag wird als Issue vorgelegt, ohne dass die Replay-Suite alle Negativfälle mit erwarteter Sperrbedingung blockiert und alle Nachbarfälle durchlässt; das Ergebnis steht im Issue.
 4. **Übernahmebeleg**: Kein Upstream-PR aus der Sandbox ohne Übernahmebeleg (§4.6) im PR-Text; `benchmark.py` erzeugt ihn auf dem Host.
-5. **Schreibreichweite**: Auswertung und Replay-Suite laufen nur aus `platform/main` auf dem Host. `tools/sandbox/` kommt mit #3731 in `sa_m.governance_pfade` und in CODEOWNERS (F4, §4.7); wirksam erst mit dem Owner-Approval dieses PR. Damit sind Selbstprüfung, Budget-Wächter und Spiegeln nur noch mit M2 änderbar.
+5. **Schreibreichweite**: Auswertung und Replay-Suite laufen nur aus `platform/main` auf dem Host. `tools/sandbox/` kommt mit #3731 in `sa_m.governance_pfade` und in CODEOWNERS (F4, §4.7); gemergt mit Owner-Approval am 2026-10-05. Damit sind Selbstprüfung, Budget-Wächter und Spiegeln nur noch mit M2 änderbar.
 6. **Drift-Detector**: Dieses ADR wird von ADR-059 auf Aktualität geprüft — Staleness-Schwelle: 6 Monate; Drift-Pfade siehe Kommentar am Ende.
 
 ---
@@ -412,6 +412,7 @@ Out-of-the-Box: OOTB-1 als Klasse Erkenntnisauftrag übernommen (deckungsgleich 
 | 2026-10-04 | Achim Dehnert | Owner-Entscheide F1–F4 eingetragen (§9.3); Wochenstand an den Owner (§4.5) |
 | 2026-10-05 | Achim Dehnert | Phase 1b nachgetragen (§4.3): Egress, Secret-Scan, Host-Kontext, Spiegel; Hooks belegt; Owner-Entscheide S2 (enges Token statt Org-Sperre, Free-Plan) und D1 a (Dependabot-PRs beim Auffrischen schließen); Gegentest „kein Repo anlegen“ in §8.2 |
 | 2026-10-05 | Achim Dehnert | Nachzug aus Retro eb9de7 (#3724): Profil-Negativtests belegt (#3721); F4 umgesetzt (#3731); Head-Pin und Actions-Neumessung vor dem Merge (§4.4, #3736); Rate-Limit in der Selbstprüfung (#3738); Live-Merge-Test S9 in die Checkliste §4.7 |
+| 2026-10-05 | Achim Dehnert | Phase 1b abgeschlossen: S9 bestanden (§4.7), Free-Plan-Antwort der Rulesets-Abfrage gilt als „keine Regel“ (#3747) |
 
 ---
 
