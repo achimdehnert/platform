@@ -131,6 +131,8 @@ class Facts:
     pruef_pflicht: list = field(default_factory=list)
     # Nur bei Org-Profil: per API aufgeloeste Repo-ID, vor dem Merge erneut verglichen
     repo_id: int | None = None
+    # Der gepruefte Kopf-Commit; der Merge greift nur, wenn der PR noch auf ihm steht
+    head_sha: str = ""
 
 
 @dataclass
@@ -497,7 +499,7 @@ def review_ist_pflicht(
 def gather(repo: str, nummer: int, r: dict) -> Facts:
     felder = (
         "state,isDraft,mergeable,mergeStateStatus,reviewDecision,latestReviews,"
-        "files,baseRefName,statusCheckRollup,body"
+        "files,baseRefName,statusCheckRollup,body,headRefOid"
     )
     pr = _gh(["pr", "view", str(nummer), "-R", repo, "--json", felder])
     if pr.get("mergeable") == "UNKNOWN":
@@ -540,6 +542,7 @@ def gather(repo: str, nummer: int, r: dict) -> Facts:
         checks_total=len(roll),
         checks_failing=failing,
         checks_pending=pending,
+        head_sha=pr.get("headRefOid") or "",
     )
 
 
@@ -635,6 +638,25 @@ def main(argv=None) -> int:
             )
             return 3
 
+    # Ohne Rulesets (iilsandbox) haelt nichts einen Push zwischen Pruefung und
+    # Merge auf: gemergt wird genau der gepruefte Kopf oder nichts (#3724).
+    if not fakten.head_sha:
+        print("UNKLAR: Kopf-Commit des PR nicht lesbar — kein Merge", file=sys.stderr)
+        return 3
+    if r.get("actions_aus"):
+        # Neu gemessen, nicht aus regeln_fuer() geglaubt: Actions koennen seitdem an sein
+        try:
+            an = actions_an(repo)
+        except Unklar as exc:
+            print(f"UNKLAR: {exc}", file=sys.stderr)
+            return 3
+        if an:
+            print(
+                f"UNKLAR: {repo} hat seit der Pruefung Actions an — W0 gilt nicht mehr",
+                file=sys.stderr,
+            )
+            return 3
+
     befehl = [
         "gh",
         "pr",
@@ -644,6 +666,8 @@ def main(argv=None) -> int:
         repo,
         "--squash",
         "--delete-branch",
+        "--match-head-commit",
+        fakten.head_sha,
     ]
     if urteil.auto:
         befehl.append("--auto")
