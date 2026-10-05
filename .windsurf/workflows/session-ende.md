@@ -358,6 +358,21 @@ GITHUB_DIR="${GITHUB_DIR:-$HOME/github}" \
 → Für **CC-Skills** ist `platform/tools/cc-skill-dist/` der kanonische Weg (Messung `E.9`).
   → `LEHREN#3.2`
 
+### 3.4: Abschluss — Maßnahmen statt Nacherzählung (PFLICHT, wenn etwas zu entscheiden ist — NEU 2026-10-05, Owner-Wort)
+
+Die letzte Antwort der Sitzung ist eine Entscheidungsvorlage, kein Prüfprotokoll:
+
+1. **Erster Satz:** ob die Sitzung gefahrlos geschlossen werden kann — er muss zur
+   Clear-Freigabe-Zeile (3.5) passen.
+2. **Nummerierte Maßnahmenliste**, je Zeile: stabiles Kürzel · was zu entscheiden ist ·
+   die Empfehlung · ein Link auf ein bestehendes Issue oder einen PR. Getrennt nach
+   „dein Wort nötig" und „kann ich ohne dich".
+3. **Beispielantwort** am Ende („Z1 Z3 go, Z4 Liste"), damit die Freigabe per Kürzel geht.
+
+Belege eigener Prüfungen stehen in einem Satz, nicht als eigene Antwort. Die Liste ersetzt
+kein Tracking: eine Zeile ohne Issue-/PR-Link ist ein Verstoß gegen 0e. Gibt es nichts zu
+entscheiden, entfällt die Liste — der erste Satz bleibt.
+
 ### 3.5: Clear-Freigabe — expliziter letzter Satz (PFLICHT — NEU 2026-08-30, Owner-Weisung)
 
 Letzter Output der Sitzung, nach der Abschluss-Checkliste, **genau eine** der beiden Zeilen:
@@ -432,6 +447,7 @@ Memory-Upserts deduplizieren per `content_hash`.
 | 23 | Ab `full`: 0d und 0e von je einem fremden Agenten gegengelesen (0h) | ☐ |
 | 24 | Auftragsraum: `offen --block` Exit 0, oder je Korrektur `regel` bzw. Verzicht mit Grund (0i) | ☐ |
 | 25 | `E.10 session-abgleich`: Exit 0, oder je Befund Issue bzw. notierter Fehlalarm | ☐ |
+| 26 | Letzte Antwort: erster Satz „schließbar ja/nein", Maßnahmen mit Empfehlung + Link, Beispielantwort — oder nichts zu entscheiden (3.4) | ☐ |
 
 **Neue Pflicht-Phase ⇒ Checklisten-Zeile im selben PR**; Auswahl über
 `grep -n "^## \|^### "` und Einzelbeurteilung, **nicht** über das Wort „PFLICHT".
@@ -453,6 +469,9 @@ Phase, also dort zuerst nachsehen, wenn die Zeile auffällig steigt. Herleitung 
 
 ## Changelog
 
+- 2026-10-05: **Phase 3.4 Abschluss-Maßnahmen (PFLICHT) + Checklisten-Zeile 26** (Owner-Wort
+  „dieses Vorgehen sollten wir etablieren", platform#3716). Anlass: Ein Abschluss, der die
+  eigenen Prüfungen nacherzählte, ließ offen, was zu entscheiden war.
 - 2026-09-22: **Runner misst sich selbst und wartet nebenläufig** (platform#3373). Neue
   `LAUFZEIT:`-Zeile; E.1–E.7/E.9/E.10 starten zusammen und werden an ihrer Phasenstelle
   geerntet, die bis zu drei Zusagen-Prüfungen in E.5 laufen untereinander nebeneinander,
