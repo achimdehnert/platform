@@ -111,7 +111,12 @@ def test_should_not_flag_mirror_path_rewrite_as_stale(monkeypatch):
     monkeypatch.setattr(dc, "_get_content_at", fake_content_at)
     monkeypatch.setattr(dc, "_SHARED_CI_STATE", None)
     state = dc._shared_ci_state("")
-    assert state == {"latest_tag": "v1.0.4", "stale_files": [], "richtungen": {}}
+    assert state == {
+        "latest_tag": "v1.0.4",
+        "stale_files": [],
+        "richtungen": {},
+        "nur_versionen": [],
+    }
 
 
 def test_should_flag_genuine_content_difference_as_stale(monkeypatch):

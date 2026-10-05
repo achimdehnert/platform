@@ -871,6 +871,60 @@ def _kanon_normalform(tree: Any, repo: str) -> Any:
     )
 
 
+def _ohne_fremde_action_versionen(node: Any) -> Any:
+    """Normalform ohne die Versionen FREMDER Actions (`owner/action@v1` → `owner/action`).
+
+    Refs auf das eigene Repo (`<SELF_REPO>/…@ref`) und lokale Actions (`./…`)
+    bleiben unberuehrt — ein anderer Ref dort ist ein anderer Stand, kein
+    Versions-Update.
+    """
+    if isinstance(node, list):
+        return [_ohne_fremde_action_versionen(v) for v in node]
+    if not isinstance(node, dict):
+        return node
+    out: dict[str, Any] = {}
+    for key, value in node.items():
+        if (
+            key == "uses"
+            and isinstance(value, str)
+            and "@" in value
+            and not value.startswith((_SELF_REPO + "/", "./"))
+        ):
+            out[key] = value.rsplit("@", 1)[0]
+        else:
+            out[key] = _ohne_fremde_action_versionen(value)
+    return out
+
+
+def nur_action_versionen_verschieden(
+    tagged: str, canonical: str, kanon_repo: str = _PLATFORM_REPO
+) -> bool:
+    """True, wenn Tag und Kanon sich NUR in Versionen fremder Actions unterscheiden.
+
+    Anlass (platform#1745, Messung 2026-10-05): 6 von 9 Drift-Errors der Flotte
+    waren `shared-ci-tag-stale` an einer Datei, die auf main nur durch die
+    automatischen Action-Updates bewegt worden war. Jedes solche Update machte
+    in jedem Konsumenten einen „sofort fixen"-Error, ohne dass dort etwas falsch
+    war. Ein solcher Unterschied wird deshalb als Warnung gemeldet, nicht als
+    Error: er bleibt sichtbar, aber er uebertoent den naechsten echten nicht.
+
+    Nicht als YAML ladbar → False (dann bleibt es beim Error — lieber ein
+    Fehlalarm als ein stillschweigend herabgestufter Drift).
+    """
+    try:
+        tag_tree = yaml.safe_load(_normalisiere_pin_kommentare(tagged))
+        kanon_tree = yaml.safe_load(_normalisiere_pin_kommentare(canonical))
+    except yaml.YAMLError:
+        return False
+    tag_form = _kanon_normalform(tag_tree, SHARED_CI_REPO)
+    kanon_form = _kanon_normalform(kanon_tree, kanon_repo)
+    if tag_form == kanon_form:
+        return False  # gar kein Unterschied — hier nichts herabzustufen
+    return _ohne_fremde_action_versionen(tag_form) == _ohne_fremde_action_versionen(
+        kanon_form
+    )
+
+
 def kanon_richtung(
     tagged: str, canonical: str, kanon_repo: str = _PLATFORM_REPO
 ) -> tuple[int, int]:
@@ -962,6 +1016,7 @@ def _shared_ci_state(token: str) -> dict:
     latest = latest_shared_ci_tag(tags)
     stale_files: list[str] = []
     richtungen: dict[str, tuple[int, int]] = {}
+    nur_versionen: list[str] = []
     if latest:
         listing = (
             _api_get(
@@ -994,10 +1049,13 @@ def _shared_ci_state(token: str) -> dict:
             ):
                 stale_files.append(name)
                 richtungen[name] = kanon_richtung(tagged, canonical, kanon_repo)
+                if nur_action_versionen_verschieden(tagged, canonical, kanon_repo):
+                    nur_versionen.append(name)
     _SHARED_CI_STATE = {
         "latest_tag": latest,
         "stale_files": stale_files,
         "richtungen": richtungen,
+        "nur_versionen": nur_versionen,
     }
     return _SHARED_CI_STATE
 
@@ -1075,10 +1133,15 @@ def check_shared_ci_tag_drift(
             else:
                 richtung = "beide Seiten haben Eigenes — Datei fuer Datei entscheiden"
                 hinweis = "keine Seite ist Obermenge: zusammenfuehren, nicht portieren"
+            # Unterschied nur in Versionen fremder Actions (platform#1745):
+            # im Konsumenten gibt es nichts zu beheben → Warnung statt Error.
+            nur_versionen = pinned_file in state.get("nur_versionen", [])
+            if nur_versionen:
+                richtung += " — nur Action-Versionen verschieden"
             drifts.append(
                 DriftItem(
                     rule="shared-ci-tag-stale",
-                    severity="error",
+                    severity="warn" if nur_versionen else "error",
                     file=f".github/workflows/{wf_file}",
                     message=(
                         f"shared-ci@{latest}/{pinned_file} ≠ {kanon_name} — "
