@@ -273,5 +273,5 @@
 | 305 | rag-mcp als einzige API und Collection-Namenskonvention {repo}:{domain} | Accepted | 🔶 | [ADR-305](ADR-305-rag-mcp-single-api-collection-naming.md) |
 | 306 | DSGVO-Fallback-Policy je Collection: Cloud-Embedding nur mit allow_cloud | Accepted | 🔶 | [ADR-306](ADR-306-dsgvo-fallback-policy-je-collection.md) |
 | 307 | Identität über Cloudflare Access und lokales Login — Ablösung von Authentik (ADR-142) | Proposed | ⬜ | [ADR-307](ADR-307-identitaet-cloudflare-access-statt-authentik.md) |
-| 308 | Adopt an autonomous sandbox workshop as the benchmarked development template for the production environment | Proposed | 🔶 | [ADR-308](ADR-308-sandbox-werkstatt-als-weiterentwicklungs-template.md) |
+| 308 | Adopt an autonomous sandbox workshop as the benchmarked development template for the production environment | Accepted | 🔶 | [ADR-308](ADR-308-sandbox-werkstatt-als-weiterentwicklungs-template.md) |
 | 309 | platform zieht in die Org iilgmbh und wird erst dort privat | Proposed | 🔶 | [ADR-309](ADR-309-platform-umzug-iilgmbh-dann-privat.md) |
