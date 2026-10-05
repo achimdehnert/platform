@@ -82,6 +82,20 @@ def test_should_reject_token_that_can_create_repos():
     assert "Repos anlegen" in sp.pruefe_repo_anlegen(422, ORG)[0]
 
 
+def test_should_reject_token_that_can_change_actions():
+    assert sp.pruefe_actions_aendern({f"{ORG}/a": 403, f"{ORG}/b": 404}, ORG) == []
+    befund = sp.pruefe_actions_aendern({f"{ORG}/a": 403, f"{ORG}/b": 422}, ORG)
+    assert len(befund) == 1 and f"{ORG}/b" in befund[0] and f"{ORG}/a" not in befund[0]
+
+
+def test_should_fail_closed_when_no_repo_for_actions_probe():
+    assert "nicht moeglich" in sp.pruefe_actions_aendern({}, ORG)[0]
+
+
+def test_should_probe_actions_with_a_value_github_cannot_apply():
+    assert not isinstance(sp.ACTIONSPROBE["enabled"], bool)
+
+
 def test_should_read_remotes_from_real_git_repos(tmp_path):
     for name, url in (
         ("lokal", None),
