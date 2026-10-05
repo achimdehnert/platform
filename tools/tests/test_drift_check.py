@@ -473,6 +473,76 @@ def test_should_normalize_pin_comment_before_measuring_direction():
     assert dc.kanon_richtung(tagged, canonical) == (0, 0)
 
 
+# ── platform#1745: nur Action-Versionen verschieden → Warnung statt Error ────
+#
+# Messung 2026-10-05: 6 von 9 Drift-Errors der Flotte waren `shared-ci-tag-stale`
+# an einer Datei, die auf main nur durch automatische Action-Updates bewegt
+# wurde. Positivkontrolle und Gegenproben stehen nebeneinander.
+
+
+def _stale_drifts(monkeypatch, nur_versionen: list[str]):
+    """Die Regel am Konsumenten, mit vorgegebenem Abgleich-Zustand."""
+    pin = "    uses: iilgmbh/shared-ci/.github/workflows/_build.yml@v1.2.3\n"
+    monkeypatch.setattr(dc, "_get_dir_files", lambda *a, **k: ["ci.yml"])
+    monkeypatch.setattr(dc, "_get_file_content", lambda *a, **k: "jobs:\n  b:\n" + pin)
+    state = {
+        "latest_tag": "v1.2.3",
+        "stale_files": ["_build.yml"],
+        "richtungen": {"_build.yml": (1, 1)},
+        "nur_versionen": nur_versionen,
+    }
+    drifts = dc.check_shared_ci_tag_drift("a-hub", "t", state)
+    return [d for d in drifts if d.rule == "shared-ci-tag-stale"]
+
+
+def test_should_warn_instead_of_error_when_only_action_versions_differ(monkeypatch):
+    (drift,) = _stale_drifts(monkeypatch, ["_build.yml"])
+    assert drift.severity == "warn"
+    assert "nur Action-Versionen verschieden" in drift.message
+
+
+def test_should_keep_error_when_more_than_action_versions_differ(monkeypatch):
+    """Gegenprobe: derselbe Zustand ohne die Einstufung bleibt ein Error."""
+    (drift,) = _stale_drifts(monkeypatch, [])
+    assert drift.severity == "error"
+    assert "nur Action-Versionen" not in drift.message
+
+
+def test_should_classify_pure_action_version_difference():
+    tagged = _mini_workflow("actions/checkout@v4.37.6")
+    canonical = _mini_workflow(f"actions/checkout@{_SHA} # v4.37.9")
+    assert dc.nur_action_versionen_verschieden(tagged, canonical)
+
+
+def test_should_not_classify_identical_files_as_version_difference():
+    gleich = _mini_workflow("actions/checkout@v4.37.9")
+    assert not dc.nur_action_versionen_verschieden(gleich, gleich)
+
+
+def test_should_not_classify_a_changed_step_as_version_difference():
+    """Gegenprobe: neben der Version aendert sich ein Schritt — bleibt echter Drift."""
+    tagged = _mini_workflow("actions/checkout@v4.37.6")
+    canonical = _mini_workflow("actions/checkout@v4.37.9") + "      - run: make test\n"
+    assert not dc.nur_action_versionen_verschieden(tagged, canonical)
+
+
+def test_should_not_classify_a_different_action_as_version_difference():
+    tagged = _mini_workflow("actions/checkout@v4")
+    canonical = _mini_workflow("actions/setup-python@v4")
+    assert not dc.nur_action_versionen_verschieden(tagged, canonical)
+
+
+def test_should_not_classify_own_repo_ref_change_as_version_difference():
+    """Ein anderer Ref auf das EIGENE Repo ist ein anderer Stand, kein Update."""
+    tagged = _mini_workflow("iilgmbh/shared-ci/.github/actions/x@v1")
+    canonical = _mini_workflow("achimdehnert/platform/.github/actions/x@v2")
+    assert not dc.nur_action_versionen_verschieden(tagged, canonical)
+
+
+def test_should_keep_error_when_yaml_is_not_loadable():
+    assert not dc.nur_action_versionen_verschieden("a: [", "a: [1")
+
+
 # ── #2761: Kanon-Abgleich nur fuer Reusables + geteilte Gate-Workflows ───────
 #
 # validate-workflows.yml ist auf beiden Seiten repo-eigene CI (platform:
