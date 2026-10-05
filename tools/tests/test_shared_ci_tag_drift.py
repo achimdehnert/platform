@@ -116,6 +116,7 @@ def test_should_not_flag_mirror_path_rewrite_as_stale(monkeypatch):
         "stale_files": [],
         "richtungen": {},
         "nur_versionen": [],
+        "versions_richtung": {},
     }
 
 
