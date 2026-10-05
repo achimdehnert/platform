@@ -16,8 +16,11 @@ und geteilte Werkzeuge der Hub-Repos (Anzahl live:
 > annehmen: `gh repo view achimdehnert/platform --json visibility`. Jeder Commit hierher ist
 > eine Veröffentlichung — keine Personendaten, keine Zugangsdaten, keine Infrastruktur-Details,
 > die nicht draußen stehen sollen. Echte Testdaten vor dem Commit entpersonalisieren **und die
-> Bereinigung mit einer Kontrollprobe belegen** (roh N Treffer → bereinigt 0). Hintergrund und
-> der geplante Schnitt: [`KONZ-platform-039`](docs/konzepte/KONZ-platform-039-sichtbarkeit-platform-repo.md).
+> Bereinigung mit einer Kontrollprobe belegen** (roh N Treffer → bereinigt 0). Hintergrund:
+> [`KONZ-platform-039`](docs/konzepte/KONZ-platform-039-sichtbarkeit-platform-repo.md). Den
+> Weg beschreibt [`ADR-309`](docs/adr/ADR-309-platform-umzug-iilgmbh-dann-privat.md) (Status
+> im ADR-Kopf): Umzug nach `iilgmbh`, erst dort privat. Bis dahin gilt **öffentlich**. Den Stand führt der Melder:
+> `python3 tools/sichtbarkeits_drift_melder.py --kurz`.
 
 ## Rolle gegenüber anderen Repos
 

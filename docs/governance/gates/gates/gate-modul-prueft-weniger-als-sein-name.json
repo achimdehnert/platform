@@ -29,7 +29,7 @@
   "revised": "2026-09-22",
   "revision_note": "Rueckfall (3 nach Bau, zuletzt 2026-09-17): ausgeweitet. Das Modul prueft bisher nur Registry-Eintraege (Gate nennt einen Fall, den sein Drill nicht beruehrt). Am 2026-09-22 trat dieselbe Familie im CODE auf: eine Sperrliste in iilgmbh/chat-hub deploy/lotse_auftrag.py hiess im PR-Titel 'harte Sperrliste' und liess 7 von 10 alltaeglichen Formulierungen durch (Komposita, Plural). Eine Pruefung, deren Name mehr verspricht als ihre Substanz — genau der namensgebende Fall, aber ausserhalb der Registry. Ausweitung: auch code-seitige Pruefungen erfassen, deren Bezeichnung (Funktionsname, PR-Titel, Docstring) eine Haerte behauptet.",
   "expires": "2026-10-31",
-  "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet.",
+  "expires_note": "V1d (platform#3785, Owner-Wort 2026-10-05): bleibt — gate_wirkung 2026-10-05 zaehlt 1 echten Fall nach dem letzten Umbau (2026-09-28), und ein echter Rueckfall schlaegt jede bestandene Probe. Zur Frist: scharf schalten per eigenem PR nach 0-FP-Kalibrierfenster (frozen_note) oder begruendet herabstufen. Streichen scheidet aus, solange der Fall wiederkehrt.",
   "positivkontrolle": {
     "ref": "iilgmbh/chat-hub tests/test_lotse_auftrag.py::test_should_refuse_reaction_for_outward_effect",
     "fall": "Die Sperrliste aus chat-hub#125 hiess im PR-Titel 'harte Sperrliste' und liess 7 von 10 alltaeglichen Formulierungen durch ('Deployment', 'Secrets rotieren', 'Berechtigungen', 'Datenloeschung', 'Produktivumgebung', 'Tokens', 'Zugangsdaten').",

@@ -1,0 +1,7 @@
+{
+  "slug": "fable-session-no-delegation",
+  "decided": "2026-10-05",
+  "owner": "achim",
+  "ref": "platform#3785 (V1c, Owner-Wort 2026-10-05: 'V1c go ; V1d go ;'); vorher Gate seit 2026-09-03 (platform#2750 K2/K3), Frist E4 platform#2606",
+  "reason": "Gestrichen nach Daten statt nach Probe. gate_wirkung 2026-10-05: 0 Faelle vor und nach Bau (32 Tage). Der Traeger ist ein SessionStart-Hook, der in jeder Sitzung auf claude-fable* 18 Zeilen Regeltext in den Kontext schreibt, also Startlast ohne gemessenen Fang. Die in #3785 vorgesehene Eignungsprobe entfiel: sie braucht eine Fable-Sitzung mit Agent-Werkzeug, die ein Probe-Subagent nicht nachstellt. Die Delegationsregel selbst bleibt in policies/session-routing.md; gemessen wird weiter ueber fable-session-delegation-unmeasured (Ledger). Code bleibt im Repo (tools/claude-hooks/fable_delegation_reminder.sh); die Hook-Verdrahtung in den Einstellungen entfernt der Owner. Kehrt der Slug in einer Retro wieder, ist das Anlass, die Entscheidung zu pruefen."
+}

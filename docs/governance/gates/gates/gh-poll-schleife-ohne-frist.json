@@ -23,8 +23,8 @@
   ],
   "zustand": "schranke",
   "erzwungen_seit": "2026-09-29",
-  "expires": "2026-10-31",
-  "expires_note": "blocking oder gestrichen bis dahin — wie bei den uebrigen advisory-Scannern (Owner-Entscheid E4, platform#2606).",
+  "ausgang": "still",
+  "ausgang_note": "V1c (platform#3785, Owner-Wort 2026-10-05): Verhaltens-Gate, das nur bei einem Treffer spricht und dem Modell sonst keinen Kontext kostet; kein Rueckfall seit Bau (gate_wirkung 2026-10-05). Frist entfaellt. Kehrt der Slug in einer Retro wieder, gilt V1d: scharf schalten oder umbauen.",
   "positivkontrolle": {
     "ref": "https://github.com/achimdehnert/dev-hub/issues/404#issuecomment-5886185000",
     "datum": "2026-09-29"

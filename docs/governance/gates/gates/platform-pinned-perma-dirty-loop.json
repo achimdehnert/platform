@@ -19,6 +19,10 @@
   ],
   "zustand": "schranke",
   "erzwungen_seit": "2026-08-23",
-  "expires": "2026-10-31",
-  "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
+  "expires": "2027-01-31",
+  "expires_note": "V1c (platform#3785, Owner-Wort 2026-10-05): wirksam, neue Frist mit Messgrundlage. gate_wirkung 2026-10-05: 3 Faelle vor dem Bau, 0 danach. Zur Frist: bleibt es bei 0 Rueckfaellen, Ausgang 'still' ohne Frist; kehrt der Fall wieder, scharf schalten per eigenem PR nach 0-FP-Kalibrierfenster (frozen_note).",
+  "positivkontrolle": {
+    "ref": "tools/tests/test_policy_frische.py::test_should_name_the_dirty_pin_as_the_cause - eine veraltete ausgelieferte Policy bei dirty Pin wird gemeldet und der dirty Pin als Ursache benannt; Gegenproben ::test_should_report_nothing_when_delivered_matches_main und ::test_should_say_when_the_pin_is_clean_but_delivery_differs.",
+    "datum": "2026-10-05"
+  }
 }

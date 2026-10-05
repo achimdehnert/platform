@@ -8,5 +8,5 @@
   "ref": "platform#2170",
   "note": "Misst je Melder, wie oft seine Befunde echt waren. Vier Fehlalarme in einer Sitzung, null Messung — ein Melder, der oefter irrt als trifft, erzieht zum Wegsehen.",
   "expires": "2026-10-31",
-  "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
+  "expires_note": "V1d (platform#3785, Owner-Wort 2026-10-05): bleibt — gate_wirkung 2026-10-05 zaehlt 1 echten Fall nach dem Bau (2026-09-14), und ein echter Rueckfall schlaegt jede bestandene Probe. Zur Frist: scharf schalten per eigenem PR nach 0-FP-Kalibrierfenster (frozen_note) oder begruendet herabstufen. Streichen scheidet aus, solange der Fall wiederkehrt."
 }
