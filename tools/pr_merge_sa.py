@@ -448,6 +448,12 @@ def mandat_des_prs(repo: str, nummer: int, pr: dict) -> str:
     return "M0"
 
 
+#: Antwort von GitHub, wenn der Plan Rulesets fuer private Repos nicht kennt
+#: (Free-Plan, etwa iilsandbox). Dort kann keine Regel existieren. Nur genau
+#: dieser Text zaehlt — ein anderes 403 (Rate-Limit, fehlendes Recht) bleibt UNKLAR.
+PLAN_OHNE_RULESETS = "Upgrade to GitHub Pro or make this repository public"
+
+
 def pull_request_regel(repo: str, branch: str) -> bool:
     """Liegt auf dem Zielbranch ueberhaupt eine `pull_request`-Regel?
 
@@ -459,6 +465,9 @@ def pull_request_regel(repo: str, branch: str) -> bool:
         rules = _gh(["api", f"repos/{repo}/rules/branches/{branch}"])
     except Unklar as exc:
         if "404" in str(exc) or "Not Found" in str(exc):
+            return False
+        # Live-Test S9 (#3724): ohne diesen Zweig war jeder iilsandbox-PR UNKLAR
+        if PLAN_OHNE_RULESETS in str(exc):
             return False
         raise
     if not isinstance(rules, list):
