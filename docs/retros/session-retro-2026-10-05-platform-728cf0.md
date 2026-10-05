@@ -150,8 +150,8 @@ Repo-Dateien werden auch im Auto-Mode nur per Edit/Write geändert, nie per sed,
 
 ## 7. Maßnahmen
 
-- **[M1]** ✅ Vorlage auf shared-ci umgestellt · platform · in diesem PR — https://github.com/achimdehnert/platform/blob/main/docs/templates/ci.yml
-- **[M2]** ✅ Fragment nachgezogen · platform · in diesem PR — https://github.com/achimdehnert/platform/blob/main/docs/handover.d/2026-10-05T16-45-00Z-728cf098.md
+- **[M1]** ✅ Vorlage auf shared-ci umgestellt · platform · mit dem Retro-PR — https://github.com/achimdehnert/platform/pull/3780
+- **[M2]** ✅ Fragment nachgezogen · platform · mit dem Retro-PR — https://github.com/achimdehnert/platform/pull/3780
 - **[M3]** 🟢 Wartezeit, 0.x, Limit · shared-ci · Owner-Review und Merge — https://github.com/iilgmbh/shared-ci/pull/97
 - **[M4]** 🔵 Runner anderer Hosts prüfen · shared-ci · Konsumenten-Lauf gegen v1.1.22 — https://github.com/iilgmbh/shared-ci/issues/98
 - **[M5]** 🔵 Ersten scharfen Lauf prüfen · shared-ci · 2026-10-06 nach 06:17 UTC — https://github.com/iilgmbh/shared-ci/issues/96
