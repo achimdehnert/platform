@@ -253,6 +253,36 @@ def actions_an(repo: str) -> bool:
     return bool(daten["enabled"])
 
 
+#: Was ein Org-Profil heute tragen darf. Jeder andere Schluessel ist eine
+#: unbekannte Angabe und verweigert (ADR-308 §4.4) — sonst wirkte ein Tippfehler
+#: still als Grundregel oder ein neuer Schluessel ohne Werkzeug-Pruefung.
+PROFIL_SCHLUESSEL = {"actions_aus"}
+
+
+def gepruefte_profile(roh) -> dict:
+    """org_profile normalisiert; unbekannte oder widerspruechliche Angaben => UNKLAR.
+
+    Auch fuer Repos ausserhalb jeder Profil-Org: ein kaputter Policy-Block wird nicht
+    teilweise angewandt (fail_closed wie bei `regeln`)."""
+    if roh is None:
+        return {}
+    if not isinstance(roh, dict):
+        raise Unklar("org_profile ist keine Zuordnung Org → Profil")
+    profile: dict = {}
+    for org, profil in roh.items():
+        schluessel = str(org).lower()
+        if schluessel in profile:
+            raise Unklar(f"org_profile nennt {schluessel} doppelt — widerspruechlich")
+        if not isinstance(profil, dict) or set(profil) - PROFIL_SCHLUESSEL:
+            raise Unklar(f"org_profile {schluessel}: unbekannte Angabe {profil!r}")
+        if profil.get("actions_aus") is not True:
+            raise Unklar(
+                f"org_profile {schluessel}: M0 setzt actions_aus: true voraus (§4.4)"
+            )
+        profile[schluessel] = profil
+    return profile
+
+
 def regeln_fuer(
     repo: str, r: dict, aufloesen=None, actions=None
 ) -> tuple[dict, int | None]:
@@ -267,7 +297,7 @@ def regeln_fuer(
     aufloesen = aufloesen or aufgeloestes_repo
     actions = actions or actions_an
     org = repo.split("/")[0].lower()
-    profile = {k.lower(): v for k, v in (r.get("org_profile") or {}).items()}
+    profile = gepruefte_profile(r.get("org_profile"))
     if org not in profile:
         return r, None
     voller_name, repo_id = aufloesen(repo)
