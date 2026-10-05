@@ -152,17 +152,45 @@ FRAG_TOOL="${CWD}/tools/agent-handover/fragments.py"
 # Repos ohne eigenes Werkzeug (#3729: meiki-hub, robo-lab) fuehren nur das
 # Verzeichnis; gelesen wird dann mit dem Werkzeug aus dem platform-Klon. Ohne
 # diesen Rueckgriff schriebe dort jede Sitzung Fragmente, die kein Start zeigt.
-if [ ! -f "${FRAG_TOOL}" ] && git -C "${CWD}" cat-file -e origin/main:docs/handover.d 2>/dev/null; then
-    FRAG_TOOL="${GITHUB_DIR:-$HOME/github}/platform/tools/agent-handover/fragments.py"
+#
+# Seit #3755 kommt das Werkzeug dabei aus origin/main des Klons, nicht aus dessen
+# Arbeitsbaum: der kann auf einem alten Stand oder einem fremden Branch stehen.
+# Der Arbeitsbaum bleibt nur der Notweg, wenn der Klon den Ref nicht hergibt.
+FRAG_AUS_REF=""
+FRAG_HINWEIS=""
+FRAG_VERZEICHNIS=0
+git -C "${CWD}" cat-file -e origin/main:docs/handover.d 2>/dev/null && FRAG_VERZEICHNIS=1
+if [ ! -f "${FRAG_TOOL}" ] && [ "${FRAG_VERZEICHNIS}" -eq 1 ]; then
+    FRAG_PFAD="tools/agent-handover/fragments.py"
+    PLATFORM_KLON="${GITHUB_DIR:-$HOME/github}/platform"
+    FRAG_AUS_REF="$(mktemp 2>/dev/null)"
+    if [ -n "${FRAG_AUS_REF}" ] \
+       && git -C "${PLATFORM_KLON}" show "origin/main:${FRAG_PFAD}" >"${FRAG_AUS_REF}" 2>/dev/null \
+       && [ -s "${FRAG_AUS_REF}" ]; then
+        FRAG_TOOL="${FRAG_AUS_REF}"
+    elif [ -f "${PLATFORM_KLON}/${FRAG_PFAD}" ]; then
+        FRAG_TOOL="${PLATFORM_KLON}/${FRAG_PFAD}"
+    else
+        FRAG_HINWEIS="kein Fragment-Werkzeug gefunden (weder im Repo noch im platform-Klon)"
+    fi
 fi
 if [ -f "${FRAG_TOOL}" ] && git -C "${CWD}" rev-parse --verify --quiet origin/main >/dev/null 2>&1; then
-    FRAG_ITEMS="$(timeout 4 python3 "${FRAG_TOOL}" --wurzel "${CWD}" render --ref origin/main --timeout 3 2>/dev/null \
+    FRAG_ROH="$(timeout 4 python3 "${FRAG_TOOL}" --wurzel "${CWD}" render --ref origin/main --timeout 3 2>/dev/null)"
+    FRAG_RC=$?
+    # Ein Abbruch oder das Zeitlimit sah bisher aus wie "keine offenen Faeden" (#3755).
+    [ "${FRAG_RC}" -ne 0 ] && [ "${FRAG_VERZEICHNIS}" -eq 1 ] && FRAG_HINWEIS="das Fragment-Werkzeug hat nicht geantwortet (Exit ${FRAG_RC})"
+    FRAG_ITEMS="$(printf '%s\n' "${FRAG_ROH}" \
         | awk '/^## Offene Fäden aus Sitzungen/{insec=1; next} /^## /{insec=0} insec && /^- / && $0 != "- keine" {print "  " $0}')"
     if [ -n "${FRAG_ITEMS}" ]; then
         ITEMS="${FRAG_ITEMS}${ITEMS:+
 ${ITEMS}}"
         SRC="docs/handover.d (Sitzungs-Fragmente)${SRC:+ + ${SRC}}"
     fi
+fi
+[ -n "${FRAG_AUS_REF}" ] && rm -f "${FRAG_AUS_REF}"
+if [ -n "${FRAG_HINWEIS}" ]; then
+    echo "⚠️  FRAGMENTE NICHT GELESEN (${REPO_NAME}): ${FRAG_HINWEIS}."
+    echo "    docs/handover.d liegt auf origin/main — offene Fäden dort fehlen in dieser Liste."
 fi
 
 # 2) Fallback: NEXT.md numbered items.
