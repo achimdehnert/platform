@@ -171,6 +171,8 @@ Herkunft aus dem Soll-Ablauf: M1 aus #7, #9, #10, #18 · M2 aus #8 · M3 aus #1 
 - **#15:** Ob eine Parallelsitzung unter demselben Konto gemergt hat, ist nicht geprüft. Billigster Check: Merge-Journale anderer Sitzungen im selben Zeitfenster durchsuchen.
 - **#19:** Ob die Erreichbarkeits-Prüfung zeitgesteuert läuft und deshalb Fehlalarme erzeugt, ist eine Hypothese. Billigster Check: Zeitplan auf dem Zielserver lesen.
 - **Session-Grenze zu eng gezogen:** Sie kam aus der PR-Liste. platform#3678 (drei Kommentare der Sitzung) und der Abschnitt vom 2026-10-02 bis zum Vormittag des 2026-10-04 (dev-hub#429, #430, #435, ein dauerhafter Benutzerdienst nach erneutem Owner-Go) haben keinen eigenen Finder-Durchgang. Stichprobe der Widerlegungsbahn: Owner-Go dauerhaft festgehalten, in platform#3678 keine Adresse, kein Host, keine Personendaten, keine Zugangsdaten.
+- **Belege aus dem Sitzungsprotokoll sind flüchtig:** #13, #15 und #17 stützen sich auf das Transkript der Sitzung, das nur lokal liegt. Wer es nicht hat, kann diese drei nicht nachprüfen (Fund des fremden Blicks am Sitzungsende).
+- **Herkunftskürzel in den Ankern:** „S2" in illustration-hub#372 meint #8, „S3" in dev-hub#443 meint #9, „E3" in chat-hub#180 meint #3; die Kürzel stammen aus den Finder-Läufen vor der Nummerierung.
 - **Öffentlichkeit dieses Reports:** #3, #9 und #18 nennen bewusst nur die Klasse; Fundstellen stehen in den privaten Issues.
 - **#3:** Inhalt von `auftrag-repos.yaml` (welche Repos auf Stufe `pr` stehen) nicht gelesen; die zweite Schutzschicht ist damit angenommen.
 - **#6:** Der Live-Abgleich zählt dieselbe Messung zweimal; er belegt Konsistenz, keine unabhängige Wahrheit.
