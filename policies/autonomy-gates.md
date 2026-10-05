@@ -177,7 +177,7 @@ nichts an: dann gilt W0, unabhängig von der Repo-Klasse.
 |---|---|---|
 | M0 | keins | — |
 | M1 | Owner hat den Auftrag gestartet | PR verlinkt Issue/Auftrag mit wörtlichem Go |
-| M2 | Approval liegt vor | Owner, Zweit-Reviewer oder Bot im Rahmen seiner Tabu-Liste |
+| M2 | Approval mit inhaltlichem Urteil liegt vor | Owner oder Zweit-Reviewer; ein Approval, das sich als „kein inhaltliches Urteil" ausweist, zählt nicht (Owner-Entscheid 2026-10-05) |
 | M3 | Approval **benennt** die Prod-Wirkung | Deploy/Publish steht in der Freigabezeile |
 
 **Deckung:** W0 braucht kein Mandat · W1 braucht M1 · W2 braucht M2 · W3 braucht
