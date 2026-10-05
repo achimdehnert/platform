@@ -5857,7 +5857,7 @@
       "id": "ADR-308",
       "file": "ADR-308-sandbox-werkstatt-als-weiterentwicklungs-template.md",
       "title": "Adopt an autonomous sandbox workshop as the benchmarked development template for the production environment",
-      "status": "proposed",
+      "status": "accepted",
       "date": "2026-10-04",
       "domains": [],
       "supersedes": [],

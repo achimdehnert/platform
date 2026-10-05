@@ -1,6 +1,6 @@
 ---
 id: ADR-308
-status: proposed
+status: accepted
 decision_date: 2026-10-04
 deciders: Achim Dehnert
 consulted: –
@@ -24,7 +24,7 @@ ai_sparring_by:
 
 | Attribut        | Wert                                                                 |
 |-----------------|----------------------------------------------------------------------|
-| **Status**      | Proposed                                                             |
+| **Status**      | Accepted (Owner-Wort 2026-10-05, platform#3784)                      |
 | **Scope**       | platform                                                             |
 | **Erstellt**    | 2026-10-04                                                           |
 | **Autor**       | Achim Dehnert                                                        |
