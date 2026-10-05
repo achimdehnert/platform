@@ -170,7 +170,9 @@ def test_should_report_every_phase_from_e0_to_e11(umgebung):
 def _gh_main(umgebung: dict, antwort: str) -> None:
     """Ersetzt die E.11-Antwort des Stubs, alle anderen Aufrufe bleiben."""
     (umgebung["bin"] / "gh").write_text(
-        _GH_STUB.replace('*"--branch main"*)  : ;;', f'*"--branch main"*)  {antwort} ;;'),
+        _GH_STUB.replace(
+            '*"--branch main"*)  : ;;', f'*"--branch main"*)  {antwort} ;;'
+        ),
         encoding="utf-8",
     )
     (umgebung["bin"] / "gh").chmod(0o755)
@@ -203,8 +205,15 @@ def test_should_query_e11_under_the_owner_of_the_touched_repo(umgebung):
     fragt der Runner unter dem Owner des Ziel-Repos, wird E.11 SKIP statt WARN.
     """
     subprocess.run(
-        ["git", "-C", str(umgebung["github"] / "beta"), "remote", "add", "origin",
-         "git@github.com:andere-org/beta.git"],
+        [
+            "git",
+            "-C",
+            str(umgebung["github"] / "beta"),
+            "remote",
+            "add",
+            "origin",
+            "git@github.com:andere-org/beta.git",
+        ],
         check=True,
     )
     _gh_main(
