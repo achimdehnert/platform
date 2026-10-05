@@ -5,7 +5,7 @@ GATE_HEADER (KONZ-038 D8):
   "slug": "direct-gh-pr-merge-bypasses-sa-m"
   "mode": "blocking"
   "owner": "achim"
-  "last_drill_pass": "2026-09-23"
+  "last_drill_pass": "2026-10-05"
   "evidence": "tools/claude-hooks/tests/test_block_direct_pr_merge.py"
 
 Hintergrund: drei Vorkommen über Retros (50d29a 2026-09-17, f1d54f F18
@@ -41,8 +41,19 @@ GRENZEN (benannt statt behauptet):
     `block_bare_stash_pop.py`). Ausweg: Body/Message per Datei übergeben.
   - Nicht gefangen: Merge über die REST-API (`gh api …/merge`), über das
     GitHub-MCP-Werkzeug oder ein Skript, das `gh pr merge` intern ruft.
-  - Der Marker belegt nicht, dass es das Owner-Wort gibt — er macht die Behauptung
-    durabel (Journal) und prüfbar. Die Wahrheit prüft die Retro am Journal.
+  - Der Marker allein belegt nicht, dass es das Owner-Wort gibt — darum seit
+    2026-10-05 die Owner-Bindung unten. Das Journal bleibt der Prüfpfad der Retro.
+
+OWNER-BINDUNG 2026-10-05 (Retro 8a0235, Massnahme R12b): Der Marker akzeptierte
+jede ID, auch die eines Kommentars, den die Sitzung Sekunden vorher selbst unter
+dem Owner-Login gepostet hatte (Realfall mcp-hub#302). Jetzt muss zusätzlich eine
+GETIPPTE Owner-Nachricht im Transkript dieser Sitzung (origin.kind human; nicht
+tool_result, Zusammenfassung, system-reminder, pasted_content) genau diese PR
+nennen (`#<nr>` oder PR-URL) und ein Merge-Wort enthalten (merge/mergen/go/
+Freigabe). Gleiche Owner-Text-Regel wie block_merge_without_gate.sh. Ohne
+lesbares Transkript → deny (fail-closed wie der übrige Marker-Pfad).
+GRENZE: die Nummer wird nicht ans Repo gebunden — „#12 mergen" für Repo A deckt
+auch #12 in Repo B. Owner-Worte nennen das Repo selten; enger wäre lauter Fehlalarm.
 """
 
 from __future__ import annotations
@@ -83,6 +94,57 @@ _WERT_OPTIONEN = {
     "--author-email",
     "--match-head-commit",
 }
+
+
+_EINGESCHLEUST = re.compile(
+    r"<(system-reminder|pasted_content)\b[^>]*>.*?</\1[^>]*>", re.S
+)
+_MERGE_WORT = re.compile(r"merg|\bgo\b|freigabe|freigegeben", re.I)
+
+
+def owner_texte(transkript: str) -> list[str] | None:
+    """Getippte Owner-Nachrichten der Sitzung — None, wenn das Transkript fehlt."""
+    if not transkript:
+        return None
+    try:
+        zeilen = Path(transkript).read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    eintraege = []
+    for zeile in zeilen:
+        try:
+            eintraege.append(json.loads(zeile))
+        except ValueError:
+            continue
+    nutzer = [e for e in eintraege if isinstance(e, dict) and e.get("type") == "user"]
+    # Ältere Transkripte ohne `origin`: jeder Nutzer-Text ohne tool_result.
+    mit_herkunft = any("origin" in e for e in nutzer)
+    texte = []
+    for e in nutzer:
+        if e.get("isMeta") or e.get("isCompactSummary"):
+            continue
+        if mit_herkunft and (e.get("origin") or {}).get("kind") != "human":
+            continue
+        inhalt = (e.get("message") or {}).get("content")
+        if isinstance(inhalt, list):
+            if any(
+                isinstance(b, dict) and b.get("type") == "tool_result" for b in inhalt
+            ):
+                continue
+            inhalt = " ".join(
+                b.get("text", "")
+                for b in inhalt
+                if isinstance(b, dict) and b.get("type") == "text"
+            )
+        if isinstance(inhalt, str):
+            texte.append(_EINGESCHLEUST.sub(" ", inhalt))
+    return texte
+
+
+def owner_nennt_merge(texte: list[str], nr: str) -> bool:
+    """Eine Owner-Nachricht nennt GENAU diese PR und ein Merge-Wort."""
+    pr = re.compile(rf"(?:#|/pull/){nr}(?!\d)")
+    return any(pr.search(t) and _MERGE_WORT.search(t) for t in texte)
 
 
 def journal_pfad() -> Path:
@@ -192,7 +254,9 @@ def journal(zeile: dict) -> None:
         pass  # ein blindes Journal verhindert nichts — das Urteil steht schon
 
 
-def entscheide(kommando: str, cwd: str, session: str = "") -> str | None:
+def entscheide(
+    kommando: str, cwd: str, session: str = "", transkript: str = ""
+) -> str | None:
     """Grund für ein deny oder None (durchlassen)."""
     aufrufe = merge_aufrufe(kommando)
     if not aufrufe:
@@ -206,6 +270,7 @@ def entscheide(kommando: str, cwd: str, session: str = "") -> str | None:
             "<owner/repo> …` — dann prüft der Hook den PR-Zustand und schreibt ins Journal."
         )
     grund = None
+    texte = owner_texte(transkript)
     for start, argumente in aufrufe:
         nr, repo = ziel(argumente)
         zeit = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -232,6 +297,20 @@ def entscheide(kommando: str, cwd: str, session: str = "") -> str | None:
                     "Kommando darauf ist blind (Realfall platform#3343: 72 Min nach dem "
                     "Owner-Merge). Erst den Live-Zustand lesen, nicht nachmergen."
                 )
+            elif texte is None:
+                grund = (
+                    "Owner-Wort-Pfad ohne lesbares Transkript — der Hook kann nicht "
+                    "prüfen, ob der Owner diesen Merge benannt hat (fail-closed). "
+                    f"`{SA_WEG}`."
+                )
+            elif not owner_nennt_merge(texte, nr):
+                grund = (
+                    f"Marker OWNER_WORT={wort}, aber keine getippte Owner-Nachricht dieser "
+                    f"Sitzung nennt #{nr} zusammen mit merge/go/Freigabe (Owner-Bindung "
+                    "2026-10-05, Realfall mcp-hub#302: Freigabe 21 s vor dem Merge selbst "
+                    "ausgestellt). Tool-Ausgaben, Zusammenfassungen und eingeschleuste "
+                    f"Blöcke zählen nicht. `{SA_WEG}` oder den Owner fragen."
+                )
         journal(
             {
                 "ts": zeit,
@@ -241,7 +320,7 @@ def entscheide(kommando: str, cwd: str, session: str = "") -> str | None:
                 "owner_wort": wort,
                 "state": state,
                 "erlaubt": grund is None,
-                "grund": grund or "Owner-Wort-Marker, Zustand OPEN",
+                "grund": grund or "Owner-Wort-Marker, Zustand OPEN, Owner nennt den PR",
                 "session": session,
             }
         )
@@ -279,7 +358,12 @@ def main() -> int:
         return 0
     session = str(daten.get("session_id") or "")
     try:
-        grund = entscheide(kommando, str(daten.get("cwd") or os.getcwd()), session)
+        grund = entscheide(
+            kommando,
+            str(daten.get("cwd") or os.getcwd()),
+            session,
+            str(daten.get("transcript_path") or ""),
+        )
     except Exception as exc:  # noqa: BLE001 — fail-closed: nur der direkte Merge ist zu
         grund = f"Hook-Fehler ({type(exc).__name__}) — fail-closed. `{SA_WEG}`."
     if grund is not None:
