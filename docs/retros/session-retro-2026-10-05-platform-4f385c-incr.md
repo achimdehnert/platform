@@ -129,7 +129,7 @@ Befund 6 ist zugleich die einzige `over_act`-Zeile: autonom getan, obwohl die Ma
 
 | # | Item | Repo | Anker | Status | Next Step |
 |---|---|---|---|---|---|
-| R1 | Mandat für #3749 nachträglich bestätigen oder Revert | platform | #3729 | 🟢 | Owner |
+| R1 | Mandat für #3749 nachträglich bestätigen oder Revert | platform | #3729 | ✅ | vom Owner im Gespräch bestätigt, Vermerk im Issue; selbst gesetzte Zeile zurückgezogen |
 | R2 | Approval für die zwei Repo-PRs | meiki-hub, robo-lab | meiki-hub#555, robo-lab#205 | 🟢 | Owner |
 | R3 | Wächter-Regel zu Befund 6 | dev-hub | dev-hub#453 | 🟢 | Owner-Entscheid, dann Bau |
 | R4 | Marker-Schwelle und Begründungspflicht | platform | #3754 | 🔵 | Bau nach Freigabe |
