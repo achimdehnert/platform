@@ -520,6 +520,128 @@ def test_should_let_an_uncaught_table_row_override_frontmatter_gates_caught(tmp_
     assert urteile["schludrige-behauptung"]["gefangen"] == 0
 
 
+# --- Zaehlweise "verwandt" (`gates_verwandt`, Vorlage platform#3722 G8) -------
+# Ein Fall, den das Gate nach seinem Zuschnitt nicht sehen konnte, ist kein
+# Rueckfall dieses Gates. Die Gegenproben halten fest, dass die Markierung nur
+# den markierten Fall entlastet — nicht den unmarkierten daneben.
+
+_GATE_VERWANDT = [
+    {"slug": "schludrige-behauptung", "mode": "advisory", "built": "2026-07-05"}
+]
+
+
+def _retro_mit_listen(verzeichnis: Path, tag: str, kuerzel: str, listen: str) -> None:
+    (verzeichnis / f"session-retro-2026-07-{tag}-platform-{kuerzel}.md").write_text(
+        f"---\nretro_schema: 1\ndate: 2026-07-{tag}\n{listen}---\n\n# Retro\n",
+        encoding="utf-8",
+    )
+
+
+def test_should_not_count_a_frontmatter_slug_marked_gates_verwandt(tmp_path):
+    for i, tag in enumerate(["10", "11", "12"]):
+        _retro_mit_listen(
+            tmp_path,
+            tag,
+            f"v{i}",
+            "recurring_findings: [schludrige-behauptung]\n"
+            "gates_verwandt: [schludrige-behauptung]\n",
+        )
+    e = _urteile(tmp_path, _GATE_VERWANDT)["schludrige-behauptung"]
+    assert e["nachher"] == 0
+    assert e["verwandt"] == 3
+    assert e["gefangen"] == 0
+    assert e["urteil"] != "RUECKFAELLIG"
+
+
+def test_should_still_count_the_same_slug_without_the_verwandt_marker(tmp_path):
+    """Gegenprobe: dieselben Retros ohne Markierung sind drei Rueckfaelle."""
+    for i, tag in enumerate(["10", "11", "12"]):
+        _retro_mit_listen(
+            tmp_path, tag, f"o{i}", "recurring_findings: [schludrige-behauptung]\n"
+        )
+    e = _urteile(tmp_path, _GATE_VERWANDT)["schludrige-behauptung"]
+    assert e["nachher"] == 3
+    assert e["verwandt"] == 0
+    assert e["urteil"] == "RUECKFAELLIG"
+
+
+def test_should_read_gates_verwandt_as_yaml_block(tmp_path):
+    _retro_mit_listen(
+        tmp_path,
+        "10",
+        "b0",
+        "recurring_findings:\n  - schludrige-behauptung\n"
+        "gates_verwandt:\n  - schludrige-behauptung\n",
+    )
+    retros = gw.lies_retros([str(tmp_path)])
+    assert retros[0][5] == ["schludrige-behauptung"]
+
+
+def test_should_not_count_a_table_row_marked_gates_verwandt(tmp_path):
+    for i, tag in enumerate(["10", "11", "12"]):
+        _retro_mit_tabelle(
+            tmp_path,
+            f"2026-07-{tag}",
+            f"z{i}",
+            [],
+            "| 1 | anderes Repo (gates_verwandt) | k | hoch | SURVIVES | b "
+            "| `schludrige-behauptung` |\n",
+        )
+    e = _urteile(tmp_path, _GATE_VERWANDT)["schludrige-behauptung"]
+    assert e["nachher"] == 0
+
+
+def test_should_let_an_unmarked_table_row_override_gates_verwandt(tmp_path):
+    """Gegenprobe: die Frontmatter-Liste entlastet nicht die unmarkierte Zeile."""
+    for i, tag in enumerate(["10", "11"]):
+        (tmp_path / f"session-retro-2026-07-{tag}-platform-u{i}.md").write_text(
+            f"---\nretro_schema: 1\ndate: 2026-07-{tag}\n"
+            "recurring_findings: [schludrige-behauptung]\n"
+            "gates_verwandt: [schludrige-behauptung]\n---\n\n"
+            "| # | Befund | Kategorie | Severity | Verdikt | Beleg | Recurrence |\n"
+            "|---|---|---|---|---|---|---|\n"
+            "| 1 | im Zuschnitt | k | hoch | SURVIVES | b | `schludrige-behauptung` |\n",
+            encoding="utf-8",
+        )
+    e = _urteile(tmp_path, _GATE_VERWANDT)["schludrige-behauptung"]
+    assert e["nachher"] == 2
+    assert e["verwandt"] == 0
+
+
+def test_should_keep_five_tuples_without_verwandt_working():
+    """Aufrufer mit der Fuenfer-Form von vor 2026-10-05 duerfen nicht brechen."""
+    gates = [{"slug": "g", "built": "2026-08-01"}]
+    e = gw.bewerte(gates, [("2026-08-05", ["g"], "a", [], [])])[0]
+    assert e["nachher"] == 1
+    assert e["verwandt"] == 0
+
+
+def test_should_name_related_cases_in_the_report(tmp_path):
+    for i, tag in enumerate(["10", "11", "12"]):
+        _retro_mit_listen(
+            tmp_path,
+            tag,
+            f"r{i}",
+            "recurring_findings: [schludrige-behauptung]\n"
+            "gates_verwandt: [schludrige-behauptung]\n",
+        )
+    registry = tmp_path / "registry.json"
+    registry.write_text(json.dumps({"gates": _GATE_VERWANDT}), encoding="utf-8")
+    lauf = subprocess.run(
+        [
+            sys.executable,
+            str(_QUELLE),
+            "--registry",
+            str(registry),
+            "--dir",
+            str(tmp_path),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert "VERWANDTEN Faellen: schludrige-behauptung (3x)" in lauf.stdout
+
+
 # --- Verfallsfristen (`expires`, Owner-Entscheid E4 / platform#2606) ---------
 # Ein Datum in der Registry, das kein Werkzeug liest, ist Prosa — genau die
 # Fehlform, an der die erste Kalibrierfrist des Claim-Gates scheiterte. Diese
