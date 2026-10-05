@@ -66,6 +66,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import calendar
 import json
 import os
 import re
@@ -78,7 +79,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import melder_ergebnis  # noqa: E402
 
-WERKZEUG_VERSION = "2"
+WERKZEUG_VERSION = "3"
 MELDER = "sichtbarkeits_drift_melder"
 SELBST = "achimdehnert/platform"
 # Zielort nach dem Umzug (Owner-Entscheid 2026-10-04, #3234): Die API leitet den
@@ -430,41 +431,94 @@ def plattform_lage() -> dict | None:
         return None
 
 
+def _billing_posten(basis: str, heute: date, auswahl: str) -> list[dict] | None:
+    """Actions-Posten des laufenden Monats, nur die Felder der Whitelist."""
+    out = _gh(
+        "api",
+        f"{basis}/settings/billing/usage?year={heute.year}&month={heute.month}",
+        "--jq",
+        f'[.usageItems[] | select(.product == "actions"{auswahl})'
+        " | {grossAmount, netAmount, unitType, quantity}]",
+    )
+    if out is None:
+        return None
+    try:
+        posten = json.loads(out)
+        return posten if isinstance(posten, list) else None
+    except ValueError:
+        return None
+
+
+def _minuten(posten: list[dict]) -> float:
+    return sum(p.get("quantity") or 0 for p in posten if p.get("unitType") == "Minutes")
+
+
 def actions_kosten(besitzer: str, heute: date) -> dict | None:
-    """Actions-Kosten von platform im laufenden Monat (USD, brutto/netto).
+    """Actions-Kosten von platform im laufenden Monat (USD brutto/netto, Minuten).
 
     Konto oder Org je nach Besitzer — die Billing-API trennt beide Pfade. None =
     nicht messbar (fehlender Billing-Scope); das ist vor dem Flip unkritisch,
-    danach UNKLAR. Brutto ist, was ein privates Repo ohne Kontingent kostete:
-    der Fruehindikator. Netto > 0 heisst, die Minuten werden bezahlt."""
+    danach UNKLAR. Brutto ist, was ein privates Repo ohne Kontingent kostete.
+    Netto > 0 heisst, die Minuten werden bezahlt — das meldet erst hinterher,
+    deshalb rechnet `kontingent_last` die Minuten vorher gegen das Kontingent."""
     eigentuemer, name = besitzer.split("/", 1)
     basis = (
         f"organizations/{eigentuemer}"
         if eigentuemer != SELBST.split("/")[0]
         else f"users/{eigentuemer}"
     )
-    out = _gh(
-        "api",
-        f"{basis}/settings/billing/usage?year={heute.year}&month={heute.month}",
-        "--jq",
-        f'[.usageItems[] | select(.product == "actions" and .repositoryName == "{name}")'
-        " | {grossAmount, netAmount}]",
-    )
-    if out is None:
+    posten = _billing_posten(basis, heute, f' and .repositoryName == "{name}"')
+    if posten is None:
         return None
     try:
-        posten = json.loads(out)
         return {
             "brutto": round(sum(p["grossAmount"] for p in posten), 2),
             "netto": round(sum(p["netAmount"] for p in posten), 2),
+            "minuten": round(_minuten(posten)),
         }
-    except (ValueError, KeyError, TypeError):
+    except (KeyError, TypeError):
         return None
 
 
-def wache(lage: dict | None, kosten: dict | None) -> dict:
-    """Alarm, wenn der Schutz fehlt oder Minuten bezahlt werden. Nicht messbar
-    zaehlt erst nach dem Flip als Luecke — davor ist beides gratis und an."""
+# Fruehwarnung vor KG2 (Retro 8a0235 #7): Netto > 0 meldet erst, wenn die Minuten
+# schon bezahlt werden. Nach dem Umzug teilt platform das Kontingent der Org;
+# die Last von platform hat sich von August auf September mehr als verdoppelt
+# (ADR-309 H1). Darum rechnet die Wache Org plus platform auf den Monat hoch,
+# vor dem Umzug genauso wie danach. Grenzwert aus der GitHub-Doku (H1), nicht
+# aus dem Billing gelesen — die API liefert die enthaltene Menge nicht mit.
+KONTINGENT_MINUTEN = 50_000
+KONTINGENT_SCHWELLE = 0.8
+
+
+def org_minuten(heute: date) -> float | None:
+    """Actions-Minuten der Ziel-Org im laufenden Monat, alle Repos."""
+    posten = _billing_posten(f"organizations/{ZIELORT.split('/')[0]}", heute, "")
+    return None if posten is None else _minuten(posten)
+
+
+def kontingent_last(
+    lage: dict | None, kosten: dict | None, org_min: float | None, heute: date
+) -> dict | None:
+    """Hochgerechnete Monatslast im Org-Kontingent. Liegt platform schon in der
+    Org, steckt es in `org_min` und wird nicht doppelt gezaehlt."""
+    if lage is None or kosten is None or org_min is None:
+        return None
+    am_zielort = lage["besitzer"].split("/")[0] == ZIELORT.split("/")[0]
+    bisher = org_min + (0 if am_zielort else kosten["minuten"])
+    tage = calendar.monthrange(heute.year, heute.month)[1]
+    hoch = round(bisher * tage / heute.day)
+    return {
+        "minuten_bisher": round(bisher),
+        "hochrechnung": hoch,
+        "kontingent": KONTINGENT_MINUTEN,
+        "anteil": round(hoch / KONTINGENT_MINUTEN, 2),
+    }
+
+
+def wache(lage: dict | None, kosten: dict | None, last: dict | None = None) -> dict:
+    """Alarm, wenn der Schutz fehlt, Minuten bezahlt werden oder die Hochrechnung
+    das Kontingent ueber der Schwelle belegt. Nicht messbar zaehlt erst nach dem
+    Flip als Luecke — davor ist beides gratis und an."""
     privat = bool(lage) and lage["sichtbarkeit"] != "PUBLIC"
     alarm, luecke = [], []
     if lage is None:
@@ -476,10 +530,13 @@ def wache(lage: dict | None, kosten: dict | None) -> dict:
             luecke.append("kosten")
     elif kosten["netto"] > 0:
         alarm.append("kosten")
+    if last and last["anteil"] > KONTINGENT_SCHWELLE:
+        alarm.append("kontingent")
     return {
         "besitzer": lage["besitzer"] if lage else None,
         "schutz_fehlt": lage["schutz_fehlt"] if lage else None,
         "kosten_usd": kosten,
+        "kontingent": last,
         "alarm": alarm,
         "luecke": luecke,
     }
@@ -574,7 +631,10 @@ def prognose(reihe: list[dict], heute: date) -> dict:
             break
         serie.append(e)
     spanne = (
-        (date.fromisoformat(serie[0]["datum"]) - date.fromisoformat(serie[-1]["datum"])).days
+        (
+            date.fromisoformat(serie[0]["datum"])
+            - date.fromisoformat(serie[-1]["datum"])
+        ).days
         + 1
         if serie
         else 0
@@ -605,11 +665,18 @@ ZUG = {
     "{zielorg}, nicht privat ins Privatkonto",
     "kosten": "Actions-Minuten werden bezahlt: Kontingent der Org pruefen oder "
     "Workflows auf self-hosted",
+    "kontingent": "Hochrechnung belegt das Org-Kontingent zu mehr als "
+    "{schwelle} Prozent: teure Workflows auf self-hosted ziehen oder Kontingent "
+    "klaeren, bevor KG2 greift",
 }
 
 
 def naechster_zug(e: dict) -> list[str]:
-    fmt = {"kanon": KANON, "zielorg": ZIELORT.split("/")[0]}
+    fmt = {
+        "kanon": KANON,
+        "zielorg": ZIELORT.split("/")[0],
+        "schwelle": round(KONTINGENT_SCHWELLE * 100),
+    }
     zuege = [ZUG[k].format(**fmt) for k in e["ueber_ziel"]]
     zuege += [ZUG[k].format(**fmt) for k in e["wache"]["alarm"]]
     if e["status"] == "PASS" and e["sichtbarkeit"] == "PUBLIC":
@@ -696,6 +763,7 @@ def bewerte(
             "besitzer": None,
             "schutz_fehlt": None,
             "kosten_usd": None,
+            "kontingent": None,
             "alarm": [],
             "luecke": [],
         }
@@ -710,7 +778,9 @@ def bewerte(
         for r, e in konsumenten.items()
     }
     laufzeit = {r: p for r, p in laufzeit.items() if p}
-    mit_token = {r: e["mit_token"] for r, e in konsumenten.items() if e.get("mit_token")}
+    mit_token = {
+        r: e["mit_token"] for r, e in konsumenten.items() if e.get("mit_token")
+    }
     zaehler = {
         "aufrufer": len(aufrufer),
         "raw": len(raw),
@@ -721,9 +791,7 @@ def bewerte(
     ueber_ziel = [k for k, v in zaehler.items() if v is not None and v > ZIEL[k]]
     messbar = kopien is not None and sichtbar is not None and not wache_["luecke"]
     status = (
-        "WARN"
-        if ueber_ziel or wache_["alarm"]
-        else ("PASS" if messbar else "UNKLAR")
+        "WARN" if ueber_ziel or wache_["alarm"] else ("PASS" if messbar else "UNKLAR")
     )
     return {
         "status": status,
@@ -775,7 +843,9 @@ def kurzzeile(e: dict, oeffentlich_: bool = False) -> str:
             if sicht == "PRIVATE"
             else f"Umzug-Freigabe nach {K5_TAGE} Tagen (K5)"
         )
-        return f"Sichtbarkeits-Drift: 0/0/1/0 erreicht — platform {sicht}, {rolle}{trend}"
+        return (
+            f"Sichtbarkeits-Drift: 0/0/1/0 erreicht — platform {sicht}, {rolle}{trend}"
+        )
     if e["status"] == "UNKLAR":
         luecke = ", ".join(e["wache"]["luecke"]) or "offline"
         return f"Sichtbarkeits-Drift: {stand} — Teile nicht messbar ({luecke}){trend}"
@@ -837,6 +907,7 @@ def main(argv: list[str] | None = None) -> int:
     kopien = None if a.offline else zaehle_kopien()
     lage = None if a.offline else plattform_lage()
     kosten = actions_kosten(lage["besitzer"], heute) if lage else None
+    last = kontingent_last(lage, kosten, org_minuten(heute) if lage else None, heute)
     konsumenten = vereinige(lokal, netz)
     archiviert: list[str] = []
     if not a.offline:
@@ -846,7 +917,7 @@ def main(argv: list[str] | None = None) -> int:
         kopien,
         abgelaufene_fristen(Path(a.konzepte_dir), heute),
         lage["sichtbarkeit"] if lage else None,
-        None if a.offline else wache(lage, kosten),
+        None if a.offline else wache(lage, kosten, last),
     )
     if a.messreihe:
         reihe = lade_reihe(Path(a.messreihe))
@@ -903,7 +974,22 @@ def main(argv: list[str] | None = None) -> int:
         print(f"- Secret-Schutz fehlt: {', '.join(w['schutz_fehlt']) or 'nichts'}")
         print(
             "- Actions-Kosten platform, laufender Monat: "
-            + (f"brutto {k['brutto']} USD, netto {k['netto']} USD" if k else "nicht messbar")
+            + (
+                f"brutto {k['brutto']} USD, netto {k['netto']} USD"
+                if k
+                else "nicht messbar"
+            )
+        )
+        last = w.get("kontingent")
+        print(
+            f"- Kontingent {ZIELORT.split('/')[0]}, Hochrechnung Monat (Org + platform): "
+            + (
+                f"{last['hochrechnung']} von {last['kontingent']} Minuten "
+                f"({round(last['anteil'] * 100)} %, Alarm ab "
+                f"{round(KONTINGENT_SCHWELLE * 100)} %)"
+                if last
+                else "nicht messbar"
+            )
         )
         print()
     if ergebnis.get("prognose"):

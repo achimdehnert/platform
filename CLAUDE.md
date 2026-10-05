@@ -17,8 +17,9 @@ mit einer Kontrollprobe belegen (roh N Treffer → bereinigt 0), nicht nur behau
 privat" freigegeben, und beinahe wäre eine Test-Fixture mit Namen Studierender und einer
 Anschrift hier gelandet ([#1670](https://github.com/achimdehnert/platform/pull/1670)). Falsch
 war die Prämisse, nicht die Sorgfalt. Ob das so bleibt, behandelt
-[`KONZ-platform-039`](docs/konzepte/KONZ-platform-039-sichtbarkeit-platform-repo.md) — bis zu
-einer Entscheidung gilt: **öffentlich**.
+[`KONZ-platform-039`](docs/konzepte/KONZ-platform-039-sichtbarkeit-platform-repo.md), den Weg
+[`ADR-309`](docs/adr/ADR-309-platform-umzug-iilgmbh-dann-privat.md) (Umzug nach `iilgmbh`,
+erst dort privat). Bis platform dort privat ist, gilt: **öffentlich**.
 
 ## SSoT: zuerst `CORE_CONTEXT.md` lesen
 

@@ -350,10 +350,14 @@ def test_should_netz_checkout_nach_dateiinhalt_klassifizieren(monkeypatch):
     monkeypatch.setattr(
         sdm,
         "suche_code",
-        lambda q: [("achimdehnert/m-hub", ".github/workflows/ci.yml"),
-                   ("achimdehnert/x-hub", ".github/workflows/lint.yml")]
-        if q.startswith("repository:")
-        else [],
+        lambda q: (
+            [
+                ("achimdehnert/m-hub", ".github/workflows/ci.yml"),
+                ("achimdehnert/x-hub", ".github/workflows/lint.yml"),
+            ]
+            if q.startswith("repository:")
+            else []
+        ),
     )
     inhalte = {
         "achimdehnert/m-hub": _checkout(PAT, "          "),
@@ -454,13 +458,19 @@ def test_should_kosten_je_besitzer_ueber_konto_oder_org_pfad_lesen(monkeypatch):
 
     def fake_gh(*a):
         pfade.append(a[1])
-        return '[{"grossAmount": 1.5, "netAmount": 0}, {"grossAmount": 2.25, "netAmount": 0.5}]'
+        return (
+            '[{"grossAmount": 1.5, "netAmount": 0, "unitType": "Minutes", "quantity": 250},'
+            ' {"grossAmount": 2.25, "netAmount": 0.5, "unitType": "Minutes", "quantity": 375},'
+            ' {"grossAmount": 0.01, "netAmount": 0, "unitType": "GigabyteHours",'
+            ' "quantity": 40}]'
+        )
 
     monkeypatch.setattr(sdm, "_gh", fake_gh)
     heute = date(2026, 10, 5)
     assert sdm.actions_kosten("achimdehnert/platform", heute) == {
-        "brutto": 3.75,
+        "brutto": 3.76,
         "netto": 0.5,
+        "minuten": 625,
     }
     sdm.actions_kosten("iilgmbh/platform", heute)
     assert pfade[0].startswith("users/achimdehnert/settings/billing/usage?")
@@ -474,7 +484,11 @@ def test_should_kosten_ohne_billing_scope_als_nicht_messbar_melden(monkeypatch):
 
 
 def _lage(sicht="PUBLIC", fehlt=()):
-    return {"besitzer": "iilgmbh/platform", "sichtbarkeit": sicht, "schutz_fehlt": list(fehlt)}
+    return {
+        "besitzer": "iilgmbh/platform",
+        "sichtbarkeit": sicht,
+        "schutz_fehlt": list(fehlt),
+    }
 
 
 def test_should_wache_bei_fehlendem_schutz_oder_bezahlten_minuten_alarmieren():
@@ -490,6 +504,60 @@ def test_should_brutto_kosten_bei_oeffentlichem_repo_nicht_alarmieren():
     w = sdm.wache(_lage(), {"brutto": 190.0, "netto": 0.0})
     assert w["alarm"] == [] and w["luecke"] == []
     assert bewerte({}, ["iilgmbh/shared-ci"], [], "PUBLIC", w)["status"] == "PASS"
+
+
+def _kosten(minuten, netto=0.0):
+    return {"brutto": minuten * 0.006, "netto": netto, "minuten": minuten}
+
+
+def test_should_kontingent_last_vor_dem_umzug_org_und_platform_hochrechnen():
+    """Realfall 8a0235 #7: netto 0, aber die Last waechst. Am 10. von 31 Tagen
+    stehen 10 000 + 3 000 Minuten — hochgerechnet 40 300, also 81 % von 50 000."""
+    lage = _lage() | {"besitzer": "achimdehnert/platform"}
+    last = sdm.kontingent_last(lage, _kosten(3000), 10_000, date(2026, 10, 10))
+    assert last["minuten_bisher"] == 13_000 and last["hochrechnung"] == 40_300
+    w = sdm.wache(lage, _kosten(3000), last)
+    assert w["alarm"] == ["kontingent"]
+    e = bewerte({}, ["iilgmbh/shared-ci"], [], "PUBLIC", w)
+    assert e["status"] == "WARN" and "Wache: kontingent" in kurzzeile(e)
+    assert any("Org-Kontingent" in z for z in sdm.naechster_zug(e))
+
+
+def test_should_kontingent_unter_der_schwelle_nicht_alarmieren():
+    lage = _lage() | {"besitzer": "achimdehnert/platform"}
+    last = sdm.kontingent_last(lage, _kosten(3000), 9_000, date(2026, 10, 10))
+    assert last["anteil"] == 0.74
+    assert sdm.wache(lage, _kosten(3000), last)["alarm"] == []
+
+
+def test_should_platform_am_zielort_nicht_doppelt_zaehlen():
+    """Nach dem Umzug steckt platform in den Org-Minuten — doppelt gezaehlt
+    meldete die Wache Alarm, wo keiner ist."""
+    last = sdm.kontingent_last(_lage(), _kosten(3000), 13_000, date(2026, 10, 10))
+    assert last["minuten_bisher"] == 13_000
+
+
+def test_should_kontingent_ohne_messung_nicht_raten():
+    lage = _lage()
+    assert sdm.kontingent_last(lage, None, 13_000, date(2026, 10, 10)) is None
+    assert sdm.kontingent_last(lage, _kosten(1), None, date(2026, 10, 10)) is None
+    assert sdm.kontingent_last(None, _kosten(1), 13_000, date(2026, 10, 10)) is None
+    assert sdm.wache(lage, _kosten(1), None)["alarm"] == []
+
+
+def test_should_org_minuten_ueber_alle_repos_der_zielorg_lesen(monkeypatch):
+    aufrufe = []
+
+    def fake_gh(*a):
+        aufrufe.append(a)
+        return '[{"unitType": "Minutes", "quantity": 990}, {"unitType": "GigabyteHours", "quantity": 8}]'
+
+    monkeypatch.setattr(sdm, "_gh", fake_gh)
+    assert sdm.org_minuten(date(2026, 10, 5)) == 990
+    assert aufrufe[0][1].startswith("organizations/iilgmbh/settings/billing/usage?")
+    assert "repositoryName" not in aufrufe[0][3]
+    monkeypatch.setattr(sdm, "_gh", lambda *a: None)
+    assert sdm.org_minuten(date(2026, 10, 5)) is None
 
 
 def test_should_unmessbare_kosten_erst_nach_privat_schalter_unklar_machen():
@@ -542,7 +610,9 @@ def test_should_ohne_abbau_kein_null_datum_nennen():
     reihe = [_e("2026-10-01", 4), _e("2026-10-05", 5)]
     p = sdm.prognose(reihe, date(2026, 10, 5))
     assert p["null_am"] is None and p["steigung_pro_tag"] > 0
-    e = bewerte({"x/y": {"aufruf": ["a"], "raw": []}}, ["iilgmbh/shared-ci"], [], "PUBLIC")
+    e = bewerte(
+        {"x/y": {"aufruf": ["a"], "raw": []}}, ["iilgmbh/shared-ci"], [], "PUBLIC"
+    )
     e["prognose"] = p
     assert "kein Abbau-Trend" in kurzzeile(e)
 
@@ -569,7 +639,10 @@ def test_should_luecke_ohne_messung_serie_nicht_brechen_warn_aber_schon():
 
 
 def test_should_neue_repos_als_rueckfall_melden():
-    reihe = [_e("2026-10-04", 1, repos=["a/x"]), _e("2026-10-05", 1, repos=["a/x", "b/neu"])]
+    reihe = [
+        _e("2026-10-04", 1, repos=["a/x"]),
+        _e("2026-10-05", 1, repos=["a/x", "b/neu"]),
+    ]
     assert sdm.prognose(reihe, date(2026, 10, 5))["rueckfall"] == ["b/neu"]
 
 
@@ -606,7 +679,7 @@ def test_should_offline_lauf_nicht_in_messreihe_schreiben(tmp_path):
 def test_should_fuer_jeden_zaehler_und_jeden_alarm_einen_naechsten_zug_kennen():
     """Invariante statt Stichprobe: ein neuer Zaehler ohne Zug-Text war der Live-Fehler
     vom 2026-10-05 (KeyError 'laufzeit')."""
-    assert set(sdm.ZIEL) | {"schutz", "kosten"} <= set(sdm.ZUG)
+    assert set(sdm.ZIEL) | {"schutz", "kosten", "kontingent"} <= set(sdm.ZUG)
 
 
 def test_should_bei_k5_den_umzug_als_naechsten_zug_nennen():
