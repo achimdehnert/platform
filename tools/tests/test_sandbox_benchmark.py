@@ -41,12 +41,14 @@ def test_should_count_absolute_weekly_values_for_b1(tmp_path):
             "prs_mit_owner_wort": 1,
             "merges": 1,
             "abbrueche": 0,
+            "wiederholungen": 0,
         },
         "2026-W40": {
             "owner_wort_ereignisse": 1,
             "prs_mit_owner_wort": 1,
             "merges": 0,
             "abbrueche": 1,
+            "wiederholungen": 0,
         },
     }
 
@@ -85,6 +87,22 @@ def test_should_count_only_executed_merges_for_b1(tmp_path):
     assert (woche["merges"], woche["abbrueche"]) == (2, 1)
 
 
+def test_should_keep_already_merged_out_of_aborts_and_count_repeats_for_b1(tmp_path):
+    """Rueckschau platform#3685: schon gemergt ist kein Abbruch mangels Mandat;
+    die Wiederholung desselben Grundes ist eine Teilmenge der Abbrueche."""
+    kein = {"ts": KW40, "repo": "o/a", "erlaubt": False, "dry_run": False}
+    journal = _journal(
+        tmp_path,
+        [
+            {**kein, "pr": 1, "ergebnis": "bereits_gemergt", "exit": 2},
+            {**kein, "pr": 2, "ergebnis": "nicht_gedeckt", "exit": 2},
+            {**kein, "pr": 2, "ergebnis": "nicht_gedeckt", "wiederholung": True},
+        ],
+    )
+    woche = b.b1_owner_belastung(journal)["wochen"]["2026-W40"]
+    assert (woche["abbrueche"], woche["wiederholungen"]) == (2, 1)
+
+
 def test_should_name_merge_results_like_pr_merge_sa():
     sys.path.insert(0, str(_SCRIPT.parents[1]))
     import pr_merge_sa
@@ -93,6 +111,7 @@ def test_should_name_merge_results_like_pr_merge_sa():
         pr_merge_sa.ERGEBNIS_GEMERGT,
         pr_merge_sa.ERGEBNIS_AUTO_MERGE,
     }
+    assert b.BEREITS_GEMERGT == pr_merge_sa.ERGEBNIS_BEREITS_GEMERGT
 
 
 def _lauf(wurzel: Path, name: str, **status) -> None:
