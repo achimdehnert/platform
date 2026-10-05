@@ -82,7 +82,7 @@ class TestBefundeFuer:
 
 
 class TestMainExitVertrag:
-    """0 sauber · 1 Befund (advisory) · 2 Werkzeugfehler (nie still)."""
+    """0 sauber · 1 Modul ohne Test (blockierend) · 2 Werkzeugfehler · 3 nur Drill."""
 
     def _run(self, added, tmp_path):
         with patch.object(cnm, "hinzugefuegte_dateien", return_value=added):
@@ -100,6 +100,27 @@ class TestMainExitVertrag:
     def test_should_exit_2_when_git_fails(self, tmp_path):
         """Fetch-/git-Fehler ist kein sauberer Zustand."""
         assert self._run(None, tmp_path) == 2
+
+    def test_should_block_realfall_untested_modules(self, tmp_path):
+        """Positivkontrolle Rev 3: Realfall #3188 (zwei Module ohne Test) blockiert."""
+        neu = ["tools/klickdummy_pgvector_bytecheck.py", "tools/klickdummy_pgvector_upsert.py"]
+        assert self._run(neu, tmp_path) == cnm.EXIT_MODUL == 1
+
+    def test_should_only_warn_when_drill_lacks_gegenprobe(self, tmp_path):
+        """Gegenprobe Rev 3: ein Drill-Befund allein blockiert nicht (Fehlalarm #3429)."""
+        (tmp_path / "tools" / "tests").mkdir(parents=True)
+        (tmp_path / "tools" / "tests" / "test_kev_vorfilter.py").write_text(
+            '"""Drill fuer den Vorfilter."""\n\ndef test_should_keep_mail():\n    pass\n'
+        )
+        assert self._run(["tools/tests/test_kev_vorfilter.py"], tmp_path) == 3
+
+    def test_should_block_when_module_and_drill_findings_meet(self, tmp_path):
+        (tmp_path / "tools" / "tests").mkdir(parents=True)
+        (tmp_path / "tools" / "tests" / "test_klassen_gate.py").write_text(
+            '"""Klassen-Gate."""\n'
+        )
+        neu = ["tools/neu_ohne_test.py", "tools/tests/test_klassen_gate.py"]
+        assert self._run(neu, tmp_path) == 1
 
 
 class TestHinzugefuegteDateien:

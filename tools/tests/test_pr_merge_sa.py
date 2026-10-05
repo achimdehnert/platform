@@ -43,6 +43,7 @@ REGELN = {
         "docs/konzepte/KONZ-platform-025-lotsen-charta.md",
         "CODEOWNERS",
         "tools/pr_merge_sa.py",
+        "tools/sandbox/",
     ],
     "sync_only_repos": ["achimdehnert/platform"],
 }
@@ -399,6 +400,71 @@ def test_should_not_merge_when_repo_target_changed_after_check(monkeypatch, caps
     assert "Ziel gewechselt" in capsys.readouterr().err
 
 
+class _Lauf:
+    returncode = 0
+    stderr = ""
+
+
+def _merge_main(monkeypatch, repo, fakten, regeln_block=REGELN):
+    import pr_merge_sa
+
+    befehle = []
+    monkeypatch.setattr(pr_merge_sa, "regeln", lambda *_a, **_k: regeln_block)
+    monkeypatch.setattr(pr_merge_sa, "aufgeloestes_repo", lambda x: (x, 4711))
+    monkeypatch.setattr(pr_merge_sa, "gather", lambda *_a, **_k: fakten)
+    monkeypatch.setattr(pr_merge_sa, "journal", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        pr_merge_sa.subprocess, "run", lambda b, **k: befehle.append(b) or _Lauf()
+    )
+    return pr_merge_sa.main(["1", repo]), befehle
+
+
+def test_should_pin_merge_to_checked_head_commit(monkeypatch):
+    code, befehle = _merge_main(
+        monkeypatch, "owner/repo", _facts(mandat="M0", head_sha="abc123")
+    )
+    assert code == 0
+    befehl = befehle[0]
+    assert befehl[befehl.index("--match-head-commit") + 1] == "abc123"
+
+
+def test_should_not_merge_when_head_commit_is_unknown(monkeypatch, capsys):
+    code, befehle = _merge_main(monkeypatch, "owner/repo", _facts(mandat="M0"))
+    assert code == 3
+    assert befehle == []
+    assert "Kopf-Commit" in capsys.readouterr().err
+
+
+def test_should_not_merge_when_actions_turned_on_after_check(monkeypatch, capsys):
+    import pr_merge_sa
+
+    messungen = iter([False, True])
+    monkeypatch.setattr(pr_merge_sa, "actions_an", lambda x: next(messungen))
+    code, befehle = _merge_main(
+        monkeypatch,
+        "iilsandbox/dev-hub",
+        _facts(repo="iilsandbox/dev-hub", mandat="M0", head_sha="abc123"),
+        SANDBOX,
+    )
+    assert code == 3
+    assert befehle == []
+    assert "Actions an" in capsys.readouterr().err
+
+
+def test_should_merge_sandbox_pr_when_actions_stay_off(monkeypatch):
+    import pr_merge_sa
+
+    monkeypatch.setattr(pr_merge_sa, "actions_an", lambda x: False)
+    code, befehle = _merge_main(
+        monkeypatch,
+        "iilsandbox/dev-hub",
+        _facts(repo="iilsandbox/dev-hub", mandat="M0", head_sha="abc123"),
+        SANDBOX,
+    )
+    assert code == 0
+    assert "--match-head-commit" in befehle[0]
+
+
 def test_should_raise_unklar_when_policy_has_no_rule_block(tmp_path):
     leer = tmp_path / "ohne.md"
     leer.write_text("# keine Regel hier\n")
@@ -423,10 +489,24 @@ def test_should_recognize_doc_paths(pfad, erwartet):
 
 
 @pytest.mark.parametrize(
-    "pfad", [".github/workflows/ci.yml", "CODEOWNERS", "policies/x.md"]
+    "pfad",
+    [
+        ".github/workflows/ci.yml",
+        "CODEOWNERS",
+        "policies/x.md",
+        "tools/sandbox/waechter.py",
+        "tools/sandbox/selbstpruefung.py",
+    ],
 )
 def test_should_recognize_governance_paths(pfad):
     assert ist_governance(pfad, REGELN["governance_pfade"]) is True
+
+
+@pytest.mark.parametrize(
+    "pfad", ["tools/sandbox_hilfe.py", "tools/tests/test_sandbox_waechter.py"]
+)
+def test_should_not_treat_sandbox_lookalikes_as_governance(pfad):
+    assert ist_governance(pfad, REGELN["governance_pfade"]) is False
 
 
 # --- Journal: ohne Zaehlung keine pruefbare Ratsche ---------------------------

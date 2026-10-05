@@ -312,7 +312,7 @@ berührt.
 sa_m:
   deckung: {W0: M0, W1: M1, W2: M2, W3: M1}   # W3 = M1 + Prüffrage (2026-08-27); Block angeglichen 2026-09-16 (#3244)
   doku_glob: ["*.md", "docs/**", "README*", "CHANGELOG*"]
-  governance_pfade: [".github/", "docs/adr/", "docs/governance/", "docs/konzepte/KONZ-platform-025-lotsen-charta.md", "policies/", "registry/", "packages/", "CODEOWNERS", "tools/pr_merge_sa.py"]
+  governance_pfade: [".github/", "docs/adr/", "docs/governance/", "docs/konzepte/KONZ-platform-025-lotsen-charta.md", "policies/", "registry/", "packages/", "CODEOWNERS", "tools/pr_merge_sa.py", "tools/sandbox/"]   # tools/sandbox/: Selbstprüfung, Budget-Wächter, Spiegeln = Schutzregeln nach ADR-308 §151 (2026-10-05, #3724)
   sync_only_repos: ["achimdehnert/platform"]
   fail_closed: true
   org_profile: {iilsandbox: {actions_aus: true}}   # ADR-308 §4.4: M0 je Wirkung, Actions je Lauf gemessen (2026-10-05, #3685)

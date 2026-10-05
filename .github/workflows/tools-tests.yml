@@ -196,14 +196,13 @@ jobs:
             --range "origin/${{ github.base_ref }}...HEAD" --format github
           exit 0
 
-      # Neue Module ohne Test-Spur — advisory (untested-tool-module-green-gate,
-      # platform#1650 Owner-Go 2026-08-12). Nur im PR HINZUGEFUEGTE .py unter
-      # tools/ + scripts/ (Bestandsschutz: die ~24 Altfaelle aus dem
-      # Ehrlichkeits-Hinweis oben bleiben unberuehrt — 0-FP-Baseline). Exit 1
-      # (Befund) laesst den Job gruen: advisory bis Kalibrierfenster
-      # (gate-registry frozen_note). Exit >=2 (Werkzeugfehler) macht ROT — ein
-      # Melder, der beim Ausfall schweigt, ist schlimmer als keiner.
-      - name: Neue Module ohne Test-Spur (advisory, non-gating)
+      # Neue Module ohne Test-Spur — blockierend seit Rev 3 (untested-tool-module-
+      # green-gate, #3722 G1, 2026-10-05). Nur im PR HINZUGEFUEGTE .py unter
+      # tools/ + scripts/ (Bestandsschutz bleibt). Exit 1 (Modul ohne Test-Spur)
+      # macht ROT: im Rueckblick ueber 300 Merges beide Modul-Treffer echt.
+      # Exit 3 (nur Gate-Drill ohne Gegenprobe) bleibt Warnung: dort waren beide
+      # Treffer Fehlalarme. Jeder andere Exit ist ein Werkzeugfehler und macht ROT.
+      - name: Neue Module ohne Test-Spur (blockierend; Drill-Zweig advisory)
         if: github.event_name == 'pull_request' && steps.relevanz.outputs.relevant == 'true'
         run: |
           set +e
@@ -212,11 +211,12 @@ jobs:
             --range "origin/${{ github.base_ref }}...HEAD"
           rc=$?
           set -e
-          if [ "$rc" -ge 2 ]; then
-            echo "::error::check_new_module_tests.py brach mit Exit $rc ab (Werkzeugfehler, kein Verdikt)"
-            exit 1
-          fi
-          exit 0
+          case "$rc" in
+            0) exit 0 ;;
+            1) echo "::error::Neues Modul ohne Test-Spur (untested-tool-module-green-gate, blockierend)"; exit 1 ;;
+            3) echo "::warning::Gate-Drill ohne dokumentierte Gegenprobe (advisory)"; exit 0 ;;
+            *) echo "::error::check_new_module_tests.py brach mit Exit $rc ab (Werkzeugfehler, kein Verdikt)"; exit 1 ;;
+          esac
 
       # Stehengebliebene Geschwister-Stellen — advisory
       # (geschwister-stellen-nicht-mitgezogen, Retro-Muster

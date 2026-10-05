@@ -148,6 +148,37 @@ def test_should_report_karteileiche_separately_in_kurz_bericht():
     assert "0 Melder ohne Leser" in text
 
 
+# --- echter Bestand (Gate blocking seit 2026-10-05, platform#3722 G4) ----------
+#
+# Die Tests oben pruefen die Logik an Fixtures. Diese beiden pruefen den Bestand
+# im Repo: `make test` ist Required Check, damit haelt die Suite den sauberen
+# Zustand, statt ihn nur beim Sitzungsstart zu melden.
+
+
+def _echter_bestand() -> tuple[list[dict], set[str]]:
+    register = mrc.lade_register(mrc.DEFAULT_REGISTER)
+    runner_phasen = mrc.lade_runner_phasen(mrc.DEFAULT_RUNNER)
+    assert register, "Register leer oder nicht lesbar — kein Verdikt moeglich"
+    assert runner_phasen, "Runner ohne Phasen — kein Verdikt moeglich"
+    return register, runner_phasen
+
+
+def test_should_keep_real_register_free_of_melder_ohne_leser():
+    register, runner_phasen = _echter_bestand()
+    text, rc = mrc.kurz_bericht(register, runner_phasen)
+    assert rc == 0, text
+
+
+def test_should_turn_red_when_real_register_loses_a_reader():
+    # Gegenprobe am echten Bestand: derselbe Aufruf muss rot werden, sobald
+    # ein Eintrag seinen Leser verliert — sonst waere der Test oben blind.
+    register, runner_phasen = _echter_bestand()
+    ohne_leser = [dict(register[0], leser=mrc.UNBENANNT), *register[1:]]
+    text, rc = mrc.kurz_bericht(ohne_leser, runner_phasen)
+    assert rc == 1
+    assert "1 Melder ohne Leser" in text
+
+
 # --- herabstufungen -----------------------------------------------------------
 
 
