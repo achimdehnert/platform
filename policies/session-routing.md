@@ -4,12 +4,12 @@
 **Trigger words:** session, opus, sonnet, /fast, /model, session model,
 welcher modus, which mode, claude code modus
 
-## Standard-Sitzungsmodell (Owner-Entscheid 2026-09-16)
+## Standard-Sitzungsmodell (Owner-Entscheid 2026-09-16, angehoben 2026-10-05)
 
-<!-- standard-session-model: claude-opus-5 -->
+<!-- standard-session-model: claude-opus-5-5 -->
 
-**Das Standard-Modell einer Claude-Code-Sitzung ist T4 · Claude Opus 5**
-(`claude-opus-5`). Wer ohne bewusste Wahl startet, startet hier. Das ist keine
+**Das Standard-Modell einer Claude-Code-Sitzung ist T4 · Claude Opus 5.5**
+(`claude-opus-5-5`). Wer ohne bewusste Wahl startet, startet hier. Das ist keine
 neue Richtung, sondern die Fortschreibung dessen, was diese Policy seit dem
 2026-07-08 ohnehin sagt: die oberste Stufe ist ausdrücklich **kein** Default,
 und T4 trägt Orchestrierung, schwere Einzel-Repo-Arbeit und Design-Review.
@@ -235,3 +235,10 @@ Do not nag.
   geprüft?" und hört auf, den seit 2026-09-03 unveränderten Abstand bei jedem
   Session-Start als MAJOR zu melden. Die `assessed_with`-Köpfe bleiben
   unverändert; ihr Rückstand erscheint als `nachzug=N/M`.
+- 2026-10-05: **Standard-Sitzungsmodell angehoben auf T4 · Claude Opus 5.5**
+  (Owner-Entscheid „MW-STD go", Modellwechsel-Kalibrierung #1640). Die Sitzungen
+  laufen seit 2026-10-05 auf `claude-opus-5-5`; der Check meldete deshalb jeden
+  Start einen MINOR-Abstand. Die `assessed_with`-Köpfe bleiben wieder
+  unverändert: Sie sagen, gegen welches Modell eine Regel geprüft wurde, und das
+  war nicht Opus 5.5. `nachzug` steigt dadurch auf alle Köpfe und wandert
+  regelweise über das Ritual (Runbook §3).
