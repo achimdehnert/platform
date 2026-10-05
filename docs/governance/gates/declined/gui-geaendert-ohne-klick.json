@@ -1,0 +1,7 @@
+{
+  "slug": "gui-geaendert-ohne-klick",
+  "decided": "2026-10-05",
+  "owner": "achim",
+  "ref": "platform#3785 (V1c, Owner-Wort 2026-10-05: 'V1c go ; V1d go ;'); vorher Gate seit 2026-08-26 (platform#2343), Frist E4 platform#2606",
+  "reason": "Gestrichen: Zustand `ohne-traeger` seit dem Bau, also nie wirksam; der eigene Abgang lautete 'verdrahten ODER streichen'. gate_wirkung 2026-10-05: 0 Faelle vor und nach Bau (40 Tage). Gegenbeleg fuer den Bedarf: Retro meiki-hub cdfeff 2026-10-05 Z. 127 - Templates geaendert (#101), ein Browser-Durchgang lief, ohne dass ein Gate ihn ausgeloest haette. Code und Drill bleiben im Repo (tools/claude-hooks/gui_ohne_klick_scanner.py); die Reaktivierung ist ein Hook-Eintrag. Kehrt der Slug in einer Retro wieder, ist das Anlass, die Entscheidung zu pruefen."
+}

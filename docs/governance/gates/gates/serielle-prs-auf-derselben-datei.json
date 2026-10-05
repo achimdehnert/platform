@@ -25,8 +25,8 @@
   ],
   "zustand": "schranke",
   "erzwungen_seit": "2026-09-07",
-  "expires": "2026-10-31",
-  "expires_note": "blocking oder gestrichen bis dahin - Owner-Entscheid E4 (platform#2606).",
+  "ausgang": "still",
+  "ausgang_note": "V1c (platform#3785, Owner-Wort 2026-10-05): bleibt advisory ohne Frist. gate_wirkung 2026-10-05: 0 Rueckfaelle nach Bau, und das Gate hat seinen Befund 1x GEFANGEN — Beleg fuer die Wirkung. Ein PR-Workflow und eine Zeile im Sitzungsende-Runner, kein Kontext ohne Treffer. Kehrt der Slug in einer Retro ungefangen wieder, gilt V1d: scharf schalten oder umbauen.",
   "positivkontrolle": {
     "ref": "docs/retros/session-retro-2026-09-14-platform-b7822e.md",
     "datum": "2026-09-14"

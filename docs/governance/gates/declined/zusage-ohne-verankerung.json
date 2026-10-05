@@ -1,0 +1,7 @@
+{
+  "slug": "zusage-ohne-verankerung",
+  "decided": "2026-10-05",
+  "owner": "achim",
+  "ref": "platform#3785 (V1c, Owner-Wort 2026-10-05: 'V1c go ; V1d go ;'); vorher Gate seit 2026-08-23, Frist E4 platform#2606",
+  "reason": "Gestrichen: Zustand `ohne-traeger` (nur Handaufruf ueber /session-ende E.5), gemessene Praezision 0,50 auf vier PR-Texten, gate_wirkung 2026-10-05: 0 Faelle vor und nach Bau (43 Tage); der eigene Abgang lautete 'automatischer Traeger ODER streichen'. Die Pflicht, Ausgelassenes im selben Zug zu verankern, bleibt als House Rule und ueber das declined-Gate deferred-item-no-tracking-issue bestehen. Code und Drill bleiben im Repo (tools/verankerung_pruefer.py). Der Aufruf in tools/session_ende_checks.sh E.5 bleibt vorerst; ob er wegfaellt, entscheidet V2 (Deckel auf die Sitzungslast, platform#3785 Folgepunkte). Kehrt der Slug in einer Retro wieder, ist das Anlass, die Entscheidung zu pruefen."
+}

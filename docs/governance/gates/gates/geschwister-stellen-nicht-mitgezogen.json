@@ -23,8 +23,8 @@
   ],
   "zustand": "schranke",
   "erzwungen_seit": "2026-09-07",
-  "expires": "2026-10-31",
-  "expires_note": "blocking oder gestrichen bis dahin - Owner-Entscheid E4 (platform#2606).",
+  "ausgang": "still",
+  "ausgang_note": "V1c (platform#3785, Owner-Wort 2026-10-05): Verhaltens-Gate, das nur bei einem Treffer spricht und dem Modell sonst keinen Kontext kostet; kein Rueckfall seit Bau (gate_wirkung 2026-10-05). Frist entfaellt. Kehrt der Slug in einer Retro wieder, gilt V1d: scharf schalten oder umbauen.",
   "positivkontrolle": {
     "ref": "tools/tests/test_geschwister_stellen_check.py::TestPositivkontrolleRealfallA::test_should_report_the_two_untouched_sibling_branches - Fixture mit vier fast identischen record()-Zweigen, zwei geaendert; die zwei stehengebliebenen PASS-Zweige werden gemeldet (Realfall a84f71 (a)). Gegenprobe test_should_be_clean_when_all_four_branches_were_changed bleibt gruen, ebenso der Tabellen-Deckel (test_should_stay_silent_on_table_like_structures).",
     "datum": "2026-09-07"

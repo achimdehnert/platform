@@ -496,6 +496,22 @@ def kalibrier_zeile(stand: dict) -> str:
 # Kalibrierfenstern).
 VERFALL_VORLAUF_TAGE = 14
 
+# Ausgaenge, die ein advisory-Gate OHNE Frist tragen darf (V1c, platform#3785,
+# Owner-Wort 2026-10-05; Bedeutung in _meta.json `_ausgang_doc`). Jeder andere
+# Wert zaehlt wie keine Angabe: das Gate schuldet weiter eine `expires`-Frist.
+AUSGANG_OHNE_FRIST = frozenset({"still", "instrument", "selten-schwer"})
+
+
+def traegt_ausgang(gate: dict) -> bool:
+    """True, wenn das Gate einen zulaessigen Ausgang samt Begruendung traegt.
+
+    Ein Wert ohne `ausgang_note` zaehlt nicht: der Ausgang ersetzt die Frist nur,
+    wenn er sagt, warum das Gate ohne Frist bleiben darf.
+    """
+    return gate.get("ausgang") in AUSGANG_OHNE_FRIST and bool(
+        (gate.get("ausgang_note") or "").strip()
+    )
+
 
 def verfall_stand(gate: dict, heute: str) -> dict | None:
     """Stand der `expires`-Frist eines Gates — None, wenn keine gesetzt ist.

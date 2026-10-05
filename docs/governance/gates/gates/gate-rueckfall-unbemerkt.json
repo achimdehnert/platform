@@ -26,6 +26,10 @@
   "revised": "2026-09-02",
   "revision_note": "Rev 2 (platform#2374 Ziel A, PR #2615 + Folge-PR): zweite Quelle Befund-Tabelle. Die Frontmatter-Liste ist selbst-etikettiert; ueber 109 Retros wich sie bei 12 von 33 Gates von der Tabelle ab, 14 Gates waren rueckfaellig statt 2 (Realfall fdd368 Z. 63 worktree-midsession-accumulation, Urteil war 'wirksam'). Ein Vorkommen zaehlt jetzt aus Frontmatter ODER SURVIVES-Zeile; 'gefangen' entlastet nur noch ohne ungefangene Tabellenzeile (cc4e11 verschluckte zwei belegte Rueckfaelle). Ergebnis am Umbautag: 5 Gates RUECKFAELLIG statt 2. Mitgemessen, aber bewusst NICHT eingebaut: covers-Aliase (rueckwirkend, 3 Gates nur darueber rueckfaellig) und die Zerfallsrangliste (verworfen, Spearman -0,004). Der revised-Reset gilt nur diesem Gate, nicht den gemessenen.",
   "last_drill_pass": "2026-09-02",
-  "expires": "2026-10-31",
-  "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
+  "ausgang": "instrument",
+  "ausgang_note": "V1c (platform#3785, Owner-Wort 2026-10-05): Meta-Instrument der Registry, haengt nicht vom Modell ab. gate_wirkung.py ist die Messgrundlage, auf der V1c und V1d entscheiden (wirksam / beobachten / rueckfaellig); /session-retro liest es als ersten Schritt (Phase 0.0). Frist entfaellt.",
+  "positivkontrolle": {
+    "ref": "Echtlauf `python3 tools/gate_wirkung.py` am 2026-10-05 ueber 158 Retro-Reports: 3 Gates RUECKFAELLIG (handover-stale-vor-merge, claim-before-cheapest-check, worktree-midsession-accumulation), gleichzeitig 4 Gates mit GEFANGEN getrennt ausgewiesen. Drill-Gegenstueck tools/tests/test_gate_wirkung.py::test_should_mark_gate_rueckfaellig_when_finding_recurs_after_build.",
+    "datum": "2026-10-05"
+  }
 }

@@ -775,13 +775,39 @@ E4_SCHARF_IN_EIGENEM_PR = {"untested-command-handed-to-user", "aufschub-anker"}
 def test_should_give_every_advisory_gate_in_the_real_registry_an_expiry():
     """Die eigentliche Zusage aus E4 — gemessen an der ECHTEN Registry, nicht an
     einer Attrappe: kein advisory-Gate ohne Frist, sonst ist `advisory` wieder
-    ein Endzustand statt eines Zwischenschritts."""
+    ein Endzustand statt eines Zwischenschritts. Ausnahme seit V1c (#3785): ein
+    begruendeter Ausgang aus `AUSGANG_OHNE_FRIST` ersetzt die Frist."""
     registry = gw.gate_registry.laden()
     ohne = [
         g["slug"]
         for g in registry["gates"]
         if g.get("mode") == "advisory"
         and not g.get("expires")
+        and not gw.traegt_ausgang(g)
         and g["slug"] not in E4_SCHARF_IN_EIGENEM_PR
     ]
-    assert ohne == [], f"advisory-Gate(s) ohne Verfallsfrist: {ohne}"
+    assert ohne == [], f"advisory-Gate(s) ohne Verfallsfrist oder Ausgang: {ohne}"
+
+
+def test_should_accept_a_documented_exit_instead_of_an_expiry():
+    gate = {
+        "slug": "x",
+        "mode": "advisory",
+        "ausgang": "still",
+        "ausgang_note": "kein Rueckfall",
+    }
+    assert gw.traegt_ausgang(gate)
+
+
+def test_should_reject_an_exit_without_reason_or_with_unknown_value():
+    assert not gw.traegt_ausgang({"ausgang": "still"})
+    assert not gw.traegt_ausgang({"ausgang": "still", "ausgang_note": "  "})
+    assert not gw.traegt_ausgang({"ausgang": "aussitzen", "ausgang_note": "Grund"})
+    assert not gw.traegt_ausgang({})
+
+
+def test_should_document_every_allowed_exit_in_the_registry_meta():
+    meta_pfad = _QUELLE.parents[1] / "docs/governance/gates/_meta.json"
+    meta = json.loads(meta_pfad.read_text(encoding="utf-8"))
+    for wert in gw.AUSGANG_OHNE_FRIST:
+        assert f"`{wert}`" in meta["_ausgang_doc"], wert

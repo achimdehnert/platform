@@ -19,7 +19,7 @@
   ],
   "zustand": "schranke",
   "zustand_note": "Traeger seit 2026-09-03: SessionEnd-Eintrag `python3 ~/.claude/hooks/session_modellmix.py --hook` in ~/.claude/settings.json (Owner-Edit nach platform#2753). Erste echte Ledger-Zeile am selben Tag (Session 6b7e7e08: 64.2 % Tokens, 70.6 % Schreibaufrufe ausserhalb Fable, 2 Subagenten). Ledger: ~/.claude/hooks/state/modellmix-ledger.tsv.",
-  "expires": "2026-10-31",
-  "expires_note": "Verdrahten (SessionEnd-Hook in ~/.claude/settings.json) oder streichen bis dahin — Owner-Entscheid E4 (platform#2606), gleiche Frist wie `model-change-detection`. Advisory ist ein Zwischenschritt, kein Endzustand.",
+  "ausgang": "instrument",
+  "ausgang_note": "V1c (platform#3785, Owner-Wort 2026-10-05): Messinstrument, kein Verhaltens-Gate. Der Abgang der alten Frist ('verdrahten oder streichen') ist seit 2026-09-03 erfuellt: der SessionEnd-Hook schreibt das Ledger, und SessionEnd-Ausgabe erreicht den Kontext nicht, kostet das Modell also nichts. Frist entfaellt. Traegt die Delegationsmessung, seit fable-session-no-delegation gestrichen ist (declined/, gleicher Tag).",
   "erzwungen_seit": "2026-09-03"
 }
