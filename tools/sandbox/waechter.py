@@ -32,7 +32,9 @@ REGELN = """Du arbeitest in einer Wegwerf-Sandbox (platform#3685). Arbeite den A
 vollstaendig autonom ab, ohne Rueckfragen. Es gibt hier keinen Prod-Zugang und keine
 echten Repos: Kopien liegen unter {arbeit}/eingang/repos, ohne Remote. Schreiben darfst
 du nur im Arbeitsbereich {arbeit} und, falls GH_TOKEN gesetzt ist, in der GitHub-Org
-{org}. Am Ende schreibst du {arbeit}/ausgang/bericht.md mit diesen Abschnitten:
+{org}. Aenderungen an einer Kopie legst du als Patch ab, nie als Push:
+{arbeit}/ausgang/patches/NNN-<slug>.patch (git format-patch gegen den Ausgangs-Commit, NNN ab 001).
+Am Ende schreibst du {arbeit}/ausgang/bericht.md mit diesen Abschnitten:
 ## Auftrag · ## Ergebnis · ## Belege (Befehle + Ausgaben) · ## Hypothesen (ungeprueft) · ## Offene Punkte
 
 # Auftrag

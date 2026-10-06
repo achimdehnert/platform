@@ -261,11 +261,11 @@ Den Rückweg verantwortet die Host-Session des Owners; ein eigener Dienst ist da
 | Repo / Service | Phase | Status | Datum | Notizen |
 |----------------|-------|--------|-------|---------|
 | `platform` `tools/sandbox/` | 0 Sandbox-Kern | ✅ Abgeschlossen | 2026-10-04 | #3686: Selbstprüfung, Wächter, Lokal-Modus belegt |
-| `platform` | 1 Benchmark-Harness | 🟡 Teilweise | 2026-10-04 | #3691 gemergt; offen: B1 auf absolute Wochenwerte umstellen, Zeitstempel auf Merge-Sätzen in `pr_merge_sa.py`, Vorschlagsregister, Auftragskarte, Replay-Suite mit Nachbarfällen |
+| `platform` | 1 Benchmark-Harness | 🟡 Teilweise | 2026-10-06 | #3691 gemergt; Vorschlagsregister und Rückweg mit Patch-Ablage und Belegvorlage in `tools/sandbox/` (vorschlagsregister.md, rueckweg.md); Auftragskarten liegen je Lauf unter `eingang/auftrag.md` auf dem Host; offen: B1 auf absolute Wochenwerte umstellen, Zeitstempel auf Merge-Sätzen in `pr_merge_sa.py`, Replay-Suite mit Nachbarfällen |
 | `platform` | 1a Rückschau | ⬜ Ausstehend | – | Journal-Auswertung ohne Sandbox: welche Abbrüche hätte eine vorab eingeholte oder pfadbezogene Freigabe vermieden (Vergleichsarm „bessere Vorbereitung“); `claim-before-cheapest-check` als erster Erkenntnisauftrag |
 | `platform` `tools/sandbox/` | 1b Abschottung nachrüsten | ✅ Abgeschlossen | 2026-10-05 | #3695, #3702, #3707: Egress-Allowlist und Secret-Scan je mit Gegenprobe, Host-Kontext, Hooks belegt (§4.3); Profil-Negativtests belegt (#3721); #3731, #3736, #3738 gemergt; Live-Merge-Test S9 bestanden, Voraussetzung #3747 (§4.7) |
 | `iilsandbox` | 2 Spiegel der Pilot-Repos, Org-Token | ✅ Abgeschlossen | 2026-10-05 | fünf Spiegel privat, Actions aus, nur Standard-Branch; Sandbox-Token kann keine Repos anlegen (#3710, gemessen 403); Org-Profil vom Owner gesetzt (#3715) |
-| Pilot-Repos | 3 Pilot, 2 Wochen | ⬜ Ausstehend | – | nur nach Checkliste §4.7 |
+| Pilot-Repos | 3 Pilot, 2 Wochen | 🟡 Läuft | 2026-10-06 | Paket 1 (P1–P3, drei Erkenntnisaufträge) bestanden: B2 3/3, B6 0,61 USD (platform#3685); Paket 2 (W1 Werkstück, E4) freigegeben |
 | `platform` | 4 Entscheid: ausweiten, Rückfallposition oder stoppen | ⬜ Ausstehend | – | nach Ablauf aller B4-Fenster (§4.7) |
 
 ---
