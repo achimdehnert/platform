@@ -115,9 +115,6 @@ def _lauf(
             "PLATFORM_DIR": str(umgebung["platform"]),
             "LEASE_DIR": str(umgebung["leases"]),
             "PATH": f"{umgebung['bin']}{os.pathsep}{env['PATH']}",
-            # Kein Netz, kein Modell: E.5 darf nicht in einen echten
-            # Ollama-Aufruf laufen.
-            "OLLAMA_HOST": "http://127.0.0.1:1",
             # Der git-User entscheidet ueber den Fallback „Repos mit Commits von
             # heute" — und damit ueber die Eigen/Fremd-Trennung in E.7. Er wird
             # hier ausdruecklich gesetzt, statt aus der Umgebung zu kommen: in
@@ -160,10 +157,18 @@ def test_should_be_executable():
     assert os.access(_SKRIPT, os.X_OK), "Runner muss ohne `bash` davor startbar sein"
 
 
+# Phasen, die bewusst entfallen sind; ihre Nummer wird nicht neu vergeben.
+ENTFALLENE_PHASEN = {"E.5"}  # Zusagen-Pruefer, V2b (platform#3785)
+
+
 def test_should_report_every_phase_from_e0_to_e11(umgebung):
     ergebnis = _lauf(umgebung)
     phasen = _summary_zeilen(ergebnis.stdout)
-    fehlend = [f"E.{i}" for i in range(12) if f"E.{i}" not in phasen]
+    fehlend = [
+        f"E.{i}"
+        for i in range(12)
+        if f"E.{i}" not in phasen and f"E.{i}" not in ENTFALLENE_PHASEN
+    ]
     assert not fehlend, f"Phasen fehlen in der Summary: {fehlend}\n{ergebnis.stdout}"
 
 
@@ -282,7 +287,7 @@ def test_should_skip_not_pass_when_a_tool_is_missing(umgebung):
     """`NICHT messbar` ist kein Gruen — die Werkzeug-Phasen muessen SKIP sein."""
     ergebnis = _lauf(umgebung)
     phasen = _summary_zeilen(ergebnis.stdout)
-    for phase in ("E.3", "E.4", "E.5", "E.6", "E.9"):
+    for phase in ("E.3", "E.4", "E.6", "E.9"):
         assert phasen[phase] == "SKIP", (
             f"{phase} ist {phasen[phase]}\n{ergebnis.stdout}"
         )
@@ -584,28 +589,16 @@ esac
     assert "gh scheiterte" in ergebnis.stdout
 
 
-def test_should_skip_not_pass_when_gh_fails_in_e5(umgebung):
-    """Gleiche Lehre fuer E.5 — zusaetzlich ein `curl`-Stub, damit die
-    Ollama-Erreichbarkeitspruefung nicht schon vorher (mangels Netz) SKIPt."""
-    fehl_stub = """#!/usr/bin/env bash
-args="$*"
-case "$args" in
-  *"run list"*)  echo "success completed 12345" ;;
-  *"pr list"*)   echo "gh: rate limited" >&2; exit 1 ;;
-  *)             exit 0 ;;
-esac
-"""
-    (umgebung["bin"] / "gh").write_text(fehl_stub, encoding="utf-8")
-    (umgebung["bin"] / "gh").chmod(0o755)
-    (umgebung["bin"] / "curl").write_text(
-        "#!/usr/bin/env bash\nexit 0\n", encoding="utf-8"
-    )
-    (umgebung["bin"] / "curl").chmod(0o755)
+def test_should_not_run_the_dropped_commitment_check(umgebung):
+    """E.5 (Zusagen-Pruefer) ist mit V2b entfallen, sein Gate liegt in
+    declined/ (platform#3785). Auch wenn das Werkzeug im Repo liegt, darf die
+    Phase nicht wieder auftauchen."""
+    werkzeug = umgebung["platform"] / "tools" / "verankerung_pruefer.py"
+    werkzeug.parent.mkdir(parents=True, exist_ok=True)
+    werkzeug.write_text("print('✅')\n", encoding="utf-8")
     ergebnis = _lauf(umgebung)
-    phasen = _summary_zeilen(ergebnis.stdout)
-    assert phasen["E.5"] == "SKIP", ergebnis.stdout
-    assert "[SKIP] E.5" in ergebnis.stdout
-    assert "gh scheiterte" in ergebnis.stdout
+    assert "E.5" not in _summary_zeilen(ergebnis.stdout), ergebnis.stdout
+    assert "E.6" in _summary_zeilen(ergebnis.stdout), ergebnis.stdout
 
 
 # ── E.3 Fragment-Modus (#1944 K6) ────────────────────────────────────────────

@@ -79,14 +79,9 @@ TMP_ERR="$(mktemp)"
 trap 'rm -f "$TMP_ERR"; if [ -z "${VORLAUF_BEHALTEN:-}" ]; then rm -rf "${VORLAUF_DIR:-}"; fi' EXIT
 
 HEUTE="$(date +%Y-%m-%d)"
-# Zeitbudget der Zusagen-Prüfung (E.5) je PR. 80 s je Segment sind gemessen
-# (#2469) — ohne Deckel hält diese eine Phase die ganze Sitzung auf.
-ZUSAGEN_BUDGET="${SESSION_ENDE_ZUSAGEN_BUDGET:-120}"
-ZUSAGEN_MAX_PRS="${SESSION_ENDE_ZUSAGEN_MAX_PRS:-3}"
 # Obergrenze fuer E.11: Push-Laeufe auf main von heute je Repo (Realfall-Tag
 # platform: 220).
 MAIN_LAEUFE="${SESSION_ENDE_MAIN_LAEUFE:-500}"
-OLLAMA_HOST="${OLLAMA_HOST:-http://127.0.0.1:11434}"
 
 declare -a P_NAME P_STATUS P_NOTE P_REPO P_DAUER
 FAILED=0
@@ -155,7 +150,7 @@ _vorlauf_loslegen() {
       VORLAUF_PID["$k"]=$pid
     done
   done
-  VORLAUF_Q=()   # geleert, damit Nachschub (E.5) nicht noch einmal startet
+  VORLAUF_Q=()   # geleert, damit ein spaeterer Nachschub nicht noch einmal startet
   return 0
 }
 vorlauf()  { _vorlauf_start 0 "$@"; }  # Phase las mit 2>/dev/null bzw. 2>$TMP_ERR
@@ -289,14 +284,12 @@ owner_von() { # owner_von <repo> — ohne origin-Remote: $OWNER
 
 # ══ VORLAUF-SCHNITT (platform#3373) ═════════════════════════════════════════
 # Ab hier bis E.7 ist jede Phase ein reiner Leser, und fast jede wartet auf
-# GitHub (E.1/E.2/E.3/E.5/E.6/E.10) oder auf lokale Repo-Scans (E.7/E.9).
+# GitHub (E.1/E.2/E.3/E.6/E.10) oder auf lokale Repo-Scans (E.7/E.9).
 # Keine wartet auf das Ergebnis einer anderen — die einzige Kopplung ist
 # E.3, das die ZAHL aus E.2 braucht, und die entsteht erst beim Ernten.
 # Gestartet wird hier, geerntet unten an der angestammten Phasenstelle.
 #
-# Sequenziell bleibt E.8: `git worktree prune` veraendert den Baum. Die
-# LLM-Laeufe in E.5 koennen erst starten, wenn die PR-Liste da ist — sie laufen
-# dort untereinander nebeneinander.
+# Sequenziell bleibt E.8: `git worktree prune` veraendert den Baum.
 _dirty_scan() { # E.7: ein `git status` je Repo unter $GITHUB_DIR
   for d in "$GITHUB_DIR"/*/; do
     [ -e "${d}.git" ] || continue
@@ -346,8 +339,6 @@ if command -v gh >/dev/null 2>&1 && [ -n "$OWNER" ]; then
   vorlauf handover-pr-datei timeout 90 gh pr list --repo "$OWNER/$TARGET_REPO" --state open \
     --json number,files \
     --jq '.[] | select(.files[]?.path == "AGENT_HANDOVER.md") | "#\(.number)"'
-  vorlauf zusagen-prs timeout 60 gh pr list --repo "$OWNER/$TARGET_REPO" --author @me --state all \
-    --search "created:>=$HEUTE" --json number --jq '.[].number'
   if [ -f "$PLATFORM_DIR/tools/session_abgleich.py" ]; then
     # Mit --session-id nur die PRs DIESER Sitzung (#2234, Retro #3543 Befund #2):
     # Konto-weit waren es am 2026-09-24 35 Befunde, das eigene Issue ging unter.
@@ -621,73 +612,10 @@ else
   esac
 fi
 
-# ── E.5 Zusagen dieser Sitzung (Skill-Phase 0g) ─────────────────────────────
-# Vier Ausgabeklassen, und drei davon sind kein Grün: `⚠️` (Zusage ohne
-# Tracking), `◌ NICHT PRUEFBAR` (kein Modell erreichbar) und `◌ … UNGEPRUEFT`
-# (Zeitbudget erschöpft). Der Runner reicht sie durch, er deutet sie nicht.
-VP="$PLATFORM_DIR/tools/verankerung_pruefer.py"
-# Provider (2026-09-14): Groq, wenn der Schluessel lesbar ist — PR-Texte dieses
-# Repos sind oeffentlich, Groq ist fuer Klassifikation freigegeben. Das lokale
-# qwen2.5:7b auf dev-desktop brauchte fuer EIN Segment laenger als das 80-s-Budget
-# (gemessen an #3179: "Zeitueberschreitung nach 80 s"), Groq 3 s fuer 6 Segmente.
-# Ohne Schluessel bleibt der bisherige Ollama-Weg.
-ZUSAGEN_PROVIDER="ollama"
-ZUSAGEN_GROQ_KEY="$("$PLATFORM_DIR/tools/secret_lesen.sh" groq_api_key 2>/dev/null || true)"
-if [ -n "$ZUSAGEN_GROQ_KEY" ]; then
-  ZUSAGEN_PROVIDER="groq"
-fi
-if [ ! -f "$VP" ]; then
-  record "E.5 zusagen" "SKIP" "Werkzeug fehlt: tools/verankerung_pruefer.py" "$TARGET_REPO"
-elif ! command -v gh >/dev/null 2>&1 || [ -z "$OWNER" ]; then
-  record "E.5 zusagen" "SKIP" "gh oder Owner nicht verfügbar" "$TARGET_REPO"
-elif [ "$ZUSAGEN_PROVIDER" = "ollama" ] && ! curl -sf -m 5 "$OLLAMA_HOST/api/tags" >/dev/null 2>&1; then
-  record "E.5 zusagen" "SKIP" "◌ NICHT PRUEFBAR — kein Klassifikator unter $OLLAMA_HOST" "$TARGET_REPO"
-else
-  warte_auf zusagen-prs; RC=$ERNTE_RC; PRS=$(ernte zusagen-prs)
-  PRS=$(printf '%s' "$PRS" | head -n "$ZUSAGEN_MAX_PRS")
-  if [ "$RC" -ne 0 ]; then
-    record "E.5 zusagen" "SKIP" \
-      "◌ gh scheiterte (rc=$RC): $(head -c 120 "$(fehler_datei zusagen-prs)")" "$TARGET_REPO"
-  elif [ -z "$PRS" ]; then
-    record "E.5 zusagen" "PASS" "keine eigenen PRs von heute in $OWNER/$TARGET_REPO" "$TARGET_REPO"
-  else
-    Z_OK=""; Z_WARN=""; Z_UNKLAR=""
-    # Welche PRs zu pruefen sind, steht erst jetzt fest — deshalb kein Vorlauf,
-    # sondern hier: bis zu drei Pruefungen mit je bis zu 120 s Budget liefen
-    # nacheinander, obwohl keine auf die andere wartet (platform#3373).
-    # Der Schluessel bleibt eine Zuweisung VOR dem Befehl und wandert nicht als
-    # `env KEY=…`-Argument in die Prozessliste — deshalb die Funktion statt eines
-    # direkten vorlauf2-Aufrufs.
-    _zusage_probe() { # _zusage_probe <pr-nummer>
-      GROQ_API_KEY="$ZUSAGEN_GROQ_KEY" timeout "$((ZUSAGEN_BUDGET + 60))" \
-        python3 "$VP" --pr "$1" --repo "$OWNER/$TARGET_REPO" \
-        --budget-sekunden "$ZUSAGEN_BUDGET" --provider "$ZUSAGEN_PROVIDER"
-    }
-    for nr in $PRS; do
-      vorlauf2 "zusage:$nr" _zusage_probe "$nr"
-    done
-    _vorlauf_loslegen
-    for nr in $PRS; do
-      Z_OUT=$(ernte "zusage:$nr")
-      case "$Z_OUT" in
-        *"NICHT PRUEFBAR"*) Z_UNKLAR="$Z_UNKLAR #$nr:nicht-pruefbar" ;;
-        *UNGEPRUEFT*)       Z_UNKLAR="$Z_UNKLAR #$nr:ungeprueft" ;;
-        *"⚠️"*|*"❌"*)      Z_WARN="$Z_WARN #$nr" ;;
-        *"✅"*)             Z_OK="$Z_OK #$nr" ;;
-        *)                  Z_UNKLAR="$Z_UNKLAR #$nr:ohne-klasse" ;;
-      esac
-    done
-    if [ -n "$Z_WARN" ]; then
-      record "E.5 zusagen" "WARN" \
-        "Zusage ohne Tracking in:$Z_WARN — Issue anlegen ODER Fehlalarm in der Kalibrier-Datei notieren (advisory, Präzision 0,50)" \
-        "$TARGET_REPO"
-    elif [ -n "$Z_UNKLAR" ]; then
-      record "E.5 zusagen" "SKIP" "◌$Z_UNKLAR — keine Entwarnung; ok:${Z_OK:- -}" "$TARGET_REPO"
-    else
-      record "E.5 zusagen" "PASS" "✅ jede erkannte Zusage verankert:$Z_OK" "$TARGET_REPO"
-    fi
-  fi
-fi
+# E.5 (Zusagen-Pruefer, verankerung_pruefer.py) ist am 2026-10-06 entfallen:
+# Sein Gate `zusage-ohne-verankerung` liegt in declined/, die Phase lief trotzdem
+# weiter und kostete je Sitzung bis zu drei Modellaeufe (platform#3785, V2b).
+# Die Nummer bleibt frei, damit alte Protokolle eindeutig bleiben.
 
 # ── E.6 Template-Drift (Skill-Phase 1c) ─────────────────────────────────────
 DC="$PLATFORM_DIR/scripts/drift_check.py"
