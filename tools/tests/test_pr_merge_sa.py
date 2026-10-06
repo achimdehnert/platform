@@ -1252,3 +1252,144 @@ def test_should_read_the_auftrag_from_a_cross_repo_issue_reference(monkeypatch):
     }
     assert pr_merge_sa.mandat_des_prs("achimdehnert/dev-hub", 357, pr) == "M1"
     assert gelesen == ["achimdehnert/platform"]
+
+
+# --- Review-Bot statt Owner-Schritt (Realfall #3802) ----------------------------
+# "fehlt: ein Approval" wurde als "wartet auf Review" an den Owner gemeldet,
+# obwohl der Review-Bot den PR Minuten spaeter approvte. Das Urteil nennt jetzt
+# den Weg; --warte-auf-bot geht ihn.
+
+PLATFORM = "achimdehnert/platform"
+# CODEOWNERS gelesen, keine Datei mit Code-Owner ohne den Bot
+BOT = dict(repo=PLATFORM, ohne_bot_owner=[])
+
+
+def test_should_name_bot_review_when_bot_can_approve_governance_path():
+    u = classify(_facts(**BOT, files=[".github/workflows/x.yml"], mandat="M0"), REGELN)
+    assert u.erlaubt is False
+    assert u.grund.startswith("fehlt: ein Approval (Governance-Pfad")
+    assert "--warte-auf-bot" in u.grund
+
+
+def test_should_not_name_bot_review_for_bot_tabu_path():
+    u = classify(_facts(**BOT, files=["policies/x.md"], mandat="M0"), REGELN)
+    assert u.erlaubt is False and "--warte-auf-bot" not in u.grund
+
+
+def test_should_not_name_bot_review_in_repo_without_bot():
+    u = classify(_facts(files=[".github/workflows/x.yml"], mandat="M0"), REGELN)
+    assert u.erlaubt is False and "--warte-auf-bot" not in u.grund
+
+
+def _uhr_und_schlaf():
+    t = [0.0]
+    return (lambda: t[0]), (lambda s: t.__setitem__(0, t[0] + s))
+
+
+def test_should_wait_for_bot_approval_and_then_allow():
+    import pr_merge_sa
+
+    # Checks gruen: sonst sperrt nach dem Approve "kein einziger Check"
+    gemeinsam = dict(**BOT, files=[".github/workflows/x.yml"], checks_total=3)
+    ohne = _facts(mandat="M0", **gemeinsam)
+    mit = _facts(mandat="M2", **gemeinsam)
+    folge = iter([ohne, ohne, mit])
+    starts = []
+    uhr, schlaf = _uhr_und_schlaf()
+
+    def pruefen():
+        f = next(folge)
+        return f, classify(f, REGELN)
+
+    f, u = pr_merge_sa.warte_auf_bot_review(
+        pruefen, lambda: starts.append(1), schlafen=schlaf, uhr=uhr
+    )
+    assert u.erlaubt is True and f.mandat == "M2"
+    assert starts == [1]
+
+
+def test_should_stop_waiting_at_deadline_and_keep_rejection():
+    import pr_merge_sa
+
+    ohne = _facts(**BOT, files=[".github/workflows/x.yml"], mandat="M0")
+    starts = []
+    uhr, schlaf = _uhr_und_schlaf()
+    f, u = pr_merge_sa.warte_auf_bot_review(
+        lambda: (ohne, classify(ohne, REGELN)),
+        lambda: starts.append(1),
+        minuten=12,
+        schlafen=schlaf,
+        uhr=uhr,
+    )
+    assert u.erlaubt is False
+    # alle 5 min ein Dispatch: bei 0, 5 und 10 min
+    assert len(starts) == 3
+
+
+def test_should_not_wait_when_bot_cannot_approve():
+    import pr_merge_sa
+
+    tabu = _facts(**BOT, files=["policies/x.md"], mandat="M0")
+    starts, schlaf_aufrufe = [], []
+    f, u = pr_merge_sa.warte_auf_bot_review(
+        lambda: (tabu, classify(tabu, REGELN)),
+        lambda: starts.append(1),
+        schlafen=schlaf_aufrufe.append,
+    )
+    assert u.erlaubt is False and starts == [] and schlaf_aufrufe == []
+
+
+# --- CODEOWNERS ohne Bot (Realfall #3809) ---------------------------------------
+# Der Bot approvte, GitHub blieb BLOCKED: `require_code_owner_review` und
+# `/tools/pr_merge_sa.py` nennt nur Menschen. Dort ist Warten sinnlos.
+
+CODEOWNERS = """\
+# Kommentar
+/.github/     @achimdehnert @wirdigital @iil-lotse
+/tools/pr_merge_sa.py  @achimdehnert @wirdigital
+"""
+
+
+def test_should_list_file_whose_codeowners_line_lacks_the_bot():
+    from pr_merge_sa import dateien_ohne_bot_owner
+
+    assert dateien_ohne_bot_owner(
+        ["tools/pr_merge_sa.py", ".github/workflows/x.yml", "tools/frei.py"],
+        CODEOWNERS,
+    ) == ["tools/pr_merge_sa.py"]
+
+
+def test_should_use_last_matching_codeowners_line():
+    from pr_merge_sa import codeowner_der_datei
+
+    text = CODEOWNERS + "/.github/CODEOWNERS @achimdehnert\n"
+    assert codeowner_der_datei(".github/CODEOWNERS", text) == ["achimdehnert"]
+    assert "iil-lotse" in codeowner_der_datei(".github/ci.yml", text)
+
+
+def test_should_treat_wildcard_codeowners_as_unknown():
+    from pr_merge_sa import dateien_ohne_bot_owner
+
+    assert dateien_ohne_bot_owner(["docs/x.md"], "*.md @achimdehnert\n") is None
+
+
+def test_should_not_name_bot_review_when_codeowner_lacks_bot():
+    u = classify(
+        _facts(
+            repo=PLATFORM,
+            files=["tools/pr_merge_sa.py"],
+            mandat="M0",
+            review_required=True,
+            ohne_bot_owner=["tools/pr_merge_sa.py"],
+        ),
+        REGELN,
+    )
+    assert u.erlaubt is False and "--warte-auf-bot" not in u.grund
+
+
+def test_should_not_name_bot_review_when_codeowners_unreadable():
+    u = classify(
+        _facts(repo=PLATFORM, files=[".github/workflows/x.yml"], mandat="M0"),
+        REGELN,
+    )
+    assert u.erlaubt is False and "--warte-auf-bot" not in u.grund

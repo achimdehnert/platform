@@ -39,9 +39,11 @@ import pathlib
 import re
 import subprocess
 import sys
+import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 
+from bot_review_kandidaten import TABU as BOT_TABU
 from bot_review_kandidaten import juengste_je_name
 
 
@@ -52,6 +54,24 @@ class Unklar(Exception):
 POLICY = pathlib.Path(__file__).resolve().parents[1] / "policies" / "autonomy-gates.md"
 
 RANG = {"M0": 0, "M1": 1, "M2": 2, "M3": 3}
+
+#: Der Review-Bot (IIL-Lotse, `.github/workflows/bot-review.yml`) laeuft nur in
+#: diesen Repos. Er approvt Owner-PRs mit gruenen Checks ausserhalb seiner
+#: Tabu-Pfade (`bot_review_kandidaten.TABU`) — alle 20 Minuten per Cron oder
+#: sofort per Dispatch. "fehlt: ein Approval" ist dort also kein Owner-Schritt,
+#: sondern Warten (Realfall #3802: als "wartet auf Review" gemeldet, der Bot
+#: approvte Minuten spaeter).
+BOT_REVIEW_REPOS = ("achimdehnert/platform",)
+BOT_REVIEW_WORKFLOW = "bot-review.yml"
+#: Login des Bots, wie CODEOWNERS ihn nennt (klein, ohne @).
+BOT_LOGIN = "iil-lotse"
+CODEOWNERS_PFAD = ".github/CODEOWNERS"
+GRUND_FEHLT_APPROVAL = "fehlt: ein Approval"
+#: Cron */20 plus Laufzeit plus Checks, die noch laufen.
+BOT_WARTEN_MINUTEN = 30
+#: Abstand zwischen zwei Abfragen und zwischen zwei Dispatches.
+BOT_ABFRAGE_SEKUNDEN = 60
+BOT_DISPATCH_SEKUNDEN = 300
 
 
 def regeln(pfad=None) -> dict:
@@ -151,6 +171,8 @@ class Facts:
     repo_id: int | None = None
     # Der gepruefte Kopf-Commit; der Merge greift nur, wenn der PR noch auf ihm steht
     head_sha: str = ""
+    # Dateien, deren CODEOWNERS-Zeile den Review-Bot nicht nennt; None = unbekannt
+    ohne_bot_owner: list | None = None
 
 
 @dataclass
@@ -174,6 +196,59 @@ def ist_governance(pfad: str, pfade: list) -> bool:
     return any(pfad.startswith(p) or name == p for p in pfade)
 
 
+def codeowner_der_datei(pfad: str, codeowners: str) -> list | None:
+    """Owner der letzten passenden CODEOWNERS-Zeile ([] = keine Zeile passt).
+
+    Versteht nur die Muster, die platform nutzt: `/datei` und `/verzeichnis/`.
+    Ein Muster mit Wildcard ergibt None (unbekannt) — lieber kein Bot-Hinweis
+    als ein falscher."""
+    owner: list = []
+    for zeile in codeowners.splitlines():
+        teile = zeile.split("#", 1)[0].split()
+        if not teile:
+            continue
+        muster, *namen = teile
+        if any(z in muster for z in "*?["):
+            return None
+        muster = muster.lstrip("/")
+        if pfad == muster or (muster.endswith("/") and pfad.startswith(muster)):
+            owner = [n.lstrip("@").lower() for n in namen]
+    return owner
+
+
+def dateien_ohne_bot_owner(files: list, codeowners: str) -> list | None:
+    """Dateien, die einen Code-Owner haben, aber nicht den Review-Bot — dort
+    ersetzt sein Approve das menschliche nicht (`require_code_owner_review`)."""
+    ohne = []
+    for pfad in files:
+        owner = codeowner_der_datei(pfad, codeowners)
+        if owner is None:
+            return None
+        if owner and BOT_LOGIN not in owner:
+            ohne.append(pfad)
+    return ohne
+
+
+def bot_kann_approven(f: Facts) -> bool:
+    """True, wenn das fehlende Approve vom Review-Bot kommen kann: Repo mit Bot,
+    kein Tabu-Pfad im Diff, keine Datei mit Code-Owner ohne den Bot (Realfall
+    #3809: Bot approvte, GitHub blieb BLOCKED). Ob die Checks schon gruen sind,
+    entscheidet der Bot selbst — hier nur, ob Warten ueberhaupt etwas bringt."""
+    return (
+        f.repo in BOT_REVIEW_REPOS
+        and f.ohne_bot_owner == []
+        and not any(p.startswith(t) or p == t for p in f.files for t in BOT_TABU)
+    )
+
+
+def hinweis_bot(f: Facts) -> str:
+    return (
+        f" — kein Owner-Schritt: der Review-Bot approvt diesen PR. "
+        f"`pr_merge_sa.py {f.number} {f.repo} --warte-auf-bot` startet ihn "
+        f"sofort, wartet bis {BOT_WARTEN_MINUTEN} min und merged dann"
+    )
+
+
 def classify(f: Facts, r: dict) -> Verdict:
     """Jede Ablehnung nennt ihren Grund — ein Verdict ohne Grund waere so
     nutzlos wie ein Skip ohne Grund."""
@@ -184,18 +259,22 @@ def classify(f: Facts, r: dict) -> Verdict:
     if not f.files:
         raise Unklar("keine Dateiliste erhalten — ohne Diff kein Urteil")
 
+    hinweis = hinweis_bot(f) if bot_kann_approven(f) else ""
     governance = [p for p in f.files if ist_governance(p, r["governance_pfade"])]
     if governance and RANG[f.mandat] < RANG["M2"]:
         return Verdict(
             f.wirkung,
             f.mandat,
             False,
-            f"fehlt: ein Approval (Governance-Pfad {governance[0]})",
+            f"{GRUND_FEHLT_APPROVAL} (Governance-Pfad {governance[0]}){hinweis}",
         )
 
     if f.review_required and RANG[f.mandat] < RANG["M2"]:
         return Verdict(
-            f.wirkung, f.mandat, False, "fehlt: ein Approval (Ruleset verlangt Review)"
+            f.wirkung,
+            f.mandat,
+            False,
+            f"{GRUND_FEHLT_APPROVAL} (Ruleset verlangt Review){hinweis}",
         )
 
     if f.mergeable != "MERGEABLE":
@@ -586,7 +665,22 @@ def gather(repo: str, nummer: int, r: dict) -> Facts:
         checks_failing=failing,
         checks_pending=pending,
         head_sha=pr.get("headRefOid") or "",
+        ohne_bot_owner=(
+            ohne_bot_owner_live(repo, pr.get("baseRefName", "main"), dateien)
+            if repo in BOT_REVIEW_REPOS
+            else None
+        ),
     )
+
+
+def ohne_bot_owner_live(repo: str, basis: str, dateien: list) -> list | None:
+    """CODEOWNERS vom Basis-Branch lesen; nicht lesbar -> None (kein Bot-Hinweis)."""
+    try:
+        antwort = _gh(["api", f"repos/{repo}/contents/{CODEOWNERS_PFAD}?ref={basis}"])
+        text = base64.b64decode(antwort["content"]).decode("utf-8")
+    except (Unklar, KeyError, ValueError):
+        return None
+    return dateien_ohne_bot_owner(dateien, text)
 
 
 def repo_aus_cwd() -> str:
@@ -658,6 +752,48 @@ def ist_wiederholung(repo: str, nummer: int, grund: str) -> bool:
     )
 
 
+def wartet_auf_bot(f: Facts, u: Verdict) -> bool:
+    return (
+        not u.erlaubt
+        and u.grund.startswith(GRUND_FEHLT_APPROVAL)
+        and bot_kann_approven(f)
+    )
+
+
+def starte_bot_review(repo: str) -> None:
+    p = subprocess.run(
+        ["gh", "workflow", "run", BOT_REVIEW_WORKFLOW, "-R", repo],
+        capture_output=True,
+        text=True,
+    )
+    if p.returncode != 0:
+        # Kein Abbruch: der Cron startet den Bot ohnehin alle 20 Minuten.
+        print(f"Bot-Review nicht gestartet: {p.stderr.strip()[:200]}", file=sys.stderr)
+
+
+def warte_auf_bot_review(
+    pruefen,
+    starten,
+    minuten: int = BOT_WARTEN_MINUTEN,
+    schlafen=time.sleep,
+    uhr=time.monotonic,
+):
+    """Startet den Review-Bot und prueft erneut, bis das Approve da ist, der PR
+    aus einem anderen Grund nicht gedeckt ist oder die Frist ablaeuft.
+    `pruefen()` liefert (Facts, Verdict). Gibt das letzte Paar zurueck — das
+    Urteil faellt danach wie ohne Warten, nichts wird hier freigegeben."""
+    fakten, urteil = pruefen()
+    ende = uhr() + minuten * 60
+    naechster_start = uhr()
+    while wartet_auf_bot(fakten, urteil) and uhr() < ende:
+        if uhr() >= naechster_start:
+            starten()
+            naechster_start = uhr() + BOT_DISPATCH_SEKUNDEN
+        schlafen(BOT_ABFRAGE_SEKUNDEN)
+        fakten, urteil = pruefen()
+    return fakten, urteil
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="SA-M: Merge nur mit gedecktem Mandat")
     ap.add_argument("nummer", type=int)
@@ -665,15 +801,30 @@ def main(argv=None) -> int:
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--json", action="store_true", dest="als_json")
     ap.add_argument("--policy", default=None, help="alternative Policy-Datei")
+    ap.add_argument(
+        "--warte-auf-bot",
+        action="store_true",
+        help=f"fehlt nur das Approve des Review-Bots: ihn starten und bis "
+        f"{BOT_WARTEN_MINUTEN} min darauf warten",
+    )
     args = ap.parse_args(argv)
 
     try:
         r = regeln(args.policy)
         repo = args.repo or repo_aus_cwd()
         r, repo_id = regeln_fuer(repo, r)
-        fakten = gather(repo, args.nummer, r)
-        fakten.repo_id = repo_id
-        urteil = classify(fakten, r)
+
+        def pruefen():
+            f = gather(repo, args.nummer, r)
+            f.repo_id = repo_id
+            return f, classify(f, r)
+
+        if args.warte_auf_bot:
+            fakten, urteil = warte_auf_bot_review(
+                pruefen, lambda: starte_bot_review(repo)
+            )
+        else:
+            fakten, urteil = pruefen()
     except Unklar as exc:
         print(f"UNKLAR: {exc}", file=sys.stderr)
         print("→ kein Merge (fail-closed).", file=sys.stderr)
