@@ -6,20 +6,14 @@ mode: write
 # /session-ende
 
 > Gegenstück `/session-start` · `LEHREN` = `docs/governance/session-skills-lehren/ende.md` ·
-> Runner-Doku = `docs/governance/session-ende-runner.md`.
-> **Der User muss NICHTS auflisten** — der Agent scannt die Session autonom. Läuft in
-> Claude Code (ADR-230): stabile Tool-Namen `mcp__github__*`/`mcp__orchestrator__*`, nie
-> `mcpN_` (Quelle: `project-facts.md`); Owner/Org aus dem git-Remote, nie hardcoden.
-> **Platform Sync Loop:** Ende = commit → push → GitHub → alle Repos beim nächsten Start.
-> GitHub ist die einzige Source of Truth (Diagramm in `/session-start`).
+> Runner-Doku = `docs/governance/session-ende-runner.md`. Der Agent scannt die Session
+> autonom; Owner/Org aus dem git-Remote, nie hardcoden. → `LEHREN#kopf`
 
 ---
 
-## Phase E.R: Runner ausführen (PFLICHT — NEU 2026-09-02; ersetzt −0.1/0a-deploy/0a-handover-pr/1b-Erzeuger/1c/3.1c/3.2-Banner/3.3)
+## Phase E.R: Runner ausführen (PFLICHT — ersetzt −0.1/0a-deploy/0a-handover-pr/1b-Erzeuger/1c/3.1c/3.2-Banner/3.3)
 
-Die mechanischen Phasen laufen in **einem** Aufruf und sind damit strukturell nicht
-überspringbar; die Einzel-Befehle leben in `platform/tools/session_ende_checks.sh` (dort
-gepflegt, hier NICHT duplizieren).
+Einzel-Befehle nur in `platform/tools/session_ende_checks.sh`, hier NICHT duplizieren.
 
 // turbo
 ```bash
@@ -28,30 +22,29 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_ende_checks.sh" "$TARGE
 ```
 
 → Ende = Summary `| Phase | Status | Repo | Note |` + `RESULT: OK|FAIL` +
-  `JUDGMENT: 0a 0b 0c 0d 0e 2 3.5` — diese Zeile ist die Arbeitsliste für Phase 0/2/3.5.
+  `JUDGMENT: 0a 0b 0c 0d 0e 2 3.5` — die Arbeitsliste für Phase 0/2/3.5.
 → **`RESULT: FAIL`** → Sitzung nicht abschließen, bis jedes ❌ behoben ist.
-→ **Jede ⚠️ WARN-Zeile ist ein Befund** und gehört ins Abschluss-Board der Sitzung.
-→ **Jede `◌`/`SKIP`/`nicht messbar`-Zeile ist eine Lücke, kein Pass — als solche ins Board.**
-→ Der Runner **misst**, dieser Skill **deutet**. Herleitung je Phase: `LEHREN`.
+→ **Jede ⚠️ WARN-Zeile und jede `◌`/`SKIP`/`nicht messbar`-Zeile** gehört ins
+  Abschluss-Board — die zweite Sorte als Lücke, nicht als Pass.
+→ Der Runner **misst**, dieser Skill **deutet**. → `LEHREN#e-r`
 
 | Phase | Bedeutung | kein Befund | Zug |
 |---|---|---|---|
 | `E.0 banner` | Platform-Version + Commit | — | Zahl in den Abschlussbericht |
 | `E.1 deploy-status` | `failure:` = Prod nicht live · `waiting:` = Run hängt am Gate | Repo ohne Deploy-Workflow | transienter Flake: `gh run rerun <id> --failed`; sonst Run-ID als offenen Punkt ins Handover |
 | `E.2 handover-prs` | >1 offener PR fasst `AGENT_HANDOVER.md` an | höchstens einer · im Fragment-Modus Übergangsbefund | Alt-Branch übernehmen ODER Alt-PR als „ersetzt durch #N" schließen, **vor** dem Push |
-| `E.3 handover-frische` | ❌ Commits seit dem letzten Nachtrag und kein offener Handover-PR · ⚠️ Stand älter als der letzte Commit der Datei · **Fragment-Modus:** ❌ kein eigenes Fragment · ❌ `veraltet`: nach dem jüngsten eigenen Fragment legte die Sitzung weitere PRs an · ◌ Sitzung nicht zuordenbar (Lease ohne `claude_session`) | Exit 0, Nachtrag offen als PR, oder eigenes Fragment auf `main`/im PR ohne späteren Sitzungs-PR | Deutung in 0a-freshness bzw. 0b-fragment; `veraltet` → neues Fragment |
+| `E.3 handover-frische` | ❌ Commits nach dem letzten Nachtrag, kein Handover-PR offen · ⚠️ Stand älter als letzter Datei-Commit · **Fragment-Modus:** ❌ kein eigenes Fragment · ❌ `veraltet` (danach weitere PRs) · ◌ Lease ohne `claude_session` | Exit 0, Nachtrag als PR, oder eigenes Fragment ohne späteren Sitzungs-PR | 0a-freshness bzw. 0b-fragment; `veraltet` → neues Fragment |
 | `E.4 cross-repo-befunde` | Fremd-Repo-Befund ohne Artefakt oder Verzicht | Exit 0 | Deutung in 0f |
-| `E.5 zusagen` | Vertagung ohne Anker im Segment (advisory) | `✅` je Zusage | Deutung in 0g |
 | `E.6 template-drift` | Error-Drift gegen die Repo-Templates | 0 Errors | fixen oder Issue im betroffenen Repo |
 | `E.7 dirty-repos` | eigenes Repo mit uncommittetem Stand (Lease heute) | 0 eigene | in 3.1 committen; fremd dirty melden, nicht einsammeln |
-| `E.8 worktree-hygiene` | ❌ verknüpfter Baum älter als 14 Tage (`SESSION_ENDE_WORKTREE_MAX_TAGE`); `prunable`-Einträge räumt der Runner selbst | kein Baum über der Grenze | entfernen (`repo-session.sh reap` / `git worktree remove`) oder Grund in `<gitdir>/behalten` |
+| `E.8 worktree-hygiene` | ❌ Baum älter als 14 Tage (`SESSION_ENDE_WORKTREE_MAX_TAGE`); `prunable` räumt der Runner | keiner über der Grenze | entfernen (`repo-session.sh reap` / `git worktree remove`) oder Grund in `<gitdir>/behalten` |
 | `E.9 dist-drift` | verteilte Skills weichen von `.windsurf/workflows/` ab | Lanes synchron | `cc-skill-dist/generate.py` laufen lassen, Diff committen |
 | `E.10 session-abgleich` | ⚠️ `N Befund(e) dieser Sitzung: <refs>` (mit `--session-id` nur PRs der eigenen Branches; ohne: `kontoweit`) · ◌ Sitzung nicht zuordenbar | Exit 0 | je Ref Issue nachziehen oder Fehlalarm notieren (Zeile 25) |
-| `E.11 main-status` | ⚠️ `rot auf main: <repo>: <Workflow> (<Run-ID>)`, jüngster Push-Lauf von heute je Workflow · ◌ `nicht messbar` | kein Workflow zuletzt rot | **nicht auf ein rotes main mergen**; eigene Ursache: fixen oder `gh run rerun <id> --failed`; fremde oder bekannte Ursache: Issue-Link ins Board |
+| `E.11 main-status` | ⚠️ `rot auf main: <repo>: <Workflow> (<Run-ID>)` (jüngster Push-Lauf heute) · ◌ `nicht messbar` | kein Workflow zuletzt rot | **nicht auf rotes main mergen**; eigene Ursache fixen/`gh run rerun <id> --failed`, sonst Issue-Link ins Board |
 
 **Läuft der Runner nicht** (Shell blockiert, keine Ausgabe nach 5 s): Session neu starten;
 bis dahin nur `Read`/`Write`/`Edit` + `mcp__github__*`, und **auf einem Branch, nie auf
-`main`** (geschützt in platform + 10 Repos, ADR-242/GH013).
+`main`** (ADR-242/GH013).
 
 ---
 
@@ -63,28 +56,20 @@ Wurde Arbeit blockiert (Shell-Hang, MCP-Fehler, Token)? (1) `.fixed`/`.updated`/
 unübernommen? (2) Fragen an den User unbeantwortet? (3) CI-Runs ohne Verifikation? Jedes Ja
 wird ein offener Punkt im Handover **mit dem konkreten Übernahme-Befehl**. → `LEHREN#0a`
 
-### 0a-merge: Den eigenen Handover-PR selbst mergen (PFLICHT — Owner-Weisung 2026-08-10)
+### 0a-merge: Den eigenen Handover-PR selbst mergen (PFLICHT)
 
 Sobald der Handover-PR grün ist, **ohne Rückfrage mergen** und im Abschlussbericht nennen:
 `gh pr merge <N> --squash --delete-branch` (CI grün) bzw. `… --auto` (CI läuft noch).
 
-**Grenzen — hier gilt die Weisung NICHT, dann bleibt es bei der Vorlage:**
-
-| Bedingung | Warum |
-|---|---|
-| PR enthält mehr als Dokumentation | Code/Konfiguration ist eine Entscheidung, kein Bericht |
-| ADR-Statuswechsel im selben PR | Aussage über Wirklichkeit, kein Protokoll |
-| Repo mit Auto-Deploy-on-`main` | Der Merge IST dort der Prod-Schritt → Gate 2 |
-| CI rot oder Required Checks fehlen | Grün ist die Bedingung, nicht die Formalie |
-
-→ Trifft eine Grenze zu: PR offen lassen, im Abschlussbericht **mit Grund** nennen.
+**Vier Grenzen — dann PR offen lassen und im Abschlussbericht mit Grund nennen:** PR
+enthält mehr als Dokumentation · ADR-Statuswechsel im selben PR · Repo mit
+Auto-Deploy-on-`main` (Merge = Prod-Schritt, Gate 2) · CI rot oder Required Checks fehlen.
 → `LEHREN#0a-merge`
 
-### 0b-fragment: Eigenes Fragment statt geteilter Dateien (PFLICHT in Repos mit `docs/handover.d/` — NEU 2026-09-16, #1944 K6)
+### 0b-fragment: Eigenes Fragment statt geteilter Dateien (PFLICHT in Repos mit `docs/handover.d/`)
 
-Parallele Sitzungen sind in Querschnitt-Repos der Normalfall; deshalb schreibt jede Sitzung
-nur **ihre eigene** Datei. Liegt `docs/handover.d/` im Repo, **ersetzt** dieser Schritt
-0a-freshness, 0b, 0c und den Eintrag in `AGENT_HANDOVER_LOG.md`:
+Liegt `docs/handover.d/` im Repo, schreibt die Sitzung nur **ihre eigene** Datei; das
+**ersetzt** 0a-freshness, 0b, 0c und den Eintrag in `AGENT_HANDOVER_LOG.md`:
 
 ```bash
 python3 tools/agent-handover/fragments.py neu --session-id "$SESSION_ID" \
@@ -93,29 +78,19 @@ python3 tools/agent-handover/fragments.py neu --session-id "$SESSION_ID" \
 python3 tools/agent-handover/fragments.py pruefen
 ```
 
-- `AGENT_HANDOVER.md` und `AGENT_HANDOVER_LOG.md` **nicht** anfassen — erledigte Punkte
-  fallen von selbst heraus, sobald ihr Issue zu ist; offene stehen im gerenderten Stand.
-- Das Fragment kommt in den letzten PR der Sitzung (oder einen eigenen); nach dem Merge
-  ist es **unveränderlich**, eine Korrektur ist ein neues Fragment (CI prüft das).
-- Memory (Phase 2) bleibt Pflicht — das Fragment ersetzt den Handover, nicht pgvector.
-- `E.3` ist grün, sobald das Fragment auf `main` oder in einem offenen PR liegt **und** die
-  Sitzung danach keinen weiteren PR angelegt hat (Branches aus den Leases, Feld
-  `claude_session`). Weitergearbeitet nach dem Fragment → neues Fragment (#2234).
+Geteilte Handover-Dateien **nicht** anfassen. Fragment in den letzten (oder einen eigenen)
+PR; nach dem Merge **unveränderlich**, Korrektur = neues Fragment. Danach noch ein PR →
+neues Fragment, sonst `E.3` ❌. Memory (Phase 2) bleibt Pflicht. → `LEHREN#0b-fragment`
 
 ### 0a-freshness: Handover-Rezenz erzwingen (PFLICHT — Gate `handover-stale-vor-merge`)
 
-Gemessen in `session_ende_checks.sh` **E.3**, gedeutet hier. Registry-`module`:
-`scripts/checks/agent_handover_freshness_check.py`; zusätzlich läuft
-`.github/workflows/handover-freshness-advisory.yml` bei **jedem** PR (Registry-Revision
-2026-08-20).
+Gemessen in **E.3**, gedeutet hier.
 
-- **❌ FAIL** (seit 2026-09-14, Retro oqu6Z6 #22) → seit dem letzten Nachtrag sind Commits
-  gelandet und kein Handover-PR ist offen. Der Nachtrag ist der letzte Schritt vor dem
-  Sitzungsende — auch wenn der letzte Stand von einer Parallelsitzung stammt.
+- **❌ FAIL** → seit dem letzten Nachtrag sind Commits gelandet und kein Handover-PR ist
+  offen. Nachtragen, auch wenn der letzte Stand von einer Parallelsitzung stammt.
 - **Exit 0** → frisch, weiter.
 - **Exit 1** → Stand-Abschnitt JETZT nachziehen (Datum + Prio-Zeilen), dann erneut prüfen.
-  Ihn stehen zu lassen ist zulässig, braucht aber einen Satz mit Grund im Commit-/PR-Text —
-  stillschweigend stale mergen ist der ×12-Verstoß. → `LEHREN#0a-freshness`
+  Stehenlassen nur mit einem Satz Grund im Commit-/PR-Text. → `LEHREN#0a-freshness`
 
 ### 0b: AGENT_HANDOVER.md aktualisieren (PFLICHT bei WIP-Stand)
 
@@ -131,37 +106,32 @@ Für jedes Repo mit uncommittetem Stand (Runner-Phase `E.7`) den Abschnitt
 **Session Resume:** claude --resume <session-id>
 ```
 
-**Zwei Ziele, zwei Regeln:** `AGENT_HANDOVER_LOG.md` wird **nur angehängt** (neuer Block ans
-Ende, bestehende Einträge nie ändern — CI-Check `handover-append-only` blockt Verstöße).
-`AGENT_HANDOVER.md` wird **umgeschrieben** (0c verlangt das); Konflikte bleiben laut.
-Danach `git add docs/AGENT_HANDOVER.md && git commit -m "chore: update AGENT_HANDOVER"` —
-`/session-start` Phase 1 liest die Datei beim nächsten Mal. → `LEHREN#0b`
+`AGENT_HANDOVER_LOG.md` **nur anhängen** (CI `handover-append-only`), `AGENT_HANDOVER.md`
+**umschreiben**. Danach `git add docs/AGENT_HANDOVER.md && git commit -m "chore: update
+AGENT_HANDOVER"`. → `LEHREN#0b`
 
-### 0c: Erledigte/verschobene Prioritäten nachziehen (PFLICHT — NEU 2026-06-24)
+### 0c: Erledigte/verschobene Prioritäten nachziehen (PFLICHT)
 
 Hat die Session eine Aufgabe aus der `## Prioritäten`-Tabelle erledigt oder verschoben?
 
 1. Tabelle aktualisieren — erledigte Zeile entfernen, Rest neu nummerieren, eine
    `> **Erledigt <Datum>:** …`-Notiz darunter, ein Stichpunkt in `## ⚡ Aktueller Stand`.
-2. **Handover UND Memory (Phase 2) aktualisieren, nie nur eins.** Cross-Host-Sessions
-   (iPad/claude.ai) schreiben nur ins geteilte pgvector-Memory → der git-getrackte Handover
-   driftet. → `LEHREN#0c`
+2. **Handover UND Memory (Phase 2) aktualisieren, nie nur eins.** → `LEHREN#0c`
 
-### 0d: Abnahme gegen den Session-Zielzustand + SA-4-Zähler (PFLICHT — NEU 2026-08-07)
+### 0d: Abnahme gegen den Session-Zielzustand + SA-4-Zähler (PFLICHT)
 
 1. **Abnahme:** für den in `/session-start` 2.7 geklärten Zielzustand genau einen Ausgang im
-   Stand-Block: **erreicht** (Kriterien einzeln verifiziert, nicht pauschal) · **nicht
-   erreicht** (mit dem fehlenden Kriterium) · **verschoben** (nur mit Tracking-Artefakt im
-   selben Zug). Ohne Zielzustand: „Zielzustand: n/a (begründet)".
+   Stand-Block: **erreicht** (Kriterien einzeln verifiziert) · **nicht erreicht** (mit dem
+   fehlenden Kriterium) · **verschoben** (nur mit Tracking-Artefakt im selben Zug). Ohne
+   Zielzustand: „Zielzustand: n/a (begründet)".
 2. **SA-4-Zähler**, eine Zeile im Stand-Block: `SA-4: <n> Anwendungen · <m> Einzel-OK trotz
-   Klassen-Deckung · <f> Fehlanwendungen`. `f > 0` → SA-4 fällt auf Einzelfreigabe zurück:
-   sofort als Befund melden. `m` speist den Kill-Test (Signal G, >30 %). → `LEHREN#0d`
+   Klassen-Deckung · <f> Fehlanwendungen`. `f > 0` → sofort als Befund melden. `m` speist
+   den Kill-Test (Signal G, >30 %). → `LEHREN#0d`
 
-### 0e: Clear-Härte — was überlebt den Kontext-Verlust? (PFLICHT — NEU 2026-08-12)
+### 0e: Clear-Härte — was überlebt den Kontext-Verlust? (PFLICHT)
 
-Nach dem Handover-Block, **vor** Phase 1, drei Fragen. Jede mit „ja" beantwortete Zeile
-bekommt im selben Zug ein dauerhaftes Artefakt (Issue-Kommentar, Handover-Zeile,
-Memory-Datei) — „steht im Gesprächsverlauf" zählt so wenig wie „steht im PR-Text".
+Nach dem Handover-Block, **vor** Phase 1. Jedes „ja" bekommt im selben Zug ein dauerhaftes
+Artefakt (Issue, Handover-Zeile, Memory) — Chat und PR-Text zählen nicht.
 
 | # | Frage | Fix, falls ja |
 |---|-------|---------------|
@@ -169,34 +139,29 @@ Memory-Datei) — „steht im Gesprächsverlauf" zählt so wenig wie „steht im
 | 2 | Etwas Dauerhaftes im Scratchpad / `/tmp`, das 3.1b wegräumt? | vorher an einen dauerhaften Ort |
 | 3 | Dauerhaftes Dokument verweist auf Flüchtiges („siehe Sitzungsprotokoll", `/tmp`-Pfad)? | Verweis durch Inhalt oder echten Link ersetzen |
 
-**Frage 3 ist die gefährlichste**, weil sie als einzige nicht auffällt. **Kein
-automatisches `/clear` einbauen** — der Wert steckt in der Frage. → `LEHREN#0e`
+**Kein automatisches `/clear` einbauen.** → `LEHREN#0e`
 
-### 0f: Cross-Repo-Befunde ins Zielrepo bringen (PFLICHT — NEU 2026-08-16, platform#2004)
+### 0f: Cross-Repo-Befunde ins Zielrepo bringen (PFLICHT)
 
-Gemessen in `session_ende_checks.sh` **E.4** (`tools/befund_journal.py --offen-cross-repo`),
-gedeutet hier. Exit 0 = nichts offen. Exit 1 = je Befund **einen** der beiden Wege gehen:
+Gemessen in **E.4** (`tools/befund_journal.py --offen-cross-repo`), gedeutet hier. Exit 0 =
+nichts offen. Exit 1 = je Befund **einen** der beiden Wege gehen:
 
 | Weg | Wann | Kommando |
 |---|---|---|
 | Verankern | Der Befund gehört repariert | Issue **im Zielrepo**, dann `--verankert '<ID>' '<URL>'` |
 | Verzicht | Nicht weiterverfolgen | `--verzichtet '<ID>' '<Grund>'` — ohne Grund zählt es nicht |
 
-**Das Issue gehört ins Zielrepo, nicht hierher.** **Fremdes Repo = Scope-Checkpoint:** ab
-drei betroffenen Repos oder bei fremder Org (`meiki-lra`, `ttz-lif`, `iilgmbh`) erst den
-Owner fragen.
+**Fremdes Repo = Scope-Checkpoint:** ab drei betroffenen Repos oder bei fremder Org
+(`meiki-lra`, `ttz-lif`, `iilgmbh`) erst den Owner fragen.
 
-**Jeder behandelte Melder-Befund bekommt `--echt` oder `--falsch`** — ohne Urteil ist die
-Präzision des Melders unbekannt (Quote im Start als `0.7.19`, ab drei Urteilen):
+**Jeder behandelte Melder-Befund bekommt ein Urteil** (Quote im Start als `0.7.19`):
 `befund_journal.py --echt '<ID>' '<Notiz>'` bzw. `--falsch '<ID>' '<warum Fehlalarm>'`.
 
-**Rückfällige Gates aus `tools/gate_wirkung.py`** (geprüft in `/session-retro` Phase 0.0/5a; Gate
-`gate-rueckfall-unbemerkt`, Registry-`module` `tools/gate_wirkung.py`): genau zwei zulässige Abschlüsse — **behandelt**
-(Gate ausgeweitet/umgebaut/herabgestuft, der Eintrag unter `docs/governance/gates/` im selben PR
-nachgezogen, bei Herabstufung `declined` mit Begründung) **oder Verzicht mit Grund**. Die
-Zeile stehen zu lassen ist keine dritte Antwort. → `LEHREN#0f`
+**Rückfällige Gates aus `tools/gate_wirkung.py`** (`/session-retro` 0.0/5a): **behandelt**
+(Eintrag unter `docs/governance/gates/` im selben PR nachgezogen, Herabstufung = `declined`
+mit Grund) **oder Verzicht mit Grund**, nie stehen lassen. → `LEHREN#0f`
 
-### 0f-verankerung: Neues Gate nur mit Drill, Positivkontrolle, Messpunkt (PFLICHT — NEU 2026-09-02, platform#2690 K4)
+### 0f-verankerung: Neues Gate nur mit Drill, Positivkontrolle, Messpunkt (PFLICHT)
 
 Wird ein Gate verankert **oder neu verankert** (`revised`, neuer `drill`, neues `module`,
 geänderter `mode`), dann **vor dem Commit**:
@@ -205,86 +170,48 @@ geänderter `mode`), dann **vor dem Commit**:
 python3 tools/gate_verankerung_check.py --neu --basis origin/main
 ```
 
-- **Exit 0** — der Eintrag trägt alle drei Nachweise: `drill` (Datei existiert),
-  `positivkontrolle: {ref, datum}`, Messpunkt (`slug` in Slug-Form + `built`/`revised` als
-  ISO-Datum). Er darf in die Registry.
-- **Exit 1** — der Eintrag wird **NICHT eingetragen**, sondern geht in die
-  `kandidaten`-Liste der Registry (Tracking: platform#2234).
-- **Exit 2** — Werkzeugfehler (Basis nicht lesbar). Kein Verdikt, also auch kein Eintrag.
+- **Exit 0** — `drill` (Datei existiert), `positivkontrolle: {ref, datum}` und Messpunkt
+  (`slug` + `built`/`revised` als ISO-Datum) vorhanden. Darf in die Registry.
+- **Exit 1** — **NICHT eintragen**, sondern in die `kandidaten`-Liste (platform#2234).
+- **Exit 2** — Werkzeugfehler, kein Verdikt, kein Eintrag. → `LEHREN#0f-verankerung`
 
-`faengt` ersetzt die Positivkontrolle nicht. Alt-Einträge fordert `--neu` nicht rückwirkend
-ein; Nachziehen des Bestands: platform#2703. → `LEHREN#0f-verankerung`
-
-### 0g: Zusagen dieser Sitzung gegen Tracking-Artefakte prüfen (PFLICHT — NEU 2026-08-23, platform#2211)
-
-Gemessen in `session_ende_checks.sh` **E.5** (`tools/verankerung_pruefer.py` über die eigenen
-PR-Texte von heute), gedeutet hier. Gate `zusage-ohne-verankerung`, Registry-`module`
-`tools/verankerung_pruefer.py`. Geprüft wird der **Typ** der Zusage, nicht ihr Wortlaut.
-
-- **`✅`** — jede erkannte Zusage trägt ein Tracking-Issue. Weiter.
-- **`⚠️`** — je Stelle **eine** von zwei Antworten, nie keine: Issue anlegen und die Nummer
-  **im selben Abschnitt** des PR-Textes nennen, **oder** die Meldung als Fehlalarm in
-  `docs/governance/verankerung-kalibrierung-2026-08-23.md` notieren (mit Zitat).
-- **`◌ NICHT PRUEFBAR`** (kein Klassifikator erreichbar) und **`◌ … UNGEPRUEFT`**
-  (Zeitbudget erschöpft, rund 80 s je Segment) benennen eine Lücke — die dort genannten
-  Segmente sind nicht angesehen worden.
-
-**Modus `advisory`** bei gemessener Präzision 0,50 — der Befund wird gelesen, nicht
-erzwungen. → `LEHREN#0g`
-
----
-
-### 0h: Fremder Blick auf 0d und 0e (PFLICHT ab `full` — NEU 2026-08-17, Owner-Freigabe)
-
-0d und 0e sind **Selbstbeurteilung** — die Restmenge setze ich selbst, und was nur im
-Gesprächsverlauf lebt, fühlt sich für mich vorhanden an. Für genau das führt
-`/session-retro` seit jeher „Richter ≠ Angeklagter".
+### 0h: Fremder Blick auf 0d und 0e (PFLICHT ab `full`)
 
 | Footprint | Regel |
 |---|---|
 | **lean** (1 Repo, ≤2 PRs, kein Prod/Migration/Publish) | **überspringen** |
 | **full / deep** (≥3 Repos ODER Prod/Publish ODER Migration) | **zwei Subagenten**, eng geführt |
 
-- **Agent 1 (zu 0d)** bekommt nur Zielzustand und Artefakte, **nicht** meine Erzählung:
-  je Kriterium ERFÜLLT / NICHT ERFÜLLT / NICHT PRÜFBAR **mit Beleg**. Weicht sein Urteil
-  ab, gewinnt **seins** im Stand-Block.
-- **Agent 2 (zu 0e)** bekommt **ausschließlich die durablen Artefakte** und die drei
-  0e-Fragen. Er darf den Gesprächsverlauf **nicht** sehen — das ist der Punkt.
-- Beide Ergebnisse in den Stand-Block, auch wenn sie unbequem sind.
-- **Subagenten untersagt?** 0d/0e inline, aber den Bruch **im Stand-Block benennen**.
+- **Agent 1 (0d):** nur Zielzustand + Artefakte, nicht meine Erzählung; je Kriterium
+  ERFÜLLT / NICHT ERFÜLLT / NICHT PRÜFBAR **mit Beleg**. Bei Abweichung gewinnt **sein** Urteil.
+- **Agent 2 (0e):** **nur die durablen Artefakte** + die drei 0e-Fragen, kein Gesprächsverlauf.
+- Beide Ergebnisse in den Stand-Block. Subagenten untersagt → inline, Bruch dort benennen.
 
-**Kosten, damit die Entscheidung bewusst fällt:** ~55k Token je Agent ⇒ **~110k je
-Sitzungsende** dieser Klasse. Deshalb der Footprint-Schalter statt „immer". → `LEHREN#0h`
+Kosten ~110k Token je Sitzungsende. → `LEHREN#0h`
 
----
+### 0i: Auftragsraum — keine Korrektur ohne Artefakt (PFLICHT)
 
-### 0i: Auftragsraum — keine Korrektur ohne Artefakt (PFLICHT — NEU 2026-09-11, KONZ-platform-059 / #3079)
-
-`python3 tools/chat_agent/auftragsraum.py offen --block` (nur platform-Sessions). Exit 1 heißt:
-eine Owner-Korrektur aus dem Chat-Raum hat noch kein Regel-Artefakt — je Zeile `regel
-<nachricht_id> --why …` ausführen oder den Verzicht mit Grund im Stand-Block nennen. Offene
-Aufträge ohne Issue werden hier gemeldet, nicht angelegt (das bleibt Phase 1.8 des Starts).
-Betriebsakte: `docs/betrieb/auftragsraum.md`.
+`python3 tools/chat_agent/auftragsraum.py offen --block` (nur platform-Sessions). Exit 1:
+je Zeile `regel <nachricht_id> --why …` ausführen oder Verzicht mit Grund im Stand-Block.
+Offene Aufträge ohne Issue werden gemeldet, nicht angelegt (Start 1.8). Betriebsakte:
+`docs/betrieb/auftragsraum.md`. → `LEHREN#0i`
 
 ---
 
 ## Phase 1: Wissen sichern — an `/knowledge-capture` delegieren (PFLICHT)
 
-Outline-Schreiben **nicht hier inline duplizieren** — Klassifikation, Cross-Repo-Tagging und
-Tool-Wahl macht `/knowledge-capture`. session-ende ruft es und **prüft den Erfolg**:
-Doc-URL/ID zurück? → für Phase 2 merken. Kein Ergebnis? → offener Punkt im Handover (0b).
+Outline-Schreiben **nicht hier inline duplizieren**. session-ende ruft `/knowledge-capture`
+und **prüft den Erfolg**: Doc-URL/ID zurück? → für Phase 2 merken. Kein Ergebnis? →
+offener Punkt im Handover (0b). → `LEHREN#1`
 
 ## Phase 1b: Docu-Drift — Zeiger statt Erzeuger
 
-Der Verarbeiter läuft als CI (`.github/workflows/docu-update-agent.yml`); die Erzeugung von
-`[docu-update]`-Issues ist kein Schritt dieses Skills mehr. Fällt beim Committen (3.1) eine
-Doku-Lücke auf — README-Version ≠ Code-Version, leeres CHANGELOG, neue Module ohne Doku —,
-gehört sie als Issue **ins betroffene Repo**, nicht in `platform`. → `LEHREN#1b`
+Doku-Lücke beim Committen (3.1) — README-Version ≠ Code-Version, leeres CHANGELOG, neue
+Module ohne Doku — als Issue **ins betroffene Repo**, nicht in `platform`. → `LEHREN#1b`
 
 ## Phase 2: pgvector Memory schreiben (PFLICHT — ADR-154)
 
-Primärer Pfad ist die CLI `platform/tools/session-memory`, **nicht** der MCP: sie wirkt
-unabhängig von der MCP-Bindung in jedem Repo.
+Pfad ist die CLI `platform/tools/session-memory`, **nicht** der MCP.
 
 ```bash
 cat > /tmp/session-summary.md <<'SUMEOF'
@@ -297,19 +224,17 @@ python3 "${GITHUB_DIR:-$HOME/github}/platform/tools/session-memory" write \
 
 → **Verifizieren, bevor „gesichert" behauptet wird:** `session-memory get --key <entry_key
   aus der Ausgabe>` — der ausgegebene Key, nicht der erwartete.
-→ **`--session-id <slug>` bei Parallelbetrieb** (`tools/session-leases --repo <repo>` zeigt
-  es). Ohne ihn weicht die CLI auf `<key>-2`, `-3`, … aus statt zu überschreiben;
-  `--allow-overwrite` erzwingt das alte Verhalten. → `LEHREN#2`
-→ **Error-Patterns** (nur bei Bug-Fixes): gleiche CLI, `--type error_pattern`,
-  `--key "error:<repo>:<YYYYMMDD>-<shortid>"`, Inhalt Symptom/Root Cause/Fix/Prevention.
-→ `entry_type` default `context`; `--type`-Werte: open_task | decision | lesson_learned |
-  error_pattern | repo_context | agent_handoff.
+→ **`--session-id <slug>` bei Parallelbetrieb** (`tools/session-leases --repo <repo>`);
+  `--allow-overwrite` überschreibt statt `<key>-2`. → `LEHREN#2`
+→ **Error-Patterns** (nur Bug-Fixes): `--type error_pattern --key
+  "error:<repo>:<YYYYMMDD>-<shortid>"`, Inhalt Symptom/Root Cause/Fix/Prevention. Weitere
+  `--type`: open_task, decision, lesson_learned, repo_context, agent_handoff (Default `context`).
 
 ---
 
 ## Phase 3: Git Sync — WSL ↔ Dev Desktop (IMMER am Ende)
 
-### 3.1 Alle geänderten Repos committen + pushen (PFLICHT — Session-Attribution, Protection-aware)
+### 3.1 Alle geänderten Repos committen + pushen (PFLICHT)
 
 Pro Repo aus `E.7 dirty-repos`:
 
@@ -324,12 +249,9 @@ git commit -m "session-ende($(basename $repo)): $(date +%Y-%m-%d) — <Beschreib
 # sonst: git push   ·   Session-Branch: git push -u origin "$BR", danach PR
 ```
 
-→ **`[skip ci]` gehört nur ins Squash-Subject beim Mergen** (`gh pr merge --squash --subject
-  "… [skip ci]"`) — **niemals** in einen Commit eines offenen PR-Branches, auch nicht
-  zitiert: GitHub matcht den Marker im gesamten Commit-Body und überspringt dann **alle**
-  Läufe, auch das `pull_request`-Event. Erkennungsmerkmal ist ein **leerer Check-Rollup** —
-  der ist kein „läuft noch", sondern der Befund. Reparatur: `git commit --amend` ohne den
-  Token + Force-Push; close/reopen ist überflüssig.
+→ **`[skip ci]` nur ins Squash-Subject beim Mergen** — **niemals** in einen Commit eines
+  offenen PR-Branches, auch nicht zitiert. Leerer Check-Rollup = Befund; Reparatur:
+  `git commit --amend` ohne den Token + Force-Push.
 → **NICHT pushen**, wenn der User „nicht pushen" sagt oder ein PR-Review läuft.
 → Fremde dirty Files (andere Session, unbekannte Herkunft): liegen lassen + melden.
 → **Rebase-on-ready:** `gh pr update-branch` erst unmittelbar vor dem finalen Push/Merge.
@@ -338,10 +260,8 @@ git commit -m "session-ende($(basename $repo)): $(date +%Y-%m-%d) — <Beschreib
 ### 3.1b Cleanup: Temporäre Dateien entfernen (PFLICHT — nach 0e, nie davor)
 
 `find ${GITHUB_DIR:-$HOME/github}/ -maxdepth 4 \( -name "*.fixed" -o -name "*.updated" -o
--name "*.new" \)` → prüfen ob übernommen, dann löschen; sonst User warnen. Gemergte
-Session-Worktrees räumt `session_start_checks.sh` 0.4.5 über **alle** Leases ab; `E.8` führt
-`git worktree prune` aus und macht jeden Baum über der Altersgrenze zum ❌ (seit 2026-09-14,
-Retro oqu6Z6 #21). → `LEHREN#3.1c`
+-name "*.new" \)` → prüfen ob übernommen, dann löschen; sonst User warnen. Worktrees:
+Start 0.4.5 und `E.8`. → `LEHREN#3.1c`
 
 ### 3.2 Platform-Workflows + CC-Skills verteilen (IMMER — kein Conditional)
 
@@ -352,29 +272,20 @@ GITHUB_DIR="${GITHUB_DIR:-$HOME/github}" \
   2>&1 | grep -cE "LINK|REPLACE" | xargs -I{} echo "{} Workflow-Symlinks aktualisiert"
 ```
 
-→ `platform` selbst ist geschützt (ADR-242): dirty `platform` geht über Worktree-Branch +
-  PR, nie per Direkt-Push auf `main`.
-→ `project-facts.md` erzeugt der CI-Cron `gen-project-facts.yml` (Mo 04:00 UTC) — hier
-  nicht zusätzlich. On-demand: `python3 platform/scripts/gen_project_facts.py --repo <name>`.
-→ Für **CC-Skills** ist `platform/tools/cc-skill-dist/` der kanonische Weg (Messung `E.9`).
-  → `LEHREN#3.2`
+→ dirty `platform` nur über Worktree-Branch + PR. `project-facts.md` macht der CI-Cron
+  (on-demand `python3 platform/scripts/gen_project_facts.py --repo <name>`); CC-Skills über
+  `platform/tools/cc-skill-dist/` (Messung `E.9`). → `LEHREN#3.2`
 
-### 3.4: Abschluss — Maßnahmen statt Nacherzählung (PFLICHT, wenn etwas zu entscheiden ist — NEU 2026-10-05, Owner-Wort)
+### 3.4: Abschluss — Maßnahmen statt Nacherzählung (PFLICHT, wenn etwas zu entscheiden ist)
 
-Die letzte Antwort der Sitzung ist eine Entscheidungsvorlage, kein Prüfprotokoll:
+1. **Erster Satz:** schließbar ja/nein — passend zur Clear-Freigabe-Zeile (3.5).
+2. **Nummerierte Maßnahmen**, je Zeile Kürzel · Entscheidung · Empfehlung · Issue-/PR-Link
+   (ohne Link = Verstoß gegen 0e); getrennt nach „dein Wort nötig" / „kann ich ohne dich".
+3. **Beispielantwort** („Z1 Z3 go, Z4 Liste") für die Freigabe per Kürzel.
 
-1. **Erster Satz:** ob die Sitzung gefahrlos geschlossen werden kann — er muss zur
-   Clear-Freigabe-Zeile (3.5) passen.
-2. **Nummerierte Maßnahmenliste**, je Zeile: stabiles Kürzel · was zu entscheiden ist ·
-   die Empfehlung · ein Link auf ein bestehendes Issue oder einen PR. Getrennt nach
-   „dein Wort nötig" und „kann ich ohne dich".
-3. **Beispielantwort** am Ende („Z1 Z3 go, Z4 Liste"), damit die Freigabe per Kürzel geht.
+Eigene Prüfbelege in einem Satz. Nichts zu entscheiden → nur der erste Satz. → `LEHREN#3.4-abschluss`
 
-Belege eigener Prüfungen stehen in einem Satz, nicht als eigene Antwort. Die Liste ersetzt
-kein Tracking: eine Zeile ohne Issue-/PR-Link ist ein Verstoß gegen 0e. Gibt es nichts zu
-entscheiden, entfällt die Liste — der erste Satz bleibt.
-
-### 3.5: Clear-Freigabe — expliziter letzter Satz (PFLICHT — NEU 2026-08-30, Owner-Weisung)
+### 3.5: Clear-Freigabe — expliziter letzter Satz (PFLICHT)
 
 Letzter Output der Sitzung, nach der Abschluss-Checkliste, **genau eine** der beiden Zeilen:
 
@@ -382,39 +293,22 @@ Letzter Output der Sitzung, nach der Abschluss-Checkliste, **genau eine** der be
   beantwortet oder ihr Fix verankert (Issue/Handover/Memory, nicht nur Chat).
 - **🔴 CLEAR-FREIGABE: NEIN — <konkreter Grund>** — mindestens ein Punkt **aus dieser
   Sitzung** offen (selbst dirty gemachtes Repo, offene Checkliste-Zeile, unbeantwortete oder
-  ungefixte 0e-Frage). Der Grund benennt das fehlende Ding, nicht nur „nicht grün".
+  ungefixte 0e-Frage). Der Grund benennt das fehlende Ding.
 
-**Fremder Stand hemmt die Freigabe nicht** (Owner-Weisung 2026-09-10): ein dirty Repo aus
-einer anderen Sitzung, ein rotes Deploy fremder Herkunft, ein konkurrierender Handover-PR —
-das wird **gemeldet** (Board-Zeile) und blockiert die Zeile **nicht**. Die Freigabe misst
-ausschließlich, ob **diese** Sitzung etwas Ungesichertes zurücklässt. Prüffrage: „habe ich
-das dirty gemacht?" — beantwortet mit einem Blick auf Änderungszeit und Turn-Historie, nicht
-per Vermutung. Wer fremden Stand zur eigenen Bremse macht, liefert eine Freigabe, die
-nie 🟢 wird, und trainiert damit das Überlesen der Zeile.
-
-Keine dritte Formulierung, kein Weglassen dieser Zeile. → `LEHREN#3.5`
+**Fremder Stand hemmt nicht** (fremd dirty, fremdes rotes Deploy, konkurrierender
+Handover-PR): melden. Prüffrage „habe ich das dirty gemacht?" — per Änderungszeit und
+Turn-Historie. Keine dritte Formulierung, kein Weglassen. → `LEHREN#3.5`
 
 ---
 
 ## Anti-Patterns (Skill ist `mode: write`)
 
-- ❌ Owner/Org/MCP-Prefixe/IPs hardcoden — Owner aus dem git-Remote ableiten, Tools mit
-  stabilen CC-Namen nennen, `mcpN_`-Nummern nie aus einem Skill-Text übernehmen
-  (`project-facts.md` + `ToolSearch` sind die Quelle).
-- ❌ Outline-Schreiben hier inline duplizieren statt an `/knowledge-capture` zu delegieren
-  und den **Erfolg zu prüfen**.
-- ❌ `git push`, wenn der User „nicht pushen" sagt oder ein PR-Review läuft (3.1).
-- ❌ **`git add -A` — in keiner Phase.** Immer explizite Pfade nach Sichtung
-  (🌀 `feedback_git_add_all_swept_artifacts`: .pyc/.coverage landeten in Commits).
-- ❌ Fremd-Session-Artefakte einsammeln — dirty Files ohne Bezug zur eigenen Turn-Historie
-  melden statt committen (🌀 Session-Attribution, Realfall #734).
-- ❌ Direkt-Push auf geschützte `main`-Branches (ADR-242) — Session-Branch + PR ist der Pfad.
-- ❌ Memory-Calls mit der alten Windsurf-Signatur (`entry: {entry_id…}`) — die CC-Signatur
-  ist flach mit `entry_key`.
-- ❌ Eine Runner-Zeile mit `SKIP`/`◌` als Entwarnung verbuchen (E.R).
+- ❌ Owner/Org/MCP-Prefixe/IPs hardcoden; `mcpN_`-Nummern nie aus einem Skill-Text übernehmen.
+- ❌ Memory-Calls mit der alten Windsurf-Signatur (`entry: {entry_id…}`) statt `entry_key`.
+- ❌ Die Verbote aus Phase 1, 3.1 und E.R brechen: Outline inline, **`git add -A`**,
+  Fremd-Artefakte einsammeln, Direkt-Push auf `main`, `SKIP`/`◌` als Entwarnung.
 
-**Idempotenz:** Re-Run ist sicher — Commits/Sync sind wiederholbar, der Runner ist read-only,
-Memory-Upserts deduplizieren per `content_hash`.
+Re-Run ist sicher (idempotent). → `LEHREN#anti-patterns`
 
 ---
 
@@ -433,7 +327,7 @@ Memory-Upserts deduplizieren per `content_hash`.
 | 8 | Blockierte Arbeit dokumentiert (0a) | ☐ |
 | 9 | Doku-Lücke aus 3.1 als Issue im betroffenen Repo (1b) | ☐ |
 | 10 | Template-Drift: Error-Drifts gefixt (E.6) | ☐ |
-| 11 | Erledigte/verschobene Prios in Handover UND Memory nachgezogen (0c) — Fragment-Modus: eigenes Fragment geschrieben, `pruefen` grün (0b-fragment) | ☐ |
+| 11 | Prios in Handover UND Memory nachgezogen (0c) — Fragment-Modus: Fragment, `pruefen` grün (0b-fragment) | ☐ |
 | 12 | Konkurrierende `AGENT_HANDOVER.md`-PRs behandelt vor dem eigenen Push (E.2) | ☐ |
 | 13 | Handover-Freshness: Exit 0 oder Grund im Commit-/PR-Text (E.3 / 0a-freshness); Fragment-Modus: E.3 grün | ☐ |
 | 14 | Abnahme im Stand-Block: erreicht / nicht erreicht / verschoben+Tracking / n/a (0d) | ☐ |
@@ -442,80 +336,28 @@ Memory-Upserts deduplizieren per `content_hash`.
 | 17 | Rückfälliges Gate aus `tools/gate_wirkung.py` behandelt ODER Verzicht mit Grund (0f) | ☐ |
 | 18 | Clear-Härte: nichts Dauerhaftes lebt nur im Chat oder im Scratchpad (0e) | ☐ |
 | 19 | Cross-Repo-Befunde: Exit 0, oder je Befund verankert bzw. verzichtet (E.4 / 0f) | ☐ |
-| 20 | Zusagen-Prüfer: `✅`, oder je Meldung Issue bzw. dokumentierter Fehlalarm (E.5 / 0g) | ☐ |
 | 21 | Clear-Freigabe-Zeile als letzter Satz — 🟢 JA oder 🔴 NEIN + Grund (3.5) | ☐ |
 | 22 | Gate verankert? `gate_verankerung_check.py --neu` grün, sonst Kandidat (0f-verankerung) | ☐ |
 | 23 | Ab `full`: 0d und 0e von je einem fremden Agenten gegengelesen (0h) | ☐ |
 | 24 | Auftragsraum: `offen --block` Exit 0, oder je Korrektur `regel` bzw. Verzicht mit Grund (0i) | ☐ |
 | 25 | `E.10 session-abgleich`: Exit 0, oder je Befund Issue bzw. notierter Fehlalarm | ☐ |
-| 26 | Letzte Antwort: erster Satz „schließbar ja/nein", Maßnahmen mit Empfehlung + Link, Beispielantwort — oder nichts zu entscheiden (3.4) | ☐ |
+| 26 | Letzte Antwort: „schließbar ja/nein", Maßnahmen mit Empfehlung + Link, Beispielantwort (3.4) | ☐ |
 
 **Neue Pflicht-Phase ⇒ Checklisten-Zeile im selben PR**; Auswahl über
 `grep -n "^## \|^### "` und Einzelbeurteilung, **nicht** über das Wort „PFLICHT".
-→ `LEHREN#abschluss-selbstcheck`
+Nummern bleiben stabil (Zeile 20 entfiel). → `LEHREN#abschluss-selbstcheck`
 
 ---
 
 ## Laufzeit
 
-Der Runner endet mit einer `LAUFZEIT:`-Zeile (Gesamtdauer + fünf teuerste Phasen);
-`SESSION_CHECKS_TIMING=voll` gibt jede Phase einzeln aus. Die Prüfungen laufen seit
-[#3373](https://github.com/achimdehnert/platform/issues/3373) nebenläufig —
-`SESSION_CHECKS_PARALLEL` (Default 8) stellt das enger, `=1` schaltet auf den alten
-sequenziellen Ablauf zurück, `SESSION_CHECKS_VORLAUF_BEHALTEN=1` behält `.out`/`.err`/`.rc`
-je Auftrag für die Fehlersuche. E.6 prüft die Repos seither ebenfalls nebenläufig
-(`DRIFT_CHECK_PARALLEL`, Default 6; `=1` = alter Ablauf) — es bleibt mit Abstand die teuerste
-Phase, also dort zuerst nachsehen, wenn die Zeile auffällig steigt. Herleitung und Messung:
-`docs/governance/session-skills-lehren/laufzeit.md`.
+`LAUFZEIT:`-Zeile; Schalter `SESSION_CHECKS_TIMING=voll`, `SESSION_CHECKS_PARALLEL`,
+`DRIFT_CHECK_PARALLEL`, `SESSION_CHECKS_VORLAUF_BEHALTEN=1`. Teuerste Phase: E.6. → `LEHREN#laufzeit`
 
 ## Changelog
 
-- 2026-10-05: **Runner-Phase E.11 main-status** (Retro 8a0235 R14). Anlass: main war nach einem
-  eigenen Merge 30 Minuten rot, eine fremde Sitzung mergte darauf, und ein zweiter Workflow blieb
-  stundenlang unbemerkt rot. E.11 meldet je berührtem Repo die Workflows, deren jüngster
-  Push-Lauf von heute auf main rot ist. Geplante Audit-Läufe zählen nicht, weil sie absichtlich
-  rot enden. Advisory, deshalb keine neue Checklisten-Zeile: Zeile 0 spiegelt jede WARN.
-  Zusätzlich fragen E.1 und E.11 jetzt unter dem Owner des berührten Repos ab. Bisher fragte E.1
-  ein Repo aus einer anderen Org unter dem falschen Owner ab und meldete „kein-Deploy“, obwohl
-  in Wahrheit ein Messfehler vorlag.
-- 2026-10-05: **Phase 3.4 Abschluss-Maßnahmen (PFLICHT) + Checklisten-Zeile 26** (Owner-Wort
-  „dieses Vorgehen sollten wir etablieren", platform#3716). Anlass: Ein Abschluss, der die
-  eigenen Prüfungen nacherzählte, ließ offen, was zu entscheiden war.
-- 2026-09-22: **Runner misst sich selbst und wartet nebenläufig** (platform#3373). Neue
-  `LAUFZEIT:`-Zeile; E.1–E.7/E.9/E.10 starten zusammen und werden an ihrer Phasenstelle
-  geerntet, die bis zu drei Zusagen-Prüfungen in E.5 laufen untereinander nebeneinander,
-  E.9 prüft seine drei Lanes in EINEM Auftrag (drei gleichzeitige `git fetch` stritten um
-  dieselbe Ref-Sperre). Weil danach eine einzige Phase 254 von 264 s ausmachte, prüft auch
-  `scripts/drift_check.py` die Repos jetzt nebenläufig (259 s → 92 s, Ausgabe zeichengleich).
-  Gesamt 302,5 s → 94,9 s, Status aller 11 Phasen unverändert. Messung:
-  `docs/governance/session-skills-lehren/laufzeit.md`.
+- 2026-10-06: **Kürzung, Zusagen-Prüfer entfernt** (V2b, platform#3785).
+- 2026-10-05: **Runner-Phase E.11 main-status** (Retro 8a0235 R14).
+- 2026-10-05: **Phase 3.4 Abschluss-Maßnahmen + Checklisten-Zeile 26** (platform#3716).
 
-- 2026-09-24: **Sitzungsabgrenzung für E.3 und E.10** (#2234, Retro #3543 Befunde #2/#4) —
-  Leases tragen `claude_session`; E.10 prüft mit `--session-id` nur die PRs der eigenen
-  Branches und nennt Anzahl + Refs (vorher: 35 kontoweite Befunde, eine abgeschnittene
-  Zeile sichtbar, das eigene offene Issue nicht). E.3 im Fragment-Modus ❌, wenn die
-  Sitzung nach ihrem jüngsten Fragment weitere PRs anlegte (vorher: grün ab dem ersten
-  Fragment, obwohl drei Stunden Arbeit folgten).
-- 2026-09-16: **Phase 0b-fragment + Runner mit `--session-id`** (#1944 K6, KONZ-platform-027) —
-  in Repos mit `docs/handover.d/` schreibt jede Sitzung ihr eigenes Fragment statt die
-  geteilten Handover-Dateien zu ändern; `E.3` prüft das eigene Fragment. Anlass: parallele
-  Sitzungen sind in Querschnitt-Repos nicht vermeidbar (Owner 2026-09-16), 8 der 61
-  Kollisionspaare in 14 Tagen lagen auf `AGENT_HANDOVER.md`.
-- 2026-09-11: **Phase 0i Auftragsraum + Checklisten-Zeile 24** (KONZ-platform-059, #3079) —
-  `offen --block` schließt die Lernschleife: eine Owner-Korrektur aus dem Chat-Raum ohne
-  Regel-Artefakt hemmt das Sitzungsende, bis `regel` das Artefakt anlegt oder der Verzicht
-  begründet ist. Gegenstück zu Start 1.8.
-- 2026-09-10: **3.5 misst nur die eigene Sitzung + Checklisten-Zeile 6 gescharft** —
-  Owner wörtlich: „fremde dirty sollten kein clear hemmen !! -> mehr fokus auf eigenen
-  sitzung !". Anlass: eine Sitzung ohne jede Repo-Änderung lieferte 🔴, weil drei fremde
-  Repos seit Tagen dirty lagen. Fremder Stand wird gemeldet, nicht zur eigenen Bremse.
-
-> Nur die letzten drei Einträge (Policy seit platform#2696). Volle Historie:
-> `LEHREN#changelog-historie`.
-
-- 2026-09-02: **Kontext-Diät + Runner-Verdrahtung** (#2690 K5, +K1) — 55 516 → ~20 400 B.
-  Phase `E.R` ruft `tools/session_ende_checks.sh` (E.0–E.9) und ersetzt die mechanischen
-  Abschnitte; Lehren/Historie in `session-skills-lehren/ende.md`; gestrichen: S2–S5.
-- 2026-09-02: **Phase 0f-verankerung (PFLICHT) + Checklisten-Zeile 22** (#2690 K4) — ein Gate
-  kommt nur mit Drill, Positivkontrolle und Messpunkt in die Registry. Anlass: 14 von 33
-  Gates rückfällig, 0 von 31 Einträgen mit Beleg eines echten Treffers (#2374, #2678).
+> Nur die letzten drei Einträge (Policy seit platform#2696). Wortlaut: `LEHREN#changelog-historie`.
