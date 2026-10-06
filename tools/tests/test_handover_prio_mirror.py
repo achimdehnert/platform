@@ -382,7 +382,9 @@ def test_should_read_the_fallback_tool_from_origin_main_not_the_worktree(
     _git(klon, "config", "user.name", "T")
     _git(klon, "add", "-A")
     _git(klon, "commit", "-qm", "tool")
-    _git(klon, "update-ref", "refs/remotes/origin/main", _git(klon, "rev-parse", "HEAD"))
+    _git(
+        klon, "update-ref", "refs/remotes/origin/main", _git(klon, "rev-parse", "HEAD")
+    )
     # Arbeitsbaum danach unbrauchbar machen: gelesen werden muss der Ref.
     (klon / "tools" / "agent-handover" / "fragments.py").write_text(
         "import sys\nsys.exit(3)\n", encoding="utf-8"
@@ -399,3 +401,69 @@ def test_should_keep_curated_source_when_no_fragments_exist(tmp_path: Path) -> N
     )
     out = _run_ohne_gh(repo, tmp_path)
     assert "Quelle: AGENT_HANDOVER.md (kuratiert)" in out
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# V2 (#3785): Deckel auf die Startlast — gespiegelt wird eine Prio, kein Rueckstand
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _lange_prio(n: int) -> str:
+    zeilen = "\n".join(f"{i}. Kuratierter Punkt {i}" for i in range(1, n + 1))
+    return f"# AGENT_HANDOVER · demo\n\n## Prioritäten\n\n{zeilen}\n"
+
+
+def _run_env(repo: Path, **extra: str) -> str:
+    import os
+
+    return subprocess.run(
+        ["bash", str(HOOK)],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env={**os.environ, **extra},
+    ).stdout
+
+
+def test_should_cap_curated_items_and_name_the_omitted_count(tmp_path: Path) -> None:
+    out = _run_env(_repo(tmp_path, _lange_prio(25)), HANDOVER_PRIO_VOLL="0")
+    assert "Kuratierter Punkt 10" in out
+    assert "Kuratierter Punkt 11" not in out
+    assert "… 15 weitere kuratierte Zeilen in AGENT_HANDOVER.md" in out
+
+
+def test_should_not_add_a_hint_when_items_fit_under_the_cap(tmp_path: Path) -> None:
+    out = _run_env(_repo(tmp_path, _lange_prio(10)), HANDOVER_PRIO_VOLL="0")
+    assert "Kuratierter Punkt 10" in out
+    assert "weitere" not in out
+
+
+def test_should_show_every_item_when_the_cap_is_lifted(tmp_path: Path) -> None:
+    out = _run_env(_repo(tmp_path, _lange_prio(25)), HANDOVER_PRIO_VOLL="1")
+    assert "Kuratierter Punkt 25" in out
+    assert "weitere" not in out
+
+
+def test_should_cap_fragment_threads_newest_first(tmp_path: Path) -> None:
+    repo = _repo_mit_fragment_tool(tmp_path)
+    (repo / "docs" / "handover.d").mkdir(parents=True)
+    for i in range(1, 21):
+        frag = f"docs/handover.d/2026-09-{i:02d}T08-00-00Z-s{i}.md"
+        inhalt = (
+            f'---\nsession_id: s{i}\nerstellt: 2026-09-{i:02d}T08:00:00Z\ntitel: "T{i}"\n'
+            f"---\n\n## Offen\n\n- Faden {i:02d} — https://github.com/example/x/issues/{i}\n"
+        )
+        (repo / frag).write_text(inhalt, encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "fragmente")
+    _git(
+        repo, "update-ref", "refs/remotes/origin/main", _git(repo, "rev-parse", "HEAD")
+    )
+    out = _run_ohne_gh(repo, tmp_path)
+    # Neueste Sitzung zuerst: 20 bis 06 sichtbar, 05 bis 01 nur gezaehlt.
+    assert "Faden 20" in out and "Faden 06" in out
+    assert "Faden 05" not in out
+    assert "… 5 weitere offene Fäden" in out
+    # Die kuratierte Prio bleibt dahinter sichtbar.
+    assert "Preview-Tunnel starten" in out
