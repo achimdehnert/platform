@@ -8,7 +8,8 @@ einem `gh`-Stub auf dem PATH.
 
 Die drei Invarianten, die dieser Test haelt:
 
-1. **Vollstaendigkeit** — die Summary nennt E.0 bis E.9. Eine Phase, die still
+1. **Vollstaendigkeit** — die Summary nennt E.0 bis E.11, ausser den bewusst
+   entfallenen Phasen in `ENTFALLENE_PHASEN`. Eine Phase, die still
    ausfaellt, waere genau der Zustand, gegen den der Runner gebaut ist.
 2. **Positivkontrolle** — ein dirty Repo MIT eigenem Lease wird als WARN
    erkannt. Ohne diese Zeile bestuende der Test auch, wenn E.7 nie etwas faende.

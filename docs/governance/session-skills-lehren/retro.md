@@ -7,6 +7,9 @@
 > eine imperative Zeile am Ort der Handlung behalten. Diese Datei trägt das **Warum**:
 > Realfälle, Messungen, Begründungen und die Changelog-Historie, **wörtlich** so, wie sie
 > bis 2026-09-02 im Skill standen. Nichts wurde gelöscht, alles hat eine Adresse.
+> Ausnahme V2b (2026-10-06, [#3798](https://github.com/achimdehnert/platform/pull/3798)):
+> Einige Passagen der Phasen 1, 3, 3b, 5 und 5a wurden im Skill umformuliert statt
+> verschoben. Ihr alter Wortlaut steht in Git bei `35db40d1`, nicht hier.
 >
 > Changelog im Skill = **letzte drei Einträge** (Policy seit
 > [platform#2696](https://github.com/achimdehnert/platform/pull/2696)); die Historie steht
