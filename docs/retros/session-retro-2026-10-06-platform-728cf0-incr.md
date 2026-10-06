@@ -133,7 +133,7 @@ over_ask: keine Klasse. Die Owner-Handgriffe (Secret, Variable, Tag, Merges auf 
 |---|---|---|---|---|---|
 | Z1 | #96 um Auto-Tag-Sperre ergänzen (#3) | shared-ci | [#96 Kommentar](https://github.com/iilgmbh/shared-ci/issues/96#issuecomment-6014622728) | ✅ | Issue bleibt geschlossen, Beobachtung beim Cron 2026-10-07 |
 | Z2 | Gate Lesen-vor-Edit bauen (#9, #12) | platform | #2234 | 🟢 | beschlossen (M6), Reihenfolge Owner |
-| Z3 | Docstring und LEHREN-Kopf nachziehen (#7) | platform | dieser PR, Refs #3785 (V2b) | ✅ | mit dem Retro-PR |
+| Z3 | Docstring und LEHREN-Kopf nachziehen (#7) | platform | Docstring im Retro-PR #3805, LEHREN-Kopf [#3806](https://github.com/achimdehnert/platform/pull/3806) | 🟢 | #3806 wartet auf Review (Governance-Pfad) |
 | Z5 | Gate-Pflicht Trockenlauf-Schreibpfad (#4, #13) | platform | #2234 | 🟢 | Owner: bauen oder declined |
 
 Ledger ohne Befund: Abschlussfragment mit M5b-Stand schreibt `/session-ende` in dieser Sitzung (#2 widerlegt, keine Maßnahme).
