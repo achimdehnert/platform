@@ -12,6 +12,10 @@ ein Verstoß: der Rückweg per Container-Rollback stellt den alten Code wieder h
 aber nicht die alte Datenbank. Geänderte oder gelöschte Alt-Migrationen sind
 ebenfalls ein Verstoß (Historie wird nicht umgeschrieben).
 
+Einzige Ausnahme (Owner-Entscheid RM, platform#3804): `RunPython` mit echtem
+`reverse_code` und der Markerzeile `# migrations_additiv: ok — <Grund>` in der
+Datei (siehe MARKER_RE). Der Grund wird im ADDITIV-Ergebnis mit ausgegeben.
+
 Die Operationen werden per `ast` aus dem Quelltext gelesen, nicht per Import —
 das Skript braucht kein Django und keine Settings des Hubs.
 
@@ -25,6 +29,7 @@ Exit 0 = additiv (auch ohne neue Migration), 1 = Verstoß (Liste auf stdout),
 from __future__ import annotations
 
 import ast
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -48,6 +53,15 @@ ADDITIV = frozenset(
 
 #: Operationen, die zwar in Migrationsdateien vorkommen, aber kein Op sind.
 KEIN_OP = frozenset({"Migration", "swappable_dependency"})
+
+#: Ausnahme für `RunPython` (platform#3804, Owner-Entscheid RM 2026-10-06): zulässig,
+#: wenn (1) ein echter Rückweg angegeben ist (`reverse_code`, nicht `noop`) und
+#: (2) die Datei diese Markerzeile trägt — der Autor erklärt die Additivität und
+#: nennt den Grund, der im Diff und im Review steht. Beispiel:
+#:   # migrations_additiv: ok — RLS-Policies anlegen, remove_rls hebt sie auf
+MARKER_RE = re.compile(
+    r"^#\s*migrations_additiv:\s*ok\s*[—–-]\s*(?P<grund>\S.*)$", re.M
+)
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -91,10 +105,29 @@ def _keyword(node: ast.Call, name: str) -> ast.AST | None:
     return None
 
 
+def _hat_rueckweg(node: ast.Call) -> bool:
+    """`RunPython(code, reverse_code)` mit echtem Rückweg — `noop` zählt nicht."""
+    rueck = node.args[1] if len(node.args) > 1 else _keyword(node, "reverse_code")
+    if rueck is None:
+        return False
+    return not (isinstance(rueck, ast.Attribute) and rueck.attr == "noop")
+
+
+def marker_grund(quelle: str) -> str | None:
+    """Grund aus der Markerzeile `# migrations_additiv: ok — <Grund>`; None ohne Marker."""
+    m = MARKER_RE.search(quelle)
+    return m.group("grund").strip() if m else None
+
+
 def verstoesse_in_quelle(quelle: str, pfad: str) -> list[str]:
-    """Nicht-additive Operationen einer Migrationsdatei, als lesbare Zeilen."""
+    """Nicht-additive Operationen einer Migrationsdatei, als lesbare Zeilen.
+
+    `RunPython` wird durchgelassen, wenn Rückweg und Markerzeile vorhanden sind
+    (siehe MARKER_RE); fehlt eines, nennt der Befund, was fehlt.
+    """
     baum = ast.parse(quelle, filename=pfad)
     befunde: list[str] = []
+    grund = marker_grund(quelle)
 
     def besuche(node: ast.AST, kontext: str = "") -> None:
         name = _op_name(node)
@@ -104,7 +137,17 @@ def verstoesse_in_quelle(quelle: str, pfad: str) -> list[str]:
             if db_ops is not None:
                 besuche(db_ops, " (in SeparateDatabaseAndState)")
             return
-        if name is not None and name not in KEIN_OP and name not in ADDITIV:
+        if name == "RunPython":
+            fehlt = []
+            if not _hat_rueckweg(node):
+                fehlt.append("reverse_code")
+            if grund is None:
+                fehlt.append("Markerzeile `# migrations_additiv: ok — <Grund>`")
+            if fehlt:
+                befunde.append(
+                    f"{pfad}:{node.lineno}: RunPython{kontext} — fehlt: {', '.join(fehlt)}"
+                )
+        elif name is not None and name not in KEIN_OP and name not in ADDITIV:
             befunde.append(f"{pfad}:{node.lineno}: {name}{kontext}")
         for kind in ast.iter_child_nodes(node):
             besuche(kind, kontext)
@@ -113,9 +156,10 @@ def verstoesse_in_quelle(quelle: str, pfad: str) -> list[str]:
     return befunde
 
 
-def pruefe(repo: Path, von: str, bis: str) -> list[str]:
-    """Alle Verstöße zwischen zwei Ständen; leer = additiv."""
+def pruefe(repo: Path, von: str, bis: str) -> tuple[list[str], list[str]]:
+    """(Verstöße, zugelassene RunPython-Ausnahmen) zwischen zwei Ständen; Verstöße leer = additiv."""
     befunde: list[str] = []
+    ausnahmen: list[str] = []
     for status, pfad in geaenderte_migrationen(repo, von, bis):
         if status != "A":
             befunde.append(
@@ -123,8 +167,12 @@ def pruefe(repo: Path, von: str, bis: str) -> list[str]:
             )
             continue
         quelle = _git(repo, "show", f"{bis}:{pfad}")
-        befunde.extend(verstoesse_in_quelle(quelle, pfad))
-    return befunde
+        neue_befunde = verstoesse_in_quelle(quelle, pfad)
+        befunde.extend(neue_befunde)
+        grund = marker_grund(quelle)
+        if grund is not None and "RunPython" in quelle and not neue_befunde:
+            ausnahmen.append(f"{pfad}: RunPython zugelassen — {grund}")
+    return befunde, ausnahmen
 
 
 def main(argv: list[str]) -> int:
@@ -133,7 +181,7 @@ def main(argv: list[str]) -> int:
         return 2
     repo, von, bis = Path(argv[1]), argv[2], argv[3]
     try:
-        befunde = pruefe(repo, von, bis)
+        befunde, ausnahmen = pruefe(repo, von, bis)
         neue = [p for s, p in geaenderte_migrationen(repo, von, bis) if s == "A"]
     except subprocess.CalledProcessError as e:
         print(f"git-Fehler: {e.stderr.strip()}", file=sys.stderr)
@@ -148,6 +196,8 @@ def main(argv: list[str]) -> int:
     print(
         f"ADDITIV — {len(neue)} neue Migration(en) zwischen {von} und {bis}, keine Verstöße"
     )
+    for a in ausnahmen:
+        print(f"  {a}")
     return 0
 
 

@@ -8,6 +8,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- `tools/migrations_additiv.py` (#3804, Owner-Entscheid RM 2026-10-06): `RunPython` gilt als
+  additiv, wenn ein echter `reverse_code` (nicht `noop`) angegeben ist **und** die Datei die
+  Markerzeile `# migrations_additiv: ok — <Grund>` trägt; der Grund steht im ADDITIV-Ergebnis.
+  Fehlt eines, nennt der Befund, was fehlt. Erster Anwendungsfall risk-hub `0034_rls_nis2`.
 - `tools/migrations_additiv.py` (#3804 K7): Prüfskript „nur additive Migrationen" vor
   einem autonomen Prod-Deploy — vergleicht zwei Git-Stände eines Hubs, liest neue
   Django-Migrationen per `ast` und meldet RemoveField/DeleteModel/AlterField/Rename*/
