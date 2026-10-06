@@ -3,7 +3,7 @@ id: ADR-138
 title: "ADR Implementation Tracking Standard — Lifecycle, Frontmatter Fields, and Verification"
 status: accepted
 decision_date: 2026-03-11
-amended: 2026-03-11
+amended: 2026-09-23
 owner: Achim Dehnert
 deciders: [Achim Dehnert]
 consulted: []
@@ -13,13 +13,17 @@ tags: [governance, adr, implementation, tracking, lifecycle]
 related: [ADR-015, ADR-046, ADR-051]
 supersedes: []
 amends: []
-last_reviewed: 2026-03-11
+last_reviewed: 2026-09-23
 implementation_status: implemented
 implementation_evidence:
-  - "docs/adr/INDEX.md: Impl column with emoji legend (⬜🔶✅✅✅)"
+  - "path: docs/adr/INDEX.md — Impl column with emoji legend (⬜🔶✅✅✅)"
   - "85+ ADRs: implementation_status backfilled in YAML frontmatter"
-  - ".windsurf/workflows/adr-review.md: Step 2.9 + Step 3.5 ADR-138 compliance check"
-  - "docs/adr/ADR-138-implementation-tracking-standard.md: this ADR"
+  - "path: .windsurf/workflows/adr-review.md — Step 2.9 + Step 3.5 ADR-138 compliance check"
+  - "path: tools/adr_umsetzungsstand_check.py — checks implementation_status against the eight schema values (§2.2)"
+  - "test: tools/tests/test_adr_umsetzungsstand_check.py"
+  - "path: tools/adr_evidence_paths.py — checks implementation_evidence (§2.4; typed lines since the 2026-09-23 amendment)"
+  - "test: tools/tests/test_adr_evidence_paths.py"
+  - "pr: platform#1318 — 10 ADRs: dead implementation_evidence paths repaired (checker baseline)"
 ---
 
 # ADR-138: ADR Implementation Tracking Standard
@@ -106,6 +110,34 @@ implementation_evidence:
   - "all 29 repos: catalog-info.yaml present"
 ```
 
+#### 2.4.1 Typed evidence lines (Amendment 2026-09-23, KONZ-platform-065)
+
+The prose patterns above stay valid, but a machine cannot tell a checkable
+pointer from a claim. A line that starts with one of four type keys is a
+**contract**: the first token after the key is checked for existence by
+`tools/adr_evidence_paths.py`, the rest of the line is free comment.
+
+```yaml
+implementation_evidence:
+  - "path: tools/adr_evidence_paths.py — file or directory exists in this repo"
+  - "path: dev-hub:apps/adr_lifecycle/services.py — repo prefix = cross-repo, counted, checked only by that repo's CI"
+  - "gate: claim-before-cheapest-check — slug exists in docs/governance/gates/{gates,declined,widerrufen}/"
+  - "test: tools/tests/test_adr_evidence_paths.py — file exists; it is NEVER executed by the checker"
+  - "pr: platform#1643 — format check only (#N, repo#N, owner/repo#N), no API call"
+  - "Base pipeline in production since 2026-02 — untyped: still valid, counted as prose"
+```
+
+Rules:
+
+* Untyped lines remain valid (no backfill mandate, KONZ-065 D2); the checker reports
+  `typed / prose` per ADR so a reader sees how load-bearing the evidence is.
+* `metric:` is deliberately not a type yet — there is no registry of meter results to
+  check against (KONZ-065 §1).
+* The checker never executes anything it points to; existence is the whole check.
+  Whether a test is green is the job of that repo's CI (KONZ-065 L10).
+* On the pilot list `docs/adr/.adr-evidence-pilot` a finding is red
+  (`--gate-pilot` in `adr-validate.yml`); everywhere else the checker stays SUGGEST.
+
 ### 2.5 ADRs That Do NOT Need Implementation Tracking
 
 | ADR Type | Reason |
@@ -166,6 +198,7 @@ The ADR INDEX table gets a new column `Impl` showing implementation status as em
 | INDEX.md: `Impl`-Spalte hinzufügen | ✅ done | 2026-03-11 |
 | Backfill: `implementation_status` in alle Accepted ADRs | ✅ done | 2026-03-11 |
 | `/adr-review` Workflow: Check auf fehlende `implementation_status` | ✅ done | 2026-03-11 |
+| §2.4.1 typisierte Belegzeilen + Pilotliste (KONZ-platform-065, 10 ADRs) | ✅ done | 2026-09-23 |
 
 ---
 

@@ -8,6 +8,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- `tools/migrations_additiv.py` (#3804 K7): Prüfskript „nur additive Migrationen" vor
+  einem autonomen Prod-Deploy — vergleicht zwei Git-Stände eines Hubs, liest neue
+  Django-Migrationen per `ast` und meldet RemoveField/DeleteModel/AlterField/Rename*/
+  RunSQL/RunPython sowie geänderte Alt-Migrationen als Verstoß (Exit 1 = Stopp).
+  Tests `tools/tests/test_migrations_additiv.py`.
+- `tools/schleuse.py` (#3405): sieben neue Klassen — PR-/Issue-Text, Wegwerf-Skript,
+  Bildschirmfoto, Lauf-Ausgabe, Dokument-Entwurf, Modell-Ausgabe, Datierte Übergabe.
+  Bestandsaufnahme am 2026-09-23: 168 von 291 Einträgen in `~/shared` trugen keine
+  Regel und liefen still auf die 90-Tage-Grenze zu; jetzt sind es 39 echte
+  Einzelfälle. Ein Eintrag verfällt damit mit einer Begründung und einem Zielort
+  statt nur mit einem Datum. Positivkontrolle im Test: Projektordner, Notiz und
+  Konfiguration bleiben unentschieden, der Secrets-Ordner bleibt unberührt.
+- `tools/calendar_agent/ews_calendar.py` (#3300): HNU-Kalender lesen und im eigenen
+  Kalender anlegen/ändern/löschen — über EWS des On-Prem-Exchange (NTLM mit der
+  IMAP-Kennung, `curl --ntlm`, Passwort nur per stdin), weil Graph diesen Kalender nie
+  erreicht (On-Prem, dazu Conditional Access 53003). `--status/--list/--today/--ids/
+  --create/--update/--delete`, Stufe A (nie Teilnehmer; Besprechungen, fremde
+  Einladungen, Serien hart gesperrt). Belege und Bedienung:
+  `docs/runbooks/hnu-kalender-ews.md`. ICS-Import bleibt als Fallback unangetastet.
+
 - `tools/sevdesk/rechnungslauf.py` (#3102): Monats-/Quartalsrechnungslauf für
   sevdesk-Dauerkunden — `--kunden-ermitteln` erkennt den Rhythmus aus dem
   Bestand, `--monat`/`--quartal` legt Entwürfe (Status 100) aus der letzten
@@ -27,6 +47,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   ausgeklammert (Lücke aus dem ersten Fleet-Audit-Lauf 2026-07-04: bfagent).
 
 ### Fixed
+- `scripts/deploy.sh` 2026-10-06.1 (#3804 K6): Abbruch nach dem Hochfahren (Health-Check,
+  Fehlerzustand, Crashloop-Gate) löst jetzt das Rollback aus — `exit N` feuerte den
+  ERR-Trap nicht, der kaputte Stand blieb stehen. Vertragstest
+  `tests/test_deploy_rollback_nach_start.sh` (Verdrahtung im `deploy-sh-gate` folgt als
+  eigener Governance-PR). Host-Kopien noch alt.
 - `tools/cc-skill-dist`: `-prototype`-Suffix aus `GENERATOR_VERSION` entfernt
   (generate.py 0.2.0, windsurf-subset.py 0.1.0) + Banner bereinigt — DoD F-C
   (claude-skills.md, session-retro 2026-06-05): Live-Manifeste tragen keine

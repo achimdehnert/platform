@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 
@@ -26,6 +27,8 @@ import sys
 # REC-4 View-Reader-Guard). Sibling-Import: beim Direktaufruf ist tools/ in sys.path[0].
 from registry_api import flat
 from registry_api import owner as registry_owner
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Conclusions, die als „Deploy kaputt" zählen. `cancelled`/`skipped`/`None` (in_progress)
 # zählen NICHT und brechen die Serie auch nicht (uninformativ); `success` bricht sie.
@@ -136,14 +139,44 @@ def resolve_org(repo: str) -> str | None:
     return registry_owner(repo)
 
 
+def stillgelegte_repos(ports_pfad: str | None = None) -> set[str]:
+    """Repos, deren Betrieb laut infra/ports.yaml `stillgelegt`/`ruhend` ist.
+
+    Gleiche Quelle und Zuordnung wie der Sitzungsstart (0.7 deploy-scan):
+    ein Repo ohne laufenden Betrieb hat auch keinen Deploy, der rot sein
+    koennte. Realfall coach-hub: seit 2026-08-30 stillgelegt, der Monitor
+    eskalierte trotzdem in coach-hub#70 weiter (76 Kommentare bis 2026-09-16).
+    Fehlt die Datei oder das Modul, ist das Ergebnis leer — dann meldet der
+    Monitor lieber ein Repo zu viel als eines zu wenig.
+    """
+    try:
+        import yaml
+        from waisen_melder import erklaerte_repos
+    except ImportError:
+        return set()
+    pfad = ports_pfad or os.path.join(REPO_ROOT, "infra", "ports.yaml")
+    try:
+        with open(pfad, encoding="utf-8") as fh:
+            ports = yaml.safe_load(fh) or {}
+    except OSError:
+        return set()
+    erklaert = erklaerte_repos(ports)
+    return {r for r, s in erklaert.items() if s in {"stillgelegt", "ruhend"}}
+
+
 def load_deploy_repos() -> list[str]:
-    """django-Repos (deployen) aus der Registry-SSoT via registry_api, ohne archivierte."""
+    """django-Repos (deployen) aus der Registry-SSoT, ohne archivierte und stillgelegte."""
     data = flat()
     repos = data.get("repos", {})
+    ruhend = stillgelegte_repos()
     out = []
     for name, cfg in sorted(repos.items()):
         cfg = cfg or {}
-        if cfg.get("type") == "django" and not cfg.get("archived"):
+        if (
+            cfg.get("type") == "django"
+            and not cfg.get("archived")
+            and name not in ruhend
+        ):
             out.append(name)
     return out
 

@@ -37,7 +37,7 @@ import subprocess
 from pathlib import Path
 
 # Maschinenlesbarer Kopf (KONZ-038 D8) — von tools/gate_drill_check.py gegen
-# docs/governance/gate-registry.json abgeglichen.
+# docs/governance/gates/ abgeglichen.
 GATE_HEADER = {
     "slug": "autonomous-no-human-review",
     "mode": "process",

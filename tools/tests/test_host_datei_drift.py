@@ -156,7 +156,14 @@ def test_should_mark_unresponsive_auf_zuruf_host_as_sleeping_not_as_gap(
         "  prod:\n    ssh: root@1.2.3.4\n"
         "  gpu-box:\n    ssh: achim@10.99.0.2\n"
         "    ssh_via: root@88.198.191.108\n"
-        "    betrieb: auf_zuruf\n"
+    )
+    # Seit #3495 V2 kommt `auf_zuruf` aus der Deklaration, nicht aus hosts.yaml.
+    hdd.befund_journal.setze_deklaration(
+        "gpu-box",
+        "auf_zuruf",
+        "Owner-Entscheid (Test)",
+        "2099-12-31",
+        pfad=pd / hdd.befund_journal.DEKLARATIONEN_REL,
     )
     soll = hdd.md5(pd / "infra/host-maintenance/skript.sh")
 

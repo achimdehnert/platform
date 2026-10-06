@@ -5,11 +5,16 @@ Vergleicht die branch-stabile kanonische Quelle (platform `origin/main`) mit dem
 Live-Ziel — OHNE etwas zu ändern. Meldet stale Kopien, dangling Symlinks,
 fehlende/zusätzliche Skills, Hybrid-Status und einen Drift-Score.
 
-Zwei Lanes (`--kind`):
-- `commands` (Default): `.windsurf/workflows/*.md` ↔ `~/.claude/commands/` (flach).
-- `skills`: `skills/<name>/SKILL.md` ↔ `~/.claude/skills/<name>/SKILL.md` (Agent Skills,
-  verzeichnis-basiert). Der Relativlink-Guard greift NICHT — Agent-Skill-Verzeichnisse
-  dürfen gebündelte Relativ-Referenzen tragen.
+Vier Lanes (`--kind`):
+- `commands` (Default): `.windsurf/workflows/*.md` ↔ `~/.claude/commands/` (flach, swap).
+- `skills` (merge seit platform#3467): `skills/<name>/SKILL.md` ↔
+  `~/.claude/skills/<name>/SKILL.md` (Agent Skills, verzeichnis-basiert). Das Ziel ist ein
+  GETEILTES Verzeichnis (claude.ai-Skill-Sync schreibt seit 2026-09-17 eigenmächtig
+  `synced/<bucket-id>/` hinein) — `enumerate_skills_merge_lane` listet darum NUR, was das
+  Merge-Manifest (`.cc-skill-dist-manifest.json`) als eigen ausweist; Fremdeinträge sind
+  kein Befund (Parität zu `claude-hooks`, #1989/#1508). Der Relativlink-Guard greift NICHT —
+  Agent-Skill-Verzeichnisse dürfen gebündelte Relativ-Referenzen tragen.
+- `hooks` (ADR-258, swap) und `claude-hooks` (#1989, merge) — s. dortige Kommentare.
 
 Usage: doctor.py [--kind commands|skills] [--platform ~/github/platform]
                  [--commands ~/.claude/commands] [--skills-dir ~/.claude/skills] [--ref origin/main]
@@ -65,6 +70,28 @@ MCP_LEGACY_TOKEN = re.compile(r"mcp\d+_\w+")
 # pruefbar, nur am RENDERED Output einer echten Skill-Ausfuehrung (out of scope fuer diesen Linter).
 KD_REFERENZ_MARKER = "KD-Referenz"
 KD_REFERENZ_FIELDS = ("Spec", "Lokal", "GitHub", "iil.pet")
+
+# SUGGEST-lint (#2639): Skill mit vielen ##/###-Phasen, aber ohne Abschluss-Checkliste.
+# House Rule „Ausführungstreue": ein langes Phasen-Dokument ohne Checkliste ist strukturell
+# ueberspringbar (Realfall 2026-07-15, #1164). Nur melden, keine Checklisten erzeugen.
+# Baseline beim Einbau festgeschrieben (advisory_scanner_reactivation_needs_baseline):
+# 41 verteilte Skills am 2026-09-17, gemessen mit diesem Lint auf origin/main
+# (Roh-grep ueber alle 60 Workflow-Dateien: 45; am 2026-09-02 im Issue: 48 von 59).
+PHASE_RE = re.compile(r"^#{2,3} ", re.MULTILINE)
+CHECKLISTE_RE = re.compile(
+    r"abschluss-check|^#{2,3} .*checkliste", re.IGNORECASE | re.MULTILINE
+)
+CHECKLISTE_MIN_PHASEN = 3
+CHECKLISTE_BASELINE = (41, "2026-09-17")
+
+
+def phasen_ohne_checkliste(body, min_phasen=CHECKLISTE_MIN_PHASEN):
+    """Zahl der ##/###-Phasen, wenn der Skill lang genug ist und keine Abschluss-Checkliste
+    traegt — sonst 0 (kurzer Skill oder Checkliste vorhanden = kein Befund)."""
+    phasen = len(PHASE_RE.findall(body))
+    if phasen < min_phasen or CHECKLISTE_RE.search(body):
+        return 0
+    return phasen
 
 
 # Lane: (Quell-Pfad im Repo, Blob-Endung, key-Extraktor aus repo-Pfad, Live-Ziel, Ziel-Enumerator)
@@ -188,7 +215,14 @@ def enumerate_commands(root):
 
 
 def enumerate_skills(root):
-    """Verzeichnis-Ziel: name -> Pfad zur <name>/SKILL.md.
+    """Volle Verzeichnis-Auflistung: name -> Pfad zur <name>/SKILL.md, JEDER Eintrag.
+
+    Passt zu einem Ziel, das dem Generator allein gehört (`mode: swap`). Seit
+    platform#3467 ist `~/.claude/skills` das NICHT mehr — `main()` liest die Lane
+    `skills` darum über `enumerate_skills_merge_lane` (nur Manifest-Einträge). Diese
+    Funktion bleibt als reiner, weiterhin getesteter Helfer bestehen (kein toter Code:
+    ihre Semantik — jeden Verzeichniseintrag sehen — ist genau das, was der Merge-Modus
+    bewusst NICHT mehr will; die Tests unten dokumentieren den Unterschied).
 
     Ein Skill-Verzeichnis, das selbst ein Symlink ins Leere ist (die von ADR-281
     verwendete Form), wird ausdrücklich MIT erfasst: sein <name>/SKILL.md laesst
@@ -207,6 +241,44 @@ def enumerate_skills(root):
             out[d] = p
         elif os.path.islink(os.path.join(root, d)):
             out[d] = p  # toter Verzeichnis-Symlink → main() stuft ihn als dangling ein
+    return out
+
+
+def enumerate_skills_merge_lane(root):
+    """Merge-Lane für Skills (platform#3467): Verzeichnis-Eintrag, aber NUR was das
+    Merge-Manifest listet — analog zu `enumerate_merge_lane`, nur verzeichnis- statt
+    dateibasiert, weil ein Skill ein `<name>/SKILL.md`-Verzeichnis ist (ADR-230), keine
+    einzelne Datei.
+
+    `~/.claude/skills` ist seit dem claude.ai-Skill-Sync (2026-09-17) ein Mischverzeichnis
+    (`synced/<bucket-id>/`, `.bucket-*`, `.trash/`). Eine volle `os.listdir()` — wie sie
+    das alte, swap-basierte `enumerate_skills` macht — würde jeden dieser Fremdeinträge als
+    `extra` zählen und den Doctor ab dem ersten Lauf dauerhaft rot machen (dieselbe Klasse
+    wie #1508 bei `claude-hooks`). Fehlt das Manifest, ist das kein Fehler, sondern die
+    Aussage „hier wurde nie verteilt": alle kanonischen Namen erscheinen dann als `fehlend`.
+
+    Ein toter Verzeichnis-Symlink unter einem MANIFEST-bekannten Namen bleibt weiterhin
+    sichtbar (ADR-281 §8.2) — nur Namen ausserhalb des Manifests sind für diese Lane per
+    Design unsichtbar, nicht Drift innerhalb der eigenen Einträge.
+    """
+    import json as _json
+
+    pfad = os.path.join(root, MERGE_MANIFEST)
+    try:
+        with open(pfad, encoding="utf-8") as fh:
+            eintraege = _json.load(fh)["files"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return {}
+    out = {}
+    for e in eintraege:
+        name = e["name"]
+        p = os.path.join(root, name, "SKILL.md")
+        if os.path.isfile(p) or os.path.islink(p):
+            out[name] = p
+        elif os.path.islink(os.path.join(root, name)):
+            out[name] = (
+                p  # toter Verzeichnis-Symlink → main() stuft ihn als dangling ein
+            )
     return out
 
 
@@ -266,7 +338,7 @@ def main():
         src_path, suffix, key_of = "skills/", "/SKILL.md", _name_skilldir
         target_dir, target_files, rel_guard = (
             a.skills_dir,
-            enumerate_skills(a.skills_dir),
+            enumerate_skills_merge_lane(a.skills_dir),
             False,
         )
 
@@ -466,6 +538,25 @@ def main():
                 print(
                     "  --- SUGGEST: 0 Skills mit unvollständigem KD-Referenz-Schema ---"
                 )
+
+        # SUGGEST-lint: Phasen-Skill ohne Abschluss-Checkliste (#2639)
+        ohne_checkliste = []
+        for name, sha in sorted(canon.items()):
+            phasen = phasen_ohne_checkliste(canon_content(sha) or "")
+            if phasen:
+                ohne_checkliste.append((phasen, name))
+        ohne_checkliste.sort(key=lambda t: (-t[0], t[1]))
+        basis, basis_datum = CHECKLISTE_BASELINE
+        print(
+            f"  --- SUGGEST ({len(ohne_checkliste)} Skill(s) mit ≥{CHECKLISTE_MIN_PHASEN} "
+            f"Phasen ohne Abschluss-Checkliste; Baseline {basis} am {basis_datum}) ---"
+        )
+        for phasen, skill in ohne_checkliste:
+            print(f"    [suggest] {skill} — {phasen} Phasen, keine Checkliste")
+        if len(ohne_checkliste) > basis:
+            print(
+                f"    ↑ {len(ohne_checkliste) - basis} über Baseline — neuer Skill ohne Checkliste"
+            )
 
     if a.fail_on_dangling:
         sys.exit(1 if sym_dangling else 0)

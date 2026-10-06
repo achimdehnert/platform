@@ -1,0 +1,245 @@
+{
+ "deklarationen": [
+  {
+   "art": "stundung",
+   "gesetzt_am": "2026-09-24",
+   "grund": "Prod-Runner hat kein SSH-Vertrauen zu dev-desktop; C1/C2 werden vom Sitzungsstart (dev-desktop) gemessen.",
+   "gueltig_bis": "2026-10-15",
+   "quelle": "owner achim; bis 2026-09-24 infra/reconcile-baseline.yaml (#3507)",
+   "ziel": "C0:dev-desktop"
+  },
+  {
+   "art": "stundung",
+   "gesetzt_am": "2026-09-24",
+   "grund": "Prod-Runner hat kein SSH-Vertrauen zu gx10 (auch von dev-desktop aus: SSH-Timeout auf 10.99.0.4:22, gemessen 2026-09-07); C1/C2 werden vom Sitzungsstart (dev-desktop) gemessen, sobald erreichbar.",
+   "gueltig_bis": "2026-10-22",
+   "quelle": "owner achim; bis 2026-09-24 infra/reconcile-baseline.yaml (#3507)",
+   "ziel": "C0:gx10"
+  },
+  {
+   "art": "stundung",
+   "gesetzt_am": "2026-09-24",
+   "grund": "Prod-Runner hat kein SSH-Vertrauen zu odoo; C1/C2 werden vom Sitzungsstart (dev-desktop) gemessen.",
+   "gueltig_bis": "2026-11-05",
+   "quelle": "owner achim; bis 2026-09-24 infra/reconcile-baseline.yaml (#3507)",
+   "ziel": "C0:odoo"
+  },
+  {
+   "art": "stundung",
+   "gesetzt_am": "2026-09-24",
+   "grund": "Prod-Runner hat kein SSH-Vertrauen zu prod-b; C1/C2 werden vom Sitzungsstart (dev-desktop) gemessen.",
+   "gueltig_bis": "2026-11-19",
+   "quelle": "owner achim; bis 2026-09-24 infra/reconcile-baseline.yaml (#3507)",
+   "ziel": "C0:prod-b"
+  },
+  {
+   "art": "stundung",
+   "gesetzt_am": "2026-09-24",
+   "grund": "prod_url recruiting.iil.pet hat keinen DNS-Record, Container läuft healthy — bekannt seit PR #1036-Recherche, Entscheid offen (DNS anlegen vs. Domain ändern). Erster echter CI-Fund des Sweeps (Run 2026-07-10, nach #1036-Merge scharf geschaltet). VERLÄNGERT 2026-08-10 (Owner-Entscheid, #1857): Sachstand unverändert, Drift am 2026-08-10 nachgemessen — recruiting.iil.pet weiterhin NXDOMAIN. Der Entscheid DNS-anlegen-vs-Domain-ändern steht weiter aus.",
+   "gueltig_bis": "2026-11-08",
+   "quelle": "owner achim; bis 2026-09-24 infra/reconcile-baseline.yaml (#3507)",
+   "ziel": "C3:recruiting-hub"
+  },
+  {
+   "art": "stundung",
+   "gesetzt_am": "2026-09-24",
+   "grund": "pgvector-DB (mcp_hub_db) publiziert 15435 für den SSH-Tunnel der Agent-Sessions — bewusster Infra-Port, Registrierungs-Entscheid offen. VERLÄNGERT 2026-08-10 (Owner-Entscheid, #1857): Sachstand unverändert, Registrierungs-Entscheid weiter offen.",
+   "gueltig_bis": "2026-11-08",
+   "quelle": "owner achim; bis 2026-09-24 infra/reconcile-baseline.yaml (#3507)",
+   "ziel": "C4:15435"
+  },
+  {
+   "art": "stundung",
+   "gesetzt_am": "2026-09-24",
+   "grund": "wh_items_pg auf dev-desktop — Entwicklungs-Postgres (writing-hub), kein Prod-Dienst; Registrierungs-Entscheid offen.",
+   "gueltig_bis": "2026-11-05",
+   "quelle": "owner achim; bis 2026-09-24 infra/reconcile-baseline.yaml (#3507)",
+   "ziel": "C4:15494"
+  },
+  {
+   "art": "stundung",
+   "gesetzt_am": "2026-09-24",
+   "grund": "taxhub_goldset_pg auf dev-desktop — Entwicklungs-Postgres (tax-hub Goldset), kein Prod-Dienst; Registrierungs-Entscheid offen.",
+   "gueltig_bis": "2026-11-19",
+   "quelle": "owner achim; bis 2026-09-24 infra/reconcile-baseline.yaml (#3507)",
+   "ziel": "C4:55432"
+  },
+  {
+   "art": "stundung",
+   "gesetzt_am": "2026-09-24",
+   "grund": "ib_gateway VNC-Port außerhalb der Finance-Range 4000-4099 — Registrierungs- oder Range-Entscheid offen. VERLÄNGERT 2026-08-10 (Owner-Entscheid, #1857): Sachstand unverändert, Entscheid weiter offen.",
+   "gueltig_bis": "2026-11-08",
+   "quelle": "owner achim; bis 2026-09-24 infra/reconcile-baseline.yaml (#3507)",
+   "ziel": "C4:5900"
+  },
+  {
+   "art": "stundung",
+   "gesetzt_am": "2026-09-24",
+   "grund": "mcp-hub-Orchestrator publiziert 8000, canonical sagt 3000, ports.yaml kennt ihn gar nicht — Klärung welcher Port normativ ist (Board-Item, KONZ-015 REC-4-Rest). VERLÄNGERT 2026-08-10 (Owner-Entscheid, #1857): Sachstand unverändert, Normativitäts-Entscheid weiter offen.",
+   "gueltig_bis": "2026-11-08",
+   "quelle": "owner achim; bis 2026-09-24 infra/reconcile-baseline.yaml (#3507)",
+   "ziel": "C4:8000"
+  },
+  {
+   "art": "stundung",
+   "gesetzt_am": "2026-09-24",
+   "grund": "ttz_local_aifw auf dev-desktop — lokaler Entwicklungscontainer (ttz-lif-Schulungsanwendung), kein Prod-Dienst; Registrierungs-Entscheid (SSoT ports.yaml vs. Dev-only) offen.",
+   "gueltig_bis": "2026-10-15",
+   "quelle": "owner achim; bis 2026-09-24 infra/reconcile-baseline.yaml (#3507)",
+   "ziel": "C4:8001"
+  },
+  {
+   "art": "stundung",
+   "gesetzt_am": "2026-09-24",
+   "grund": "ttz_local_web auf dev-desktop — lokaler Entwicklungscontainer (ttz-lif-Schulungsanwendung), kein Prod-Dienst; Registrierungs-Entscheid offen.",
+   "gueltig_bis": "2026-10-22",
+   "quelle": "owner achim; bis 2026-09-24 infra/reconcile-baseline.yaml (#3507)",
+   "ziel": "C4:8072"
+  },
+  {
+   "art": "stundung",
+   "gesetzt_am": "2026-09-24",
+   "grund": "authentik publiziert 9443 (TLS) außerhalb der Auth-Range 9000-9099 — Registrierungs- oder Range-Entscheid offen. VERLÄNGERT 2026-08-10 (Owner-Entscheid, #1857): Sachstand unverändert, Entscheid weiter offen.",
+   "gueltig_bis": "2026-11-08",
+   "quelle": "owner achim; bis 2026-09-24 infra/reconcile-baseline.yaml (#3507)",
+   "ziel": "C4:9443"
+  },
+  {
+   "art": "betriebsstatus",
+   "gesetzt_am": "2026-09-24",
+   "grund": "stillgelegt — Wiedervorlage: Reste abgebaut? Dann den Dienst aus infra/ports.yaml entfernen statt verlaengern",
+   "gueltig_bis": "2026-12-23",
+   "quelle": "Wert + Grund: infra/ports.yaml; Ablauf seit #3507",
+   "ziel": "bahn-hub"
+  },
+  {
+   "art": "betriebsstatus",
+   "gesetzt_am": "2026-09-24",
+   "grund": "stillgelegt — Wiedervorlage: Reste abgebaut? Dann den Dienst aus infra/ports.yaml entfernen statt verlaengern",
+   "gueltig_bis": "2026-12-26",
+   "quelle": "Wert + Grund: infra/ports.yaml; Ablauf seit #3507",
+   "ziel": "coach-hub"
+  },
+  {
+   "art": "betriebsstatus",
+   "gesetzt_am": "2026-09-24",
+   "grund": "blockiert — Wiedervorlage: haelt der Blocker aus betriebsstatus_grund (infra/ports.yaml) noch?",
+   "gueltig_bis": "2026-11-08",
+   "quelle": "Wert + Grund: infra/ports.yaml; Ablauf seit #3507",
+   "ziel": "frist-hub"
+  },
+  {
+   "art": "auf_zuruf",
+   "gesetzt_am": "2026-09-24",
+   "grund": "Owner-Entscheid 2026-08-31: Box laeuft nur bei Bedarf (Wake-on-LAN), WSL seit 2026-09-22 aus",
+   "gueltig_bis": "2026-12-31",
+   "quelle": "platform#3364; bis 2026-09-24 Feld betrieb in infra/hosts.yaml",
+   "ziel": "gpu-box"
+  },
+  {
+   "art": "betriebsstatus",
+   "gesetzt_am": "2026-09-24",
+   "grund": "blockiert — Wiedervorlage: haelt der Blocker aus betriebsstatus_grund (infra/ports.yaml) noch?",
+   "gueltig_bis": "2026-11-11",
+   "quelle": "Wert + Grund: infra/ports.yaml; Ablauf seit #3507",
+   "ziel": "gpu-ollama"
+  },
+  {
+   "art": "betriebsstatus",
+   "gesetzt_am": "2026-09-24",
+   "grund": "blockiert — Wiedervorlage: haelt der Blocker aus betriebsstatus_grund (infra/ports.yaml) noch?",
+   "gueltig_bis": "2026-11-14",
+   "quelle": "Wert + Grund: infra/ports.yaml; Ablauf seit #3507",
+   "ziel": "mail-links"
+  },
+  {
+   "art": "betriebsstatus",
+   "gesetzt_am": "2026-09-24",
+   "grund": "ruhend — Wiedervorlage: ist die Ruhe (betriebsstatus_grund, infra/ports.yaml) noch gewollt?",
+   "gueltig_bis": "2026-11-23",
+   "quelle": "Wert + Grund: infra/ports.yaml; Ablauf seit #3507",
+   "ziel": "odoo"
+  },
+  {
+   "art": "betriebsstatus",
+   "gesetzt_am": "2026-09-24",
+   "grund": "stillgelegt — Wiedervorlage: Reste abgebaut? Dann den Dienst aus infra/ports.yaml entfernen statt verlaengern",
+   "gueltig_bis": "2026-12-29",
+   "quelle": "Wert + Grund: infra/ports.yaml; Ablauf seit #3507",
+   "ziel": "onboarding-hub"
+  },
+  {
+   "art": "betriebsstatus",
+   "gesetzt_am": "2026-09-24",
+   "grund": "blockiert — Wiedervorlage: haelt der Blocker aus betriebsstatus_grund (infra/ports.yaml) noch?",
+   "gueltig_bis": "2026-11-17",
+   "quelle": "Wert + Grund: infra/ports.yaml; Ablauf seit #3507",
+   "ziel": "post-hub"
+  },
+  {
+   "art": "betriebsstatus",
+   "gesetzt_am": "2026-09-24",
+   "grund": "ruhend — Wiedervorlage: ist die Ruhe (betriebsstatus_grund, infra/ports.yaml) noch gewollt?",
+   "gueltig_bis": "2026-11-26",
+   "quelle": "Wert + Grund: infra/ports.yaml; Ablauf seit #3507",
+   "ziel": "praes-iil-ai"
+  },
+  {
+   "art": "betriebsstatus",
+   "gesetzt_am": "2026-09-24",
+   "grund": "stillgelegt — Wiedervorlage: Reste abgebaut? Dann den Dienst aus infra/ports.yaml entfernen statt verlaengern",
+   "gueltig_bis": "2027-01-01",
+   "quelle": "Wert + Grund: infra/ports.yaml; Ablauf seit #3507",
+   "ziel": "recruiting-hub"
+  },
+  {
+   "art": "betriebsstatus",
+   "gesetzt_am": "2026-09-24",
+   "grund": "blockiert — Wiedervorlage: haelt der Blocker aus betriebsstatus_grund (infra/ports.yaml) noch?",
+   "gueltig_bis": "2026-11-20",
+   "quelle": "Wert + Grund: infra/ports.yaml; Ablauf seit #3507",
+   "ziel": "robo-twin"
+  },
+  {
+   "art": "betriebsstatus",
+   "gesetzt_am": "2026-09-24",
+   "grund": "blockiert — Wiedervorlage: haelt der Blocker aus betriebsstatus_grund (infra/ports.yaml) noch?",
+   "gueltig_bis": "2026-11-23",
+   "quelle": "Wert + Grund: infra/ports.yaml; Ablauf seit #3507",
+   "ziel": "schreib-hub"
+  },
+  {
+   "art": "betriebsstatus",
+   "gesetzt_am": "2026-09-24",
+   "grund": "blockiert — Wiedervorlage: haelt der Blocker aus betriebsstatus_grund (infra/ports.yaml) noch? Staging loopback laeuft (meiki-hub#494 K3), Prod erst nach Hosting-Entscheid",
+   "gueltig_bis": "2026-11-24",
+   "quelle": "Wert + Grund: infra/ports.yaml; Ablauf seit #3507",
+   "ziel": "buerger-hub"
+  },
+  {
+   "art": "betriebsstatus",
+   "gesetzt_am": "2026-09-24",
+   "grund": "blockiert — Wiedervorlage: haelt der Blocker aus betriebsstatus_grund (infra/ports.yaml) noch?",
+   "gueltig_bis": "2026-11-26",
+   "quelle": "Wert + Grund: infra/ports.yaml; Ablauf seit #3507",
+   "ziel": "todo-board"
+  },
+  {
+   "art": "betriebsstatus",
+   "gesetzt_am": "2026-09-24",
+   "grund": "stillgelegt — Wiedervorlage: Reste abgebaut? Dann den Dienst aus infra/ports.yaml entfernen statt verlaengern",
+   "gueltig_bis": "2027-01-04",
+   "quelle": "Wert + Grund: infra/ports.yaml; Ablauf seit #3507",
+   "ziel": "travel-beat"
+  },
+  {
+   "art": "betriebsstatus",
+   "gesetzt_am": "2026-09-24",
+   "grund": "stillgelegt — Wiedervorlage: Reste abgebaut? Dann den Dienst aus infra/ports.yaml entfernen statt verlaengern",
+   "gueltig_bis": "2027-01-07",
+   "quelle": "Wert + Grund: infra/ports.yaml; Ablauf seit #3507",
+   "ziel": "wedding-hub"
+  }
+ ],
+ "hinweis": "Verwaltet von tools/befund_journal.py --deklaration (#3495 V2). Jeder Eintrag braucht gueltig_bis; gelesen wird nur ueber deklarationen_fuer()."
+}

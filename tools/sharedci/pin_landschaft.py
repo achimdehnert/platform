@@ -19,10 +19,12 @@ import melder_ergebnis  # noqa: E402
 
 WERKZEUG_VERSION = "pin_landschaft/1"
 
-REPOS = """achimdehnert/travel-beat achimdehnert/recruiting-hub achimdehnert/137-hub
-achimdehnert/coach-hub achimdehnert/illustration-hub achimdehnert/pptx-hub
+# Archivierte Repos stehen hier nicht: ihr Pin bewegt sich nie mehr (coach-hub,
+# onboarding-hub, recruiting-hub entfernt 2026-10-02, platform#3677).
+REPOS = """achimdehnert/travel-beat achimdehnert/137-hub
+achimdehnert/illustration-hub achimdehnert/pptx-hub
 achimdehnert/weltenhub iilgmbh/ausschreibungs-hub iilgmbh/tax-hub achimdehnert/dev-hub
-achimdehnert/apo-hub achimdehnert/onboarding-hub achimdehnert/trading-hub
+achimdehnert/apo-hub achimdehnert/trading-hub
 achimdehnert/billing-hub achimdehnert/mcp-hub achimdehnert/dms-hub iilgmbh/risk-hub
 meiki-lra/frist-hub achimdehnert/decks-hub meiki-lra/meiki-hub
 iilgmbh/iil-voice-agent achimdehnert/bahn-hub achimdehnert/design-hub iilgmbh/desktop-setup iilgmbh/django-lms-lite iilgmbh/iil-fieldprefill iilgmbh/illustration-fw iilgmbh/nl2iot-hub achimdehnert/lastwar-bot achimdehnert/cad-hub achimdehnert/learn-hub achimdehnert/research-hub achimdehnert/dms-hub iilgmbh/iil-testkit""".split()

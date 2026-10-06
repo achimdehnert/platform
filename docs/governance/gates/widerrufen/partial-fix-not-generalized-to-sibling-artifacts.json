@@ -1,0 +1,9 @@
+{
+  "slug": "partial-fix-not-generalized-to-sibling-artifacts",
+  "declined_am": "2026-08-23",
+  "widerrufen_am": "2026-08-23",
+  "owner": "achim",
+  "ref": "Owner-Entscheid 2026-08-23 · Retro a84f71 Befund 1 · platform#2234",
+  "damalige_begruendung": "Meta-Muster wie oben: 'haettest du auch das Geschwister angefasst' ist erst im Rueckblick entscheidbar. Bemerkenswert dabei: der Slug hat sich am 2026-08-23 zweimal selbst bestaetigt (0.7.5 deckte die Hook-Lane, nicht die Skill-Lane; 0.7.13 deckte skills+commands, nicht `hooks`) — beide Male fiel es beim BAUEN auf, nicht durch einen Melder. Die wirksame Gegenmassnahme ist die Lane-Liste in 0.7.13, nicht ein Textscanner.",
+  "widerlegung": "Am selben Tag dreimal aufgetreten, jedes Mal mechanisch sichtbar: 0.7.5 deckte die Hook-Lane und nicht die Skill-Lane; 0.7.13 deckte `skills`+`commands` und nicht `hooks`; und der Default-Flip in `record()` wurde nur an den WARN-Zweigen nachgezogen, wodurch zwei PASS-Zweige fremde Repos als `platform` etikettierten (Retro a84f71 Befund 1, belegt an Zeile 152 und 391). Die Verzichts-Begruendung ('erst im Rueckblick entscheidbar') traegt damit nicht: in allen drei Faellen war die Geschwister-Stelle im selben Diff bzw. in derselben Aufzaehlung sichtbar. Ein Ansatz mit Messpunkt: beim Aendern eines Defaults oder beim Aufnehmen einer Lane pruefen, ob ALLE Aufrufstellen bzw. Lanes derselben Familie mitgezogen wurden."
+}

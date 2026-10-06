@@ -45,7 +45,7 @@ import sys
 from pathlib import Path
 
 # Maschinenlesbarer Kopf (KONZ-038 D8) — von tools/gate_drill_check.py gegen
-# docs/governance/gate-registry.json abgeglichen. Dieses Lint ist das Gate gegen
+# docs/governance/gates/ abgeglichen. Dieses Lint ist das Gate gegen
 # das Retro-Muster `ci-gate-maskiert-failure` (ein Melder, der beim Ausfall
 # schweigt, wird als "geprueft" gelesen): verdrahtet als CI-Lauf in
 # .github/workflows/silent-failure-lint.yml. Bestand seit d37acd9a, registriert

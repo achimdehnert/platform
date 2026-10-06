@@ -1,8 +1,8 @@
 ---
 id: ADR-249
 title: "Telefon-/Sprachagent als eigenständiges iilgmbh-Produkt: Swappable-Ports-Architektur + Souveränitäts-Profil, MVP mPA, erster regulierter Pilot meiki-hub"
-status: proposed
-decision_date: 2026-06-17
+status: accepted
+decision_date: 2026-09-22
 deciders: [Achim Dehnert]
 consulted: [Claude Code]
 informed: [iilgmbh, meiki-lra]
@@ -47,6 +47,30 @@ bauen, würde ein Produkt an einen Projektkontext koppeln.
 
 Wir bauen einen **eigenständigen Telefon-/Sprachagenten als Produkt** mit folgender
 Festlegung:
+
+### 2.0 Was dieses ADR NICHT beansprucht (Rev 2, Owner-Wort 2026-09-22)
+
+Dieses ADR regelt das **Produkt**: Telefonie/SIP, Mandanten, Souveränitäts-Profile,
+regulierte Pilotkunden. Es regelt **nicht** die Stimme des internen Assistenten.
+
+Der „Lotse" im Matrix-Raum des Owners (`iilgmbh/chat-hub`, KONZ-platform-060/061/062)
+hört und spricht seit 2026-09-22 per Sprachnachricht — lokal, ohne Mandanten, ohne
+Telefonie, für genau eine Person. Das ist **kein Produkt-Voice** und begründet auch
+keins: es ist ein Werkzeug des Owners in dem Repo, in dem seine Matrix-Sitzung und ihr
+Schlüsselspeicher ohnehin leben.
+
+**Die Grenze verläuft an der Frage, wer spricht:** Spricht ein Mandant oder ein Bürger,
+gilt dieses ADR und der Code gehört nach `iilgmbh/iil-assist-voice`. Spricht der Owner
+mit seinem eigenen Assistenten, gilt es nicht.
+
+Zwei Folgen, damit die Grenze nicht erodiert:
+- Was im `chat-hub` an Sprache entsteht, wird **nicht** zur Produkt-Implementierung
+  erklärt und nicht dorthin kopiert; umgekehrt übernimmt der Lotse keine
+  Produkt-Bausteine. Wiederverwendung ja — aber als bewusster Schritt mit
+  Amendment, nicht beiläufig.
+- Ein **Gespräch** (Vollduplex, Barge-in) im Lotsen berührt G-4/G-9 dieses ADR
+  inhaltlich. Dafür gilt KONZ-platform-062: Vorprüfungen zuerst, Bauentscheidung
+  danach — und wenn gebaut wird, mit einem Amendment hier, nicht daran vorbei.
 
 ### 2.1 Heimat & Schnitt
 - **Code-Owner-Org/Repo: `iilgmbh/iil-voice-agent`** (neues Produkt-Repo; Name bestätigt
@@ -227,6 +251,18 @@ MEiKI-Temporal-RAG (ADR-006) wird als Knowledge-Profil wiederverwendet.
 **Trade-offs / offen:** Voice-Runtime on-prem ist Langläufer (G-6); telefon-taugliche
 Latenz separater Schritt (G-4); mPA-Auth/PII-Aufwand (G-5); samwin-Referenz vs.
 Eigenbau-Entscheidung endgültig zu bestätigen.
+
+**Nachtrag Rev 2 (2026-09-22, bei der Annahme):** Zwischen Vorschlag und Annahme lagen
+drei Monate, in denen zwei Dinge geschahen, die hier festgehalten gehören. Das
+Produkt-Repo wurde **vor** der Annahme angelegt (entgegen §2.1 „Anlage deferred bis
+Merge") und trägt seither ein Gerüst ohne Deploy; ein `VoicePort` mit
+`transcribe(bytes) -> str` / `synthesize(str) -> bytes` steht dort, **Batch, ohne
+Ströme und ohne Abbruch** — für Vollduplex (G-4) ist er so nicht tragfähig und braucht
+beim ersten echten Telefonie-Schritt ein Amendment. Parallel entstand im `chat-hub` eine
+laufende, gemessene Sprachstrecke für den internen Assistenten (§2.0), die dieses ADR
+ausdrücklich **nicht** einschließt. Ein `proposed`-ADR konnte diese Doppelung drei Monate
+lang weder verbieten noch legitimieren — genau deshalb wird jetzt entschieden statt
+weiter offengelassen.
 
 ## 6. Nächste Schritte
 

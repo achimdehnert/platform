@@ -6,7 +6,7 @@ tier: T3
 owner: Achim Dehnert
 spec_refs: []        # Infrastruktur-/Governance-Konzept, keine App-Spec
 adr_threshold: "ADR nötig — Security-Perimeter + Cross-Repo. Erst NACH G1 (Workflow-Experiment), sonst baut der ADR auf einer ungeprüften Annahme."
-review_by: 2026-09-15
+review_by: 2026-10-31   # erneuert Owner 2026-09-16 (Frist 2026-09-15 verstrich unbemerkt); Umsetzung: #3234
 kill_criteria: "K1–K4 in §9; hart: bricht nach dem Schnitt CI in ≥1 öffentlichem Konsumenten länger als 24 h, wird zurückgedreht"
 superseded_by_spec: null
 evidence_manifest:
@@ -210,8 +210,9 @@ org-weit und träfe genau die Repos, die publiziert werden.
 | K2 | Konsumenten-Scan über **alle vier Owner**, beide Methoden vereinigt | vor der Umsetzung | ✅ 2026-08-02 — Union Code-Suche (4 Owner) + lokaler Grep: **26 Repos, 12 PUBLIC** (11 externe + platform selbst), 14 privat; Owner mit Konsumenten: achimdehnert, iilgmbh, meiki-lra; ttz-lif = 0 (Suche fand bei denselben Queries andere Owner → kalibriert). Bleibt untere Schranke: Suche fand mcp-hub, das der lokale Grep nicht traf, und umgekehrt 22 Repos ohne Such-Index-Treffer |
 | K3 | Divergenz zwischen `shared-ci` und `platform` | > 0 Dateien doppelt ⇒ Schnitt falsch geführt | ⬜ offen |
 | K4 | CI-Bruch in einem öffentlichen Konsumenten | > 24 h ⇒ zurückdrehen | ⬜ offen |
+| K5 | Melder `sichtbarkeits-drift` 7 Tage in Folge 0 / 0 / 1 / 0 (Caller / Raw / Kopien / Fristen) | vor dem Flip | ⬜ offen — Umsetzung [#3234](https://github.com/achimdehnert/platform/issues/3234) |
 
-**Exception-Budget:** bis `review_by` 2026-09-15. Liegt bis dahin kein G1-Ergebnis vor, wird
+**Exception-Budget:** bis `review_by` 2026-10-31 (erneuert Owner 2026-09-16; die erste Frist 2026-09-15 verstrich unbemerkt, weil keine Überwachung existierte — daher zählt der Melder in #3234 auch abgelaufene Konzept-Fristen). Ursprünglich: bis 2026-09-15. Liegt bis dahin kein G1-Ergebnis vor, wird
 dieses Konzept auf `stale` gesetzt und Variante A (nur Bereinigung + Routine-Korrektur) als
 Rückfall umgesetzt — ein Konzept, das ein Jahr auf einen Viertelstunden-Check wartet, ist keine
 Entscheidungsvorlage mehr.

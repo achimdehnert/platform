@@ -146,6 +146,40 @@ def test_should_report_cancelled_run_as_not_red():
     assert cmc.rote_serien(runs, 3) == {}
 
 
+# --- veraltete_serien --------------------------------------------------------
+
+_JETZT = cmc.datetime(2026, 10, 2, 12, 0, tzinfo=cmc.timezone.utc)
+
+
+def test_should_flag_red_series_whose_newest_run_is_months_old():
+    """Realfall 2026-10-02: `ADR Nightly Metrics (3x seit 2026-06-20)` bei taeglich gruen.
+
+    Die API lieferte eine alte rote Serie; ohne Altersgrenze wurde sie als
+    blinder Melder gemeldet.
+    """
+    runs = [_lauf(f"2026-06-2{i}T03:00:00Z") for i in range(0, 3)]
+    serien = cmc.rote_serien(runs, 3)
+    assert cmc.veraltete_serien(serien, _JETZT, 21) == {"Melder": "2026-06-22"}
+
+
+def test_should_keep_fresh_red_series_as_finding():
+    runs = [_lauf(f"2026-10-0{i}T03:00:00Z") for i in range(0, 3)]
+    serien = cmc.rote_serien(runs, 3)
+    assert cmc.veraltete_serien(serien, _JETZT, 21) == {}
+
+
+def test_should_keep_biweekly_schedule_within_default_age():
+    """Der seltenste Zeitplan (2.+16. des Monats) darf nicht als veraltet gelten."""
+    runs = [_lauf(f"2026-{m}T06:23:00Z") for m in ("09-16", "09-02", "08-16")]
+    serien = cmc.rote_serien(runs, 3)
+    assert cmc.veraltete_serien(serien, _JETZT, cmc.MAX_ALTER_TAGE) == {}
+
+
+def test_should_treat_unreadable_run_date_as_stale():
+    serien = {"Melder": {"serie": 3, "seit": "", "letzter": "", "url": ""}}
+    assert cmc.veraltete_serien(serien, _JETZT, 21) == {"Melder": "unbekannt"}
+
+
 def test_should_have_retired_both_backup_workflows_from_scheduled_scan():
     """RUECKBAU R2 (2026-09-07, KONZ-054 §12.6, #2506): beide Melder liefen
     dauerhaft rot per Design ohne neuen Erkenntnisgewinn — backup-meter immer im

@@ -128,7 +128,9 @@ def test_should_close_the_run_and_empty_the_sluice_when_every_proof_is_green(umg
     einzeln["shared"]["ATTRAPPE_TOKEN"]["consumers"] = [
         INVENTAR["shared"]["ATTRAPPE_TOKEN"]["consumers"][0]
     ]
-    Path(a.inventar).write_text(yaml.safe_dump(einzeln, allow_unicode=True), encoding="utf-8")
+    Path(a.inventar).write_text(
+        yaml.safe_dump(einzeln, allow_unicode=True), encoding="utf-8"
+    )
     treiber = AttrappenTreiber("ok")
     assert cli.cmd_lauf(a, treiber) == 0
 
@@ -142,7 +144,9 @@ def test_should_close_the_run_and_empty_the_sluice_when_every_proof_is_green(umg
     assert "ATTRAPPE-1234" not in log.read_text(encoding="utf-8")
 
 
-def test_should_keep_the_sluice_when_a_partial_run_leaves_provable_consumers(umgebung, capsys):
+def test_should_keep_the_sluice_when_a_partial_run_leaves_provable_consumers(
+    umgebung, capsys
+):
     """#2840: --nur schliesst den Lauf, aber die Schleuse gehoert dem Secret."""
     a, quelle, log = umgebung
     a.nur = "iilgmbh/risk-hub"
@@ -245,12 +249,20 @@ def test_should_count_due_without_beleg_and_stale_files(tmp_path):
     alt = schleuse / "irgendein-token.txt"
     alt.write_text("ATTRAPPE", encoding="utf-8")
     import os
-    import time
+    from datetime import datetime, timedelta
 
-    os.utime(alt, (time.time() - 30 * 86400, time.time() - 30 * 86400))
+    # Alter relativ zum Stichtag, nicht zu time.time(): der Vergleich in
+    # inventar.altlasten() laeuft gegen `heute` (unten 2026-09-04). Relativ zur
+    # Wanduhr wurde die Datei mit jedem Kalendertag "juenger" und fiel am
+    # 2026-09-27 genau auf ALTLAST_TAGE (7 > 7 ist falsch) — main rot.
+    stichtag = date(2026, 9, 4)
+    alt_ts = datetime.combine(
+        stichtag - timedelta(days=30), datetime.min.time()
+    ).timestamp()
+    os.utime(alt, (alt_ts, alt_ts))
     (schleuse / "notizen.md").write_text("kein Schluesselmaterial", encoding="utf-8")
 
-    b = cli.sammle_faelligkeit(inv, tmp_path / "leer.jsonl", schleuse, date(2026, 9, 4))
+    b = cli.sammle_faelligkeit(inv, tmp_path / "leer.jsonl", schleuse, stichtag)
     assert b["secrets"] == 1
     assert b["faellig"] == ["ATTRAPPE_TOKEN"]
     # 1 von 3 ohne proof: der Gov-Org-Konsument HAT einen Beleg — abgelehnt wird

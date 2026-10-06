@@ -19,7 +19,7 @@ def _run(registry_path):
 
 
 def test_should_echte_registry_komplett_gruen_drillen():
-    r = _run(Path(TOOL).parents[1] / "docs" / "governance" / "gate-registry.json")
+    r = _run(Path(TOOL).parents[1] / "docs" / "governance" / "gates")
     assert r.returncode == 0, r.stderr
     assert "K4: NICHT GEBAUT" not in r.stdout, r.stdout
     assert "alle registrierten Gates Drill-frisch" in r.stdout

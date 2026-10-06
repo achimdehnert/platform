@@ -25,6 +25,11 @@ import argparse
 import json
 from datetime import date, datetime
 from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from privat_datei import schreibe_privat  # noqa: E402
 
 LEDGER = Path.home() / ".claude" / "mail-vorgaenge.json"
 ARCHIV = Path.home() / ".claude" / "mail-vorgaenge-erledigt.json"
@@ -118,12 +123,8 @@ def main() -> int:
             v for v in wandert if v.get("nr") not in vorhanden
         ]
         ledger["vorgaenge"] = bleibt
-        ap_.write_text(
-            json.dumps(archiv, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
-        lp.write_text(
-            json.dumps(ledger, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
+        schreibe_privat(ap_, json.dumps(archiv, ensure_ascii=False, indent=2))
+        schreibe_privat(lp, json.dumps(ledger, ensure_ascii=False, indent=2))
         print(f"Geschrieben: {lp.name} + {ap_.name}")
     else:
         print("(Anzeige — mit --apply werden Ledger und Archiv geschrieben.)")

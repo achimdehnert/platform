@@ -1,0 +1,19 @@
+{
+  "slug": "hand-distributed-copy-not-redistributed",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": "tools/hook-dist-drift.sh",
+  "drill": "tools/tests/test_hook_dist_drift.py",
+  "built": "2026-08-15",
+  "ref": "platform#1991 · gestrichen per Owner-Entscheid E4 (platform#2606)",
+  "revised": "2026-08-23",
+  "revision_note": "Ausweitung am AUSLOESEZEITPUNKT (platform#2143), nicht am Muster. Das Gate war nie stumm — es meldete korrekt, und der Rueckfall passierte trotzdem 2x. Die Diagnose stand schon in Retro 9d861a: die Luecke ist der Zeitpunkt, nicht der Melder. Zwischen Merge und naechstem Sitzungsstart ist die aktive Kopie alt, und eine Meldung, auf deren Befolgung man sich verlaesst, ist wieder Disziplin. Runner-Phase 0.7.5 heilt jetzt selbst (cc-skill-dist Lane `claude-hooks`, merge-Modus mit Backup, Quelle origin/main statt Arbeitsbaum) und meldet nur noch, wenn die Heilung NICHT gelingt. Positivkontrolle im HOME-Sandkasten gefahren: kuenstliche Drift -> DRIFT -> Heilung -> OK, 13 Dateien.",
+  "faengt": [
+    {
+      "fall": "aktive Hook-Kopie weicht von der Quelle ab",
+      "probe": "drift"
+    }
+  ],
+  "decided": "2026-09-02",
+  "reason": "Selbstheilend seit der Ausweitung am 2026-08-23: Runner-Phase 0.7.5 verteilt die aktive Hook-Kopie aus origin/main neu und meldet nur noch, wenn die HEILUNG misslingt. Damit ist der Melder wertvoll, das Gate aber gegenstandslos — es gatete einen Zustand, den derselbe Lauf eine Zeile spaeter behebt. Melder bleibt (module/drill unveraendert, Phase 0.7.5); als Schranke gestrichen."
+}

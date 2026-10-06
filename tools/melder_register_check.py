@@ -6,7 +6,8 @@ Phasen im Runner (`tools/session_start_checks.sh`), aber kein einziger trug eine
 Trefferquote, eine Wiedervorlage-Frist oder einen benannten Leser AUSSER dort, wo
 `.windsurf/workflows/session-start.md` es zufaellig in Prosa erwaehnte. Ein Melder
 ohne Leser ist ein Melder, der niemanden erreicht — dieselbe Klasse wie ein rueck-
-faelliges Gate (0.7.7), nur auf der Registrierungsseite.
+faelliges Gate (`tools/gate_wirkung.py`, geprueft in `/session-retro` Phase 0.0/5a),
+nur auf der Registrierungsseite.
 
 `governance/melder-register.yaml` ist die Registry: ein Eintrag je Runner-Phase mit
 `leser`, `wiedervorlage_tage`, `praezision_min`, `mindest_laeufe`, `runbook`. Dieses
@@ -56,9 +57,9 @@ import yaml
 # abgleichen — ein Erzwingungspunkt, den die Buchhaltung nicht kannte.
 GATE_HEADER = {
     "slug": "melder-ohne-leser",
-    "mode": "advisory",
+    "mode": "blocking",
     "owner": "achim",
-    "last_drill_pass": "2026-09-07",
+    "last_drill_pass": "2026-10-05",
     "evidence": "tools/tests/test_melder_register_check.py",
 }
 

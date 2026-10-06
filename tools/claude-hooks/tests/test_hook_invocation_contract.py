@@ -11,17 +11,20 @@ importlib-Drills sagen.
 
 from __future__ import annotations
 
-import json
 import os
 import subprocess
+import sys as _sys
 from pathlib import Path
 
 import pytest
 
 REPO = Path(__file__).resolve().parents[3]
-REGISTRY = REPO / "docs" / "governance" / "gate-registry.json"
+_sys.path.insert(0, str(REPO / "tools"))
+import gate_registry as _gate_registry  # noqa: E402  (Einzeldateien, #1944 K7)
 
-_gates = json.loads(REGISTRY.read_text(encoding="utf-8"))["gates"]
+REGISTRY = REPO / "docs" / "governance" / "gates"
+
+_gates = _gate_registry.laden(str(REGISTRY))["gates"]
 
 
 def _module_pfade(gate: dict) -> list[str]:
@@ -34,8 +37,11 @@ def _module_pfade(gate: dict) -> list[str]:
     je Gate. Erlaubt sind String, kommagetrennte Liste und JSON-Liste.
     """
     roh = gate.get("module") or ""
-    teile = [str(x).strip() for x in roh] if isinstance(roh, list) \
+    teile = (
+        [str(x).strip() for x in roh]
+        if isinstance(roh, list)
         else [x.strip() for x in str(roh).split(",")]
+    )
     return [x for x in teile if x]
 
 

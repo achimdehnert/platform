@@ -14,7 +14,7 @@ Zwei Modi:
                                        noch NICHT verdrahtet, s. u.).
 
   --sweep [--root DIR]                Sweep-Modus: alle lokalen Repo-Checkouts
-                                       unter --root (Default ~/github) scannen.
+                                       unter --root (Default $GITHUB_DIR) scannen.
 
 ⚠️ Scope-Ehrlichkeit (wire-before-extend, KONZ-015-Lehre): dieses Tool prüft
 GIT-GETRACKTE Dateien (.env.prod, .env.staging, docker-compose*.yml) auf dem
@@ -36,10 +36,14 @@ Exit-Codes: 0 = keine Treffer, 1 = Treffer (FUND, kein Tool-Fehler), 2 = Tool-/C
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
 import yaml
+
+# Fleet liegt unter $GITHUB_DIR bzw. ~/github (Muster pypi_fleet_inventory.py, #2629).
+GITHUB_DIR = Path(os.environ.get("GITHUB_DIR", str(Path.home() / "github")))
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CANON_PATH = REPO_ROOT / "registry" / "canonical.yaml"
@@ -121,7 +125,7 @@ def cmd_gate(args: argparse.Namespace) -> int:
             "INFO: keine decommissioned-Einträge in registry/canonical.yaml — nichts zu prüfen."
         )
         return 0
-    repo_dir = Path.home() / "github" / args.repo
+    repo_dir = GITHUB_DIR / args.repo
     if not repo_dir.is_dir():
         print(f"FEHLER: Repo-Checkout nicht gefunden: {repo_dir}", file=sys.stderr)
         return 2
@@ -182,7 +186,7 @@ def main() -> int:
     sub = parser.add_subparsers(dest="mode", required=True)
 
     gate = sub.add_parser("gate", help="Ein Repo gegen decommissioned: prüfen")
-    gate.add_argument("--repo", required=True, help="Repo-Name unter ~/github/")
+    gate.add_argument("--repo", required=True, help="Repo-Name unter $GITHUB_DIR/")
     gate.add_argument(
         "--env-file",
         action="append",
@@ -194,8 +198,8 @@ def main() -> int:
     sweep = sub.add_parser("sweep", help="Alle lokalen Repo-Checkouts scannen")
     sweep.add_argument(
         "--root",
-        default="~/github",
-        help="Wurzelverzeichnis der Checkouts (Default ~/github)",
+        default=str(GITHUB_DIR),
+        help="Wurzelverzeichnis der Checkouts (Default $GITHUB_DIR bzw. ~/github)",
     )
     sweep.set_defaults(func=cmd_sweep)
 

@@ -72,6 +72,12 @@ Reißt eines der ersten beiden Kriterien, wird der Deploy zurückgenommen und `n
 auf ruhend gesetzt. Exception-Budget: einmalige Verlängerung bis 2026-10-23, wenn die
 Ursache eine fehlende Quelle ist und ein Abonnement bereits läuft.
 
+**Mitgehängt:** [KONZ-platform-063](KONZ-platform-063-technologiescreening-aus-der-morgen-zeitung.md)
+(Technologiescreening) liest denselben Bestand und stirbt am selben Tag — zieht dieses
+Kill-Gate, wird auch dort `pipeline_status` auf `sunset` gesetzt und
+`tools/screening_backtest.py` gelöscht. Ohne diese Zeile bliebe ein Leser ohne Quelle
+zurück, der weiterläuft und weiter zahlt.
+
 ## Alternativen
 
 | # | Alternative | Warum nicht |

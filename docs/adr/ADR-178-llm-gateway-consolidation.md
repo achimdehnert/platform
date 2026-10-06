@@ -165,3 +165,25 @@ Keep both running, document clearly, address later.
 | Conversation History | ❌ | ✅ | Last 10 messages |
 
 **Conclusion**: V2 is a strict superset of V1. Deleting V1 loses nothing.
+
+## Nachtrag 2026-09-23 — HTTP-Dienst `llm_gateway` stillgelegt
+
+**Befund:** Auf prod lief `llm_gateway` nicht mehr: 0 Container, 0 Images, 0 Volumes auf
+prod, prod-b und odoo. Das Overlay `docker-compose.llm-mcp.yml` gehörte nicht zum
+Haupt-Deploy, deshalb hat `up --remove-orphans` den Container als Waise entfernt, und
+niemand hat es bemerkt. Die Verbraucher-Suche über alle Repos ergab keinen lebenden
+Verbraucher. Nur das eingefrorene bfagent deklariert den Dienst noch, und bfagent läuft
+auf keinem Host.
+
+**Entscheid** ([mcp-hub#285](https://github.com/achimdehnert/mcp-hub/issues/285),
+vom Owner delegiert in [#3256](https://github.com/achimdehnert/platform/issues/3256)):
+**Stilllegen.** In mcp-hub entfallen Overlay, `llm-gateway-build.yml` und
+`llm_gateway/Dockerfile` ([mcp-hub#286](https://github.com/achimdehnert/mcp-hub/pull/286)).
+Der ports.yaml-Eintrag `llm-mcp` wird auf `stillgelegt` gesetzt.
+
+**Folgen für diesen ADR:** Phase 2 Punkt 7 („Rebuild image + deploy — pending") und
+Phase 3 werden nicht mehr umgesetzt. Die Konsolidierung auf ein Modul `llm_gateway/`
+bleibt gültig. Das Paket bleibt im Repo, weil die Prod-Timer `daily-llm-digest` und
+`llm-task-descriptions-backfill` `llm_gateway.task_descriptions` aufrufen. Den HTTP-Dienst
+gibt es nicht mehr. Wer ihn wieder braucht, nimmt ihn in `docker-compose.prod.yml` auf
+(wie `rag_mcp` in mcp-hub#239) und nicht in ein Overlay.

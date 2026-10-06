@@ -24,10 +24,24 @@ Freigabe (Wortlaut / Artefakt-Link, falls Prod/Publish/3.-Repo): <!-- z.B. "User
 
 ## Issue-Bezug
 
-<!-- WICHTIG (session-retro 2026-07-02, SI-1): `Closes #N` nur ankreuzen, wenn ALLE
-     Akzeptanzkriterien des Issues erfüllt sind. Ein offener Punkt → `Refs #N` nutzen
-     ODER vor dem Merge ein Folge-Issue anlegen und hier verlinken. -->
+<!-- ZIEL (Owner 2026-09-21): Issues und PRs sollen so schnell wie moeglich
+     geschlossen werden und verschwinden. Der Standardfall ist deshalb `Closes`,
+     nicht `Refs`.
 
-- [ ] Alle Akzeptanzkriterien des referenzierten Issues sind erfüllt (sonst `Refs #N` statt `Closes #N`, Folge-Issue verlinkt)
+     ACHTUNG, zwei gemessene Fallen:
 
-Refs #<!-- N -->
+     1. GitHub kennt NUR englische Schluesselwoerter — Closes / Fixes / Resolves.
+        "Schliesst #N" auf Deutsch bewirkt NICHTS. Realfall platform#3334: der
+        Fix war gemergt, das Issue #3333 blieb offen stehen.
+     2. Eine nackte Nummer (`#3337`) verknuepft ebenfalls nichts. Am 2026-09-21
+        taten das 53 % von 120 gemergten PRs, weitere 17 % schrieben `Refs` —
+        Ergebnis: genau EIN offenes Issue von 445 hatte einen verknuepften PR.
+
+     `Refs` bleibt richtig, wenn der PR das Issue nachweislich NICHT erledigt.
+     Dann gehoert ein Grund dazu, in dieselbe Zeile (session-retro 2026-07-02,
+     SI-1: `Closes` nur, wenn ALLE Akzeptanzkriterien erfuellt sind). -->
+
+- [ ] Alle Akzeptanzkriterien des Issues sind erfuellt -> unten `Closes #N`
+- [ ] Nicht erfuellt -> `Refs #N` **mit Grund in derselben Zeile**
+
+Closes #<!-- N — oder die Zeile loeschen und stattdessen: Refs #N — Teil von; offen bleibt <…> -->

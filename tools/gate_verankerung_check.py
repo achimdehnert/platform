@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """gate_verankerung_check.py — darf dieses Gate ueberhaupt verankert werden?
 
-Ein Gate, das in `docs/governance/gate-registry.json` steht, gilt im ganzen Loop
+Ein Gate, das in `docs/governance/gates/` steht, gilt im ganzen Loop
 als **gebaut**: `retro_kpis.py` nimmt seinen Slug aus der GATE-PFLICHT-Liste,
 `gate_wirkung.py` fuehrt ihn im Laengsschnitt, der Session-Start meldet ihn als
 Schranke. Der Eintrag ist damit eine Behauptung ueber Wirkung — und bis heute
@@ -66,6 +66,9 @@ import re
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import gate_registry  # noqa: E402  (Einzeldateien, #1944 K7)
+
 GATE_HEADER = {
     "slug": "gate-anchored-without-drill-or-control",
     "mode": "advisory",
@@ -75,7 +78,7 @@ GATE_HEADER = {
 }
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DEFAULT_REGISTRY = os.path.join(REPO_ROOT, "docs", "governance", "gate-registry.json")
+DEFAULT_REGISTRY = gate_registry.DEFAULT_PFAD
 
 #: Das Repo, dessen Drill-Pfade dieser Pruefer wirklich aufloesen kann —
 #: identisch zu `gate_drill_check.EIGENES_REPO` (bewusst dupliziert statt
@@ -141,8 +144,11 @@ def pruefe_drill(gate: dict, repo: str = REPO_ROOT) -> str | None:
         if not (gate.get("ref") or "").strip():
             return f"fremd verankert ({gate.get('repo')}) ohne `ref` — Drill nicht belegbar"
         return None
-    fehlend = [d for d in pfade
-               if not os.path.isfile(d if os.path.isabs(d) else os.path.join(repo, d))]
+    fehlend = [
+        d
+        for d in pfade
+        if not os.path.isfile(d if os.path.isabs(d) else os.path.join(repo, d))
+    ]
     if fehlend:
         return "Drill-Datei fehlt: " + ", ".join(fehlend)
     return None
@@ -220,38 +226,26 @@ def _kern(gate: dict) -> dict:
 
 
 def lade_registry(pfad: str) -> list[dict]:
-    with open(pfad, encoding="utf-8") as fh:
-        return json.load(fh).get("gates", [])
+    return gate_registry.laden(pfad).get("gates", [])
 
 
-def lade_basis(basis: str, registry_pfad: str, repo: str = REPO_ROOT) -> list[dict]:
-    """Gates der Vergleichsbasis. Datei-Pfad ODER Git-Ref.
+def lade_basis(basis: str, repo: str = REPO_ROOT) -> list[dict]:
+    """Gates der Vergleichsbasis. Datei-/Verzeichnis-Pfad ODER Git-Ref.
+
+    Auf einem Ref liest `gate_registry` die Einzeldateien und faellt auf die
+    fruehere Sammeldatei zurueck, solange die Basis vor der Aufteilung liegt.
 
     Wirft `RuntimeError`, wenn die Basis nicht lesbar ist — der Aufrufer macht
     daraus Exit 2. Ein Pruefer, der ohne Basis stillschweigend „nichts neu"
     meldet, waere genau der blinde Melder, den dieses Gate verhindern soll.
     """
-    if os.path.isfile(basis):
-        with open(basis, encoding="utf-8") as fh:
-            return json.load(fh).get("gates", [])
-    rel = os.path.relpath(registry_pfad, repo)
     try:
-        out = subprocess.run(
-            ["git", "show", f"{basis}:{rel}"],
-            capture_output=True,
-            text=True,
-            cwd=repo,
-            timeout=60,
-        )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        raise RuntimeError(f"`git show {basis}:{rel}` fehlgeschlagen: {exc}") from exc
-    if out.returncode != 0:
-        raise RuntimeError(
-            f"Basis nicht lesbar: `git show {basis}:{rel}` → {out.stderr.strip()}"
-        )
-    try:
-        return json.loads(out.stdout).get("gates", [])
-    except json.JSONDecodeError as exc:
+        if os.path.exists(basis):
+            return gate_registry.laden(basis).get("gates", [])
+        return gate_registry.laden(ref=basis, repo=repo).get("gates", [])
+    except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
+        raise RuntimeError(f"Basis nicht lesbar ({basis}): {exc}") from exc
+    except ValueError as exc:
         raise RuntimeError(f"Basis-Registry nicht parsebar: {exc}") from exc
 
 
@@ -378,7 +372,7 @@ def main(argv: list[str] | None = None) -> int:
         return lauf_alle(gates, args.repo)
 
     try:
-        basis = lade_basis(args.basis, args.registry, args.repo)
+        basis = lade_basis(args.basis, args.repo)
     except RuntimeError as exc:
         print(f"⚠ {exc}")
         return 2

@@ -1,0 +1,10 @@
+[Unit]
+Description=Sichtbarkeits-Drift platform taeglich 06:25 UTC (nach dem Flottenbild 06:10)
+
+[Timer]
+OnCalendar=*-*-* 06:25:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

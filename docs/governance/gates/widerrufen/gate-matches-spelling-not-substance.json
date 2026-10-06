@@ -1,0 +1,9 @@
+{
+  "slug": "gate-matches-spelling-not-substance",
+  "declined_am": "2026-08-23",
+  "widerrufen_am": "2026-08-23",
+  "owner": "achim",
+  "ref": "Owner-Entscheid 2026-08-23 · Retro a84f71 Befund 5 · platform#2234",
+  "damalige_begruendung": "Meta-Muster. Kein Scanner kann generisch erkennen, dass ein Gate die Schreibweise statt der Sache trifft — das faellt erst auf, wenn der Befund trotz Gate wiederkommt. Genau diese FOLGE wird bereits gemessen (`gate-rueckfall-unbemerkt`, Phase 0.7.7), und die konkreten Instanzen bekamen konkrete Antworten: #2216 (Zusage-Typ statt Wortlaut) und #2225 (Reichweite an der Wirkung). Ein zusaetzliches Meta-Gate haette keinen eigenen Messpunkt.",
+  "widerlegung": "Am selben Tag widerlegt, und zwar mechanisch: das als `blocking` registrierte Gate `lint-failure-no-local-gate` fuehrt seit dem Bau am 2026-08-04 `ruff format --check` aus — Layout statt Lint. Ein Experiment genuegte: dieselbe Datei, sauber formatiert, mit E402 -> `ruff format --check` exit 0, `ruff check` meldet zweimal E402. Die Verzichts-Begruendung lautete, kein Scanner koenne generisch erkennen, dass ein Gate die Schreibweise statt der Sache trifft. Fuer diesen Fall reichte eine Frage, die sich maschinell stellen laesst: loest der registrierte Drill den Fall aus, der im Slug-Namen steht? Nachfolge-Vorschlag: `gate-modul-prueft-weniger-als-sein-name` (Retro a84f71, `gate_candidates`)."
+}

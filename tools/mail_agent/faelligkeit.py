@@ -36,6 +36,10 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from privat_datei import schreibe_privat  # noqa: E402
+
 LEDGER = Path.home() / ".claude" / "mail-vorgaenge.json"
 #: Der gekappte Teil des Verlaufs. Ohne ihn fehlen die aelteren GESENDET-Eintraege
 #: — gemessen: vier von zehn wartenden Vorgaengen hatten "kein datierter Versand",
@@ -92,7 +96,7 @@ def index_lesen(seit: str, limit: int, cache: Path | None) -> list[dict]:
         raise RuntimeError(f"Mail-Index nicht erreichbar: {roh.stderr[:200]}")
     daten = json.loads(roh.stdout)
     if cache:
-        cache.write_text(json.dumps(daten, ensure_ascii=False), encoding="utf-8")
+        schreibe_privat(cache, json.dumps(daten, ensure_ascii=False))
     return daten.get("treffer", [])
 
 
@@ -321,8 +325,8 @@ def main() -> int:
         }
 
     if args.schreibe:
-        Path(args.schreibe).write_text(
-            json.dumps(ergebnis, ensure_ascii=False, indent=2), encoding="utf-8"
+        schreibe_privat(
+            Path(args.schreibe), json.dumps(ergebnis, ensure_ascii=False, indent=2)
         )
         print(f"\nGeschrieben: {Path(args.schreibe).name} ({len(ergebnis)} Vorgaenge)")
     return 0

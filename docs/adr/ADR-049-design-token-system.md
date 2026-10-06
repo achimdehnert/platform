@@ -4,8 +4,11 @@ decision_date: 2026-02-21
 deciders: Achim Dehnert
 implementation_status: implemented
 implementation_evidence:
-  - "static/platform/css/pui-tokens.css: CSS Custom Properties (Layer 1, runtime), Prefix --pui-"
-  - "shared/tailwind/tailwind.config.shared.js: Tailwind-Bridge (Layer 2, build-time)"
+  - "path: static/platform/css/pui-tokens.css — CSS Custom Properties (Layer 1, runtime), Prefix --pui-"
+  - "path: shared/tailwind/tailwind.config.shared.js — Tailwind-Bridge (Layer 2, build-time)"
+  - "path: tools/check_design_tokens.py — Pre-Commit-Gate gegen hartkodierte Farben statt Tokens"
+  - "test: tools/tests/test_check_design_tokens.py"
+  - "pr: platform#1399 — --pui-warning-text (BITV) + ADR-049-Nachtrag (Akzent != Textfarbe)"
 ---
 
 # ADR-049: Design Token System -- CSS Custom Properties + Tailwind Bridge

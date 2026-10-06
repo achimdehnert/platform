@@ -1,0 +1,7 @@
+# Pilot-Repos der Sandbox-Werkstatt (ADR-308, Repo-Zugehoerigkeit) — eine Quelle je Zeile.
+# Gelesen von zustand.py und sandbox.sh; nur diese Quellen werden gespiegelt.
+achimdehnert/platform
+achimdehnert/dev-hub
+achimdehnert/mcp-hub
+achimdehnert/decks-hub
+iilgmbh/chat-hub

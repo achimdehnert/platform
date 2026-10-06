@@ -12,7 +12,6 @@ on:
       - '.github/workflows/*.yml'
       - '.github/actions/**'
       - 'scripts/checks/publish_gate_invariant.sh'
-      - 'scripts/checks/no_docker_actions_in_deploy.sh'
       # Ohne diese Zeile prueft der Gate seine eigene Konfiguration nie vor dem
       # Merge: der push-Trigger unten kennt den Pfad, der pull_request-Trigger
       # kannte ihn nicht. Ein PR, der nur actionlint.yaml aendert, loeste den Job
@@ -30,7 +29,6 @@ on:
       - '.github/workflows/*.yml'
       - '.github/actions/**'
       - 'scripts/checks/publish_gate_invariant.sh'
-      - 'scripts/checks/no_docker_actions_in_deploy.sh'
       - '.github/actionlint.yaml'
       - 'tools/check_publish_oidc_auth.py'
       - 'tools/oidc_allowlist.txt'
@@ -41,18 +39,11 @@ permissions:
   contents: read
 
 jobs:
-  # Eigener Job statt Step im `validate`-Job. In shared-ci angelegt, als dessen
-  # letzter Step dauerhaft rot war und jeder Step danach nie lief — ein Waechter
-  # hinter einem roten Step meldet nichts. Bleibt eigenstaendig, damit sein
-  # Status unabhaengig von Lint-/Struktur-Befunden lesbar ist.
-  no-docker-actions:
-    name: "Keine Docker-Actions in Deploy-Reusables"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Actions aufloesen und auf runs.using pruefen (platform#1845)
-        run: bash scripts/checks/no_docker_actions_in_deploy.sh
-
+  # Der Waechter "Keine Docker-Actions in Deploy-Reusables" (platform#1845) lief
+  # hier bis 2026-09-23. Die Deploy-Reusables leben seitdem nur noch in
+  # iilgmbh/shared-ci (Owner-Entscheid #3398); ohne sie haette der Job 0 Refs
+  # geprueft und gruen gemeldet. Dieselbe Pruefung laeuft in shared-ci auf den
+  # Dateien selbst (validate-workflows.yml, Job no-docker-actions).
   validate:
     name: "Validate Syntax"
     runs-on: ubuntu-latest

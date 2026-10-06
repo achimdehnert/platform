@@ -58,6 +58,13 @@ _ARCH_FLOTTE = {"amd64", "x86_64"}
 # der Block existiert, damit die Auflage einen Beleg traegt.
 _AUFLAGE_FELDER = {
     "datenklassen_verboten",  # Liste aus _DATENKLASSEN
+    # Mapping {klasse, zulaessig_heute, vor_echten_daten_zu_klaeren} — eine Datenklasse,
+    # die hier nicht verboten, aber auch nicht vorbehaltlos erlaubt ist, weil der Knoten
+    # der PRUEFFALL fuer sie ist. Eingefuehrt 2026-09-23 fuer die gx10: das pauschale
+    # MEiKI-Verbot schloss genau die On-Premise-Pruefung aus, fuer die der Knoten da ist
+    # (KONZ-platform-053 Rev 1). Ohne dieses Feld bleiben nur zwei Zustaende — verboten
+    # oder stillschweigend erlaubt — und die Bedingung stuende in keinem Werkzeug.
+    "datenklassen_pruefauftrag",
     "prod_container",  # bool — duerfen hier Prod-Container laufen?
     "app_hubs",  # bool — duerfen hier App-Hub-Stacks laufen?
     "runner",  # bool — darf hier ein GitHub-Runner laufen?
@@ -154,6 +161,55 @@ def _ausnahme_fuer(auflage: dict, dienst: str) -> dict | None:
     return e if isinstance(e, dict) else None
 
 
+_PRUEFAUFTRAG_FELDER = {"klasse", "zulaessig_heute", "vor_echten_daten_zu_klaeren"}
+
+
+def _check_pruefauftrag(name: str, a: dict) -> list[str]:
+    """Schema des Datenklassen-Pruefauftrags — und er wird IMMER ausgegeben.
+
+    Ein Prueffall ohne sichtbare Bedingung ist von einer stillschweigenden
+    Erlaubnis nicht zu unterscheiden. Deshalb dieselbe Behandlung wie bei den
+    Ausnahmen: er landet im Log jedes Laufs, nicht nur im Diff.
+    """
+    p = a.get("datenklassen_pruefauftrag")
+    if p is None:
+        return []
+    if not isinstance(p, dict):
+        return [f"auflage: host '{name}'.datenklassen_pruefauftrag ist kein Mapping"]
+
+    issues: list[str] = []
+    fehlt = _PRUEFAUFTRAG_FELDER - set(p)
+    if fehlt:
+        issues.append(
+            f"auflage: pruefauftrag auf '{name}' fehlt {sorted(fehlt)} — ohne "
+            "Bedingung ist ein Prueffall eine stillschweigende Erlaubnis"
+        )
+    fremd = set(p) - _PRUEFAUFTRAG_FELDER
+    if fremd:
+        issues.append(
+            f"auflage: pruefauftrag auf '{name}' hat unbekannte Felder "
+            f"{sorted(fremd)} — erlaubt: {sorted(_PRUEFAUFTRAG_FELDER)}"
+        )
+    klasse = p.get("klasse")
+    if klasse is not None and klasse not in _DATENKLASSEN:
+        issues.append(
+            f"auflage: pruefauftrag auf '{name}' nennt unbekannte Klasse "
+            f"{klasse!r} — erlaubt: {sorted(_DATENKLASSEN)}"
+        )
+    if klasse in (a.get("datenklassen_verboten") or []):
+        issues.append(
+            f"auflage: '{name}' fuehrt {klasse!r} zugleich als verboten und als "
+            "Prueffall — eines von beidem ist falsch"
+        )
+    if not issues:
+        _AUSNAHME_LOG.append(
+            f"prueffall: '{name}' ist Prueffall fuer {klasse!r} — heute zulaessig: "
+            f"{p.get('zulaessig_heute')} | vor echten Daten zu klaeren: "
+            f"{' '.join(str(p.get('vor_echten_daten_zu_klaeren', '')).split())}"
+        )
+    return issues
+
+
 def _check_ausnahmen(name: str, a: dict) -> list[str]:
     """Schema und Frist der Auflage-Ausnahmen eines Hosts."""
     issues: list[str] = []
@@ -233,6 +289,7 @@ def _check_auflage_block(name: str, h: dict) -> list[str]:
                         f"Vokabular: {sorted(_DATENKLASSEN)}"
                     )
     issues += _check_ausnahmen(name, a)
+    issues += _check_pruefauftrag(name, a)
     for feld in ("prod_container", "app_hubs", "runner", "oeffentlicher_ingress"):
         if feld in a and not isinstance(a[feld], bool):
             issues.append(f"auflage: host '{name}'.{feld} muss true/false sein")

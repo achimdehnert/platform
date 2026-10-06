@@ -313,3 +313,73 @@ class TestFailOpen:
         self, tmp_path: Path
     ) -> None:
         assert _lauf("ein fehler", tmp_path / "gibtsnicht") == ""
+
+
+# ── Einmal je Sitzung (dev-hub#382) ─────────────────────────────────────────
+
+
+def _lauf_sitzung(prompt: str, policies: Path, state: Path, session_id: str) -> str:
+    fertig = subprocess.run(
+        [sys.executable, str(HOOK)],
+        input=json.dumps(
+            {
+                "prompt": prompt,
+                "hook_event_name": "UserPromptSubmit",
+                "session_id": session_id,
+            }
+        ),
+        capture_output=True,
+        text=True,
+        env={
+            "POLICY_DIR": str(policies),
+            "POLICY_STATE_DIR": str(state),
+            "PATH": "/usr/bin:/bin",
+        },
+    )
+    assert fertig.returncode == 0 and not fertig.stderr.strip(), fertig.stderr
+    return fertig.stdout
+
+
+class TestEinmalJeSitzung:
+    def test_should_inject_each_policy_only_once_per_session(
+        self, policies: Path, tmp_path: Path
+    ) -> None:
+        state = tmp_path / "state"
+        assert "Error Handling" in _lauf_sitzung("ein fehler", policies, state, "s1")
+        assert _lauf_sitzung("noch ein fehler", policies, state, "s1") == ""
+
+    def test_should_still_inject_a_new_policy_in_the_same_session(
+        self, policies: Path, tmp_path: Path
+    ) -> None:
+        state = tmp_path / "state"
+        _lauf_sitzung("ein fehler", policies, state, "s1")
+        aus = _lauf_sitzung("fehler und zielzustand", policies, state, "s1")
+        assert "Zielzustand" in aus and "Error Handling" not in aus
+
+    def test_should_inject_again_in_another_session(
+        self, policies: Path, tmp_path: Path
+    ) -> None:
+        state = tmp_path / "state"
+        _lauf_sitzung("ein fehler", policies, state, "s1")
+        assert "Error Handling" in _lauf_sitzung("ein fehler", policies, state, "s2")
+
+    def test_should_fail_open_when_state_is_not_writable(
+        self, policies: Path, tmp_path: Path
+    ) -> None:
+        blockiert = tmp_path / "datei-statt-verzeichnis"
+        blockiert.write_text("x")
+        for _ in range(2):
+            assert "Error Handling" in _lauf_sitzung(
+                "ein fehler", policies, blockiert, "s1"
+            )
+
+    @pytest.mark.parametrize("session_id", ["", "../../etc/x", "a/b"])
+    def test_should_ignore_missing_or_unsafe_session_ids(
+        self, policies: Path, tmp_path: Path, session_id: str
+    ) -> None:
+        state = tmp_path / "state"
+        for _ in range(2):
+            assert "Error Handling" in _lauf_sitzung(
+                "ein fehler", policies, state, session_id
+            )
+        assert not state.exists()

@@ -28,7 +28,9 @@ sys.path.insert(0, str(WURZEL))
 
 from infra.lib.secrets import secret_wert  # noqa: E402
 
-FIXTURE = Path(__file__).resolve().parent / "fixtures" / "secret_lesen_konformitaet.json"
+FIXTURE = (
+    Path(__file__).resolve().parent / "fixtures" / "secret_lesen_konformitaet.json"
+)
 LESER_SH = WURZEL / "tools" / "secret_lesen.sh"
 
 FAELLE: list[dict] = json.loads(FIXTURE.read_text(encoding="utf-8"))["faelle"]

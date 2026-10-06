@@ -1,0 +1,22 @@
+# .adr-evidence-pilot — Pilotliste des ADR-Evidenzvertrags (KONZ-platform-065 §4)
+#
+# Ein ADR je Zeile. Auf dieser Liste ist ein Finding von
+# tools/adr_evidence_paths.py ROT (`--gate-pilot`, adr-validate.yml) — ausserhalb
+# bleibt der Pruefer SUGGEST. Auswahlregel: status accepted, implementation_status
+# implemented/complete/verified, Belege ueberwiegend platform-lokal; ADR-174/226
+# gesetzt als die beiden reparierten Alt-Funde (KONZ-065 C11), 174/226 sind
+# deshalb trotz `partial` dabei.
+#
+# Kill-Gate (KONZ-065): bis 2026-11-30 tragen < 8 von 10 je >= 2 echte typisierte
+# Belege, oder > 10 % Falsch-Positive ueber 30 Tage → Liste loeschen, --gate-pilot
+# aus dem Workflow nehmen, Vertrag bleibt Prosa nach ADR-138 §2.4.
+ADR-049
+ADR-059
+ADR-138
+ADR-174
+ADR-190
+ADR-219
+ADR-226
+ADR-239
+ADR-265
+ADR-275

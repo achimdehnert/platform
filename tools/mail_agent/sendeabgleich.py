@@ -34,6 +34,10 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from privat_datei import schreibe_privat  # noqa: E402
+
 LEDGER = Path.home() / ".claude" / "mail-vorgaenge.json"
 HIER = Path(__file__).resolve().parent
 
@@ -69,10 +73,18 @@ SENDEORDNER_IMAP = "Gesendete Objekte"
 #: Ein Vorgang wartet auf den Versand, wenn sein Text das sagt.
 WARTET_AUF_VERSAND = re.compile(r"senden|versch(icken|ickt)|entwurf", re.I)
 
+#: Zeitstempel wie board.py ihn ins Ledger schreibt, und seine Länge.
+ZEITFORMAT = "%Y-%m-%d %H:%M"
+MINUTE = len("YYYY-MM-DD HH:MM")
+
 
 @dataclass(frozen=True)
 class Gesendet:
-    """Eine ausgehende Mail, reduziert auf das für den Abgleich Nötige."""
+    """Eine ausgehende Mail, reduziert auf das für den Abgleich Nötige.
+
+    `datum` ist Ortszeit des Hosts wie `letzte_pruefung` im Ledger:
+    'YYYY-MM-DD HH:MM', oder nur 'YYYY-MM-DD', wenn die Quelle keine Uhrzeit hat.
+    """
 
     datum: str
     betreff: str
@@ -115,27 +127,72 @@ def wartet_auf_versand(vorgang: dict) -> bool:
 
 
 def nach_letzter_pruefung(vorgang: dict, mail: Gesendet) -> bool:
-    """Nur Mails, die nach der letzten Ledger-Prüfung rausgingen."""
-    stand = vorgang.get("letzte_pruefung")
+    """Nur Mails, die nach der letzten Ledger-Prüfung rausgingen.
+
+    Verglichen wird auf der Genauigkeit, die beide Seiten haben: Tragen Mail und
+    Prüfung eine Uhrzeit, entscheidet die Minute, sonst gilt der ganze Tag.
+    Früher wurde der Tag der Mail gegen den Zeitstempel der Prüfung verglichen —
+    '2026-10-01' >= '2026-10-01 06:34' ist als Zeichenkette falsch, also fiel jede
+    am Prüftag gesendete Mail heraus (platform#3658).
+    """
+    stand = str(vorgang.get("letzte_pruefung") or "")
     if not stand:
         return True
-    return mail.tag() >= str(stand)
+    if len(mail.datum) >= MINUTE and len(stand) >= MINUTE:
+        return mail.datum[:MINUTE] >= stand[:MINUTE]
+    return mail.tag() >= stand[:10]
+
+
+def _kennwoerter(vorgang: dict) -> set[str]:
+    return tokens(vorgang.get("thread_key", "")) | tokens(vorgang.get("gegenueber", ""))
+
+
+def geteilte_woerter(ledger: dict) -> dict[str, set[str]]:
+    """Je Konto die Wörter, die in mehr als einem offenen Vorgang stehen.
+
+    Ein solches Wort (Ort, Projektname, Behörde) belegt keinen bestimmten Vorgang.
+    Realfall 2026-10-01: Mit dem Datumsfix fand der Abgleich zwei Mails, die nur
+    über 'guenzburg' bzw. 'meiki' passten — beide Wörter stehen in einem Dutzend
+    offener Vorgänge, beide Zuordnungen waren falsch (platform#3659).
+    """
+    zaehler: dict[str, dict[str, int]] = {}
+    for v in ledger.get("vorgaenge", []):
+        if v.get("bucket") == "erledigt":
+            continue
+        konto = zaehler.setdefault(v.get("konto", ""), {})
+        for w in _kennwoerter(v):
+            konto[w] = konto.get(w, 0) + 1
+    return {k: {w for w, n in z.items() if n > 1} for k, z in zaehler.items()}
 
 
 def vorschlaege(ledger: dict, mails: dict[str, list[Gesendet]]) -> list[dict]:
-    """→ je Vorgang ein Befund: `treffer`, `mehrdeutig` oder `offen`."""
+    """→ je Vorgang ein Befund: `treffer`, `mehrdeutig` oder `offen`.
+
+    `treffer` (wird mit --apply geschrieben) verlangt mindestens ein gemeinsames
+    Wort, das nur diesem offenen Vorgang gehört. Passt eine Mail nur über
+    geteilte Wörter, heißt das `mehrdeutig`: Vorschlag, kein Schreiben.
+    """
+    geteilt = geteilte_woerter(ledger)
     out = []
     for v in ledger.get("vorgaenge", []):
         if not wartet_auf_versand(v):
             continue
+        konto = v.get("konto", "")
         kandidaten = [
             m
-            for m in mails.get(v.get("konto", ""), [])
+            for m in mails.get(konto, [])
             if passt_zusammen(v, m) and nach_letzter_pruefung(v, m)
+        ]
+        eigene = _kennwoerter(v) - geteilt.get(konto, set())
+        eindeutig = [
+            m for m in kandidaten if eigene & (tokens(m.betreff) | tokens(m.empfaenger))
         ]
         if not kandidaten:
             lage = "offen"
+        elif not eindeutig:
+            lage = "mehrdeutig"
         else:
+            kandidaten = eindeutig
             # Mehrere Treffer waren bis 2026-08-21 ein Abbruch ("mehrdeutig").
             # Die Positivkontrolle zeigte, warum das zu streng war: bei einem
             # laufenden Strang passen naturgemaess mehrere gesendete Mails auf
@@ -213,18 +270,33 @@ def _graph_gesendet(tage: int) -> list[Gesendet]:
             continue
         rest = m.group("rest").split(None, 1)
         betreff = rest[1].strip() if len(rest) > 1 else ""
-        out.append(Gesendet(m.group("datum")[:10], betreff))
+        out.append(Gesendet(_graph_zeit(m.group("datum")), betreff))
     return out
 
 
+def _ortszeit(zeitpunkt: datetime) -> str:
+    """Zeitpunkt → 'YYYY-MM-DD HH:MM' in Ortszeit, wie board.py das Ledger stempelt."""
+    if zeitpunkt.tzinfo is not None:
+        zeitpunkt = zeitpunkt.astimezone().replace(tzinfo=None)
+    return zeitpunkt.strftime(ZEITFORMAT)
+
+
 def _datum_iso(rfc: str) -> str:
-    """'Wed, 19 Aug 2026 13:27:32 +0000' → '2026-08-19' (leer, wenn unparsbar)."""
+    """'Wed, 19 Aug 2026 13:27:32 +0000' → '2026-08-19 13:27' auf UTC-Host (leer, wenn unparsbar)."""
     try:
         from email.utils import parsedate_to_datetime
 
-        return parsedate_to_datetime(rfc).strftime("%Y-%m-%d")
+        return _ortszeit(parsedate_to_datetime(rfc))
     except Exception:
         return ""
+
+
+def _graph_zeit(utc: str) -> str:
+    """Graph liefert UTC ('2026-10-01T10:18') → Ortszeit wie im Ledger."""
+    try:
+        return _ortszeit(datetime.fromisoformat(utc).replace(tzinfo=timezone.utc))
+    except ValueError:
+        return utc[:10]
 
 
 def sammle(konten: set[str], tage: int, limit: int) -> dict[str, list[Gesendet]]:
@@ -294,15 +366,14 @@ def main() -> int:
                 geschrieben += 1
         elif lage == "mehrdeutig":
             print(
-                f"{kopf} MEHRDEUTIG {len(b['mails'])} passende Mails — bitte selbst zuordnen"
+                f"{kopf} MEHRDEUTIG {len(b['mails'])} Mail(s) nur über Wörter anderer "
+                "Vorgänge — bitte selbst zuordnen"
             )
         else:
             print(f"{kopf} offen      keine passende Mail im Sendeordner")
 
     if args.apply and geschrieben:
-        pfad.write_text(
-            json.dumps(ledger, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
+        schreibe_privat(pfad, json.dumps(ledger, ensure_ascii=False, indent=2))
         print(f"\n{geschrieben} Vorgang/Vorgaenge auf 'warten' gestellt.")
     elif not args.apply:
         print("\n(Anzeige — mit --apply werden die TREFFER ins Ledger geschrieben.)")

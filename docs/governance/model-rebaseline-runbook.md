@@ -33,6 +33,38 @@ Das ist die operative Auslegung von Charta Art. 2.5 („Major-Wechsel ⇒ Reset 
 Klassen"): *Major* ist dort undefiniert; ohne diese Tabelle wäre jedes Punkt-Release ein
 Total-Reset — oder, realistischer, es passiert stillschweigend gar nichts.
 
+## 0a. Woher „bewertet mit" kommt (Nachtrag 2026-09-16)
+
+Der Maßstab ist das **erklärte Standard-Sitzungsmodell**, nicht die Mehrheit der
+`assessed_with`-Köpfe. Es steht als eine maschinenlesbare Zeile in
+`policies/session-routing.md`:
+
+```
+<!-- standard-session-model: claude-opus-5 -->
+```
+
+Vorher leitete `modellwechsel_check.py` sein „bewertet" aus der Kopf-Mehrheit ab
+und beantwortete damit die falsche Frage. `assessed_with` sagt je Regel „gegen
+welches Modell wurde **diese Regel** zuletzt geprüft" — bewusst gestaffelt, mit
+eigener `reassess_by`-Frist. „Womit fahren wir" ist eine einzige Tatsache. Weil
+zwölf Köpfe auf `claude-fable-5` standen und die Sitzungen auf `claude-opus-5`
+liefen, meldete der Start ab 2026-09-03 bei **jedem** Lauf MAJOR, ohne dass
+etwas geschehen wäre — ein Melder, der immer feuert, meldet nichts mehr.
+
+Der Rückstand ist damit nicht verschwunden, sondern sichtbar: die Startzeile
+führt ihn als `nachzug=N/M`. Er wandert regelweise über §3, nicht in einem Zug —
+ein Massen-Flip der Köpfe wäre die Behauptung, alle Regeln seien unter dem neuen
+Modell nachgeprüft worden.
+
+**Den Standard ändert der Kapitän**, indem er diese eine Zeile ändert; danach
+`bash tools/refresh_pinned_policies.sh`, weil der Check die ausgelieferte Kopie
+unter `~/.claude/policies/` liest.
+
+Ebenfalls seit 2026-09-16: `behandelt` hängt am **Paar** (bewertet, läuft), nicht
+mehr an der letzten Zeile von `model-changes.log`. Blieb dieselbe Log-Zeile die
+letzte, während das laufende Modell auf etwas anderes wechselte, lief ein echter
+MAJOR vorher als `fällig=nein` durch.
+
 ## 1. Smoke-Kalibrierung (Aufgaben mit bekannter Antwort)
 
 ```bash

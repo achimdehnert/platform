@@ -29,6 +29,26 @@ Befundklassen
 3. RUECKSTAND mit `nur_doku` — Host hinkt nur um Doku-Pfade hinterher; Repos mit
    Doku-Filter deployen das bewusst nicht. Hinweis, kein Befund.
 
+Deploy-Politik (#3495 Folgepunkt, illustration-hub#344)
+--------------------------------------------------------
+Ein Abstand zu `origin/main` ist nicht bei jedem Repo ein Befund — manche
+deployen Prod bewusst nicht bei jedem Merge. Drei Klassen, Quelle ist IMMER der
+Deploy-Workflow des Repos selbst (`deploy_workflow_text()`), nie eine zweite,
+separat gepflegte Liste:
+
+- `push-prod` (Default) — jeder Merge nach main loest einen Prod-Deploy aus,
+  ein Abstand bleibt RUECKSTAND.
+- `staging-default` (`ist_staging_default_politik()`) — `target_environment`
+  faellt bei `push` auf `staging` zurueck (risk-hub, tax-hub). Markiert als
+  `prod_gate`; der Session-Start (`tools/session_start_checks.sh`, Phase
+  0.7.12) traegt dafuer bereits eine 14-Tage-Freigabefrist.
+- `tag-oder-dispatch` (`ist_tag_oder_dispatch_politik()`) — `on:` loest Prod
+  NUR per Tag `v*` oder `workflow_dispatch` aus, kein Trigger auf main
+  (illustration-hub). Bis 30 Tage Alter kein Befund ("Prod per Tag/Dispatch");
+  danach bleibt RUECKSTAND stehen, zusaetzlich markiert als "Prod-Stand aelter
+  als 30 d" — ein Wartestand ohne Frist waere von einem vergessenen Deploy
+  nicht mehr zu unterscheiden.
+
 Aufruf
 ------
     python3 tools/deploy_wirkung.py                 # Bericht, aendert nichts
@@ -70,7 +90,7 @@ PROD_HOSTS = ("prod", "prod-b")
 # Vokabular kommt aus tools/betriebsstatus.py — dieselbe Quelle wie fuer
 # erreichbarkeit_melder.py und waisen_melder.py (#2586 K5, hier #2853).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from betriebsstatus import ERKLAERT  # noqa: E402
+from betriebsstatus import ERKLAERT, wirksamer_status  # noqa: E402
 
 # GitHub-Repo-Lifecycle (registry/canonical.yaml), NICHT dasselbe Feld wie
 # `betriebsstatus` in infra/ports.yaml — beide fuehren zu "Rueckstand gewollt",
@@ -89,6 +109,9 @@ DOKU_MUSTER: tuple[str, ...] = (
     ".gitignore",
     "CHANGELOG*",
 )
+# Ab diesem Alter ist ein tag-oder-dispatch-Rueckstand nicht mehr von einem
+# vergessenen Deploy zu unterscheiden (s. Modulkopf "Deploy-Politik").
+TAG_DISPATCH_WARN_TAGE = 30
 
 
 def sh(cmd: list[str], timeout: int = 60) -> tuple[int, str]:
@@ -273,13 +296,14 @@ def repo_betriebsstatus() -> dict[str, str]:
     (travel-beat, Owner-Entscheid #120), lange bevor (wenn ueberhaupt) ihr
     GitHub-Repo als `archived` gilt. Dasselbe Vokabular wie
     `erreichbarkeit_melder.py`/`waisen_melder.py` — keine vierte Kopie der Liste.
+    Nur solange die ``betriebsstatus``-Deklaration gilt (#3507).
     """
     data = load_yaml(PORTS_YAML)
     out: dict[str, str] = {}
     for name, cfg in (data.get("services") or {}).items():
         if not isinstance(cfg, dict):
             continue
-        status = cfg.get("betriebsstatus", "aktiv")
+        status = wirksamer_status(name, cfg)
         if status in ERKLAERT:
             out[name] = str(status)
     return out
@@ -337,19 +361,11 @@ def repo_urls() -> dict[str, list[str]]:
     return out
 
 
-def hat_prod_gate(repo: str, owner: str) -> bool:
-    """True, wenn der Deploy bei push bewusst nur nach staging geht.
+def deploy_workflow_text(repo: str, owner: str) -> str | None:
+    """Roher Text von `.github/workflows/deploy.yml` auf `main`, oder ``None`` bei Fehler.
 
-    Realfall risk-hub (2026-08-20): `target_environment: ${{ inputs.target_environment
-    || 'staging' }}` — bei einem push-Event ist `inputs` leer, der Deploy landet also auf
-    staging. Prod erfordert einen bewussten `workflow_dispatch` mit Environment-Freigabe.
-    Der Live-Stand hinkt `main` dann moeglicherweise **absichtlich** hinterher.
-    Das Ergebnis unterdrueckt den Befund NICHT, es kennzeichnet ihn nur: tax-hub
-    liefert hier ebenfalls True, hat aber einen seit Tagen roten Build — eine
-    Unterdrueckung haette den echten Fehler verborgen.
-
-    Wird nur fuer Repos aufgerufen, bei denen bereits ein Rueckstand feststeht — das
-    haelt die Zahl der API-Aufrufe klein.
+    EINE Quelle fuer beide Politik-Erkennungen unten (`ist_staging_default_politik`,
+    `ist_tag_oder_dispatch_politik`) statt zwei `gh api`-Aufrufen fuer dieselbe Datei.
     """
     code, out = sh(
         [
@@ -362,14 +378,59 @@ def hat_prod_gate(repo: str, owner: str) -> bool:
         timeout=30,
     )
     if code != 0 or not out:
-        return False
+        return None
     import base64
 
     try:
-        text = base64.b64decode(out).decode("utf-8", "replace")
+        return base64.b64decode(out).decode("utf-8", "replace")
     except (ValueError, TypeError):
-        return False
+        return None
+
+
+def ist_staging_default_politik(text: str) -> bool:
+    """True, wenn der Deploy bei push bewusst nur nach staging geht.
+
+    Realfall risk-hub (2026-08-20): `target_environment: ${{ inputs.target_environment
+    || 'staging' }}` — bei einem push-Event ist `inputs` leer, der Deploy landet also auf
+    staging. Prod erfordert einen bewussten `workflow_dispatch` mit Environment-Freigabe.
+    Der Live-Stand hinkt `main` dann moeglicherweise **absichtlich** hinterher.
+    Das Ergebnis unterdrueckt den Befund NICHT, es kennzeichnet ihn nur (`prod_gate`):
+    tax-hub liefert hier ebenfalls True, hat aber einen seit Tagen roten Build — eine
+    Unterdrueckung haette den echten Fehler verborgen. Die Freigabefrist (14 Tage), nach
+    der aus dem Wartestand wieder ein lauter Befund wird, lebt in
+    `tools/session_start_checks.sh` Phase 0.7.12 — nicht hier verdoppelt.
+
+    Reine Textklassifikation, kein Netz — der Aufruf ist in `main()` hinter
+    `deploy_workflow_text()` gehaengt, das nur fuer Repos mit feststehendem
+    Rueckstand ausgefuehrt wird (haelt die Zahl der API-Aufrufe klein).
+    """
     return bool(re.search(r"target_environment:.*\|\|\s*'staging'", text))
+
+
+def ist_tag_oder_dispatch_politik(text: str) -> bool:
+    """True, wenn `on:` Prod-Deploys strukturell auf Tag `v*`/`workflow_dispatch` beschraenkt.
+
+    Realfall illustration-hub (`deploy.yml`, dort im Kommentar: "KEIN Trigger auf
+    main"): `on: push: tags: ['v*']` OHNE `branches:`, daneben `workflow_dispatch:`.
+    Ein Merge nach main aendert Prod damit strukturell nie — dauerhaft im Workflow
+    selbst eingerichtet, keine Owner-Entscheidung mit Ablaufdatum.
+
+    Deshalb keine Deklaration ueber `befund_journal.deklarationen_fuer()` (neue Art
+    `deploy_politik`): jeder Eintrag dort braucht laut `deklarations_fehler()` ein
+    `gueltig_bis` ("ohne Ablauf waere es eine Dauerausnahme") — fuer einen im
+    Workflow selbst belegten Dauerzustand waere das eine zweite, aus der Zeit
+    fallende Kopie derselben Wahrheit statt sie einmal zu lesen.
+
+    Reine Textklassifikation, kein Netz — testbar ohne `sh()`-Mock.
+    """
+    block = re.search(r"(?m)^on:\n((?:[ \t]+.*\n?)+)", text)
+    on_block = block.group(1) if block else ""
+    return (
+        "push:" in on_block
+        and "tags:" in on_block
+        and "branches:" not in on_block
+        and "workflow_dispatch:" in on_block
+    )
 
 
 def ist_nur_doku(dateien: list[str]) -> bool:
@@ -432,6 +493,47 @@ def main_sha(repo: str, owner: str) -> tuple[str | None, str | None]:
         ["gh", "api", f"repos/{owner}/{repo}/commits/main", "--jq", ".sha"], timeout=30
     )
     return (sha.strip() if code2 == 0 and sha.strip() else None), echt
+
+
+def befund_marker(e: dict) -> list[str]:
+    """Die Befund-Spalte einer Berichtszeile — leer heisst "ok".
+
+    Als eigene Funktion, damit ein Test die eine Regel pruefen kann, die hier
+    2026-09-24 fehlte: ein Eintrag mit unlesbarem main ist NICHT "ok", sondern
+    NICHT PRUEFBAR (platform#3471 Item 82).
+    """
+    marker: list[str] = []
+    if e.get("main_unlesbar"):
+        marker.append("NICHT PRUEFBAR — main nicht lesbar (gh api: Ratenlimit/Netz)")
+    if e.get("rueckstand"):
+        marker.append("RUECKSTAND")
+    if e.get("nur_doku"):
+        marker.append("NUR-DOKU")
+    if e.get("doppellauf"):
+        wo = e.get("hosts_mit_container") or e.get("hosts_mit_manifest") or []
+        marker.append("DOPPELLAUF:" + ",".join(wo))
+    if e.get("verwaiste_manifeste"):
+        marker.append("MANIFEST-VERWAIST:" + ",".join(e["verwaiste_manifeste"]))
+    if e.get("container_unklar"):
+        marker.append("CONTAINER UNKLAR — docker ps nicht auswertbar")
+    if e.get("zuordnung_unklar"):
+        marker.append("ZUORDNUNG UNKLAR")
+    if e.get("owner_drift"):
+        marker.append(
+            f"OWNER-DRIFT: Registry sagt {e['owner']}, GitHub {e['owner_drift']}"
+        )
+    if e.get("prod_gate"):
+        marker.append("Prod-Gate (staging-Default) — pruefen ob gewollt")
+    if e.get("deploy_politik") == "tag-oder-dispatch":
+        if e.get("deploy_politik_warn"):
+            marker.append(
+                f"WARN Prod-Stand aelter als {TAG_DISPATCH_WARN_TAGE} d (tag-oder-dispatch)"
+            )
+        else:
+            marker.append("Prod per Tag/Dispatch (kein Befund)")
+    if e.get("rueckstand_gewollt"):
+        marker.append(f"{e['rueckstand_gewollt']} — Rueckstand gewollt")
+    return marker
 
 
 def main() -> int:
@@ -547,21 +649,52 @@ def main() -> int:
             eintrag["alter_tage"] = (
                 (jetzt - mf["mtime"]) // 86400 if mf["mtime"] else None
             )
-            eintrag["rueckstand"] = bool(sha and mf["commit"] and mf["commit"] != sha)
+            if sha is None:
+                # main nicht lesbar (gh api: Ratenlimit, Netz, Redirect) — dann ist
+                # "kein Rueckstand" NICHT belegt. Realfall 2026-09-24 12:27: unter
+                # einem sekundaeren GitHub-Ratenlimit stand hier main="-" und die
+                # Zeile sagte trotzdem "ok" (platform#3471 Item 82). Ein Melder,
+                # der seine Vergleichsquelle nicht lesen kann, gibt kein Urteil.
+                eintrag["rueckstand"] = None
+                eintrag["main_unlesbar"] = True
+            else:
+                eintrag["rueckstand"] = bool(mf["commit"] and mf["commit"] != sha)
         else:
             eintrag["deployed"] = None
             eintrag["rueckstand"] = None
             eintrag["zuordnung_unklar"] = True
 
-        # Bewusstes Prod-Gate: als HINWEIS ausweisen, den Befund aber NICHT
-        # unterdruecken. Grund (gemessen 2026-08-20): risk-hub hat ein echtes Gate
-        # (staging-Default, Rueckstand gewollt) — tax-hub aber ebenfalls, und dort
-        # ist der Rueckstand ein seit sechs Tagen roter Build. Wer hier unterdrueckt,
-        # versteckt echte Fehlschlaege hinter einer plausiblen Ausrede. Der Hinweis
-        # kostet eine Zeile Lesen, das Verstecken kostet Tage.
-        # Nur pruefen, wenn ein Rueckstand feststeht — spart API-Aufrufe.
-        if eintrag.get("rueckstand") and hat_prod_gate(repo, owner):
-            eintrag["prod_gate"] = True
+        # Deploy-Politik (#3495 Folgepunkt, illustration-hub#344): EIN Abruf des
+        # Deploy-Workflows, zwei mögliche Klassen. Nur geprueft, wenn ein
+        # Rueckstand feststeht — spart API-Aufrufe.
+        if eintrag.get("rueckstand"):
+            politik_text = deploy_workflow_text(repo, owner)
+            if politik_text is not None:
+                if ist_staging_default_politik(politik_text):
+                    # Als HINWEIS ausweisen, den Befund aber NICHT unterdruecken.
+                    # Grund (gemessen 2026-08-20): risk-hub hat ein echtes Gate
+                    # (staging-Default, Rueckstand gewollt) — tax-hub aber
+                    # ebenfalls, und dort ist der Rueckstand ein seit sechs Tagen
+                    # roter Build. Wer hier unterdrueckt, versteckt echte
+                    # Fehlschlaege hinter einer plausiblen Ausrede. Der Hinweis
+                    # kostet eine Zeile Lesen, das Verstecken kostet Tage. Die
+                    # Freigabefrist (14 Tage) traegt `session_start_checks.sh`.
+                    eintrag["prod_gate"] = True
+                elif ist_tag_oder_dispatch_politik(politik_text):
+                    # Hier ist der Rueckstand der NORMALFALL, kein Indiz fuer
+                    # einen vergessenen/roten Deploy (anders als staging-default):
+                    # Prod bewegt sich planmaessig nur per Tag/Dispatch, nicht bei
+                    # jedem Merge. Deshalb wird hier — anders als beim Gate oben —
+                    # tatsaechlich unterdrueckt, aber mit Frist: ab
+                    # `TAG_DISPATCH_WARN_TAGE` ist "wartet auf Tag" nicht mehr von
+                    # "vergessen zu taggen" zu unterscheiden, dann bleibt der
+                    # Befund stehen.
+                    eintrag["deploy_politik"] = "tag-oder-dispatch"
+                    alter = eintrag.get("alter_tage")
+                    if alter is not None and alter < TAG_DISPATCH_WARN_TAGE:
+                        eintrag["rueckstand"] = False
+                    else:
+                        eintrag["deploy_politik_warn"] = True
 
         # Rueckstand nur aus Doku-Pfaden: writing-hub deployt Doku-Merges per
         # Cosmetic-Gate bewusst nicht (#2148) — der Melder meldete deshalb nach
@@ -592,6 +725,7 @@ def main() -> int:
             or eintrag.get("owner_drift")
             or eintrag.get("verwaiste_manifeste")
             or eintrag.get("container_unklar")
+            or eintrag.get("main_unlesbar")
         ):
             befunde.append(eintrag)
         zeilen.append(eintrag)
@@ -613,28 +747,7 @@ def main() -> int:
     print(kopf)
     print("-" * len(kopf))
     for e in zeilen:
-        marker = []
-        if e.get("rueckstand"):
-            marker.append("RUECKSTAND")
-        if e.get("nur_doku"):
-            marker.append("NUR-DOKU")
-        if e["doppellauf"]:
-            wo = e.get("hosts_mit_container") or e["hosts_mit_manifest"]
-            marker.append("DOPPELLAUF:" + ",".join(wo))
-        if e.get("verwaiste_manifeste"):
-            marker.append("MANIFEST-VERWAIST:" + ",".join(e["verwaiste_manifeste"]))
-        if e.get("container_unklar"):
-            marker.append("CONTAINER UNKLAR — docker ps nicht auswertbar")
-        if e.get("zuordnung_unklar"):
-            marker.append("ZUORDNUNG UNKLAR")
-        if e.get("owner_drift"):
-            marker.append(
-                f"OWNER-DRIFT: Registry sagt {e['owner']}, GitHub {e['owner_drift']}"
-            )
-        if e.get("prod_gate"):
-            marker.append("Prod-Gate (staging-Default) — pruefen ob gewollt")
-        if e.get("rueckstand_gewollt"):
-            marker.append(f"{e['rueckstand_gewollt']} — Rueckstand gewollt")
+        marker = befund_marker(e)
         alter = f"{e['alter_tage']}d" if e.get("alter_tage") is not None else "-"
         print(
             f"{e['repo']:<20} {(e['bedient_von'] or '?'):<8} {(e['deployed'] or '-'):<10} "

@@ -1,0 +1,24 @@
+{
+  "slug": "gate-pflicht-nie-eingeloest",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": "tools/gate_deckung.py",
+  "drill": "tools/tests/test_gate_deckung.py",
+  "built": "2026-08-20",
+  "ref": "platform#2164",
+  "note": "Misst die vierte Achse: fuer wie viele Befunde wurde je etwas gebaut. retro_kpis zaehlt die GATE-PFLICHT, niemand ihre Einloesung — 16 Slugs sind >=2x aufgetreten und tragen weder Gate noch declined-Eintrag.",
+  "faengt": [
+    {
+      "fall": "Slug >=2x aufgetreten, weder Gate noch declined-Eintrag",
+      "probe": "declined"
+    }
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-08-20",
+  "ausgang": "instrument",
+  "ausgang_note": "V1c (platform#3785, Owner-Wort 2026-10-05): Meta-Instrument der Registry, haengt nicht vom Modell ab. Es ist das Sicherheitsnetz der Streichregel aus #3785: kehrt der Slug eines gestrichenen Gates in einer Retro wieder, meldet gate_deckung.py die Gate-Pflicht erneut. Ohne dieses Instrument waere jede Streichung unumkehrbar. Frist entfaellt.",
+  "positivkontrolle": {
+    "ref": "Echtlauf `python3 tools/gate_deckung.py --kurz` am 2026-10-05: 7 Slugs mehrfach aufgetreten und nie gegated, darunter edit-after-compaction-without-reread (4x) und accepted-plan-item-silently-dropped (3x). Drill-Gegenstueck tools/tests/test_gate_deckung.py::test_should_report_a_slug_seen_twice_without_any_decision, Gegenprobe ::test_should_not_report_a_single_occurrence.",
+    "datum": "2026-10-05"
+  }
+}

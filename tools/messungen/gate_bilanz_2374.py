@@ -66,7 +66,7 @@ import re
 import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-REGISTRY = os.path.join(REPO, "docs", "governance", "gate-registry.json")
+REGISTRY = os.path.join(REPO, "docs", "governance", "gates")
 RETROS = os.path.join(REPO, "docs", "retros")
 HITS = os.path.expanduser("~/.claude/hooks/gate-hits.jsonl")
 HEUTE = dt.date(2026, 9, 2)
@@ -509,7 +509,10 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args()
-    reg = json.load(open(REGISTRY, encoding="utf-8"))
+    sys.path.insert(0, os.path.join(REPO, "tools"))
+    import gate_registry
+
+    reg = gate_registry.laden(REGISTRY)
     retros = lies_retros()
     hits = lies_hits()
     rueck = rueckwaerts(reg["gates"], retros, hits)

@@ -5,11 +5,12 @@ status: accepted
 deciders: achimdehnert
 implementation_status: partial
 implementation_evidence:
-  - "risk-hub/.github/workflows/ci.yml — qm-gate Job implementiert (pilot)"
-  - "iilgmbh/shared-ci/.github/workflows/_ci-python.yml — enable_qm_gate Input (alle Repos; bis 2026-07-25 platform/.github/workflows/_ci-python.yml, dort retired via #1437)"
-  - "risk-hub/.github/PULL_REQUEST_TEMPLATE/agent-pr.md — Self-Review Gate"
-  - "platform/.windsurf/workflows/workflow-index.md — Symlink-Policy + Rule #13"
-  - "platform/.windsurf/workflows/onboard-repo.md — Step 6.9 Branch Protection"
+  - "path: risk-hub:.github/workflows/ci.yml — qm-gate Job implementiert (pilot)"
+  - "path: iilgmbh/shared-ci:.github/workflows/_ci-python.yml — enable_qm_gate Input + qm-gate Job (alle Repos)"
+  - "pr: platform#1437 — platform-Kopie von _ci-python.yml am 2026-07-25 retired, SSoT seither iilgmbh/shared-ci"
+  - "path: risk-hub:.github/PULL_REQUEST_TEMPLATE/agent-pr.md — Self-Review Gate"
+  - "path: .windsurf/workflows/workflow-index.md — Symlink-Policy + Rule #13"
+  - "path: .windsurf/workflows/onboard-repo.md — Step 6.9 Branch Protection"
   - "Rollout auf weitere ~18 Repos: ausstehend"
 implementation_done_when:
   - "qm-gate als required status check in Branch Protection aller aktiven Repos aktiviert"

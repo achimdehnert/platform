@@ -322,6 +322,6 @@ Nachweis: `~/shared/adr-handoff-ADR-117-119-2026-07-01-RUECKFLUSS.md`.
 
 | Datum | Version | Reviewer | Urteil | Link |
 |-------|---------|----------|--------|------|
-| 2026-03-11 | v1.0 | Cascade | ❌ 3 BLOCKs (Frontmatter, Auth, Error-Contract) | [Review](../reviews/ADR-117-review-2026-03-11.md) |
+| 2026-03-11 | v1.0 | Cascade | ❌ 3 BLOCKs (Frontmatter, Auth, Error-Contract) | [Review](reviews/ADR-117-review-2026-03-11.md) |
 | 2026-03-11 | v1.0 → v1.1 | Cascade | Fixes applied | — |
 | 2026-07-01 | v1.1 → v1.2 | — | Amendment: writing-hub (Nachfolge bfagent), illustration-hub, Szenen-Grenze | — |

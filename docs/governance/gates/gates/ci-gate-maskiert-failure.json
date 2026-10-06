@@ -1,0 +1,32 @@
+{
+  "slug": "ci-gate-maskiert-failure",
+  "mode": "blocking",
+  "owner": "achim",
+  "module": "tools/check_silent_failures.py",
+  "drill": "tools/tests/test_silent_failures.py",
+  "built": "2026-07-31",
+  "ref": "platform#1650 / Anlass Megatest-Stille 2026-07-31",
+  "note": "Silent-Failure-Lint: continue-on-error braucht Begruendung, outputs-Konsum braucht outcome-Pfad. Verdrahtet als CI-Lauf in .github/workflows/silent-failure-lint.yml (Exit 1 bei Fund). Bestand seit d37acd9a, war aber nie registriert. Registriert 2026-08-12.",
+  "revised": "2026-09-14",
+  "revision_note": "Ausweitung um die zweite Familie (platform#2143): der Checker sah nur continue-on-error in Workflows. Die beiden juengsten Rueckfaelle lagen daneben — pytest hinter `| tee` ohne pipefail (Retro 932035) und `|| true` neben `grep -c` (Retro c45b39). `--shell` prueft jetzt Shell-Dateien darauf, advisory (keine False-Positive-Baseline, und der Checker selbst ist blockierend); `--shell-strict` zaehlt sie fuer den Exit-Code. · AUSWEITUNG 2026-09-14 (Retro docs/retros/session-retro-2026-09-14-platform-oqu6Z6.md (platform#3156) §5a, M4, Owner-Entscheid 'g5a bestaetigt' (Kapitaens-Kanal, 2026-09-14); Gate rueckfaellig x2, letzter 2026-09-10). Ursache an der Quelle: die Fehlerpfad-Pflicht fragte nur, ob ein spaeterer Schritt die Outputs eines weichgestellten Schritts im `if:` liest. Der Realfall `.github/workflows/handover-append-only.yml:101` las sie als WERT (`GH_TOKEN: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}`) im Schritt, der das Gate-Urteil faellt — die Begruendung ueber `continue-on-error` genuegte, der Lint meldete '73 Workflow(s) geprueft — kein stiller Fehlschlag', und ein App-Ausfall waere still zum Fallback geworden. Neu zaehlt jede Verwendung der Outputs in env/with/run eines SPAETEREN Schritts und in den Job-`outputs`; ohne `steps.<id>.outcome` im Job ist das ein Fund. Erster Lauf nach der Ausweitung: 6 Funde (handover-append-only.yml x1, handover-reconcile.yml x5), beide Workflows im selben PR mit Ausfall-Schritt nachgeruestet (append-only: rot mit benannter Ursache; reconcile-Nightly: Warn-Annotation, bleibt bewusst gruen).",
+  "faengt": [
+    {
+      "fall": "continue-on-error maskiert einen Fehlschlag im Workflow",
+      "probe": "continue-on-error"
+    },
+    {
+      "fall": "Fehlschlag bleibt in Shell-Code still",
+      "probe": "still"
+    },
+    {
+      "fall": "Outputs eines weichgestellten Schritts fliessen als Wert (env/with/run, Job-outputs) in einen spaeteren Schritt, ohne outcome-Pfad (Retro oqu6Z6 §5a, handover-append-only.yml)",
+      "probe": "als Wert"
+    }
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-07-31",
+  "positivkontrolle": {
+    "ref": "tools/tests/test_silent_failures.py::test_should_flag_soft_step_whose_outputs_feed_the_gate_step_as_value -- der Realfall-Aufbau (begruendeter continue-on-error-Token-Schritt, Outputs als GH_TOKEN im urteilenden Schritt) erzeugt genau einen Fund 'Absturz bleibt still'; derselbe Workflow mit Ausfall-Schritt (`if: steps.app_token.outcome == 'failure'`) bleibt still (Negativkontrolle). Echter Lauf 2026-09-14 gegen .github/workflows auf origin/main: vorher 0 Funde, nach der Ausweitung 6, nach dem Nachruesten der zwei Workflows wieder 0.",
+    "datum": "2026-09-14"
+  }
+}

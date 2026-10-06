@@ -323,7 +323,7 @@ iilgmbh-agent Server
 
 | Datum | Version | Reviewer | Urteil | Link |
 |-------|---------|----------|--------|------|
-| 2026-03-08 | v1.0 | Cascade | ✅ initial accepted | [Review](../reviews/ADR-114-discord-ide-like-communication-gateway.md) |
-| 2026-03-11 | v1.0 → v2.0 | Cascade | ❌ → Rewrite (4 BLOCKs: MADR-Frontmatter, Layer-3-Latenz, MCP-Tool-Zugriff, Stack-Info) | [Review](../reviews/ADR-114-review-2026-03-11.md) |
+| 2026-03-08 | v1.0 | Cascade | ✅ initial accepted | [Review](reviews/ADR-114-discord-ide-like-communication-gateway.md) |
+| 2026-03-11 | v1.0 → v2.0 | Cascade | ❌ → Rewrite (4 BLOCKs: MADR-Frontmatter, Layer-3-Latenz, MCP-Tool-Zugriff, Stack-Info) | [Review](reviews/ADR-114-review-2026-03-11.md) |
 | 2026-03-11 | v2.0 → v2.1 | Cascade | ⚠️ → Fixes (Encoding, Repo-Liste 18 statt 11, Code-Snippets Status, Layer-Abgrenzung) | — |
 | 2026-03-11 | v2.1 → v2.2 | Cascade | ✅ Phasen 4-7 implementiert (mcp-hub `491e90b`) | — |

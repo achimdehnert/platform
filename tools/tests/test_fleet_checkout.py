@@ -224,3 +224,16 @@ def test_should_vorhandenen_klon_aktualisieren_statt_zu_ueberspringen(
     assert fc.main() == 0
     assert ["fetch", "--depth=1", "origin", "HEAD"] in gerufen
     assert ["reset", "--hard", "FETCH_HEAD"] in gerufen
+
+
+def test_should_report_the_fatal_line_not_cloning_into(canon):
+    """2026-09-14: 32 Fehlschlaege, alle als 'Cloning into ...' gemeldet — der
+    Grund (fatal: could not read Username) stand in Zeile 2."""
+    plan = fc.plane(["dev-hub"], canon)
+    grund = (
+        "Cloning into '/root/github/dev-hub'...\n"
+        "fatal: could not read Username for 'https://github.com': No such device"
+    )
+    bericht = fc.render_coverage(plan, {}, {"dev-hub": grund})
+    assert "fatal: could not read Username" in bericht
+    assert "Cloning into" not in bericht

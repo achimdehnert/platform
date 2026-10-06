@@ -37,7 +37,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-import hostzugang
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import befund_journal  # noqa: E402 — Deklarationen, #3495 V2
+import hostzugang  # noqa: E402
 
 # Quellverzeichnisse: alles darin gilt als potenziell verteilte Datei.
 QUELLEN = ("infra/host-maintenance",)
@@ -101,7 +103,6 @@ def hosts_aus_registry(platform_dir: Path) -> list[dict[str, str | None]]:
                     "ssh": h["ssh"],
                     "ssh_via": h.get("ssh_via"),
                     "ssh_shell": h.get("ssh_shell"),
-                    "betrieb": h.get("betrieb"),
                 }
             )
     return ergebnis
@@ -200,11 +201,16 @@ def pruefe(platform_dir: Path) -> tuple[list[str], list[str], list[str], int]:
             host["ssh"], list(quellen), host.get("ssh_via"), host.get("ssh_shell")
         )
         if treffer is None:
-            # `betrieb: auf_zuruf` — der Knoten laeuft planmaessig nur, wenn ihn
-            # jemand weckt (GPU-Box, Owner-Entscheid Wake-on-LAN). Das ist kein
+            # Deklaration `auf_zuruf` — der Knoten laeuft planmaessig nur, wenn
+            # ihn jemand weckt (GPU-Box, Owner-Entscheid Wake-on-LAN). Das ist kein
             # Ausfall und kein Scope-Gap, sondern ein erwarteter Zustand — sonst
             # stuende der Knoten dauerhaft als "nicht pruefbar" da (platform#2545).
-            if host.get("betrieb") == "auf_zuruf":
+            # Eine Lesefunktion mit Ablaufdatum fuer alle Melder (#3495 V2).
+            if befund_journal.deklarationen_fuer(
+                host["name"],
+                art="auf_zuruf",
+                pfad=platform_dir / befund_journal.DEKLARATIONEN_REL,
+            ):
                 schlaeft.append(host["name"])
             else:
                 unpruefbar.append(host["name"])
@@ -257,7 +263,9 @@ def main() -> int:
             f"(die uebrigen {gezaehlt} Kopie(n) sind synchron)"
         )
         return 3
-    schlaf_hinweis = f" — schlaeft (auf_zuruf): {' '.join(schlaeft)}" if schlaeft else ""
+    schlaf_hinweis = (
+        f" — schlaeft (auf_zuruf): {' '.join(schlaeft)}" if schlaeft else ""
+    )
     print(
         f"RESULT: OK — {gezaehlt} verteilte Host-Kopie(n) synchron mit dem Repo"
         f"{schlaf_hinweis}"

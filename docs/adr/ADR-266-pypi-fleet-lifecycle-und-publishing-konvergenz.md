@@ -305,6 +305,33 @@ Zielzustand-Issue (Owner-Go 2026-09-01), Anker #2075. Stand nach zwei Tagen:
   (django-lms-lite, iil-klickdummy), K4-Releases gpufw 0.1.1 / iil-reflex 0.6.1, Tags
   für die 3 tag-losen Repos, Bump-Welle erst bei realer `_ci-pypi.yml`-Änderung.
 
+## Amendment 2026-09-16 — Pin-Konvention für iil-Pakete (Owner-Entscheid E5, [#575](https://github.com/achimdehnert/platform/issues/575) Teil 3)
+
+**Gemessen 2026-09-16** über `pyproject.toml`/`requirements*.txt` aller Klone unter
+`~/github`: **82 Pins** auf iil-Pakete, **0 mit Obergrenze** — durchweg nackte
+`>=`-Untergrenzen (`iil-testkit>=0.6.0` 10×, `iil-aifw>=0.11.7` 7×, …), dazu neun
+Consumer mit Untergrenzen unter dem letzten Breaking (`iil-promptfw>=0.5.5`,
+`iil-authoringfw>=0.3`). Der Anlass aus #575 gilt weiter: `iil-aifw 0.11.0` brach das
+Routing, lag aber unter jedem `<1`.
+
+**Konvention (gilt für neue und angefasste Pins; Bestand wird nicht per Sweep umgeschrieben):**
+
+| Paket-Version | Pin | Beispiel |
+|---|---|---|
+| ≥ 1.0 | `>=X.Y,<X+1` | `iil-platform[shop]>=1.0,<2` |
+| 0.x | `>=0.m.p,<0.m+1` — jeder Minor darf brechen | `iil-aifw>=0.14.0,<0.15` |
+| Extras | wie oben, Extra in der Klammer | `iil-testkit[smoke]>=0.6.1,<0.7` |
+
+**Warum kein Sweep über den Bestand:** Eine Obergrenze ohne laufenden Aktualisierer
+friert den Consumer ein — Renovate ist in der Org nicht aktiv (0 Renovate-PRs,
+[#572](https://github.com/achimdehnert/platform/issues/572)), Dependabot hebt keine
+Obergrenzen an. Bis Renovate läuft, gilt die Konvention beim Anfassen eines Pins;
+der Sweep folgt mit #572/[#574](https://github.com/achimdehnert/platform/issues/574).
+
+**Messung:** `pypi_fleet_inventory.py` bekommt eine Kennzahl **K8 Pin-Form**
+(Anteil Consumer-Pins mit Obergrenze; Baseline 0/82). Bis sie gebaut ist, ist die
+Zahl oben der Stand — kein Melder, keine Entwarnung.
+
 ## Glossar
 
 - **Trusted Publishing (OIDC):** PyPI akzeptiert kurzlebige GitHub-Actions-

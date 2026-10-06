@@ -8,7 +8,8 @@ einem `gh`-Stub auf dem PATH.
 
 Die drei Invarianten, die dieser Test haelt:
 
-1. **Vollstaendigkeit** — die Summary nennt E.0 bis E.9. Eine Phase, die still
+1. **Vollstaendigkeit** — die Summary nennt E.0 bis E.11, ausser den bewusst
+   entfallenen Phasen in `ENTFALLENE_PHASEN`. Eine Phase, die still
    ausfaellt, waere genau der Zustand, gegen den der Runner gebaut ist.
 2. **Positivkontrolle** — ein dirty Repo MIT eigenem Lease wird als WARN
    erkannt. Ohne diese Zeile bestuende der Test auch, wenn E.7 nie etwas faende.
@@ -31,12 +32,14 @@ _HEUTE = subprocess.run(
     ["date", "+%Y-%m-%d"], capture_output=True, text=True, check=True
 ).stdout.strip()
 
-# Der Stub antwortet auf genau die drei Aufrufformen, die der Runner kennt.
-# `run list` liefert einen erfolgreichen Deploy, `pr list` liefert nichts —
-# damit haengt kein Test an echten GitHub-Daten oder an Netz.
+# Der Stub antwortet auf die Aufrufformen, die der Runner kennt.
+# `run list --workflow Deploy` liefert einen erfolgreichen Deploy, `run list
+# --branch main` (E.11) keinen roten Workflow, `pr list` nichts — damit haengt
+# kein Test an echten GitHub-Daten oder an Netz.
 _GH_STUB = """#!/usr/bin/env bash
 args="$*"
 case "$args" in
+  *"--branch main"*)  : ;;
   *"run list"*)  echo "success completed 12345" ;;
   *"pr list"*)   : ;;
   *)             : ;;
@@ -113,9 +116,6 @@ def _lauf(
             "PLATFORM_DIR": str(umgebung["platform"]),
             "LEASE_DIR": str(umgebung["leases"]),
             "PATH": f"{umgebung['bin']}{os.pathsep}{env['PATH']}",
-            # Kein Netz, kein Modell: E.5 darf nicht in einen echten
-            # Ollama-Aufruf laufen.
-            "OLLAMA_HOST": "http://127.0.0.1:1",
             # Der git-User entscheidet ueber den Fallback „Repos mit Commits von
             # heute" — und damit ueber die Eigen/Fremd-Trennung in E.7. Er wird
             # hier ausdruecklich gesetzt, statt aus der Umgebung zu kommen: in
@@ -158,11 +158,77 @@ def test_should_be_executable():
     assert os.access(_SKRIPT, os.X_OK), "Runner muss ohne `bash` davor startbar sein"
 
 
-def test_should_report_every_phase_from_e0_to_e9(umgebung):
+# Phasen, die bewusst entfallen sind; ihre Nummer wird nicht neu vergeben.
+ENTFALLENE_PHASEN = {"E.5"}  # Zusagen-Pruefer, V2b (platform#3785)
+
+
+def test_should_report_every_phase_from_e0_to_e11(umgebung):
     ergebnis = _lauf(umgebung)
     phasen = _summary_zeilen(ergebnis.stdout)
-    fehlend = [f"E.{i}" for i in range(10) if f"E.{i}" not in phasen]
+    fehlend = [
+        f"E.{i}"
+        for i in range(12)
+        if f"E.{i}" not in phasen and f"E.{i}" not in ENTFALLENE_PHASEN
+    ]
     assert not fehlend, f"Phasen fehlen in der Summary: {fehlend}\n{ergebnis.stdout}"
+
+
+def _gh_main(umgebung: dict, antwort: str) -> None:
+    """Ersetzt die E.11-Antwort des Stubs, alle anderen Aufrufe bleiben."""
+    (umgebung["bin"] / "gh").write_text(
+        _GH_STUB.replace(
+            '*"--branch main"*)  : ;;', f'*"--branch main"*)  {antwort} ;;'
+        ),
+        encoding="utf-8",
+    )
+    (umgebung["bin"] / "gh").chmod(0o755)
+
+
+def test_should_pass_e11_when_no_main_workflow_is_red(umgebung):
+    assert _summary_zeilen(_lauf(umgebung).stdout)["E.11"] == "PASS"
+
+
+def test_should_warn_e11_when_a_main_workflow_is_red(umgebung):
+    """Positivkontrolle: Realfall 2026-10-05, main nach eigenem Merge rot."""
+    _gh_main(umgebung, r"printf 'ADR Schema Validation\t777\n'")
+    ergebnis = _lauf(umgebung)
+    assert _summary_zeilen(ergebnis.stdout)["E.11"] == "WARN", ergebnis.stdout
+    assert "ADR Schema Validation (777)" in ergebnis.stdout
+    assert "nicht darauf mergen" in ergebnis.stdout
+
+
+def test_should_skip_not_pass_e11_when_gh_fails(umgebung):
+    _gh_main(umgebung, "exit 1")
+    ergebnis = _lauf(umgebung)
+    assert _summary_zeilen(ergebnis.stdout)["E.11"] == "SKIP", ergebnis.stdout
+    assert "nicht messbar" in ergebnis.stdout
+
+
+def test_should_query_e11_under_the_owner_of_the_touched_repo(umgebung):
+    """Realfall meiki-hub: liegt in einer anderen Org als das Ziel-Repo.
+
+    Der Stub antwortet nur unter dem Owner aus dem origin-Remote von `beta`;
+    fragt der Runner unter dem Owner des Ziel-Repos, wird E.11 SKIP statt WARN.
+    """
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(umgebung["github"] / "beta"),
+            "remote",
+            "add",
+            "origin",
+            "git@github.com:andere-org/beta.git",
+        ],
+        check=True,
+    )
+    _gh_main(
+        umgebung,
+        'case "$*" in *"-R andere-org/beta "*) printf "Fremd-CI\\t9\\n" ;; *) exit 1 ;; esac',
+    )
+    ergebnis = _lauf(umgebung)
+    assert _summary_zeilen(ergebnis.stdout)["E.11"] == "WARN", ergebnis.stdout
+    assert "beta: Fremd-CI (9)" in ergebnis.stdout
 
 
 def test_should_end_with_result_ok_and_judgment_line(umgebung):
@@ -222,7 +288,7 @@ def test_should_skip_not_pass_when_a_tool_is_missing(umgebung):
     """`NICHT messbar` ist kein Gruen — die Werkzeug-Phasen muessen SKIP sein."""
     ergebnis = _lauf(umgebung)
     phasen = _summary_zeilen(ergebnis.stdout)
-    for phase in ("E.3", "E.4", "E.5", "E.6", "E.9"):
+    for phase in ("E.3", "E.4", "E.6", "E.9"):
         assert phasen[phase] == "SKIP", (
             f"{phase} ist {phasen[phase]}\n{ergebnis.stdout}"
         )
@@ -524,25 +590,252 @@ esac
     assert "gh scheiterte" in ergebnis.stdout
 
 
-def test_should_skip_not_pass_when_gh_fails_in_e5(umgebung):
-    """Gleiche Lehre fuer E.5 — zusaetzlich ein `curl`-Stub, damit die
-    Ollama-Erreichbarkeitspruefung nicht schon vorher (mangels Netz) SKIPt."""
-    fehl_stub = """#!/usr/bin/env bash
-args="$*"
-case "$args" in
-  *"run list"*)  echo "success completed 12345" ;;
-  *"pr list"*)   echo "gh: rate limited" >&2; exit 1 ;;
-  *)             exit 0 ;;
-esac
-"""
-    (umgebung["bin"] / "gh").write_text(fehl_stub, encoding="utf-8")
-    (umgebung["bin"] / "gh").chmod(0o755)
-    (umgebung["bin"] / "curl").write_text(
-        "#!/usr/bin/env bash\nexit 0\n", encoding="utf-8"
-    )
-    (umgebung["bin"] / "curl").chmod(0o755)
+def test_should_not_run_the_dropped_commitment_check(umgebung):
+    """E.5 (Zusagen-Pruefer) ist mit V2b entfallen, sein Gate liegt in
+    declined/ (platform#3785). Auch wenn das Werkzeug im Repo liegt, darf die
+    Phase nicht wieder auftauchen."""
+    werkzeug = umgebung["platform"] / "tools" / "verankerung_pruefer.py"
+    werkzeug.parent.mkdir(parents=True, exist_ok=True)
+    werkzeug.write_text("print('✅')\n", encoding="utf-8")
     ergebnis = _lauf(umgebung)
-    phasen = _summary_zeilen(ergebnis.stdout)
-    assert phasen["E.5"] == "SKIP", ergebnis.stdout
-    assert "[SKIP] E.5" in ergebnis.stdout
-    assert "gh scheiterte" in ergebnis.stdout
+    assert "E.5" not in _summary_zeilen(ergebnis.stdout), ergebnis.stdout
+    assert "E.6" in _summary_zeilen(ergebnis.stdout), ergebnis.stdout
+
+
+# ── E.3 Fragment-Modus (#1944 K6) ────────────────────────────────────────────
+
+
+def _fragment_repo(umgebung: dict) -> pathlib.Path:
+    ziel = umgebung["github"] / "beta"
+    frag = ziel / "docs" / "handover.d"
+    frag.mkdir(parents=True)
+    (frag / "2026-09-16T08-00-00Z-auf-main.md").write_text("x\n", encoding="utf-8")
+    _git(ziel, "add", "docs")
+    _git(ziel, "commit", "-q", "-m", "fragment")
+    _git(ziel, "update-ref", "refs/remotes/origin/main", "HEAD")
+    return ziel
+
+
+def _e3(stdout: str) -> str:
+    return next(z for z in stdout.splitlines() if "E.3 handover-frische" in z)
+
+
+def test_should_pass_e3_when_session_fragment_is_on_main(umgebung):
+    ziel = _fragment_repo(umgebung)
+    ergebnis = _lauf(umgebung, ziel=str(ziel), argv=("--session-id", "auf-main"))
+    assert "Fragment der Sitzung liegt auf main" in _e3(ergebnis.stdout)
+
+
+def test_should_fail_e3_when_session_has_no_fragment(umgebung):
+    ziel = _fragment_repo(umgebung)
+    ergebnis = _lauf(umgebung, ziel=str(ziel), argv=("--session-id", "ohne"))
+    zeile = _e3(ergebnis.stdout)
+    assert "FAIL" in zeile and "kein Fragment fuer Sitzung ohne" in zeile
+
+
+def test_should_not_count_other_sessions_fragment_with_same_suffix(umgebung):
+    # "main" ist Endung von "auf-main" — darf nicht als eigenes Fragment gelten.
+    ziel = _fragment_repo(umgebung)
+    ergebnis = _lauf(umgebung, ziel=str(ziel), argv=("--session-id", "main"))
+    assert "FAIL" in _e3(ergebnis.stdout)
+
+
+def test_should_warn_e3_in_fragment_mode_without_session_id(umgebung):
+    ziel = _fragment_repo(umgebung)
+    ergebnis = _lauf(umgebung, ziel=str(ziel))
+    zeile = _e3(ergebnis.stdout)
+    assert "WARN" in zeile and "--session-id" in zeile
+
+
+def test_should_name_repo_after_main_tree_when_called_from_worktree(umgebung, tmp_path):
+    haupt = umgebung["github"] / "beta"
+    wt = tmp_path / "worktrees" / "2026-09-16-slug-120000"
+    _git(haupt, "worktree", "add", "-q", "-b", "sitzung", str(wt))
+    ergebnis = _lauf(umgebung, ziel=str(wt))
+    assert f"target=beta ({wt.resolve()})" in ergebnis.stdout, ergebnis.stdout
+
+
+# ── Sitzungsabgrenzung E.3 + E.10 (platform#2234, Retro #3543 Befunde #2/#4) ──
+#
+# Beide Phasen sahen die Arbeit paralleler Sitzungen desselben Kontos (E.10)
+# bzw. nur, OB ein Fragment existiert (E.3). Die Drills bauen die Realfaelle vom
+# 2026-09-24 nach — mit echtem `tools/sitzungs_branches.py` und
+# `tools/session_abgleich.py` im Attrappen-Platform-Baum und einem gh-Stub, der
+# aus einer Fixture-Datei antwortet (kein Netz).
+
+_WERKZEUGE = pathlib.Path(__file__).resolve().parents[1]
+_SITZUNG = "e911bf49-94e1-4b4c-86ed-f4a4337ba501"
+_EIGEN = "session/2026-09-24/achim-dehnert/eigen"
+
+# Antwortet auf `pr list --head`, den kontoweiten `pr list` und `issue view`;
+# jeder `--jq`-Aufruf bleibt leer (E.1/E.2/frag-pr sind hier nicht Thema).
+_GH_FIXTURE_STUB = """#!/usr/bin/env python3
+import json, os, sys
+a = sys.argv[1:]
+d = json.load(open(os.environ["GH_FIXTURE"]))
+if "--jq" in a:
+    sys.exit(0)
+if a[:2] == ["pr", "list"]:
+    prs = d.get("prs", [])
+    if "--head" in a:
+        prs = [p for p in prs if p.get("headRefName") == a[a.index("--head") + 1]]
+    print(json.dumps(prs)); sys.exit(0)
+if a[:2] == ["issue", "view"]:
+    for i in d.get("issues", []):
+        if str(i["number"]) == a[2]:
+            print(json.dumps(i)); sys.exit(0)
+    sys.exit(1)
+print("[]")
+"""
+
+
+def _mit_werkzeugen(umgebung: dict, fixture: dict, tmp_path: pathlib.Path) -> dict:
+    tools = umgebung["platform"] / "tools"
+    tools.mkdir(exist_ok=True)
+    for name in ("sitzungs_branches.py", "session_abgleich.py"):
+        (tools / name).symlink_to(_WERKZEUGE / name)
+    gh = umgebung["bin"] / "gh"
+    gh.write_text(_GH_FIXTURE_STUB, encoding="utf-8")
+    gh.chmod(0o755)
+    pfad = tmp_path / "gh-fixture.json"
+    pfad.write_text(__import__("json").dumps(fixture), encoding="utf-8")
+    return {"GH_FIXTURE": str(pfad)}
+
+
+def _sitzungs_lease(
+    umgebung: dict, repo: str, claude_session: str | None = _SITZUNG
+) -> None:
+    lease = {"session_id": "l-eigen", "repo": repo, "branch": _EIGEN}
+    if claude_session is not None:
+        lease["claude_session"] = claude_session
+    (umgebung["leases"] / "l-eigen.json.closed").write_text(
+        __import__("json").dumps(lease), encoding="utf-8"
+    )
+
+
+def _fragment(ziel: pathlib.Path, stempel: str, erstellt: str) -> None:
+    frag = ziel / "docs" / "handover.d"
+    frag.mkdir(parents=True, exist_ok=True)
+    (frag / f"{stempel}-e911bf49.md").write_text(
+        f"---\nsession_id: e911bf49\nerstellt: {erstellt}\ntitel: t\n---\n",
+        encoding="utf-8",
+    )
+    _git(ziel, "add", "docs")
+    _git(ziel, "commit", "-q", "-m", f"fragment {stempel}")
+    _git(ziel, "update-ref", "refs/remotes/origin/main", "HEAD")
+
+
+_PR_NACH_FRAGMENT = {
+    "number": 3540,
+    "headRefName": _EIGEN,
+    "state": "MERGED",
+    "createdAt": "2026-09-24T15:50:00Z",
+    "mergedAt": "2026-09-24T16:08:00Z",
+    "files": [{"path": "tools/x.py"}],
+    "body": "",
+    "author": {"login": "a"},
+}
+
+
+def test_should_fail_e3_when_session_merged_work_after_its_fragment(umgebung, tmp_path):
+    """Positivkontrolle Befund #4: Fragment 13:01Z, danach #3540 (gemergt 16:08Z)."""
+    ziel = umgebung["github"] / "beta"
+    _fragment(ziel, "2026-09-24T13-01-28Z", "2026-09-24T13:01:28Z")
+    _sitzungs_lease(umgebung, "beta")
+    extra = _mit_werkzeugen(umgebung, {"prs": [_PR_NACH_FRAGMENT]}, tmp_path)
+    ergebnis = _lauf(
+        umgebung, ziel=str(ziel), extra=extra, argv=("--session-id", _SITZUNG[:8])
+    )
+    zeile = _e3(ergebnis.stdout)
+    assert "FAIL" in zeile and "veraltet" in zeile and "beta#3540" in zeile, (
+        ergebnis.stdout
+    )
+
+
+def test_should_pass_e3_when_a_younger_fragment_covers_the_later_work(
+    umgebung, tmp_path
+):
+    """Gegenprobe: Nachtrag 17:06Z liegt auf main — der Nachlauf ist gedeckt."""
+    ziel = umgebung["github"] / "beta"
+    _fragment(ziel, "2026-09-24T13-01-28Z", "2026-09-24T13:01:28Z")
+    _fragment(ziel, "2026-09-24T17-06-22Z", "2026-09-24T17:06:22Z")
+    _sitzungs_lease(umgebung, "beta")
+    extra = _mit_werkzeugen(umgebung, {"prs": [_PR_NACH_FRAGMENT]}, tmp_path)
+    ergebnis = _lauf(
+        umgebung, ziel=str(ziel), extra=extra, argv=("--session-id", _SITZUNG[:8])
+    )
+    zeile = _e3(ergebnis.stdout)
+    assert "PASS" in zeile and "17-06-22Z" in zeile, ergebnis.stdout
+
+
+def test_should_skip_not_pass_e3_when_the_session_is_not_assignable(umgebung, tmp_path):
+    """Alt-Lease ohne claude_session: Fragment da, Nachlauf nicht pruefbar — kein Gruen."""
+    ziel = umgebung["github"] / "beta"
+    _fragment(ziel, "2026-09-24T13-01-28Z", "2026-09-24T13:01:28Z")
+    _sitzungs_lease(umgebung, "beta", claude_session=None)
+    extra = _mit_werkzeugen(umgebung, {"prs": [_PR_NACH_FRAGMENT]}, tmp_path)
+    ergebnis = _lauf(
+        umgebung, ziel=str(ziel), extra=extra, argv=("--session-id", _SITZUNG[:8])
+    )
+    zeile = _e3(ergebnis.stdout)
+    assert "SKIP" in zeile and "nicht zuordenbar" in zeile, ergebnis.stdout
+
+
+def _flut_fixture() -> dict:
+    """Realfall E.10: fremde Befunde aus Parallelsitzungen + eigener #3489 → #3469."""
+    prs, issues = [], []
+    for i in range(34):
+        prs.append(
+            {
+                "number": 3400 + i,
+                "state": "MERGED",
+                "files": [],
+                "author": {"login": "a"},
+                "headRefName": f"session/2026-09-24/achim-dehnert/fremd-{i}",
+                "body": f"Refs #{3300 + i}",
+            }
+        )
+        issues.append({"number": 3300 + i, "state": "OPEN", "body": ""})
+    prs.append(
+        {
+            "number": 3489,
+            "state": "MERGED",
+            "files": [],
+            "author": {"login": "a"},
+            "headRefName": _EIGEN,
+            "body": "Refs #3469",
+        }
+    )
+    issues.append({"number": 3469, "state": "OPEN", "body": ""})
+    return {"prs": prs, "issues": issues}
+
+
+def _e10(stdout: str) -> str:
+    return next(z for z in stdout.splitlines() if "| E.10 session-abgleich" in z)
+
+
+def test_should_name_own_open_issue_in_e10_among_foreign_findings(umgebung, tmp_path):
+    """Positivkontrolle Befund #2: mit --session-id nennt E.10 genau alpha#3469."""
+    _sitzungs_lease(umgebung, "alpha")
+    extra = _mit_werkzeugen(umgebung, _flut_fixture(), tmp_path)
+    ergebnis = _lauf(umgebung, extra=extra, argv=("--session-id", _SITZUNG[:8]))
+    zeile = _e10(ergebnis.stdout)
+    assert "WARN" in zeile and "1 Befund(e) dieser Sitzung: alpha#3469" in zeile, zeile
+
+
+def test_should_mark_e10_as_account_wide_without_session_id(umgebung, tmp_path):
+    """Gegenprobe: ohne --session-id bleibt der kontoweite Lauf — und sagt es."""
+    _sitzungs_lease(umgebung, "alpha")
+    extra = _mit_werkzeugen(umgebung, _flut_fixture(), tmp_path)
+    ergebnis = _lauf(umgebung, extra=extra)
+    zeile = _e10(ergebnis.stdout)
+    assert "WARN" in zeile and "kontoweit" in zeile, zeile
+    assert "1 Befund(e)" not in zeile
+
+
+def test_should_skip_e10_when_no_session_branch_is_assignable(umgebung, tmp_path):
+    _sitzungs_lease(umgebung, "alpha", claude_session=None)
+    extra = _mit_werkzeugen(umgebung, _flut_fixture(), tmp_path)
+    ergebnis = _lauf(umgebung, extra=extra, argv=("--session-id", _SITZUNG[:8]))
+    zeile = _e10(ergebnis.stdout)
+    assert "SKIP" in zeile and "nicht zuordenbar" in zeile, zeile

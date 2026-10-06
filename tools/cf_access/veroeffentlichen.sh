@@ -4,6 +4,10 @@
 #   HOST=mail.iil.pet PORT=8787 UNIT=cloudflared-mail-links.service \
 #     tools/cf_access/veroeffentlichen.sh
 #
+# Optional GERAET=<Schluessel in infra/hosts.yaml>: laeuft der Ursprung auf einem
+# Geraet mit gueltiger Deklaration `auf_zuruf`, gilt ein 502 in der Gegenprobe
+# als erwartet (gegenprobe.sh fragt die Deklaration, #3507).
+#
 # Reihenfolge — und Schritt 3 ist die Lehre aus dem Erstlauf am 2026-07-30:
 #   1. Access-Anwendung + Richtlinie
 #   2. Tunnel + DNS (Tunnel läuft noch NICHT — es gibt keinen Ursprung)
@@ -60,7 +64,10 @@ for i in 1 2 3; do
   sleep 3
   code="$(status)"
   echo "  Gegenprobe $i: HTTP $code"
-  beurteile_gegenprobe "$code"; urteil=$?
+  # `|| urteil=$?`: unter `set -e` beendete ein nackter Aufruf mit Rueckgabe != 0
+  # das Skript, bevor der case-Zweig (Tunnel stoppen) laufen konnte.
+  urteil=0
+  beurteile_gegenprobe "$code" "${GERAET:-}" || urteil=$?
   case "$urteil" in
     0) : ;;  # erwartet: Access weist ab (oder schlafender Ursprung, bewusst erlaubt)
     1)
@@ -70,7 +77,8 @@ for i in 1 2 3; do
       echo "  ⛔ HTTP $code — Access greift, aber der URSPRUNG antwortet nicht."
       echo "     Haeufigste Ursache: ORIGIN falsch (Schema/Port) oder Dienst am Ziel aus."
       echo "     Vom Gateway aus pruefen: curl -sS -o /dev/null -w '%{http_code}' http://<origin>/"
-      echo "     Laeuft das Geraet nur auf Zuruf: URSPRUNG_DARF_SCHLAFEN=1 setzen."
+      echo "     Laeuft das Geraet nur auf Zuruf: GERAET=<hosts.yaml-Name> setzen; es braucht"
+      echo "     eine gueltige Deklaration: tools/befund_journal.py --gilt <GERAET> --art auf_zuruf"
       systemctl --user stop "$UNIT"; exit 1 ;;
     *)
       echo "  ⛔ unerwartete Antwort HTTP $code — weder Access-Abweisung noch bekannter Fehler."

@@ -1,0 +1,7 @@
+{
+  "slug": "subagent-prod-access-unscoped-prompt",
+  "decided": "2026-09-07",
+  "owner": "achim",
+  "ref": "platform#2895 Items 53+54 (Owner-Go 2026-09-07) · Anker platform#2907",
+  "reason": "Sicherheitsrelevant und deshalb ausdruecklich NICHT als 'brauchen wir nicht' abgelegt: die Pruefstelle waere ein PreToolUse-Hook auf den Subagent-Spawn, und dessen Verdrahtung liegt in ~/.claude/settings.json ausserhalb dieses Repos (Owner-Zug; ein Agent aendert keine Hook-/Permission-Konfiguration). In platform#2907 als erster der drei Kandidaten priorisiert. Bis dahin gilt der Verzicht mit Wiedervorlage bei JEDEM neuen Vorkommen — nicht erst ab zwei."
+}

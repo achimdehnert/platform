@@ -31,6 +31,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import roles  # noqa: E402  (sibling-Modul, Konvention wie ablage_pruefung.py)
+from kopfzeilen import neue_nachricht  # noqa: E402  (msg-ids nie kodieren)
 
 _LIST_LINE_RE = re.compile(
     r'^\((?P<flags>[^)]*)\)\s+(?:"(?P<delim>[^"]*)"|NIL)\s+(?P<name>.+)$'
@@ -109,7 +110,7 @@ def html_to_text(html: str) -> str:
 
 
 def build_message(sender: str, args: argparse.Namespace) -> EmailMessage:
-    msg = EmailMessage()
+    msg = neue_nachricht()
     msg["From"] = sender
     msg["To"] = ", ".join(args.to)
     if getattr(args, "cc", None):

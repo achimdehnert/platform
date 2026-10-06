@@ -55,6 +55,15 @@
 domains:
 - name: Developer Platform
   systems:
+  - name: chat-hub
+    repo: chat-hub
+    description: Matrix-basierter Chat-/Assist-Zugang (Produktname iil-assist-hub) — Synapse, Element,
+      LiveKit RTC
+    github: iilgmbh/chat-hub
+    deployed: true
+    type: other
+    lifecycle: production
+    tenancy_mode: none
   - name: dev-hub
     repo: dev-hub
     description: Central Developer Portal & Platform Management Hub
@@ -272,7 +281,9 @@ domains:
     deployed: false
     url: https://drifttales.app
     type: django
-    lifecycle: production
+    lifecycle: frozen
+    notes: 'Ruhend seit 2026-09-23 (Owner-Wort ''p3 ruhend'', #3456): App aus (travel-beat#95/#98), Runner
+      offline, deployed: false. Der ADR-Drift-Detektor (dev-hub#374) überspringt frozen-Repos.'
     tenancy_mode: subdomain
     demo_fixture: false
     dockerfile: docker/Dockerfile
@@ -347,7 +358,7 @@ domains:
     deployed: false
     url: https://kiohnerisiko.de
     type: django
-    lifecycle: frozen
+    lifecycle: archived
     tenancy_mode: none
     dockerfile: Dockerfile
     compose: docker-compose.prod.yml
@@ -355,11 +366,13 @@ domains:
       web_container: coach_hub_web
       web_service: web
       port: 8007
-    notes: 'Abgeschaltet 2026-08-20 (Owner-Weisung, platform#2125): alle 5 Container auf prod-b gestoppt
-      (+362 MB RAM frei). Tunnel-CNAMEs fuer kiohnerisiko.de, www.kiohnerisiko.de und coach-hub.iil.pet
-      in Cloudflare entfernt - die Namen loesen nicht mehr auf. Daten gesichert (pgdump: 83 Tabellen,
-      17 auth_user). Repo lebt weiter, Volumes unangetastet - docker start ist der Rueckweg. Letzter Login
-      war 2026-04-17. E-Mail-Records der Domain bleiben aktiv.'
+    notes: 'Archiviert 2026-10-02 (platform#3677): Repo archiviert, Topic scheduled-deletion-2026-11-01,
+      Deploy-Workflow abgeschaltet, Domains aus ports.yaml ausgetragen (#3676). Backup verifiziert. DELETE
+      fruehestens 2026-11-01, Human-Only. Davor: Abgeschaltet 2026-08-20 (Owner-Weisung, platform#2125):
+      alle 5 Container auf prod-b gestoppt (+362 MB RAM frei). Tunnel-CNAMEs fuer kiohnerisiko.de, www.kiohnerisiko.de
+      und coach-hub.iil.pet in Cloudflare entfernt - die Namen loesen nicht mehr auf. Daten gesichert
+      (pgdump: 83 Tabellen, 17 auth_user). Volumes auf prod unangetastet (Reste: platform#2480). Letzter
+      Login war 2026-04-17. E-Mail-Records der Domain bleiben aktiv.'
   - name: odoo-hub
     repo: odoo-hub
     description: Odoo management and integration (Odoo 17)

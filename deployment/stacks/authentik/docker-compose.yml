@@ -14,7 +14,7 @@ networks:
 
 services:
   authentik_server:
-    image: ghcr.io/goauthentik/server:2025.10.4
+    image: ghcr.io/goauthentik/server:2025.12.6
     container_name: iil_authentik_server
     command: server
     networks: [authentik_net]
@@ -50,7 +50,7 @@ services:
       start_period: 60s
 
   authentik_worker:
-    image: ghcr.io/goauthentik/server:2025.10.4
+    image: ghcr.io/goauthentik/server:2025.12.6
     container_name: iil_authentik_worker
     command: worker
     networks: [authentik_net]

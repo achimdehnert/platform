@@ -114,7 +114,9 @@ def waehle_kandidaten(
             and r.get("state") == "APPROVED"
         ]
         if eigene:
-            skip(nr, f"bereits von {bot_login} approved ({len(eigene)}x) — kein weiteres")
+            skip(
+                nr, f"bereits von {bot_login} approved ({len(eigene)}x) — kein weiteres"
+            )
             continue
         if p.get("mergeStateStatus") not in REVIEW_BLOCKIERT:
             skip(nr, f"mergeState {p.get('mergeStateStatus')} — nicht review-blockiert")

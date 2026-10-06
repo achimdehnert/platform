@@ -1,0 +1,7 @@
+{
+  "slug": "deploy-green-not-prod-healthy",
+  "decided": "2026-08-23",
+  "owner": "achim",
+  "ref": "platform#2234",
+  "reason": "Seit dem 2026-08-23 misst Phase 0.7.12 (`prod-wirkung`) den Stand HINTER dem gruenen Haken bei jedem Sitzungsstart — laufende Container gegen origin/main, `cancelled` als eigene Klasse. Das ist die Messung, die der Slug verlangt; ein eigenes Gate waere ein zweiter Zaehler auf dieselbe Zahl."
+}

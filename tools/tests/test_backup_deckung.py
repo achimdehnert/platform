@@ -233,6 +233,55 @@ def test_should_run_locally_for_the_host_it_is_on_and_ssh_for_the_rest():
     assert gesehen[0] == "bash" and "ssh" in gesehen[1:]
 
 
+def _snap_json(host: str) -> str:
+    return json.dumps(
+        [
+            {
+                "hostname": host,
+                "tags": ["pgdump", f"{host}_db"],
+                "time": "2026-08-25T06:00:00Z",
+                "paths": [],
+            }
+        ]
+    )
+
+
+def test_should_merge_snapshots_from_every_hosts_own_repo():
+    """ADR-289 Rev 3: je Host ein Repo (Storage-Box-Unterkonto) — die Snapshots
+    ALLER Hosts zaehlen, nicht nur die des ersten, der antwortet. Realfall
+    2026-09-24: prod-b erschien mit 15 UNGEDECKT, weil nur prods Repo gelesen wurde."""
+
+    def laeufer(cmd):
+        text = " ".join(cmd)
+        if "restic snapshots" in text:
+            return 0, _snap_json("prod-b" if "root@2" in text else "prod")
+        return 0, "volumes-rohtext"
+
+    roh, snaps = bd.erhebe_live(
+        {"prod": "root@1", "prod-b": "root@2"}, laeufer, lokal={"prod"}
+    )
+    assert {s["hostname"] for s in snaps} == {"prod", "prod-b"}
+    assert roh["prod"] and roh["prod-b"]
+
+
+def test_should_mark_host_blind_when_its_own_repo_does_not_answer():
+    """Antwortet das Repo eines Hosts nicht, ist DIESER Host blind (Exit 2) —
+    seine Volumes werden nicht als UNGEDECKT gezaehlt, nur weil das Werkzeug
+    sein Repo nicht sah (#2278)."""
+
+    def laeufer(cmd):
+        text = " ".join(cmd)
+        if "restic snapshots" in text:
+            return (1, "") if "root@2" in text else (0, _snap_json("prod"))
+        return 0, "volumes-rohtext"
+
+    roh, snaps = bd.erhebe_live(
+        {"prod": "root@1", "prod-b": "root@2"}, laeufer, lokal={"prod"}
+    )
+    assert [s["hostname"] for s in snaps] == ["prod"]
+    assert roh["prod-b"] is None and roh["prod"] == "volumes-rohtext"
+
+
 def test_should_name_hosts_outside_the_scope_instead_of_calling_them_green(tmp_path):
     roh = {"prod": _host([_vol("a", anonym=True)], [])}
     e = bd.bewerte(roh, [], {}, NOW)

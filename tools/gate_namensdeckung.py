@@ -38,6 +38,9 @@ import json
 import os
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import gate_registry  # noqa: E402  (Einzeldateien, #1944 K7)
+
 GATE_HEADER = {
     "slug": "gate-modul-prueft-weniger-als-sein-name",
     "mode": "advisory",
@@ -47,7 +50,7 @@ GATE_HEADER = {
 }
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DEFAULT_REGISTRY = os.path.join(REPO_ROOT, "docs", "governance", "gate-registry.json")
+DEFAULT_REGISTRY = gate_registry.DEFAULT_PFAD
 
 
 def _lies(repo: str, rel: str) -> str:
@@ -60,6 +63,37 @@ def _lies(repo: str, rel: str) -> str:
             return f.read()
     except OSError:
         return ""
+
+
+def _drill_wurzel(gate: dict, repo: str) -> str:
+    """Wurzel fuer relative Drill-Pfade — bei `repo: owner/name` der lokale Klon.
+
+    Bis 2026-09-17 wurde jedes Gate gegen den platform-Klon gelesen; ein Gate im
+    Ziel-Repo (`built-but-never-called`, `date-cutoff-utc-statt-localdate`) galt
+    damit dauerhaft als Luecke, obwohl sein Drill dort liegt. Fehlt der Klon,
+    bleibt es eine Luecke — das ist dann ehrlich.
+    """
+    fremd = str(gate.get("repo") or "").strip()
+    if not fremd:
+        return repo
+    github_dir = os.environ.get("GITHUB_DIR") or os.path.expanduser("~/github")
+    return os.path.join(github_dir, fremd.rsplit("/", 1)[-1])
+
+
+#: Praefix, mit dem ein einzelner Drill-Eintrag die Wurzel des Gates (`repo`)
+#: ausdruecklich verlaesst und immer gegen DIESEN Klon (platform) liest.
+#:
+#: Realfall `built-but-never-called` (platform#3471): das Gate hat `repo:
+#: iilgmbh/ausschreibungs-hub` fuer Fall 1, Rev 2 (2026-09-08) zog Fall 2 aber
+#: bewusst OHNE zweiten Registry-Eintrag in platform selbst nach ("ein Gate,
+#: zwei Proben, kein zweiter Eintrag"). Ohne dieses Praefix gilt die Wurzel
+#: gate-weit: `tools/tests/test_aufruferlose_funktionen.py` wurde dann gegen
+#: den ausschreibungs-hub-Klon aufgeloest, existiert dort nie und lieferte
+#: immer "" — der zweite Fall war strukturell unschliessbar, unabhaengig vom
+#: Drill-Inhalt. `gate_drill_check.py`/`gate_verankerung_check.py` fuehren fuer
+#: fremd verankerte Gates (`repo` gesetzt) gar keinen Datei-Zugriff aus — sie
+#: bleiben von diesem Praefix unberuehrt.
+PLATFORM_PRAEFIX = "platform:"
 
 
 def _quellen(gate: dict) -> list[str]:
@@ -99,8 +133,15 @@ def pruefe_gate(gate: dict, repo: str = REPO_ROOT) -> dict:
         }
 
     quellen = _quellen(gate)
-    text = "\n".join(_lies(repo, q) for q in quellen).lower()
-    gelesen = sum(1 for q in quellen if _lies(repo, q))
+    wurzel = _drill_wurzel(gate, repo)
+    gelesene_dateien = []
+    for q in quellen:
+        if q.startswith(PLATFORM_PRAEFIX):
+            gelesene_dateien.append(_lies(repo, q[len(PLATFORM_PRAEFIX) :]))
+        else:
+            gelesene_dateien.append(_lies(wurzel, q))
+    text = "\n".join(gelesene_dateien).lower()
+    gelesen = sum(1 for inhalt in gelesene_dateien if inhalt)
 
     gedeckt, fehlend = [], []
     for fall in faelle:
@@ -181,9 +222,8 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     try:
-        with open(args.registry, encoding="utf-8") as f:
-            gates = json.load(f).get("gates", [])
-    except (OSError, ValueError) as fehler:
+        gates = gate_registry.laden(args.registry).get("gates", [])
+    except (OSError, ValueError, RuntimeError) as fehler:
         # `--kurz` schrieb diese Zeile bisher gar nicht, und im Nicht-kurz-Fall
         # ging sie nach stderr. Der Sitzungsstart ruft `--kurz 2>/dev/null` auf:
         # beide Unterdrueckungen zugleich. Leere Ausgabe liest der Runner als

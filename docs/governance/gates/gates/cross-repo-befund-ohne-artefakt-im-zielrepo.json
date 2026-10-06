@@ -1,0 +1,21 @@
+{
+  "slug": "cross-repo-befund-ohne-artefakt-im-zielrepo",
+  "mode": "process",
+  "owner": "achim",
+  "module": "tools/befund_journal.py",
+  "drill": "tools/tests/test_befund_journal.py",
+  "built": "2026-08-16",
+  "ref": "platform#2004",
+  "faengt": [
+    {
+      "fall": "Fremd-Repo-Befund ohne Issue im Zielrepo",
+      "probe": "cross"
+    },
+    {
+      "fall": "abgelegter Verzicht mit Grund zaehlt als Abschluss",
+      "probe": "verzicht"
+    }
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-08-16"
+}

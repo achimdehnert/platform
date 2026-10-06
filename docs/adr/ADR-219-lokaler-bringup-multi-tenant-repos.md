@@ -9,11 +9,12 @@ informed: [achimdehnert, bahn-sqf, meiki-lra, ttz-lif, iilgmbh]
 domains: [infrastructure, developer-experience, multi-tenancy, process, drift-prevention]
 implementation_status: complete
 implementation_evidence:
-  - "platform: scripts/dev.sh — Multi-Tenant-Block (migrate_schemas + seed_public_tenant) vor runserver"
-  - "platform: scripts/gen_project_facts.py — compose_local-Fallback um docker-compose.dev.yml erweitert"
-  - "platform: .windsurf/workflows/run-local.md — Compose-Detection + Host/Docker-Modus + Multi-Tenant-Step"
-  - "ausschreibungs-hub: apps/tenants/management/commands/seed_public_tenant.py (idempotent)"
-  - "Präzedenz: travel-beat/apps/tenants/management/commands/seed_public_tenant.py"
+  - "path: scripts/dev.sh — Multi-Tenant-Block (migrate_schemas + seed_public_tenant) vor runserver"
+  - "path: scripts/gen_project_facts.py — compose_local-Fallback um docker-compose.dev.yml erweitert"
+  - "path: .windsurf/workflows/run-local.md — Compose-Detection + Host/Docker-Modus + Multi-Tenant-Step"
+  - "path: ausschreibungs-hub:apps/tenants/management/commands/seed_public_tenant.py — idempotent"
+  - "path: travel-beat:apps/tenants/management/commands/seed_public_tenant.py — Präzedenz"
+  - "pr: platform#309 — dev.sh/run-local Multi-Tenant-Bring-up + ADR-219"
 scope:
   include_paths:
     - "scripts/dev.sh"

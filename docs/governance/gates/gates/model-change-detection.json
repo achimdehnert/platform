@@ -1,0 +1,23 @@
+{
+  "slug": "model-change-detection",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": "tools/claude-hooks/model_change_detector.sh",
+  "drill": "tools/claude-hooks/tests/test_model_change_detector.py",
+  "built": "2026-08-02",
+  "ref": "KONZ-038 D7",
+  "faengt": [
+    {
+      "fall": "Modellwechsel zwischen zwei Sitzungen",
+      "probe": "modell"
+    }
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-08-02",
+  "ausgang": "selten-schwer",
+  "ausgang_note": "V1c (platform#3785, Owner-Wort 2026-10-05): billiger Melder fuer einen seltenen Fall mit hohem Schaden — ein Modellwechsel ohne Requalifikation laesst Vollmachten auf einem ungeprueften Modell weiterlaufen. 0 Retro-Faelle sind hier kein Gegenbeleg, denn der Melder feuert beim Wechsel selbst (zuletzt in Sitzung 728cf098, MAJOR opus -> fable). Frist entfaellt.",
+  "positivkontrolle": {
+    "ref": "tools/claude-hooks/tests/test_model_change_detector.py::test_should_hauptversion_als_major_einstufen_und_loggen - ein Hauptversionswechsel wird als MAJOR gemeldet und geloggt; Gegenprobe ::test_should_bei_gleichem_modell_schweigen. Echtfall: MAJOR-Meldung in Sitzung 728cf098 am 2026-10-05.",
+    "datum": "2026-10-05"
+  }
+}

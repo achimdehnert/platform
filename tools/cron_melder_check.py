@@ -28,6 +28,13 @@ einzelner roter Lauf kann ein transienter Netz-/Runner-Fehler sein, und eine
 Warnung pro Ausrutscher erzeugt genau die Alarm-Müdigkeit, gegen die dieser
 Check antritt.
 
+Eine rote Serie, deren jüngster Lauf älter als `--max-alter` Tage ist (Default
+21, der seltenste Zeitplan läuft zweimal im Monat), ist kein aktueller Befund.
+Am 2026-10-02 meldete der Runner `📊 ADR Nightly Metrics (3x seit 2026-06-20)`,
+obwohl der Workflow seit Wochen täglich grün lief; derselbe Abruf eine Stunde
+später lieferte die grünen Läufe. Eine solche Serie wird einmal neu abgerufen
+und bleibt sie alt, als `UNGEPRUEFT` ausgewiesen, nicht als blinder Melder.
+
 Ausgabe endet auf `RESULT: OK|BEFUND|TRIAGE|UNGEPRUEFT — <text>` (maschinenlesbar
 für `tools/session_start_checks.sh`, Phase 0.7.2).
 """
@@ -40,6 +47,7 @@ import re
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
 from pathlib import Path
 
 #: Wer diese Zeile in seiner Workflow-YAML trägt, ist absichtlich rot, wenn er
@@ -47,6 +55,11 @@ from pathlib import Path
 MARKER_ROT_IST_BEFUND = "ROT-IST-BEFUND"
 
 _NAME_RE = re.compile(r"^name:\s*(.+?)\s*$", re.MULTILINE)
+
+#: Ältester jüngster Lauf, der noch als aktueller Zustand gilt. Der seltenste
+#: Zeitplan (`2,16 * *`) läuft alle ~16 Tage; 21 lässt einem ausgefallenen
+#: Termin Spielraum.
+MAX_ALTER_TAGE = 21
 
 
 def geplante_workflows(workflow_dir: Path) -> tuple[dict[str, Path], dict[str, Path]]:
@@ -108,6 +121,27 @@ def rote_serien(runs: list[dict], schwelle: int) -> dict[str, dict]:
     return befunde
 
 
+def veraltete_serien(
+    serien: dict[str, dict], jetzt: datetime, max_alter_tage: int
+) -> dict[str, str]:
+    """{Name: Datum des jüngsten Laufs} für Serien, die keinen aktuellen Zustand zeigen.
+
+    `jetzt` muss zeitzonenbehaftet sein; `letzter` aus `rote_serien` ist UTC.
+    Ein nicht lesbares Datum gilt als veraltet — ungeprüft ist ungeprüft.
+    """
+    alt: dict[str, str] = {}
+    for name, b in serien.items():
+        letzter = b.get("letzter") or ""
+        try:
+            zeit = datetime.fromisoformat(letzter).replace(tzinfo=timezone.utc)
+        except ValueError:
+            alt[name] = letzter or "unbekannt"
+            continue
+        if (jetzt - zeit).days > max_alter_tage:
+            alt[name] = letzter[:10]
+    return alt
+
+
 def _hole_runs(repo: str, branch: str, workflow_datei: str, limit: int) -> list[dict]:
     """Läufe EINES Workflows.
 
@@ -165,6 +199,13 @@ def main() -> int:
         default=None,
         help="Verzeichnis mit den Workflow-Dateien (Default: <repo-root>/.github/workflows)",
     )
+    ap.add_argument(
+        "--max-alter",
+        type=int,
+        default=MAX_ALTER_TAGE,
+        help="rote Serie mit älterem jüngstem Lauf gilt als ungeprüft "
+        f"(Tage, Default {MAX_ALTER_TAGE})",
+    )
     ap.add_argument("--quiet", action="store_true", help="nur die RESULT-Zeile")
     args = ap.parse_args()
 
@@ -187,9 +228,25 @@ def main() -> int:
     triage: dict[str, dict] = {}
     ungeprueft: list[str] = []
 
+    jetzt = datetime.now(timezone.utc)
+
     def _einer(name_datei: tuple[str, Path]):
         name, datei = name_datei
-        return name, _hole_runs(args.repo, args.branch, datei.name, args.limit)
+        serien = rote_serien(
+            _hole_runs(args.repo, args.branch, datei.name, args.limit), args.schwelle
+        )
+        if veraltete_serien(serien, jetzt, args.max_alter):
+            # Ein zweiter Abruf, bevor eine alte Serie als Befund durchgeht.
+            serien = rote_serien(
+                _hole_runs(args.repo, args.branch, datei.name, args.limit),
+                args.schwelle,
+            )
+        if alt := veraltete_serien(serien, jetzt, args.max_alter):
+            raise RuntimeError(
+                f"{name}: rote Serie, juengster Lauf vom {', '.join(alt.values())} "
+                f"(> {args.max_alter} d) — Zeitplan aus oder API-Antwort veraltet"
+            )
+        return name, serien
 
     # Ein Abruf je Workflow, aber nebenläufig — seriell dauerte der Lauf 13s und
     # wäre in Phase 0.7.2 des Session-Start-Runners spürbar.
@@ -199,14 +256,12 @@ def main() -> int:
         }
         for fut in as_completed(futures):
             try:
-                _, runs = fut.result()
+                _, serien = fut.result()
             except (RuntimeError, subprocess.TimeoutExpired, OSError) as e:
                 # Nicht als OK durchgehen lassen — ungeprüft ist ungeprüft.
                 ungeprueft.append(str(e))
                 continue
-            (triage if futures[fut] else befunde).update(
-                rote_serien(runs, args.schwelle)
-            )
+            (triage if futures[fut] else befunde).update(serien)
 
     if not args.quiet:
         print(
@@ -245,7 +300,8 @@ def main() -> int:
         return 0
     if ungeprueft:
         print(
-            f"RESULT: UNGEPRUEFT — {len(ungeprueft)} von {len(geplant)} nicht abrufbar, "
+            f"RESULT: UNGEPRUEFT — {len(ungeprueft)} von {len(geplant)} nicht pruefbar "
+            f"({'; '.join(sorted(ungeprueft))}), "
             f"in den uebrigen kein dauerhaft roter Melder{rest}"
         )
         return 0

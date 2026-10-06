@@ -148,6 +148,8 @@ def test_should_skip_without_any_check():
 
 
 def test_should_skip_when_not_review_blocked():
-    kandidaten, protokoll = waehle_kandidaten([pr(mergeStateStatus="CLEAN")], BOT, OWNER)
+    kandidaten, protokoll = waehle_kandidaten(
+        [pr(mergeStateStatus="CLEAN")], BOT, OWNER
+    )
     assert kandidaten == []
     assert "nicht review-blockiert" in protokoll[0]

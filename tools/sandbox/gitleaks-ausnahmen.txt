@@ -1,0 +1,22 @@
+# Ausnahmen des Sandbox-Secret-Scans (platform#3685) — je Fund ein Fingerprint.
+# Nur mit Owner-Begruendung; Kommentar immer in eigener Zeile (gitleaks kennt
+# keine Zeilenend-Kommentare). Ein neuer oder veraenderter Fund blockiert weiter.
+#
+# platform — Owner 2026-10-04: GitHub-Tokens laengst erneuert
+4c6a512070d6b9daba0a6f2acc43b781c89bbb8b:docs/adr/inputs/mcp_config_windows.json:github-pat:174
+9185a81d72baf986a00575466c3f838c7acbd20c:docs/REVIEW-ADR-022.md:github-pat:271
+# platform — Owner 2026-10-04: Grafana ohne Daten, Schluessel bleibt
+b84127e54ea2d58dd72595a55fe20e5e0f366c4c:scripts/deploy_grafana_adr116.sh:generic-api-key:88
+# platform — Fehlalarme (Liste von Health-Pfaden, Design-Token-Begriff, Test-Platzhalter)
+33c5fdbaab6eda67a7d440f7318a05f7e1350e1a:tools/cf_access/access_anlegen.py:generic-api-key:50
+63438bc9dcf560274fcf8cbe4860b942423649e3:docs/adr/ADR-049-design-token-system.md:generic-api-key:437
+ceb8be078b6b77f5ed5c1ff8243a5b586e3b2100:packages/creative-services/tests/prompts/test_migration.py:generic-api-key:212
+# mcp-hub — Owner 2026-10-04: Historie aelter als der letzte Schluesseltausch
+9e2125fc1b1bb1d528923ce0101e699fc1c922c4:grafana/provisioning/datasources/postgres.yml:generic-api-key:20
+9e2125fc1b1bb1d528923ce0101e699fc1c922c4:llm_mcp/.env:gcp-api-key:7
+9e2125fc1b1bb1d528923ce0101e699fc1c922c4:llm_mcp/.env:generic-api-key:8
+# mcp-hub — dieselben Fundstellen, wie sie der Scan der Standard-Branch-Kopie
+# meldet (aelterer Commit vom 2026-01-15 bzw. 2026-03-09); Owner-Begruendung wie oben
+77e37f6c6aa783f839d048b0488cef9145346943:grafana/provisioning/datasources/postgres.yml:generic-api-key:20
+856510986c5c2640ffd65d91b79380ad906e0b43:llm_mcp/.env:gcp-api-key:7
+856510986c5c2640ffd65d91b79380ad906e0b43:llm_mcp/.env:generic-api-key:8

@@ -1,0 +1,30 @@
+# Renovate-Config-Validator (platform#572): die zentrale renovate.json ist der
+# SSoT fuer alle Repos ("extends": "github>achimdehnert/platform//renovate.json").
+# Am 2026-09-16 war sie ungueltig (Schedule "before 8am on weekdays", config:base,
+# matchPackagePatterns) — jeder Consumer haette beim ersten Renovate-Lauf still
+# gar nichts bekommen. Deshalb echter Validator-Lauf statt Hoffnung.
+name: Renovate-Config
+
+on:
+  pull_request:
+    paths:
+      - renovate.json
+      - .github/workflows/renovate-config.yml
+  push:
+    branches: [main]
+    paths:
+      - renovate.json
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: "22"
+      - name: renovate-config-validator --strict
+        run: npx --yes --package renovate -- renovate-config-validator --strict renovate.json

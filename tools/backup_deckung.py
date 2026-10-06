@@ -442,18 +442,27 @@ def erhebe_live(
     for name, ziel in hosts.items():
         code, out = laeufer(_aufruf(name, ziel, fernbefehl_volumes(), lokal))
         roh[name] = out if out.strip() else None
-    snapshots = None
-    # Lokaler Host zuerst: dort liegt das Env garantiert lesbar (backup-meter
-    # nutzt es an derselben Stelle), und es spart einen ssh.
+    # Seit ADR-289 Rev 3 (2026-09-24) sichert JEDER Host in sein eigenes
+    # Repository (Storage-Box-Unterkonto je Host). Die Snapshots werden deshalb
+    # auf jedem Host aus dessen /etc/offsite-backup.env gelesen und zusammen-
+    # gefuehrt — vorher genuegte ein Host, weil alle in dasselbe netcup-Repo
+    # schrieben, und genau das liess prod-b nach der Umstellung als
+    # "15 UNGEDECKT" erscheinen, obwohl sein Repo 10 frische Snapshots trug.
+    # Antwortet ein Host nicht mit lesbarem JSON, gilt ER als blind (roh=None):
+    # seine Volumes duerfen nicht als ungedeckt gezaehlt werden, nur weil das
+    # Werkzeug sein Repo nicht sehen konnte (Exit 2 statt 1, #2278).
+    snapshots: list | None = None
     reihenfolge = sorted(hosts.items(), key=lambda kv: kv[0] not in lokal)
     for name, ziel in reihenfolge:
         code, out = laeufer(_aufruf(name, ziel, fernbefehl_snapshots(), lokal))
-        if out.strip():
-            try:
-                snapshots = json.loads(out)
-                break
-            except json.JSONDecodeError:
-                continue
+        try:
+            teil = json.loads(out) if out.strip() else None
+        except json.JSONDecodeError:
+            teil = None
+        if not isinstance(teil, list):
+            roh[name] = None
+            continue
+        snapshots = (snapshots or []) + teil
     return roh, snapshots
 
 

@@ -7,6 +7,9 @@
 > eine imperative Zeile am Ort der Handlung behalten. Diese Datei trägt das **Warum**:
 > Realfälle, Messungen, Begründungen und die Changelog-Historie, **wörtlich** so, wie sie
 > bis 2026-09-02 im Skill standen. Nichts wurde gelöscht, alles hat eine Adresse.
+> Ausnahme V2b (2026-10-06, [#3798](https://github.com/achimdehnert/platform/pull/3798)):
+> Einige Passagen der Phasen 1, 3, 3b, 5 und 5a wurden im Skill umformuliert statt
+> verschoben. Ihr alter Wortlaut steht in Git bei `35db40d1`, nicht hier.
 >
 > Changelog im Skill = **letzte drei Einträge** (Policy seit
 > [platform#2696](https://github.com/achimdehnert/platform/pull/2696)); die Historie steht
@@ -219,12 +222,250 @@ Phase 3 selbst als REFUTED führt („Belegpflicht auch für Längsschnitt-Behau
 Verweis auf nicht-existente Memory"). Der zweite Nennungsort war der Changelog-Eintrag
 2026-06-04 (unten wörtlich erhalten, als Historie).
 
+## Kontext-Diät V2b — 2026-10-06: was aus dem Skill hierher wanderte
+
+Der Skill war seit der Diät vom 2026-09-02 von seiner damaligen Größe auf 38596 Bytes
+gewachsen; die Ratsche `docs/governance/startlast-deckel.json` (platform#3785) verlangt
+Senkung. Die folgenden Abschnitte standen bis 2026-10-06 **wörtlich** so im Skill; dort
+blieb je eine Anweisungszeile mit Verweis hierher. Anweisungen, die im Skill nur knapper
+formuliert wurden, behalten ihren alten Wortlaut in Git:
+`git show 35db40d1:.windsurf/workflows/session-retro.md`.
+
+<a id="v2b-kopf"></a>
+### Skill-Kopf und Modell-Routing (Volltext)
+
+> **Zweck:** Eine Arbeitssession schonungslos reviewen: Angeklagter≠Richter, Artefakt-Erdung
+> statt Erinnerung, geschlossener Lessons-Loop, Falsifikation der eigenen Befunde.
+> **Wann:** nach größeren Umbau-/Architektur-Sessions; am Sitzungsende. **Wann NICHT:**
+> Trivial-Edits → höchstens `lean`.
+
+Find/Verify durch **„du"** = Self-Review = Bruch von Regel 1. „Billiger" heißt
+**Sonnet-Subagent**, nicht **kein** Subagent. Opus nur in 3b oder bei Nuance-Fail.
+
+<a id="v2b-phase-3b"></a>
+### Phase 3b — Abgrenzung zu Phase 3 und 5
+
+Phase 3 widerlegt **einzelne Befunde**, Phase 5 prüft die **Form**; 3b widerlegt **das Urteil
+dieser Retro**.
+
+Phase 9 (Wortlaut bis 2026-10-06): Die Übergabe-Antwort ist eine Entscheidungsvorlage — der
+Report liegt im Repo und wird nicht nacherzählt.
+
+<a id="v2b-phase-0"></a>
+### Phase 0.1 — Subagenten-Verbot, Trigger-Konflikt, Increment-Retro (Volltext)
+
+Auftrag **neutral** („widerlege, wenn du kannst"), nie „prüfe, ob ich zu milde war".
+**Kosten (gemessen): ~55k Tokens je Skeptiker** — bei einer Budget-Freigabe diese Zahl nennen.
+**Untersagt die Umgebung Subagenten:** inline finden, nach der Tabelle sortieren,
+Bewertungsbefunde mit ihrer Zahl zur Freigabe vorlegen; der Regel-1-Bruch bleibt in §8 als
+Restlücke.
+
+**Trigger-Konflikt (`deep` wegen Prod vs. Dichte):** bei `deep` starten; **eine** Stufe runter
+(→ `full`) nur wenn **alle drei** zutreffen — (a) Prod-Schritt explizit freigegeben
+(PR-Body-Warnung oder `AskUserQuestion`), (b) voll rollback-fähig (**keine** DB-Migration),
+(c) findings_total-Schätzung ≤10. Mit Prod-Schritt **nie** `lean`. Reduktion + Begründungen als
+`footprint_reduction_reason` ins Frontmatter.
+
+**Increment-Retro (Anchor am selben Tag):** (1) `session_id`-Suffix `-incr`; (2) **nur neue
+Artefakte** in-scope, Vor-Retro NICHT re-litigieren; (3) Parent-Slugs zählen als Vorkommen-1 ⇒
+derselbe Slug im Increment = Vorkommen-2 ⇒ **Gate-Pflicht, auch same-day**; (4) mit
+Prod-Schritt mindestens `full`.
+
+<a id="v2b-phase-4"></a>
+### Phase 4 Punkt 5a/5b — Zuschnitt, Handover-Fall, Nominierung (Volltext)
+
+`positivkontrolle` (`gate_wirkung.py` liest `revised or built`). Der Edit läuft durch
+`tools/gate_verankerung_check.py --neu` (session-ende 0f), sonst ist er Kandidat, kein Eintrag
+(#2234). **Zuschnitt prüfen (#3734):** Konnte das Gate den Fall nach seinem Zuschnitt nicht
+sehen, bekommt die Zeile `gates_verwandt: <Begründung>` (≥10 Zeichen in derselben Zelle) und
+zählt nicht gegen das Gate; ohne Begründung zählt sie als Rückfall. Ab drei verwandten Fällen
+meldet `gate_wirkung.py` `ZUSCHNITT-PRUEFEN` (#3754). Ein Handover-Befund vor dem Sitzungsende
+ist nur dann Rückfall von `handover-stale-vor-merge`, wenn die Endprüfung trotzdem grün war,
+sonst `gates_verwandt`.
+
+**5b. Autonomie-Kalibrierung:** `over_ask` (vorgelegt, obwohl nachweislich
+**deterministisch/reversibel**) und `over_act` (autonom getan, obwohl **Gate**:
+Prod/Publish/Merge-auto-deploy/3.-Repo/irreversibel) gegen die Artefakte messen. Muster **≥2
+über Retros** ⇒ Gate-Liste in `feedback_autonomy_charter` **schärfen**. **Klassen-Slugs
+Pflicht (KONZ-025 Art. 2.1a)**, eng benannt (`pr-merge-nicht-deploy-repo`, nicht `merge`).
+`retro_kpis.py --nominierung`: Klasse ≥2 ⇒ **NOMINIERT** (Vorschlag im Registry-Format, eine
+Stufe, als „erweitert meine Macht" gekennzeichnet — Ratifikation bleibt Kapitäns-Zug);
+`over_act` derselben Klasse im Fenster **sperrt** sie (Art. 2.2).
+
+**Synthesizer-Grenze und Report-Pfad (Wortlaut bis 2026-10-06):**
+
+**Synthesizer-Grenze:** Phase 4 ist **nur Zusammenführen** — **keine** neuen `gh`/`git`-Befehle.
+Widerspruch oder ungedecktes Faktum → zurück nach 2.5/3 ODER als Lücke in §8. Nur durch
+Session-Gedächtnis gedeckte Befunde sind **Hypothese**, nicht SURVIVES.
+
+**Report-Pfad (KONZ-platform-010):**
+`platform/docs/retros/session-retro-<datum>-<repo>-<session-id-kurz>.md`, committet — auch wenn
+die Session ein anderes Repo betraf. `<session-id-kurz>` = letzte ~6 Zeichen. **Existiert der
+Pfad → NICHT überschreiben**, Suffix anhängen; `…-<datum>.md` ohne Repo/ID ist verboten.
+
+<a id="v2b-phase-5"></a>
+### Phase 5 — `refuted_rate`-Band (Volltext)
+
+`refuted_rate` **ausschließlich numerisch** als Band-Vergleich (`retro_kpis.py`), kein Urteil
+über einzelne SURVIVES/REFUTED (das ist 3b). Band: dauerhaft **>0,8** → Finder zu lasch;
+**<0,2** → Falsifikation ist Theater. Echte Falsifikations-Quote nur
+`phase3_refuted/(findings_total − pre_refuted)`.
+
+<a id="v2b-phase-1"></a>
+### Phase 1 — Sammler-Subagent gestrichen, Transkript per Skript
+
+**Kein Sammler-Subagent mehr (Streichbahn Retro 916eb7, Owner-Wort 2026-09-16, Belegart
+„kein Effekt"):** Die Finder ziehen `gh pr view`/`gh issue view`/`git show origin/main` für
+dieselben Artefakte ohnehin selbst neu (Eiserne Regel 2 verlangt es); der Sammler-Report war
+Dublette mit eigenen Fehlern (falscher Issue-Titel, „ungeprüft" trotz vorliegendem Beleg).
+
+**Transkript-Kennzahlen per Skript, nicht per Sammler (Owner-Entscheid 2026-09-14, Streichkandidat
+`retro-phase1-sammler-transkriptauswertung`):** Ablehnungen, Fehlerläufe (auch ohne `is_error`),
+Silent-Reminder mit Abstand zum nächsten sichtbaren Text und Nutzer-Nachrichten liefert
+`python3 tools/retro_transkript_kennzahlen.py <transkript.jsonl> [--von ISO] [--bis ISO]`; vorher
+einmal `--selbsttest` (Positivkontrolle je Klasse). Die Skript-Ausgabe geht als Datei an die
+Finder — kein Agent wertet das JSONL selbst aus. Realfall kbiAvn-incr: ein Sammler-Agent
+meldete „0 Ablehnungen, 0 Fehler", tatsächlich 4 und 10.
+
+**Infra-Topologie-Sonde (Wortlaut bis 2026-10-06):** plus
+`gh api repos/<owner>/<repo>/actions/runners` und `runs-on:` gegen lebende Runner (Label
+ohne Online-Runner hängt unbegrenzt). Drift → Längsschnitt-Gate-Kandidat, kein Einzelfix.
+
+<a id="v2b-phase-2"></a>
+### Phase 2 — 2026-09-22: warum alle Finder in einer Nachricht starten
+
+Die Dimensionen wissen nichts voneinander; nacheinander gestartet wartet die Retro dreimal
+hintereinander auf denselben Schritt. Das Budget aus 0.1 bleibt unverändert — es zählt
+Agenten, nicht Runden. Gleiches gilt für die Skeptiker in Phase 3: erst alle starten, dann
+alle einsammeln. Wer einen Finder startet, sein Ergebnis liest und **dann** den nächsten
+startet, hat die Prüftiefe nicht erhöht, nur die Wartezeit verdreifacht.
+
+**Phase 2.5 (Wortlaut bis 2026-10-06):** Vor Phase 3 die Finder-Outputs auf
+**widersprüchliche Fakt-Behauptungen über dasselbe Artefakt** scannen, jeden Widerspruch als
+Paar markieren. **NICHT in Phase 4 auflösen** (verstecktes Verify aus dem Haupt-Kontext),
+sondern als **zusätzlichen Skeptiker-Task**: der zieht das Artefakt **unabhängig aus
+`origin/main`** und entscheidet binär. Nur die verifizierte Version geht in den Report — mit
+eigener Befund-Nummer + Kategorie/Severity.
+
+<a id="v2b-phase-6"></a>
+### Phase 6 — 2026-09-07: Rückweg der Extern-Antwort, Fehlschluss „keine Datei = kein Leser"
+
+**Briefing-Auftrag (Wortlaut):** Anbieter-**fremde** Zweitmeinung (fremde
+Trainings-Blindflecken). (3) Auftrag: *„**Advocatus Diabolus + Out-of-the-Box:** finde, was
+dieser Retro übersehen oder falsch bewertet hat. Du hast **KEIN Repo-Zugriff** → kritisiere
+**Methode/Struktur/Blindflecken/Score-Logik/Soll-Ablauf**, behaupte **keine**
+Evidenz-Fakten."* Der Evidenz-Recheck bleibt Phase 3/3b/5; wiederkehrende Methoden-Kritik
+fließt in **diese Skill** (Changelog).
+
+**Rückweg — der Kanal läuft manuell, also braucht die Antwort einen Ort (Owner-Vorgabe
+2026-09-07):** Der Owner holt die Zweitmeinung über seine Flatrate-Oberfläche und kopiert sie
+von Hand zurück; es gibt **keinen** automatischen Rückkanal.
+
+⚠️ **Fehlende `-extern*.md` heißt NICHT „keine Antwort" und NIE „kein Leser".** Genau dieser
+Fehlschluss lief zweimal: am 2026-09-02 gegen `adr-handoff-extern` (platform#2088, 19 von 24
+angeblich „ohne Antwort" — tatsächlich alle beantwortet) und am 2026-09-07 in der Retro
+`c1ba5d`, die Phase 6 deshalb als Streichkandidat führte. Owner-Korrektur beide Male: der
+Handoff wird häufig genutzt, nur eben per Copy-and-paste. Die Abwesenheit einer Datei belegt
+die Abwesenheit einer Handlung nur, wenn die Handlung diese Datei erzeugen **muss**.
+
+<a id="v2b-phase-7"></a>
+### Phase 7 — warum es die Streichbahn gibt
+
+Ohne sie wächst der Loop monoton — jede Retro darf anbauen, keine muss abtragen.
+
+**Ergebnis und Ratsche (Wortlaut bis 2026-10-06):** Ergebnis als
+`streichkandidaten: [<slug>, …]` (leer ⇒ `streich_begruendung:` Pflicht), als Abschnitt
+`## Streichbahn` und als Zeile im Action-Board. **Ratsche:** ein Kandidat, der zwei Retros
+hintereinander auftaucht und nicht gestrichen wurde, ist selbst ein Befund.
+
+<a id="v2b-phase-8"></a>
+### Phase 8 — 2026-09-16: warum der Report-Prüfer eine eigene Phase bekam
+
+**Warum das eine eigene Phase bekommt:** gemessen über die 16 Reports seit dem
+2026-09-02 fehlte der Vierklang in **fünf**, darunter den zwei jüngsten. Regel 5
+ist als „nicht verhandelbar" ausgewiesen; die Abschluss-Checkliste fragte sie nur
+mittelbar ab (Punkt 11 verlangt „§8 gefüllt" — §8 war in allen 16 da). Eine Regel
+ohne Zeile, die sie nachzählt, wird beim Lesen überflogen.
+
+Der Prüfer läuft zusätzlich in der CI (`tools/tests/test_retro_report_check.py`,
+Required Check) über jeden Report ab dem Stichtag — die fünf älteren Lücken
+bleiben bewusst außerhalb, damit der erste Lauf nicht mit Altlasten rot wird.
+
+<a id="v2b-anti-patterns"></a>
+### Anti-Pattern-Katalog (bis 2026-10-06 im Skill)
+
+Jeder Eintrag ist im Skill als Regel am Ort der Handlung formuliert; die Liste ist die
+Gegenprobe beim Lesen eines Reports.
+
+- ❌ Aus dem eigenen Session-Kontext urteilen (in-context self-review).
+- ❌ Befund ohne harten Artefakt-Beleg.
+- ❌ Befunde nicht falsifizieren — performative Kritik durchlassen.
+- ❌ Memory/ADR/CLAUDE.md selbst schreiben statt nur vorschlagen.
+- ❌ Wiederkehrendes Muster als „noch ein Memo" abtun statt als Gate-Kandidat eskalieren.
+- ❌ Genannte Repos als „separaten Workstream" aus dem Scope kippen.
+- ❌ **Verify wiederholt den Finder-Befehl** statt den Beleg breiter neu zu ziehen.
+- ❌ **Drittes Verdikt „weakened/teilweise"** — Falsifikation ist binär.
+- ❌ **Längsschnitt-Behauptung ohne Existenz-Check** des Artefakts (Phantom-Referenz).
+- ❌ **Soll-Schritt ohne Befund-Referenz** ODER Überlebender ohne Soll-Schritt.
+- ❌ **Default-Dateiname `…-<datum>.md`** → Kollision bei Parallel-Sessions.
+- ❌ **Halbscores** (2.5) — brechen die Längsschnitt-Vergleichbarkeit.
+- ❌ **Multi-Agent für `lean`** / Skeptiker je Befund statt je Dimension ab ~4 Befunden.
+- ❌ **Skeptiker auf einen kommandobelegten Befund** — bezahlt wird eine Zweitausführung.
+- ❌ **Agenten-Budget schätzen statt beziffern** (~55k je Skeptiker ist gemessen).
+- ❌ Meta-Self-Review (Phase 5), der die **Session** statt den **Report** beurteilt.
+- ❌ **3b aus dem Haupt-Kontext oder mit Session-Erzählung** — der Angeklagte widerlegt sich selbst.
+- ❌ **3b „nichts gefunden" ohne Abdeckungsauskunft** (Eiserne Regel 5).
+- ❌ **Phase 7 „keiner" ohne Grund-Satz** oder Kandidat ohne eine der vier Belegarten.
+- ❌ Find/Verify durch **„du"** „zum Sparen" — Kosten-Fix ist Sonnet-Subagent, nicht **kein** Subagent.
+- ❌ **Opus als Default** — Sonnet trägt Find/Verify/Meta; Opus nur in 3b.
+- ❌ Extern-Handoff **Evidenz-Fakten** behaupten lassen — extern hat kein gh/git.
+- ❌ **Finder-Widerspruch in Phase 4 per neuem git/gh auflösen** — verstecktes Verify.
+- ❌ **Nummernlose Befund-Zeile** — bricht eingefrorene Spalten + `findings_total`.
+- ❌ **`recurring_finding` ohne `retro_kpis.py`-Zähler-Check** — Längsschnitt als Dekoration.
+- ❌ **`refuted_rate` ohne `pre_refuted`-Trennung** — Finder-Stroh bläht die Quote.
+- ❌ **Collect ohne vorheriges `git fetch`** — gilt für JEDEN Collect-Schritt, auch `lean`.
+- ❌ **Nach dem Fetch die Working-Tree-Datei greppen** statt aus dem Ref zu lesen.
+- ❌ **Report abgeben, ohne `retro_report_check.py` darüber laufen zu lassen** (Phase 8).
+- ❌ **§8 vorhanden als Beleg für Regel 5 werten** — der Abschnitt ist nicht der Vierklang.
+
 ---
 
 ## Changelog-Historie
 
 Die letzten drei Einträge stehen im Skill selbst; alles Ältere steht hier — wörtlich.
 
+- 2026-10-05: **Phase 9 Abschluss-Maßnahmen (PFLICHT) + Checklisten-Zeile 22** (Owner-Wort
+  „dieses Vorgehen sollten wir etablieren", platform#3716). Die Übergabe nennt, was zu
+  entscheiden ist, mit Empfehlung und Link, statt den Report nachzuerzählen.
+- 2026-09-22: **Nebenläufig starten statt nacheinander warten** (platform#3373, Auftrag
+  „Session-Skills auf Laufzeit optimieren"). Phase 1 bündelt ihre Sammel-Befehle, Phase 2 und
+  Phase 3 starten alle Subagenten in EINER Nachricht; Checklisten-Zeile 21. Kein Budget, keine
+  Dimension, keine Pflicht-Phase gestrichen — die Wartepunkte auf dem kritischen Pfad sinken
+  bei `full` (3 Finder + 3 Skeptiker) von 6 auf 2. Zahlen und Messung:
+  `docs/governance/session-skills-lehren/laufzeit.md`.
+
+- 2026-09-16: **Phase 1 Sammler-Subagent gestrichen** (Streichbahn Retro 916eb7, platform#3238,
+  Owner-Wort „R9 streichen"). Belegart „kein Effekt": alle drei Finder zogen dieselben
+  Artefakte selbst, der Sammler-Report enthielt zwei eigene Fehler. Phase 1 ist jetzt inline
+  (Artefaktliste + `retro_transkript_kennzahlen.py`), `full` = ≤5 Find/Verify, ≤6 mit 3b/Meta.
+
+- 2026-09-16: **Phase 8 `retro_report_check.py` + Checklisten-Zeilen 19/20.** Gemessen über
+  die 16 Reports seit 2026-09-02: der von Eiserner Regel 5 verlangte Vierklang fehlte in
+  fünf, darunter den zwei jüngsten (apo-hub 40c069, platform b7822e). Die Checkliste fragte
+  ihn nur mittelbar ab („§8 gefüllt" — §8 war überall da). Der Prüfer läuft in der CI über
+  jeden Report ab dem Stichtag; die fünf Altlücken bleiben bewusst außerhalb.
+
+- 2026-09-14: **Phase 1 Transkript-Kennzahlen per `tools/retro_transkript_kennzahlen.py`** (Owner-Entscheid
+  aus Retro kbiAvn-incr, Streichkandidat umgesetzt). Der Sammler-Agent wertet das JSONL nicht mehr aus;
+  das Skript fängt auch Fehler mit `is_error: False` und misst die Silent-Reminder-Lücken.
+- 2026-09-07: **Phase 6 bekommt einen Rückweg** (Owner-Vorgabe, Retro `c1ba5d`). Externe
+  Antworten liegen als `…-extern1.md`/`-extern2.md` in `~/shared/` und sind Pflichtlektüre der
+  nächsten Retro desselben Scopes (Verdikt je Punkt, Abschnitt `## Extern-Auswertung`). Der
+  Streichkandidat `retro-phase-6-extern-handoff` ist damit **erledigt, nicht gestrichen**: die
+  Belegart „kein Leser" war falsch — der Kanal läuft manuell über den Owner.
+- 2026-09-02: **Kontext-Diät + zwei neue Bahnen** (platform#2690 K5). Lehren, Realfälle und
+  Changelog-Historie wörtlich in die Begleitdoku, je ein Verweis im Skill. **Neu:** Phase 3b
+  Widerlegungsbahn (T4, PFLICHT ab `full`) + Phase 7 Streichbahn (PFLICHT, jeder Footprint).
 - 2026-09-02: **Phase 0.0 Wirkungsbilanz zuerst + `revised`-Regel in Phase 4 + erste
   Abschluss-Checkliste** (platform#2690 K4). Drei zusammengehörige Änderungen:
   (1) `gate_wirkung.py` läuft als **erster** Schritt der Retro statt als vorletzter — bei

@@ -1,0 +1,53 @@
+{
+  "slug": "direct-gh-pr-merge-bypasses-sa-m",
+  "mode": "blocking",
+  "owner": "achim",
+  "module": "tools/claude-hooks/block_direct_pr_merge.py",
+  "drill": "tools/claude-hooks/tests/test_block_direct_pr_merge.py",
+  "built": "2026-09-23",
+  "ref": "platform#2234 (Retro 2026-09-23 platform 2c4009 #5, 3. Vorkommen, Gate-Pflicht; Owner-Wort 'r7 go' 2026-09-23)",
+  "last_drill_pass": "2026-10-05",
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-09-23",
+  "revised": "2026-10-05",
+  "revision_note": "OWNER-BINDUNG 2026-10-05 (Retro 8a0235 #24, Massnahme R12b, Schwester von R12 am Gate no-checks-reported-read-as-green): der Marker `OWNER_WORT=<id>` akzeptierte jede ID. Am Realfall mcp-hub#302 zeigte er auf einen Freigabe-Kommentar, den die Sitzung 21 s vor dem Merge selbst unter dem Owner-Login gepostet hatte. Jetzt verlangt der Marker-Pfad zusaetzlich eine GETIPPTE Owner-Nachricht im Transkript der Sitzung (origin.kind human; nicht tool_result, Zusammenfassung, system-reminder, pasted_content), die genau diese PR (`#<nr>` oder PR-URL) mit einem Merge-Wort (merge/go/Freigabe) nennt. Ohne lesbares Transkript deny (fail-closed wie der uebrige Marker-Pfad). GRENZE: die Nummer ist nicht an das Repo gebunden.",
+  "faengt": [
+    {
+      "fall": "direkter `gh pr merge --admin` aus der Sitzung statt `tools/pr_merge_sa.py` (Retro 2c4009 #5, Welle-Gruppen 2-5)",
+      "probe": "direct_admin_merge"
+    },
+    {
+      "fall": "Merge-Schleife ueber mehrere PRs (Bump-Welle)",
+      "probe": "merge_loop"
+    },
+    {
+      "fall": "Merge-Kommando auf einen bereits gemergten PR trotz Owner-Wort-Marker (Realfall platform#3343, 72 Min nach dem Owner-Merge)",
+      "probe": "realfall_merge_on_already_merged_pr"
+    },
+    {
+      "fall": "Owner-Wort-Marker, aber PR-Nummer nicht literal (Variable in Schleife)",
+      "probe": "marker_with_non_literal_pr_number"
+    },
+    {
+      "fall": "PR-Zustand nicht lesbar (gh-Fehler) — fail-closed",
+      "probe": "when_state_unreadable"
+    },
+    {
+      "fall": "Owner-Wort-Marker ohne getippte Owner-Nachricht, die den PR mit Merge-Wort nennt (Realfall mcp-hub#302, selbst ausgestellte Freigabe)",
+      "probe": "realfall_marker_without_owner_naming_the_pr"
+    },
+    {
+      "fall": "PR-Nennung nur in Tool-Ausgabe statt in getippter Owner-Nachricht",
+      "probe": "pr_is_named_only_in_a_tool_result"
+    },
+    {
+      "fall": "Owner-Wort-Marker ohne lesbares Transkript — fail-closed",
+      "probe": "marker_without_a_readable_transcript"
+    }
+  ],
+  "positivkontrolle": {
+    "ref": "tools/claude-hooks/tests/test_block_direct_pr_merge.py -- 7 neue Block-Faelle der Owner-Bindung (kein Owner-Wort zur PR, Nennung nur in tool_result/system-reminder/Zusammenfassung, Nennung ohne Merge-Wort, laengere PR-Nummer, kein Transkript) sind gegen den Hook von origin/main rot und gegen die neue Fassung gruen; die Vorfaelle (`gh pr merge 12 --admin`, Merge-Schleife, Marker auf MERGED) bleiben deny, der Marker mit Owner-Nachricht '#12 mergen — go' bzw. PR-URL bleibt allow. Live am echten Transkript des Realfalls (nur lesend): #302 gedeckt, Transkript-Kopie ohne die Owner-Nachricht nicht gedeckt",
+    "datum": "2026-10-05"
+  },
+  "note": "Drei Vorkommen (Retros 50d29a, f1d54f F18, 2c4009 #5): `gh pr merge` direkt statt ueber das SA-M-Werkzeug, das Zustand, Mandat und Journal prueft. Der Hook blockt jeden `gh pr merge` im Befehlstext ohne Marker `OWNER_WORT=<id>`; mit Marker verlangt er je Aufruf eine literale PR-Nummer, liest `gh pr view --json state` und laesst nur OPEN durch, und schreibt eine Zeile (`quelle: hook:owner-wort`) in das Journal von pr_merge_sa.py (~/.claude/pr-merge-sa.jsonl). FAIL-CLOSED im Marker-Pfad wie pr_merge_sa.py (gh weg, Antwort unlesbar -> deny); gesperrt wird dabei nur der direkte Merge, der sanktionierte Weg bleibt offen. Grenzen: liest den Befehlstext (grep/Commit-Text mit der Zeichenfolge wird geblockt); nicht gefangen: REST-API-Merge, GitHub-MCP-merge_pull_request. Verdrahtet am 2026-09-23 durch den Owner in ~/.claude/settings.json (PreToolUse, matcher Bash; Owner-Wort 'z5 go', Charta Art. 3). Live-Positivkontrolle in derselben Sitzung: direkter Merge-Befehl ohne Marker auf eine nicht existierende PR-Nummer -> deny (#2234)."
+}

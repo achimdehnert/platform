@@ -97,3 +97,84 @@ def test_should_abort_on_missing_profile(tmp_path, monkeypatch):
     monkeypatch.setattr(print_agent, "DESIGN_HUB_DIR", tmp_path)
     with pytest.raises(SystemExit):
         print_agent._profile_to_design("does-not-exist")
+
+
+# --- Freigabe je Asset-Bereich (2026-09-16) ---------------------------------
+# Bis dahin hing jedes Logo am Flag `db`: das freigegebene HNU-Logo
+# (assets/shared/) und das IIL-Logo (assets/iil/) kamen nie in ein PDF.
+
+
+def _bereichs_hub(root: Path, allowed: str, logo_url: str) -> None:
+    (root / "profiles").mkdir(parents=True, exist_ok=True)
+    ziel = root / logo_url
+    ziel.parent.mkdir(parents=True, exist_ok=True)
+    if logo_url.endswith(".svg"):
+        ziel.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>'
+        )
+    else:
+        _tiny_png(ziel)
+    (root / "profiles" / "p.yaml").write_text(
+        "schema_version: 1\nname: p\n"
+        f"allowed_assets: {allowed}\n"
+        + _COLOURS
+        + "header: {text: H, cover_label: CL}\nfooter: {suffix: F}\n"
+        + f"logo: {{url: {logo_url}, height_px: 32, alt: X}}\n"
+    )
+
+
+def test_should_embed_shared_logo_when_shared_allowed_even_if_db_is_not(
+    tmp_path, monkeypatch
+):
+    _bereichs_hub(
+        tmp_path, "{db: false, iil: false, shared: true}", "assets/shared/logos/hnu.png"
+    )
+    monkeypatch.setattr(print_agent, "DESIGN_HUB_DIR", tmp_path)
+
+    d = print_agent._profile_to_design("p")
+
+    assert d.get("_logo_data_uri", "").startswith("data:image/png;base64,")
+
+
+def test_should_not_embed_shared_logo_when_shared_not_allowed(tmp_path, monkeypatch):
+    # Gegenprobe: `db: true` darf ein Logo aus einem ANDEREN Bereich nicht freigeben.
+    _bereichs_hub(
+        tmp_path, "{db: true, iil: true, shared: false}", "assets/shared/logos/hnu.png"
+    )
+    monkeypatch.setattr(print_agent, "DESIGN_HUB_DIR", tmp_path)
+
+    d = print_agent._profile_to_design("p")
+
+    assert "_logo_data_uri" not in d
+
+
+def test_should_embed_iil_logo_when_iil_allowed(tmp_path, monkeypatch):
+    _bereichs_hub(
+        tmp_path, "{db: false, iil: true, shared: false}", "assets/iil/logos/iil.png"
+    )
+    monkeypatch.setattr(print_agent, "DESIGN_HUB_DIR", tmp_path)
+
+    d = print_agent._profile_to_design("p")
+
+    assert "_logo_data_uri" in d
+
+
+def test_should_use_svg_xml_mime_for_svg_logo(tmp_path, monkeypatch):
+    # `data:image/svg;base64,...` ist kein gueltiger Typ und wird still verworfen.
+    _bereichs_hub(
+        tmp_path, "{db: false, iil: false, shared: true}", "assets/shared/logos/hnu.svg"
+    )
+    monkeypatch.setattr(print_agent, "DESIGN_HUB_DIR", tmp_path)
+
+    d = print_agent._profile_to_design("p")
+
+    assert d.get("_logo_data_uri", "").startswith("data:image/svg+xml;base64,")
+
+
+def test_should_fall_back_to_db_flag_for_logo_outside_known_bereich():
+    # fail-closed: ein Pfad ohne bekannten Bereich braucht weiterhin `db`.
+    assert print_agent.asset_freigegeben("logo.png", {"db": False, "shared": True}) == (
+        False,
+        "db",
+    )
+    assert print_agent.asset_freigegeben("logo.png", {"db": True}) == (True, "db")

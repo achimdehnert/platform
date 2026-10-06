@@ -45,7 +45,7 @@ from github_referenzen import ohne_pr_referenzen  # noqa: E402  (haengt am sys.p
 from markdown_klartext import normalisiere_zeilen  # noqa: E402
 
 # Maschinenlesbarer Kopf (KONZ-038 D8) — von tools/gate_drill_check.py gelesen und
-# gegen docs/governance/gate-registry.json abgeglichen. Ohne Kopf verrottet die
+# gegen docs/governance/gates/ abgeglichen. Ohne Kopf verrottet die
 # Registry still; ohne Registry-Eintrag drillt das Gate niemand.
 #
 # `covers` ist der Grund, warum dieses Gate existiert: EIN Mechanismus deckt vier
@@ -88,7 +88,13 @@ AUFSCHUB = re.compile(
     r"|(nachziehen|angleichen|migrieren|umstellen) nur,? wenn"
     r"|wenn wir (es|ihn|sie|das) (ohnehin|sowieso|eh) anfass"
     r"|vorerst (nicht|unveraendert|unverändert|so belassen)"
-    r"|noch nicht (umgesetzt|migriert|angeglichen|nachgezogen))",
+    r"|noch nicht (umgesetzt|migriert|angeglichen|nachgezogen)"
+    # Ergaenzt 2026-09-30 aus einem gemessenen Rueckfall (Retro 97a9a1, #3169):
+    # ein Issue-Kommentar vertagte einen Ersatz mit Zeitwort plus Verweis auf
+    # ein Issue ohne Nummer. Keine Wendung der Liste traf, das Gate meldete
+    # den Kommentar als verankert. Kalibriert an 400 gemergten PR-Texten:
+    # genau ein zusaetzlicher Fund (#3606), und der war ein echter Aufschub.
+    r"|mittelfristig|langfristig|eigene[sn]? (Issue|Ticket|PR)\b)",
     re.IGNORECASE,
 )
 

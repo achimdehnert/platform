@@ -199,10 +199,126 @@ def test_should_leave_a_normal_repo_as_a_real_backlog():
 # ── repo_betriebsstatus()/container_namen_aus_ports(): echte ports.yaml ──────
 
 
-def test_should_find_travel_beat_as_stillgelegt_in_real_ports_yaml():
-    """Ohne Naht gegen die reale Datei — sonst kann eine Attrappe alles zusagen."""
+def _betriebsstatus_bis(tmp_path, monkeypatch, dienst, tage):
+    """Fixture-Deklaration statt der echten — sonst kippt der Test am Ablauftag."""
+    import datetime as dt  # noqa: PLC0415
+
+    import befund_journal as bj  # noqa: PLC0415 — tools/ via exec_module im Pfad
+
+    dekl = tmp_path / "deklarationen.json"
+    monkeypatch.setenv("BEFUND_DEKLARATIONEN_DATEI", str(dekl))
+    bis = dt.datetime.now(dt.timezone.utc).date() + dt.timedelta(days=tage)
+    bj.setze_deklaration(dienst, "betriebsstatus", "Test", bis.isoformat(), pfad=dekl)
+
+
+def test_should_find_travel_beat_as_stillgelegt_in_real_ports_yaml(
+    tmp_path, monkeypatch
+):
+    """Ohne Naht gegen die reale ports.yaml — sonst kann eine Attrappe alles
+    zusagen. Die Deklaration (nur der Ablauf, #3507) kommt aus einer Fixture."""
+    _betriebsstatus_bis(tmp_path, monkeypatch, "travel-beat", 30)
     assert dw.repo_betriebsstatus().get("travel-beat") == "stillgelegt"
+
+
+def test_should_report_lag_again_when_betriebsstatus_declaration_expired(
+    tmp_path, monkeypatch
+):
+    """Positivkontrolle #3507: Ablauf einen Tag zurueck -> `stillgelegt` erklaert
+    den Rueckstand nicht mehr, deploy_wirkung meldet ihn wieder."""
+    _betriebsstatus_bis(tmp_path, monkeypatch, "travel-beat", -1)
+    assert "travel-beat" not in dw.repo_betriebsstatus()
 
 
 def test_should_find_illustration_hub_container_name_in_real_ports_yaml():
     assert dw.container_namen_aus_ports().get("illustration-hub") == "illustration_web"
+
+
+# ── Deploy-Politik (#3495 Folgepunkt, illustration-hub#344) ──────────────────
+# Fixtures sind die echten `on:`-Bloecke aus origin/main (per `gh`/`git show`
+# gelesen, nicht abgetippt) — s. PR-Beschreibung.
+
+_ILLUSTRATION_HUB_ON = """\
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      image_tag_override:
+        required: false
+"""
+
+_TAX_HUB_ON = """\
+on:
+  push:
+    branches: ["main"]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      image_tag_override:
+        required: false
+        default: "staging"
+"""
+
+_RISK_HUB_TARGET_ENV = (
+    "target_environment: ${{ inputs.target_environment || 'staging' }}"
+)
+
+
+def test_should_recognize_tag_only_trigger_as_tag_oder_dispatch():
+    """illustration-hub: `push` NUR fuer Tags, kein `branches:` — Prod bewegt sich
+    nie durch einen Merge nach main."""
+    assert dw.ist_tag_oder_dispatch_politik(_ILLUSTRATION_HUB_ON) is True
+
+
+def test_should_reject_branch_and_tag_trigger_as_tag_oder_dispatch():
+    """tax-hub: `push` deckt `branches: main` UND `tags` ab — kein Tag-Only-Gate,
+    auch wenn `workflow_dispatch` daneben steht."""
+    assert dw.ist_tag_oder_dispatch_politik(_TAX_HUB_ON) is False
+
+
+def test_should_recognize_staging_default_target_environment():
+    assert dw.ist_staging_default_politik(_RISK_HUB_TARGET_ENV) is True
+
+
+def test_should_reject_staging_default_when_absent():
+    assert dw.ist_staging_default_politik(_ILLUSTRATION_HUB_ON) is False
+
+
+def test_should_treat_missing_deploy_workflow_as_unknown(monkeypatch):
+    monkeypatch.setattr(dw, "sh", lambda cmd, timeout=30: (1, ""))
+    assert dw.deploy_workflow_text("writing-hub", "achimdehnert") is None
+
+
+def test_should_decode_deploy_workflow_content(monkeypatch):
+    import base64
+
+    b64 = base64.b64encode(_ILLUSTRATION_HUB_ON.encode("utf-8")).decode("ascii")
+    monkeypatch.setattr(dw, "sh", lambda cmd, timeout=30: (0, b64))
+    text = dw.deploy_workflow_text("illustration-hub", "achimdehnert")
+    assert text == _ILLUSTRATION_HUB_ON
+
+
+def test_should_say_nicht_pruefbar_when_main_is_unreadable():
+    # Realfall 2026-09-24 12:27: unter einem GitHub-Ratenlimit stand main="-"
+    # und die Zeile sagte "ok" (platform#3471 Item 82).
+    e = {
+        "repo": "tax-hub",
+        "deployed": "451ec1c5",
+        "main": None,
+        "main_unlesbar": True,
+        "rueckstand": None,
+        "doppellauf": False,
+    }
+    marker = dw.befund_marker(e)
+    assert marker and marker[0].startswith("NICHT PRUEFBAR")
+
+
+def test_should_keep_ok_when_main_is_readable_and_equal():
+    e = {
+        "repo": "tax-hub",
+        "deployed": "68983feb",
+        "main": "68983feb",
+        "rueckstand": False,
+        "doppellauf": False,
+    }
+    assert dw.befund_marker(e) == []

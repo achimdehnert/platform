@@ -75,12 +75,39 @@ if printf '%s\n' "$pf_files" | grep -qE '^tools/.*\.py$' && [ -d "$root/tools/te
   fi
 fi
 
-# Nur Python-Repos mit ruff-Config gaten
+# ── Ausweitung Retro 916eb7 §5a (Gate rueckfaellig → ausweiten) ──
+# iilgmbh/chat-hub#101 und #103 gingen rot in die CI: das Repo hat keine
+# ruff-Config, seine CI ruft aber `ruff format --check` und `shellcheck` auf.
+# Massgeblich ist deshalb, was die CI des Repos aufruft, nicht nur die Config.
+ci_ruft() { grep -qsE "$1" "$root"/.github/workflows/*.yml "$root"/.github/workflows/*.yaml; }
+pf_sh="$(printf '%s\n' "$pf_files" | grep -E '\.sh$' || true)"
+if [ -n "$pf_sh" ] && ci_ruft '(^|[^[:alnum:]_-])shellcheck([^[:alnum:]_-]|$)'; then
+  SC=""
+  if command -v shellcheck >/dev/null 2>&1; then SC="shellcheck";
+  elif command -v docker >/dev/null 2>&1 && docker image inspect koalaman/shellcheck:stable >/dev/null 2>&1; then
+    SC="docker run --rm -v $root:/mnt -w /mnt koalaman/shellcheck:stable"
+  fi
+  sh_existing=""
+  while IFS= read -r f; do [ -f "$root/$f" ] && sh_existing="$sh_existing $f"; done <<< "$pf_sh"
+  if [ -n "$SC" ] && [ -n "${sh_existing// /}" ]; then
+    # shellcheck disable=SC2086
+    (cd "$root" && timeout 120 $SC $sh_existing >/dev/null 2>&1); pf_rc=$?
+    if [ "$pf_rc" = "1" ]; then
+      reason="⛔ git push geblockt: geänderte .sh-Dateien fallen durch shellcheck, das die CI dieses Repos aufruft (Gate lint-failure-no-local-gate, Ausweitung Retro 916eb7). Fix: cd ${root} && shellcheck${sh_existing}, dann erneut pushen."
+      reason="${reason//\"/\\\"}"
+      printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "$reason"
+      exit 0
+    fi
+  fi
+fi
+
+# Python-Repos gaten, die ruff konfigurieren ODER ruff in der CI aufrufen
 has_ruff_cfg=""
 [ -f "$root/ruff.toml" ] || [ -f "$root/.ruff.toml" ] && has_ruff_cfg=1
 if [ -z "$has_ruff_cfg" ] && [ -f "$root/pyproject.toml" ]; then
   grep -q '^\[tool\.ruff' "$root/pyproject.toml" 2>/dev/null && has_ruff_cfg=1
 fi
+[ -z "$has_ruff_cfg" ] && ci_ruft 'ruff (format|check)' && has_ruff_cfg=1
 [ -z "$has_ruff_cfg" ] && exit 0
 
 # ruff finden (fail-open)

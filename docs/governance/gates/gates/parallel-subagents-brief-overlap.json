@@ -1,0 +1,42 @@
+{
+  "slug": "parallel-subagents-brief-overlap",
+  "mode": "blocking",
+  "owner": "achim",
+  "module": "tools/claude-hooks/subagent_brief_gate.py",
+  "drill": "tools/claude-hooks/tests/test_subagent_brief_gate.py",
+  "built": "2026-09-17",
+  "last_drill_pass": "2026-09-17",
+  "ref": "platform#3167 (Retro 2026-09-14 apo-hub 40c069 Befunde #4-#6, Gate-Pflicht; Owner-Wort '12 go' 2026-09-17)",
+  "covers": [
+    "parallel-subagents-shared-scratch-state"
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-09-17",
+  "faengt": [
+    {
+      "fall": "zwei Briefs derselben Sitzung nennen dieselbe Datei, keiner bekommt den Importblock (Realfall apo-hub views.py/forms.py, Befund #6)",
+      "probe": "realfall_two_briefs_same_file_without_assignment"
+    },
+    {
+      "fall": "beide Briefs beanspruchen den Importblock derselben Datei",
+      "probe": "both_briefs_claim_the_import_block"
+    },
+    {
+      "fall": "zweiter Brief schreibt in das Scratch-Unterverzeichnis des ersten (Realfall apo-hub#117 fremder PR-Body, Befund #5)",
+      "probe": "realfall_shared_scratch_dir"
+    },
+    {
+      "fall": "Umsetzungs-Brief mit Dateinennung, aber ohne eigenes Scratch-Unterverzeichnis",
+      "probe": "brief_without_scratch_dir"
+    },
+    {
+      "fall": "Brief empfiehlt den Stash-Griff fuer die Rot-Messung (Befund #4 auf Brief-Ebene)",
+      "probe": "brief_recommending_git_stash"
+    }
+  ],
+  "positivkontrolle": {
+    "ref": "tools/claude-hooks/tests/test_subagent_brief_gate.py -- dieselbe Datei in zwei Briefs geht durch, sobald GENAU EIN Brief `Importe: <datei>` traegt (in beiden Richtungen); disjunkte Dateien mit eigenen Scratch-Verzeichnissen, Solo-Brief, Brief mit verneintem Stash-Griff und Brief ohne Dateinennung bleiben allow; Explore/Plan-Agenten und andere Tools werden nicht angefasst. Live-Probe 2026-09-17 ueber stdin: erster Brief (views.py, $SCRATCHPAD/a/) Exit 0, zweiter Brief (views.py, $SCRATCHPAD/b/) Exit 2 mit Zuordnungs-Hinweis.",
+    "datum": "2026-09-17"
+  },
+  "note": "Zweite und dritte Haelfte des Slugs parallel-subagents-shared-scratch-state (die erste, der blanke Stash-Griff, deckt block_bare_stash_pop.py auf Befehlsebene; platform#3211 wurde am 2026-09-16 mit Verweis auf jenen Hook geschlossen, der den Body-Datei-Fall laut eigener Doku NICHT faengt — dieser Eintrag schliesst die Luecke). Der Hook liest den BRIEF (PreToolUse auf Agent/Task), nicht den Befehl: nur dort ist der Overlap vor dem Konflikt sichtbar. Die Overlap-Matrix entsteht inkrementell in ~/.claude/state/subagent-briefs/<session_id>.json (Fenster 3 h, gleiche Sitzung, gleiches cwd). FAIL-OPEN: Lese-Agenten, Briefe ohne Dateinennung, Zustandsdatei nicht schreibbar. NICHT gefangen, ausdruecklich: Dateien, die ein Subagent anfasst, ohne dass der Brief sie nennt. Verdrahtung in ~/.claude/settings.json (PreToolUse, matcher Agent) ist Owner-Recht (Charta Art. 3) — bis dahin gebaut, verteilt, nicht scharf."
+}

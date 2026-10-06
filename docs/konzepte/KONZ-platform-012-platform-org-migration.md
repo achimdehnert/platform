@@ -6,7 +6,7 @@ tier: T3
 owner: Achim Dehnert
 spec_refs: []
 adr_threshold: Amendment (ADR-255 verweist auf platform als Nicht-Ziel; Transfer selbst = KONZ-002-S3-Fall, ggf. eigener ADR bei Transfer-Entscheid)
-review_by: 2026-09-15
+review_by: 2026-10-31   # 2026-09-16: Fristen-Triage — gehoert zu Auftrag #3234 (platform privat); vorher 2026-09-15
 kill_criteria: "Wenn bis 2026-09-15 die Coupling-Indirektion (repointbare Alias-Stelle für reusable-workflow-Refs, KONZ-002 OOTB-5) NICHT existiert ODER der PyPI-org iil kein verifizierter 2. Owner ist, wird KEIN platform-Transfer terminiert — Konzept bleibt in Phase A (reversible Bus-Faktor-Maßnahmen) oder sunset. Der Transfer selbst ist nie ohne grünen Consumer-CI-Lauf gegen `uses: iilgmbh/platform/...@main` freigegeben."
 superseded_by_spec: null
 created: 2026-07-05

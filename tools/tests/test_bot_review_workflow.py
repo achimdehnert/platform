@@ -43,7 +43,9 @@ def _filter_kommando() -> list[str]:
         s = zeile.strip()
         if s.startswith("python3 ") and "bot_review_kandidaten.py" in s:
             return s.split()
-    raise AssertionError("Aufruf von bot_review_kandidaten.py im Workflow nicht gefunden")
+    raise AssertionError(
+        "Aufruf von bot_review_kandidaten.py im Workflow nicht gefunden"
+    )
 
 
 def _schleifen_kopf() -> str:

@@ -52,9 +52,24 @@ ZUSATZ = ("chat-hub", "iil-assist-core", "doc-hub", "meiki-dms", "bahn-hub")
 
 # Verzeichnisse, die nie Dienst-Kandidaten tragen (Archiv, Fremdcode, Tests).
 AUSSCHLUSS = {
-    ".git", ".venv", "venv", "site-packages", "node_modules", "_ARCHIVED",
-    "_archive", "archive", "tests", "test", "vendor", "migrations", "dist",
-    "build", "static", ".mypy_cache", ".ruff_cache", "__pycache__",
+    ".git",
+    ".venv",
+    "venv",
+    "site-packages",
+    "node_modules",
+    "_ARCHIVED",
+    "_archive",
+    "archive",
+    "tests",
+    "test",
+    "vendor",
+    "migrations",
+    "dist",
+    "build",
+    "static",
+    ".mypy_cache",
+    ".ruff_cache",
+    "__pycache__",
 }
 
 MASKE = "[mandant]"
@@ -78,7 +93,8 @@ def archivierte_repos() -> set[str]:
     """Registry-Repos mit ``lifecycle: archived`` — sie werden nicht gescannt und im Ergebnis genannt (Design, kein Aufschub)."""
     canon = reg.load_canonical()["repos"]
     return {
-        n for n, e in canon.items()
+        n
+        for n, e in canon.items()
         if (e.get("lifecycle") or (e.get("rich") or {}).get("lifecycle")) == "archived"
     }
 
@@ -119,12 +135,20 @@ def erste_docstring_zeile(ls: list[str], ab: int) -> str:
         m = RE_DOC.match(z)
         if m:
             return m.group(1).strip("\"' ")[:120]
-        if z.strip() and not z.strip().startswith(("#", "\"\"\"", "'''")):
+        if z.strip() and not z.strip().startswith(("#", '"""', "'''")):
             break
     return ""
 
 
-def eintrag(repo: str, quelle: str, name: str, pfad: Path, zeile: int, hinweis: str, wurzel: Path) -> dict:
+def eintrag(
+    repo: str,
+    quelle: str,
+    name: str,
+    pfad: Path,
+    zeile: int,
+    hinweis: str,
+    wurzel: Path,
+) -> dict:
     return {
         "repo": repo,
         "quelle": quelle,
@@ -148,18 +172,46 @@ def scanne_repo(repo: str, wurzel: Path) -> list[dict]:
             funde.append(eintrag(repo, "mgmt", pfad.stem, pfad, 1, hilfe, wurzel))
         for nr, z in enumerate(ls, 1):
             if m := RE_TOOLKIT.match(z):
-                funde.append(eintrag(repo, "toolkit", m.group(1), pfad, nr, m.group(2), wurzel))
+                funde.append(
+                    eintrag(repo, "toolkit", m.group(1), pfad, nr, m.group(2), wurzel)
+                )
             if nur_modelle:
                 if m := RE_MODELL.match(z):
-                    funde.append(eintrag(repo, "modell", m.group(1), pfad, nr, erste_docstring_zeile(ls, nr), wurzel))
+                    funde.append(
+                        eintrag(
+                            repo,
+                            "modell",
+                            m.group(1),
+                            pfad,
+                            nr,
+                            erste_docstring_zeile(ls, nr),
+                            wurzel,
+                        )
+                    )
                 continue
             if RE_MCP_DEKOR.match(z):
-                name = next((d.group(1) for d in map(RE_DEF.match, ls[nr : nr + 4]) if d), "?")
+                name = next(
+                    (d.group(1) for d in map(RE_DEF.match, ls[nr : nr + 4]) if d), "?"
+                )
                 funde.append(eintrag(repo, "mcp", name, pfad, nr, "", wurzel))
             elif m := RE_MCP_TOOL.search(z):
                 funde.append(eintrag(repo, "mcp", m.group(1), pfad, nr, "", wurzel))
-            if ist_service and (m := RE_DEF.match(z)) and not m.group(1).startswith("_"):
-                funde.append(eintrag(repo, "service", m.group(1), pfad, nr, erste_docstring_zeile(ls, nr), wurzel))
+            if (
+                ist_service
+                and (m := RE_DEF.match(z))
+                and not m.group(1).startswith("_")
+            ):
+                funde.append(
+                    eintrag(
+                        repo,
+                        "service",
+                        m.group(1),
+                        pfad,
+                        nr,
+                        erste_docstring_zeile(ls, nr),
+                        wurzel,
+                    )
+                )
     return funde
 
 
@@ -198,11 +250,17 @@ def als_markdown(inv: dict) -> str:
     quellen = ["toolkit", "mgmt", "mcp", "service", "modell"]
     schutz = inv["schutz"]
     zl = ["# Dienst-Inventar (platform#3011, Kriterium 1)", ""]
-    zl.append(f"Repos geprueft: {len(inv['repos_geprueft'])} · fehlt (nicht ausgecheckt): "
-              f"{', '.join(inv['repos_fehlt']) or '—'} · archiviert (nicht gescannt): "
-              f"{', '.join(inv['repos_archiviert']) or '—'} · Funde: {inv['summe']} · "
-              f"Schutzbegriffe: {'maskiert (' + str(schutz['maskiert']) + ' Felder)' if schutz['cache'] else 'OHNE CACHE — nicht veroeffentlichen'}")
-    zl += ["", "| Repo | " + " | ".join(quellen) + " | Summe |", "|---|" + "---|" * (len(quellen) + 1)]
+    zl.append(
+        f"Repos geprueft: {len(inv['repos_geprueft'])} · fehlt (nicht ausgecheckt): "
+        f"{', '.join(inv['repos_fehlt']) or '—'} · archiviert (nicht gescannt): "
+        f"{', '.join(inv['repos_archiviert']) or '—'} · Funde: {inv['summe']} · "
+        f"Schutzbegriffe: {'maskiert (' + str(schutz['maskiert']) + ' Felder)' if schutz['cache'] else 'OHNE CACHE — nicht veroeffentlichen'}"
+    )
+    zl += [
+        "",
+        "| Repo | " + " | ".join(quellen) + " | Summe |",
+        "|---|" + "---|" * (len(quellen) + 1),
+    ]
     je = Counter()
     for f in inv["funde"]:
         je[(f["repo"], f["quelle"])] += 1
@@ -210,13 +268,28 @@ def als_markdown(inv: dict) -> str:
         werte = [je[(repo, q)] for q in quellen]
         if sum(werte) == 0:
             continue
-        zl.append(f"| {repo} | " + " | ".join(str(w) for w in werte) + f" | {sum(werte)} |")
-    zl += ["", "## Toolkits, MCP-Werkzeuge, Modelle (vollstaendig)", "",
-           "| Repo | Quelle | Name | Fundstelle | Hinweis |", "|---|---|---|---|---|"]
+        zl.append(
+            f"| {repo} | " + " | ".join(str(w) for w in werte) + f" | {sum(werte)} |"
+        )
+    zl += [
+        "",
+        "## Toolkits, MCP-Werkzeuge, Modelle (vollstaendig)",
+        "",
+        "| Repo | Quelle | Name | Fundstelle | Hinweis |",
+        "|---|---|---|---|---|",
+    ]
     for f in inv["funde"]:
         if f["quelle"] in ("toolkit", "mcp", "modell"):
-            zl.append(f"| {f['repo']} | {f['quelle']} | `{f['name']}` | `{f['pfad']}:{f['zeile']}` | {f['hinweis']} |")
-    zl += ["", "## Management-Commands (vollstaendig)", "", "| Repo | Name | Hilfe |", "|---|---|---|"]
+            zl.append(
+                f"| {f['repo']} | {f['quelle']} | `{f['name']}` | `{f['pfad']}:{f['zeile']}` | {f['hinweis']} |"
+            )
+    zl += [
+        "",
+        "## Management-Commands (vollstaendig)",
+        "",
+        "| Repo | Name | Hilfe |",
+        "|---|---|---|",
+    ]
     for f in inv["funde"]:
         if f["quelle"] == "mgmt":
             zl.append(f"| {f['repo']} | `{f['name']}` | {f['hinweis']} |")
@@ -225,8 +298,12 @@ def als_markdown(inv: dict) -> str:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--repo", action="append", help="nur dieses Repo (mehrfach moeglich)")
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    ap.add_argument(
+        "--repo", action="append", help="nur dieses Repo (mehrfach moeglich)"
+    )
     ap.add_argument("--json", type=Path, help="Inventar als JSON schreiben")
     ap.add_argument("--md", type=Path, help="Inventar als Markdown schreiben")
     ap.add_argument("--kurz", action="store_true", help="nur die Summenzeile")
@@ -235,14 +312,23 @@ def main() -> int:
     repos = sorted(args.repo) if args.repo else registry_repos()
     inv = inventar(repos, schutzbegriffe())
     if args.json:
-        args.json.write_text(json.dumps(inv, ensure_ascii=False, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+        args.json.write_text(
+            json.dumps(inv, ensure_ascii=False, indent=1, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
     if args.md:
         args.md.write_text(als_markdown(inv), encoding="utf-8")
     schutz = inv["schutz"]
-    print(f"dienst-inventar: {inv['summe']} Funde in {len(inv['repos_geprueft'])} Repos "
-          f"({', '.join(f'{q}={n}' for q, n in inv['je_quelle'].items())})"
-          + (f" · fehlt: {', '.join(inv['repos_fehlt'])}" if inv["repos_fehlt"] else "")
-          + (f" · maskiert: {schutz['maskiert']}" if schutz["cache"] else " · WARN: Schutzbegriffe ohne Cache"))
+    print(
+        f"dienst-inventar: {inv['summe']} Funde in {len(inv['repos_geprueft'])} Repos "
+        f"({', '.join(f'{q}={n}' for q, n in inv['je_quelle'].items())})"
+        + (f" · fehlt: {', '.join(inv['repos_fehlt'])}" if inv["repos_fehlt"] else "")
+        + (
+            f" · maskiert: {schutz['maskiert']}"
+            if schutz["cache"]
+            else " · WARN: Schutzbegriffe ohne Cache"
+        )
+    )
     if not args.kurz and not args.json and not args.md:
         for repo, n in inv["je_repo"].items():
             print(f"  {repo:24s} {n}")

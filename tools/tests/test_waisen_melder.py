@@ -7,12 +7,15 @@ etwas findet.
 
 from __future__ import annotations
 
+import datetime as dt
 import sys
 from pathlib import Path
 
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import befund_journal as bj  # noqa: E402
 from waisen_melder import (  # noqa: E402
     container_namen,
     erklaerte_container,
@@ -21,6 +24,20 @@ from waisen_melder import (  # noqa: E402
     urteile,
     zuordnung_aus_ports,
 )
+
+
+@pytest.fixture(autouse=True)
+def dekl(tmp_path, monkeypatch):
+    """Nie die echte governance/deklarationen.json (#3507) — ein Test legt die
+    `betriebsstatus`-Deklarationen, die er braucht, selbst an."""
+    pfad = tmp_path / "deklarationen.json"
+    monkeypatch.setenv("BEFUND_DEKLARATIONEN_DATEI", str(pfad))
+    return pfad
+
+
+def _betriebsstatus_bis(pfad, dienst, tage):
+    bis = dt.datetime.now(dt.timezone.utc).date() + dt.timedelta(days=tage)
+    bj.setze_deklaration(dienst, "betriebsstatus", "Test", bis.isoformat(), pfad=pfad)
 
 
 # ---------------------------------------------------------------- Dateiauswahl
@@ -194,7 +211,7 @@ def test_should_map_repo_to_host_from_the_source_of_truth():
     assert zuordnung_aus_ports(ports) == {"mcp-hub": "prod"}
 
 
-def test_should_treat_only_non_active_services_as_explained():
+def test_should_treat_only_non_active_services_as_explained(dekl):
     ports = {
         "services": {
             "laeuft": {"container_name": "a", "betriebsstatus": "aktiv"},
@@ -202,8 +219,20 @@ def test_should_treat_only_non_active_services_as_explained():
             "ohne_angabe": {"container_name": "c"},
         }
     }
+    _betriebsstatus_bis(dekl, "ruht", 30)
 
     assert erklaerte_container(ports) == {"b": "stillgelegt"}
+
+
+def test_should_report_container_again_when_betriebsstatus_declaration_expired(dekl):
+    """Positivkontrolle #3507: Ablauf einen Tag zurueck -> die Erklaerung wirkt
+    nicht mehr, der Container ist wieder Waisen-Kandidat."""
+    ports = {
+        "services": {"ruht": {"container_name": "b", "betriebsstatus": "stillgelegt"}}
+    }
+    _betriebsstatus_bis(dekl, "ruht", -1)
+
+    assert erklaerte_container(ports) == {}
 
 
 # ------------------------------------------------------- Urteil je Hub (K5)
@@ -244,14 +273,27 @@ def test_should_still_report_a_container_of_a_hub_that_should_be_running():
     assert [z["container"] for z in ergebnis["waisen"]] == ["llm_gateway"]
 
 
-def test_should_treat_a_hub_as_resting_when_ports_yaml_says_so():
+def test_should_treat_a_hub_as_resting_when_ports_yaml_says_so(dekl):
+    ports = {
+        "services": {
+            "apo-hub": {"repo": "achimdehnert/apo-hub", "betriebsstatus": "ruhend"}
+        }
+    }
+    _betriebsstatus_bis(dekl, "apo-hub", 30)
+
+    assert erklaerte_repos(ports) == {"apo-hub": "ruhend"}
+
+
+def test_should_not_explain_a_resting_hub_without_declaration(dekl):
+    """Ohne `betriebsstatus`-Deklaration ist `ruhend` eine Ausnahme ohne Ablauf —
+    sie wirkt nicht (#3507)."""
     ports = {
         "services": {
             "apo-hub": {"repo": "achimdehnert/apo-hub", "betriebsstatus": "ruhend"}
         }
     }
 
-    assert erklaerte_repos(ports) == {"apo-hub": "ruhend"}
+    assert erklaerte_repos(ports) == {}
 
 
 def test_should_not_explain_a_hub_that_has_one_active_service():

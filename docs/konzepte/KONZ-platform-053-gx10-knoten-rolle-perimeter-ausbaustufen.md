@@ -289,3 +289,31 @@ Tracking für O2/O3: siehe Auftrags-Issue in §10.
 - 2026-08-31: §5c ergaenzt — LRA-on-premise-Stack als Zielbild, Bueroknoten als
   Aufbau dafuer, ausschliesslich synthetische Daten. E1 und die Auflage bleiben
   unveraendert.
+- **2026-09-23, Revision 1 (Owner-Korrektur): das MEiKI-Verbot in §4 ist aufgehoben.**
+  Der Owner hat der Herleitung in §2 ausdruecklich widersprochen: „gerade on premise
+  soll geprueft werden — also ist gx10 der Testfall, ob on premise fuer MEiKI in der
+  derzeitigen Konfiguration anwendbar ist."
+
+  §2 hatte argumentiert, ein Geraet in eigenen Raeumen bringe fuer Buergerdaten kein
+  besseres Schutzniveau, sondern nur ein zusaetzliches Unterauftragsverhaeltnis mit
+  Anzeigepflicht nach § 80 Abs. 2 SGB X — der Pilot liege ohnehin C5-testiert. Daraus
+  wurde in §4 ein pauschaler Ausschluss („gleich in welcher Form und gleich wie kurz").
+
+  **Der Fehler liegt im Schluss, nicht in der Rechtsfrage.** Ob On-Premise fuer diese
+  Kette taugt, ist genau die offene Frage; ein Ausschluss nimmt ihre Antwort vorweg und
+  verhindert die Messung, aus der sie kommen muesste. § 80 Abs. 2 SGB X bleibt zu
+  klaeren — aber als **Ergebnis** der Pruefung, nicht als ihr Ersatz.
+
+  **Was jetzt gilt:**
+  - Die gx10 ist der **On-Premise-Prueffall fuer MEiKI**. MEiKI-Workloads duerfen dort
+    laufen und gemessen werden.
+  - Unveraendert: MEiKI-Daten sind **synthetisch**, solange kein Live-Lauf ausdruecklich
+    kommuniziert ist (Owner-Regel 2026-07-21, praezisiert 2026-08-02). Die Pruefung
+    findet also mit synthetischen Daten statt — die Rechtsfrage stellt sich erst, wenn
+    ihr Ergebnis in echten Betrieb ueberfuehrt werden soll.
+  - `datenklassen_verboten: [gov-sozialdaten]` ist in `infra/hosts.yaml` durch einen
+    `datenklassen_pruefauftrag` ersetzt, der beides traegt: was heute zulaessig ist und
+    was vor echten Daten zu klaeren bleibt.
+  - E1 („ausserhalb des Buergerdaten-Perimeters") ist damit **fuer MEiKI ueberholt**.
+    Fuer alles Uebrige — kein oeffentlicher Tunnel, kein Runner, kein Prod-Deploy in
+    Phase 1 — bleibt §4 unveraendert.

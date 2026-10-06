@@ -15,7 +15,7 @@ _SPEC.loader.exec_module(dcl)
 _BAD_FALLBACK = """
 jobs:
   deploy:
-    uses: achimdehnert/platform/.github/workflows/_deploy-unified.yml@main
+    uses: iilgmbh/shared-ci/.github/workflows/_deploy-unified.yml@v1.1.18
     with:
       target_environment: ${{ inputs.target_environment || 'production' }}
 """

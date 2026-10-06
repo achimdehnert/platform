@@ -49,6 +49,57 @@ def _public_modules(root: Path) -> list[str]:
     return mods
 
 
+END_MARKER = "<!-- /pkg-agents-v1 generiert — alles darunter ist kuratiert und bleibt bei Regeneration erhalten -->"
+CURATED_HEADING = "## Kuratierte"
+
+
+def _ci_contract(root: Path) -> str:
+    """CI-Kontrakt aus den Workflows lesen statt behaupten (platform#3590).
+
+    Einzel-Paket-Repos konsumieren den reusable `_ci-pypi.yml` (ADR-226);
+    Monorepo-Sonderwege (nl2cad) fahren eigene Workflows. Der Satz war bis
+    2026-09-28 ein Textliteral und fuer nl2cad nachweislich falsch.
+    """
+    wf_dir = root / ".github" / "workflows"
+    names = (
+        sorted(p.name for p in wf_dir.glob("*.yml") if not p.name.startswith("publish"))
+        if wf_dir.is_dir()
+        else []
+    )
+    for name in names:
+        text = (wf_dir / name).read_text(encoding="utf-8", errors="replace")
+        if "_ci-pypi.yml" in text:
+            return (
+                f"CI-Kontrakt: reusable `_ci-pypi.yml` (ADR-226, Aufrufer `{name}`); "
+                "`make test` muss dem CI-Testlauf entsprechen."
+            )
+    if names:
+        # CI-nahe Workflows zuerst (ci/test/lint), Deploy/Pages dahinter
+        ranked = sorted(names, key=lambda n: (not re.search(r"ci|test|lint", n), n))
+        listed = ", ".join(f"`{n}`" for n in ranked[:4])
+        return (
+            f"CI-Kontrakt: repo-eigene Workflows ({listed}), kein `_ci-pypi.yml`-Reusable "
+            "(Sonderweg, ADR-266); `make test` muss dem CI-Testlauf entsprechen."
+        )
+    return "CI-Kontrakt: kein CI-Workflow im Repo — Befund (ADR-226 verlangt einen)."
+
+
+def curated_tail(existing: str) -> str:
+    """Kuratierter Teil einer bestehenden AGENTS.md (nach Marker oder ab '## Kuratierte')."""
+    if END_MARKER in existing:
+        return existing.split(END_MARKER, 1)[1].lstrip("\n")
+    idx = existing.find("\n" + CURATED_HEADING)
+    return existing[idx + 1 :] if idx >= 0 else ""
+
+
+def generated_head(existing: str) -> str:
+    """Generierter Kopf einer bestehenden AGENTS.md — Vergleichsbasis fuer gen-drift."""
+    if END_MARKER in existing:
+        return existing.split(END_MARKER, 1)[0] + END_MARKER
+    idx = existing.find("\n" + CURATED_HEADING)
+    return existing[:idx] if idx >= 0 else existing
+
+
 def _publish_info(root: Path) -> str:
     wf_dir = root / ".github" / "workflows"
     pubs = (
@@ -124,12 +175,13 @@ Top-Level-Module:
 
 - Library, kein App-Code: keine Deploy-/Prod-Kopplung.
 - Änderungen an der Public API sind Semver-relevant (Frühwarn-Metrik #2075 K3).
-- CI-Kontrakt: reusable `_ci-pypi.yml` (ADR-226); `make test` muss dem
-  CI-Testlauf entsprechen.
+- {_ci_contract(root)}
 
 ## Release
 
 {_publish_info(root)}
+
+{END_MARKER}
 """
 
 
@@ -142,7 +194,13 @@ def main() -> int:
     args = ap.parse_args()
     text = generate(args.checkout)
     if args.write:
-        (args.checkout / "AGENTS.md").write_text(text, encoding="utf-8")
+        target = args.checkout / "AGENTS.md"
+        tail = (
+            curated_tail(target.read_text(encoding="utf-8")) if target.is_file() else ""
+        )
+        if tail:
+            text = text.rstrip("\n") + "\n\n" + tail.rstrip("\n") + "\n"
+        target.write_text(text, encoding="utf-8")
         print(f"geschrieben: {args.checkout / 'AGENTS.md'}")
     else:
         print(text, end="")

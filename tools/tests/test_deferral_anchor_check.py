@@ -272,10 +272,12 @@ def _check_skript(tmp_path: pathlib.Path) -> str:
     )
 
 
-def _fahre_check(tmp_path: pathlib.Path, pr_text: str):
+def _fahre_check(tmp_path: pathlib.Path, pr_text: str | None):
+    """`pr_text=None` laesst die Datei weg — der Werkzeugfehler-Fall."""
     import subprocess
 
-    (tmp_path / "pr_body.txt").write_text(pr_text, encoding="utf-8")
+    if pr_text is not None:
+        (tmp_path / "pr_body.txt").write_text(pr_text, encoding="utf-8")
     (tmp_path / "pr.diff").write_text("", encoding="utf-8")
     ausgaben = tmp_path / "gh_output"
     ausgaben.write_text("", encoding="utf-8")
@@ -293,15 +295,24 @@ def _fahre_check(tmp_path: pathlib.Path, pr_text: str):
     return lauf, ausgaben.read_text(encoding="utf-8")
 
 
-def test_should_den_job_rot_machen_wenn_ein_aufschub_ohne_anker_dasteht(tmp_path):
+def test_should_warnen_aber_gruen_bleiben_wenn_ein_aufschub_ohne_anker_dasteht(
+    tmp_path,
+):
+    """Warnend seit 2026-10-01 (#3645 K1): der Kontext ist Pflicht-Check im
+    Ruleset, ein Redaktionsfund darf den Merge nicht aufhalten."""
     lauf, ausgabe = _fahre_check(
         tmp_path, "## Bewusst nicht in diesem PR\n\n- Der Rest folgt separat.\n"
     )
-    assert lauf.returncode == 1, (
-        "blocking heisst: der Schritt faellt aus. Gruen mit Kommentar war der "
-        f"advisory-Zustand.\nSTDOUT: {lauf.stdout}\nSTDERR: {lauf.stderr}"
-    )
+    assert lauf.returncode == 0, f"STDOUT: {lauf.stdout}\nSTDERR: {lauf.stderr}"
     assert "hat_befund=true" in ausgabe
+    assert "::warning::" in lauf.stdout
+
+
+def test_should_den_job_rot_machen_bei_einem_werkzeugfehler(tmp_path):
+    """Kein Verdikt bleibt rot — sonst hielte der Pflicht-Check nichts mehr auf.
+    Ohne PR-Text-Datei bricht das Werkzeug mit Exit 2 ab."""
+    lauf, _ = _fahre_check(tmp_path, None)
+    assert lauf.returncode == 1
     assert "::error::" in lauf.stdout
 
 
@@ -640,6 +651,52 @@ def test_should_still_flag_a_checkbox_line_without_an_anchor(tmp_path, capsys):
     rc = dac.main(["--eingabe", pfad, "--block"])
 
     assert rc == 1
+
+
+def test_should_flag_a_time_word_with_an_issue_without_number(tmp_path, capsys):
+    """Rueckfall 2026-09-30 (#3169): Zeitwort plus Issue ohne Nummer im Kommentar."""
+    daten = {
+        "body": "Deploy bricht ab.",
+        "comments": [
+            {
+                "id": 1,
+                "html_url": "https://example.invalid/c1",
+                "body": "Fix: Spiegel anlegen.\n\n"
+                "Mittelfristig: Ersatz fuer den Objektspeicher pruefen, eigenes Issue.",
+            }
+        ],
+    }
+    pfad = _eingabe_datei(tmp_path, daten)
+
+    rc = dac.main(["--eingabe", pfad, "--block"])
+    out = capsys.readouterr().out
+
+    assert rc == 1
+    assert "https://example.invalid/c1" in out
+
+
+def test_should_accept_the_same_issue_reference_with_a_number(tmp_path):
+    """Gegenprobe: dieselbe Zeile mit Issue-Nummer ist verankert."""
+    daten = {
+        "body": "Mittelfristig: Ersatz fuer den Objektspeicher pruefen, eigenes Issue #790.",
+        "comments": [],
+    }
+    pfad = _eingabe_datei(tmp_path, daten)
+
+    assert dac.main(["--eingabe", pfad, "--block"]) == 0
+
+
+@pytest.mark.parametrize(
+    "zeile",
+    [
+        "Langfristig wandert der Dienst auf den zweiten Host.",
+        "Dazu gibt es ein eigenes Issue.",
+        "Das kommt in einen eigenen PR.",
+    ],
+)
+def test_should_flag_each_new_deferral_wording(zeile):
+    """Jede der drei neuen Wendungen traegt fuer sich, ohne Anker."""
+    assert dac.finde_ankerlose_stellen(zeile)
 
 
 def test_should_error_on_issue_without_repo_or_eingabe(monkeypatch):

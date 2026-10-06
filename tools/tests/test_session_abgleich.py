@@ -522,3 +522,159 @@ class TestGhSchicht:
             assert "nicht verfuegbar" in str(exc)
         else:
             raise AssertionError("GhFehler erwartet")
+
+    def test_should_request_head_ref_name_in_the_pr_list(self):
+        assert "headRefName" in sa.PR_FELDER.split(",")
+
+
+# ─────────────── Sitzungsabgrenzung --sitzung (platform#2234) ────────────────
+#
+# Realfall 2026-09-24 (Retro #3543 Befund #2): der kontoweite Lauf ergab
+# `RESULT: BEFUND 35`; die Runner-Zelle zeigte eine davon. Das eigene
+# platform#3469 (aus #3489, `Refs #3469`, Issue OPEN) war nicht sichtbar.
+
+SITZUNG = "e911bf49-94e1-4b4c-86ed-f4a4337ba501"
+EIGENER_BRANCH = "session/2026-09-24/achim-dehnert/gate-nachzug"
+REPO = "achimdehnert/platform"
+
+
+def _flut() -> dict:
+    """34 fremde Befunde (Parallelsitzungen) + der eigene #3489 → #3469."""
+    prs, issues = [], []
+    for i in range(34):
+        pr_nr, iss_nr = 3400 + i, 3300 + i
+        prs.append(
+            {
+                "number": pr_nr,
+                "state": "MERGED",
+                "repo": REPO,
+                "files": [],
+                "headRefName": f"session/2026-09-24/achim-dehnert/fremd-{i}",
+                "body": f"Refs #{iss_nr}",
+            }
+        )
+        issues.append({"number": iss_nr, "state": "OPEN", "body": "", "repo": REPO})
+    prs.append(
+        {
+            "number": 3489,
+            "state": "MERGED",
+            "repo": REPO,
+            "files": [],
+            "headRefName": EIGENER_BRANCH,
+            "body": "Refs #3469",
+        }
+    )
+    issues.append({"number": 3469, "state": "OPEN", "body": "", "repo": REPO})
+    texte = [
+        {
+            "quelle": f"{REPO}#{p['number']}",
+            "repo": REPO,
+            "nummer": p["number"],
+            "body": p["body"],
+        }
+        for p in prs
+    ]
+    return {"prs": prs, "issues": issues, "texte": texte, "pr_zustaende": {}}
+
+
+def _leases(tmp_path, claude_session: str | None = SITZUNG):
+    d = tmp_path / "leases"
+    d.mkdir()
+    lease = {"session_id": "l1", "repo": "platform", "branch": EIGENER_BRANCH}
+    if claude_session is not None:
+        lease["claude_session"] = claude_session
+    (d / "l1.json.closed").write_text(json.dumps(lease), encoding="utf-8")
+    return str(d)
+
+
+class TestSitzungsabgrenzung:
+    def _eingabe(self, tmp_path) -> str:
+        pfad = tmp_path / "flut.json"
+        pfad.write_text(json.dumps(_flut()), encoding="utf-8")
+        return str(pfad)
+
+    def test_should_reproduce_the_flood_without_session_option(self, tmp_path, capsys):
+        """Ausgangslage: kontoweit 35 Befunde — das Verhalten ohne Option bleibt."""
+        assert sa.main(["--eingabe", self._eingabe(tmp_path), "--issues"]) == 1
+        assert "RESULT: BEFUND 35" in capsys.readouterr().out
+
+    def test_should_isolate_own_issue_among_34_foreign_findings(self, tmp_path, capsys):
+        """Positivkontrolle: mit --sitzung bleibt genau platform#3469 uebrig."""
+        rc = sa.main(
+            [
+                "--eingabe",
+                self._eingabe(tmp_path),
+                "--issues",
+                "--repo",
+                REPO,
+                "--sitzung",
+                SITZUNG[:8],
+                "--lease-dir",
+                _leases(tmp_path),
+            ]
+        )
+        aus = capsys.readouterr().out
+        assert rc == 1
+        assert "RESULT: BEFUND 1 " in aus
+        assert "KURZ: platform#3469" in aus
+
+    def test_should_be_clean_when_own_issue_is_closed(self, tmp_path, capsys):
+        """Gegenprobe: #3469 geschlossen → sauber, trotz 34 fremder Befunde."""
+        daten = _flut()
+        daten["issues"][-1]["state"] = "CLOSED"
+        pfad = tmp_path / "flut.json"
+        pfad.write_text(json.dumps(daten), encoding="utf-8")
+        rc = sa.main(
+            [
+                "--eingabe",
+                str(pfad),
+                "--issues",
+                "--repo",
+                REPO,
+                "--sitzung",
+                SITZUNG,
+                "--lease-dir",
+                _leases(tmp_path),
+            ]
+        )
+        assert rc == 0
+        assert "RESULT: OK" in capsys.readouterr().out
+
+    def test_should_not_give_all_clear_when_session_is_not_assignable(
+        self, tmp_path, capsys
+    ):
+        rc = sa.main(
+            [
+                "--eingabe",
+                self._eingabe(tmp_path),
+                "--repo",
+                REPO,
+                "--sitzung",
+                SITZUNG[:8],
+                "--lease-dir",
+                _leases(tmp_path, claude_session=None),
+            ]
+        )
+        aus = capsys.readouterr().out
+        assert rc == 0
+        assert "RESULT: HINWEIS 0 (sitzung-nicht-zuordenbar:" in aus
+        assert "RESULT: OK" not in aus
+
+    def test_should_fetch_per_branch_when_session_is_given(self, tmp_path, monkeypatch):
+        aufrufe = []
+
+        def gh_stub(argumente, timeout=60):
+            aufrufe.append(argumente)
+            return "[]"
+
+        monkeypatch.setattr(sa, "_gh", gh_stub)
+        sa.sammle_via_gh(
+            REPO, "@me", "2026-09-24", mit_hunks=False, branches=[EIGENER_BRANCH]
+        )
+        assert aufrufe[0][aufrufe[0].index("--head") + 1] == EIGENER_BRANCH
+        assert "--author" not in aufrufe[0]
+
+    def test_should_keep_only_session_prs_and_their_texts(self):
+        daten = sa.auf_branches_begrenzen(_flut(), [EIGENER_BRANCH])
+        assert [p["number"] for p in daten["prs"]] == [3489]
+        assert [t["nummer"] for t in daten["texte"]] == [3489]

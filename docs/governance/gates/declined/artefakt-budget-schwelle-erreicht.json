@@ -1,0 +1,7 @@
+{
+  "slug": "artefakt-budget-schwelle-erreicht",
+  "decided": "2026-10-05",
+  "owner": "achim",
+  "ref": "platform#3785 (V1c, Owner-Wort 2026-10-05: 'V1c go ; V1d go ;'); vorher Gate seit 2026-08-16 (platform#1640), Frist E4 platform#2606",
+  "reason": "Gestrichen nach Daten statt nach Probe. Messung 2026-09-02 (platform#2606, E4): 54 Treffer zwischen 2026-08-16 und 2026-09-02, der lauteste der vier Stop-Hook-Melder, kein Treffer liess sich auf eine Reaktion zurueckfuehren; gate_wirkung 2026-10-05: 0 Faelle vor und nach Bau. Das Gate schreibt bei jedem Treffer Text in den Kontext und kostet damit genau die Last, die V2 senken soll. Die in #3785 vorgesehene Eignungsprobe entfiel: sie braucht eine lange Sitzung mit vielen Artefakten, die ein Probe-Subagent nicht nachstellt. Code und Drill bleiben im Repo (tools/claude-hooks/artefakt_budget.py); die Hook-Verdrahtung in den Einstellungen entfernt der Owner. Der Scope-Checkpoint selbst bleibt als House Rule bestehen. Kehrt der Slug in einer Retro wieder, ist das Anlass, die Entscheidung zu pruefen."
+}

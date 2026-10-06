@@ -1,13 +1,21 @@
 # cc-skill-dist — CC-Skill-Distribution-Tooling (platform:ADR-230)
 
 Werkzeuge zur deterministischen Verteilung aus der **einen kanonischen Quelle** (platform `main`)
-— gemäß ADR-230 (CC-first). Drei Lanes über `--kind`:
+— gemäß ADR-230 (CC-first). Vier Lanes über `--kind`, je im Modus **swap** (atomarer
+Verzeichnistausch, Ziel gehört dem Generator allein) oder **merge** (Ziel einzeln
+beschrieben, Fremdinhalt bleibt liegen — für geteilte Verzeichnisse):
 
-| `--kind` | Quelle (platform) | Live-Ziel | Form |
-|----------|-------------------|-----------|------|
-| `commands` (Default) | `.windsurf/workflows/*.md` | `~/.claude/commands/` | flach (Slash-Commands) |
-| `skills` | `skills/<name>/SKILL.md` | `~/.claude/skills/<name>/SKILL.md` | verschachtelt (Anthropic Agent Skills) |
-| `hooks` (ADR-258) | `tools/hooks/*.sh` | `~/.claude/hooks/managed/` | flach, ausführbar (0755), Shell-#-Footer |
+| `--kind` | Quelle (platform) | Live-Ziel | Form | Modus |
+|----------|-------------------|-----------|------|-------|
+| `commands` (Default) | `.windsurf/workflows/*.md` | `~/.claude/commands/` | flach (Slash-Commands) | swap |
+| `skills` | `skills/<name>/SKILL.md` (+ evtl. weitere Dateien) | `~/.claude/skills/<name>/` | verschachtelt (Anthropic Agent Skills) | **merge** (seit #3467 — Ziel teilt sich mit dem claude.ai-Skill-Sync, `synced/<bucket-id>/`) |
+| `hooks` (ADR-258) | `tools/hooks/*.sh` | `~/.claude/hooks/managed/` | flach, ausführbar (0755), Shell-#-Footer | swap |
+| `claude-hooks` (#1989) | `tools/claude-hooks/*.py,*.sh` (top-level) | `~/.claude/hooks/` | flach, ausführbar (0755) | **merge** (Ziel teilt sich mit hand-gepflegten Hooks/Zustand) |
+
+**Merge-Lanes** (`skills`, `claude-hooks`) schreiben nie einen kompletten Verzeichnis-Swap —
+sie ersetzen nur ihre eigenen Einträge (laut `.cc-skill-dist-manifest.json`, Dot-File im Ziel)
+und lassen alles andere unangetastet. `doctor.py` liest sie entsprechend nur über dieses
+Manifest — ein Fremdeintrag im Ziel ist dort **kein** Befund (Parität, #1508).
 
 > **Warum `managed/`-Unterverzeichnis:** `generate.py` macht einen atomaren Verzeichnis-**Swap**.
 > `~/.claude/hooks/` enthält auch hand-gepflegte Hooks (PreToolUse/SessionStart/…) — ein Swap dort

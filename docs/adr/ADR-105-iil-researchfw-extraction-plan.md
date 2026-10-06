@@ -853,5 +853,5 @@ Phase 4 — Consumer-Repos (Woche 6)
 
 - [ADR-104: Research Hub + iil-researchfw](ADR-104-research-hub-iil-researchfw.md)
 - [ADR-100: iil-testkit](ADR-100-iil-testkit-shared-test-factory-package.md) — analoges Package-Modell
-- [REVIEW-ADR-105](reviews/REVIEW-ADR-105-iil-researchfw.md) — Reviewer-Feedback (2026-03-07)
+- [REVIEW-ADR-105](reviews/ADR-105-review-2026-03-11.md) — Reviewer-Feedback (2026-03-07)
 - `bfagent/apps/research/services/` — Quell-Services für Extraktion

@@ -26,21 +26,12 @@ permissions:
   issues: write
 
 jobs:
-  discord-owner:
-    name: discord-owner
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
-        with:
-          python-version: "3.12"
-      - run: pip install pyyaml
-      - name: Probealarm Discord
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-        run: python3 tools/alarmweg_probe.py --senden --kanal discord-owner
-
+  # Nur Kanaele mit `probe: workflow` in infra/alarmwege.yaml bekommen hier einen
+  # Job. `discord-owner` ist seit 2026-09-07 zurueckgebaut (zurueckgebaut_am +
+  # ersetzt_durch im Register); sein Job blieb trotzdem stehen und faerbte den
+  # Lauf vier Montage lang rot mit "probe='zurueckgebaut' — nicht sendbar". Das
+  # war kein fehlender Alarmweg, sondern ein Job ohne Kanal — und damit genau der
+  # Fehlalarm, den ROT-IST-BEFUND nicht meint (Session-Start 2026-09-24, #3471).
   github-issue-owner:
     name: github-issue-owner
     runs-on: ubuntu-latest
@@ -69,7 +60,7 @@ jobs:
   # interessant.
   bestand:
     name: bestand
-    needs: [discord-owner, github-issue-owner]
+    needs: [github-issue-owner]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5

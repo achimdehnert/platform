@@ -54,6 +54,9 @@ NEU_MIT_RETTUNG = """## Stand
 
 
 def test_should_name_the_references_that_vanished():
+    """Fall `verschwundene-offene-referenz` (Registry: Stand-Block wandert ins
+    Archiv, eine darin genannte OFFENE Issue-Nummer steht danach nirgends mehr
+    im Handover) — der namensgebende Realfall platform#2974/#2967."""
     weg = hac.verschwundene(ALT, NEU_OHNE_RETTUNG)
     assert weg == ["achimdehnert/platform#2924", "achimdehnert/robo-lab#66"]
 
@@ -63,7 +66,12 @@ def test_should_stay_silent_when_the_reference_was_rescued_into_the_threads():
 
 
 def test_should_keep_the_cross_repo_owner_from_the_url():
-    """robo-lab liegt unter achimdehnert — aber gelesen, nicht geraten."""
+    """Fall `linktext-normalisierung` (Registry: Referenz nur im Markdown-Label
+    statt in der URL gelesen — falscher Owner). `ALT` nennt das Issue im Link-
+    TEXT als "#66" ohne Owner; die URL traegt `achimdehnert/robo-lab` — robo-lab
+    liegt unter achimdehnert, aber das muss aus der URL gelesen werden, nicht
+    aus dem Label geraten (sonst haette ein Label wie "#66" in einem anderen
+    Repo-Kontext den falschen Owner geerbt)."""
     weg = hac.verschwundene(ALT, NEU_OHNE_RETTUNG)
     assert "achimdehnert/robo-lab#66" in weg
 

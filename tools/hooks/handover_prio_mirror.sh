@@ -8,6 +8,8 @@
 # Quelle (in Reihenfolge):
 #   1. AGENT_HANDOVER.md — kuratierter Prio-Abschnitt (Tabelle ODER Liste) unter
 #      einem Heading mit "Priorit/Priorisiert/Naechste/Offene". FUEHREND.
+#   1b. docs/handover.d — offene Faeden aus den Sitzungs-Fragmenten (#1944 K6),
+#      vor der kuratierten Prio gezeigt.
 #   2. NEXT.md — numbered items (git-log-Fallback; nur wenn keine kuratierte Prio).
 # Damit haengt das Signal an einer gepflegten Tabelle, nicht an claude-next-sync
 # (das "Prioritaeten"-Headings + Tabellen nicht parst und auf git-log zurueckfaellt).
@@ -25,6 +27,29 @@
 
 CWD="$(pwd)"
 [ -e "${CWD}/.git" ] || exit 0   # nur in Git-Repos (Datei ODER Verzeichnis, siehe oben)
+
+# Deckel auf die Startlast (V2, platform#3785). Am 2026-10-05 spiegelte dieser
+# Hook in platform 115 offene Faeden und rund 60 kuratierte Zeilen, 32 KB bei
+# jedem Start und nach jeder Kontext-Verdichtung. Das ist ein Rueckstand, keine
+# Prio, und als Liste nicht mehr salient. Gespiegelt werden deshalb die neuesten
+# Faeden und die ersten kuratierten Zeilen; der Rest bleibt vollstaendig im
+# gerenderten Stand und wird mit seiner Anzahl genannt, nie still weggelassen.
+# HANDOVER_PRIO_VOLL=1 hebt den Deckel auf.
+MAX_FAEDEN=15
+MAX_KURATIERT=10
+
+# deckeln ITEMS MAX HINWEIS — die ersten MAX Zeilen, dazu eine Zeile mit der Anzahl
+# der weggelassenen und wo sie stehen.
+deckeln() {
+    local n
+    n="$(printf '%s\n' "$1" | grep -c .)"
+    if [ "${HANDOVER_PRIO_VOLL:-0}" = "1" ] || [ "${n}" -le "$2" ]; then
+        printf '%s' "$1"
+        return
+    fi
+    printf '%s\n' "$1" | head -n "$2"
+    printf '  … %d weitere %s' "$((n - $2))" "$3"
+}
 
 REPO_NAME="$(basename "${CWD}")"
 HANDOVER="${CWD}/AGENT_HANDOVER.md"
@@ -140,6 +165,57 @@ if [ -f "${HANDOVER}" ]; then
         insec && /^([-*][ \t]|[0-9]+\.[ \t])/ { line=$0; sub(/^[ \t]+/, "", line); print "  " line }
     ' "${HANDOVER}" "${HANDOVER}")"
     [ -n "${ITEMS}" ] && SRC="AGENT_HANDOVER.md (kuratiert)"
+    ITEMS="$(deckeln "${ITEMS}" "${MAX_KURATIERT}" "kuratierte Zeilen in AGENT_HANDOVER.md")"
+fi
+
+# 1b) Offene Faeden aus den Sitzungs-Fragmenten (#1944 K6, KONZ-027 render-on-read).
+# Gelesen aus origin/main, nicht aus dem Arbeitsbaum — sonst fehlten die Fragmente
+# der inzwischen gemergten Parallelsitzungen. Statusabfrage mit 3 s Deckel; laeuft
+# sie ab, gilt jeder Punkt als offen (lieber einmal zu viel zeigen).
+FRAG_TOOL="${CWD}/tools/agent-handover/fragments.py"
+# Repos ohne eigenes Werkzeug (#3729: meiki-hub, robo-lab) fuehren nur das
+# Verzeichnis; gelesen wird dann mit dem Werkzeug aus dem platform-Klon. Ohne
+# diesen Rueckgriff schriebe dort jede Sitzung Fragmente, die kein Start zeigt.
+#
+# Seit #3755 kommt das Werkzeug dabei aus origin/main des Klons, nicht aus dessen
+# Arbeitsbaum: der kann auf einem alten Stand oder einem fremden Branch stehen.
+# Der Arbeitsbaum bleibt nur der Notweg, wenn der Klon den Ref nicht hergibt.
+FRAG_AUS_REF=""
+FRAG_HINWEIS=""
+FRAG_VERZEICHNIS=0
+git -C "${CWD}" cat-file -e origin/main:docs/handover.d 2>/dev/null && FRAG_VERZEICHNIS=1
+if [ ! -f "${FRAG_TOOL}" ] && [ "${FRAG_VERZEICHNIS}" -eq 1 ]; then
+    FRAG_PFAD="tools/agent-handover/fragments.py"
+    PLATFORM_KLON="${GITHUB_DIR:-$HOME/github}/platform"
+    FRAG_AUS_REF="$(mktemp 2>/dev/null)"
+    if [ -n "${FRAG_AUS_REF}" ] \
+       && git -C "${PLATFORM_KLON}" show "origin/main:${FRAG_PFAD}" >"${FRAG_AUS_REF}" 2>/dev/null \
+       && [ -s "${FRAG_AUS_REF}" ]; then
+        FRAG_TOOL="${FRAG_AUS_REF}"
+    elif [ -f "${PLATFORM_KLON}/${FRAG_PFAD}" ]; then
+        FRAG_TOOL="${PLATFORM_KLON}/${FRAG_PFAD}"
+    else
+        FRAG_HINWEIS="kein Fragment-Werkzeug gefunden (weder im Repo noch im platform-Klon)"
+    fi
+fi
+if [ -f "${FRAG_TOOL}" ] && git -C "${CWD}" rev-parse --verify --quiet origin/main >/dev/null 2>&1; then
+    FRAG_ROH="$(timeout 4 python3 "${FRAG_TOOL}" --wurzel "${CWD}" render --ref origin/main --timeout 3 2>/dev/null)"
+    FRAG_RC=$?
+    # Ein Abbruch oder das Zeitlimit sah bisher aus wie "keine offenen Faeden" (#3755).
+    [ "${FRAG_RC}" -ne 0 ] && [ "${FRAG_VERZEICHNIS}" -eq 1 ] && FRAG_HINWEIS="das Fragment-Werkzeug hat nicht geantwortet (Exit ${FRAG_RC})"
+    FRAG_ITEMS="$(printf '%s\n' "${FRAG_ROH}" \
+        | awk '/^## Offene Fäden aus Sitzungen/{insec=1; next} /^## /{insec=0} insec && /^- / && $0 != "- keine" {print "  " $0}')"
+    if [ -n "${FRAG_ITEMS}" ]; then
+        FRAG_ITEMS="$(deckeln "${FRAG_ITEMS}" "${MAX_FAEDEN}" "offene Fäden (ältere Sitzungen): python3 tools/agent-handover/fragments.py render --ref origin/main")"
+        ITEMS="${FRAG_ITEMS}${ITEMS:+
+${ITEMS}}"
+        SRC="docs/handover.d (Sitzungs-Fragmente)${SRC:+ + ${SRC}}"
+    fi
+fi
+[ -n "${FRAG_AUS_REF}" ] && rm -f "${FRAG_AUS_REF}"
+if [ -n "${FRAG_HINWEIS}" ]; then
+    echo "⚠️  FRAGMENTE NICHT GELESEN (${REPO_NAME}): ${FRAG_HINWEIS}."
+    echo "    docs/handover.d liegt auf origin/main — offene Fäden dort fehlen in dieser Liste."
 fi
 
 # 2) Fallback: NEXT.md numbered items.
@@ -166,7 +242,7 @@ fi
 # Gewarnt wird nur, wenn AGENT_HANDOVER.md SELBST abweicht — "N Commits hinter"
 # allein ist Alltag und erzeugte nur Alarm-Muedigkeit.
 case "${SRC}" in
-  AGENT_HANDOVER.md*)
+  *AGENT_HANDOVER.md*)
     if git -C "${CWD}" rev-parse --verify --quiet origin/main >/dev/null 2>&1; then
         BEHIND="$(git -C "${CWD}" rev-list --count HEAD..origin/main 2>/dev/null || echo 0)"
         case "${BEHIND}" in

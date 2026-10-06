@@ -17,7 +17,6 @@ Run: `python3 -m pytest tools/tests/test_gate_namensdeckung.py -q`
 from __future__ import annotations
 
 import importlib.util
-import json
 from pathlib import Path
 
 _QUELLE = Path(__file__).resolve().parents[1] / "gate_namensdeckung.py"
@@ -121,6 +120,40 @@ def test_should_not_claim_the_case_is_actually_caught(tmp_path):
     assert gn.pruefe_gate(gate, str(repo))["zustand"] == "gedeckt"
 
 
+def test_should_call_a_probe_only_the_test_own_example_set_gedeckt_too(tmp_path):
+    """Fall `namensanspruch_ohne_gegenprobe` (chat-hub#125 -> #132): eine
+    Pruefung, deren Name/Titel Haerte behauptet, deckte real nur die eigene
+    Beispielmenge — die Sperrliste aus chat-hub#125 hiess im PR-Titel 'harte
+    Sperrliste' und liess 7 von 10 alltaeglichen Formulierungen durch, weil ihr
+    Test nur die Woerter aus der eigenen Liste zurueckspielte, nie eine
+    adversariale Gegenprobe. Behoben in chat-hub#132: 5 -> 15 Faelle, davon 10
+    adversarial und 5 Negativkontrollen.
+
+    Dieselbe Familie wie `test_should_not_claim_the_case_is_actually_caught`,
+    hier auf den benannten Realfall zugespitzt: ein Drill, der die Probe nur in
+    IHREM EIGENEN Beispiel wiederholt (keine unabhaengige, adversariale
+    Formulierung daneben), gilt hier ebenso `gedeckt` — genau die Namensanspruch-
+    ohne-Gegenprobe-Luecke, die dieses Werkzeug selbst NICHT mechanisch von
+    einem echten adversarialen Test unterscheiden kann (Mutationstest waere
+    noetig, s. Modulkopf). Die echte Gegenprobe lebt deshalb nicht hier, sondern
+    an der Quelle: iilgmbh/chat-hub tests/test_lotse_auftrag.py::
+    test_should_refuse_reaction_for_outward_effect (Positivkontrolle der
+    Registry, 0 von 11 nach dem Fix, vorher 7 von 10 falsch).
+    """
+    repo = _repo(
+        tmp_path,
+        "WOERTER = ['deployment']\n"
+        "def test_sperrt_bekannte_woerter():\n"
+        "    assert pruefe('deployment') is False\n",
+    )
+    gate = {
+        "slug": "harte-sperrliste",
+        "drill": "drill.py",
+        "faengt": [{"fall": "sperrt Deployment", "probe": "deployment"}],
+    }
+    assert gn.pruefe_gate(gate, str(repo))["zustand"] == "gedeckt"
+
+
 def test_should_stay_silent_in_kurz_mode_without_luecken():
     staende = [
         {
@@ -175,14 +208,7 @@ def test_should_return_zero_on_an_unreadable_registry(tmp_path):
 
 def test_every_gate_with_faengt_in_the_real_registry_is_wellformed():
     """Bestandsprobe: jedes gefuellte `faengt` traegt `fall` UND `probe`."""
-    reg = json.loads(
-        (
-            Path(__file__).resolve().parents[2]
-            / "docs"
-            / "governance"
-            / "gate-registry.json"
-        ).read_text(encoding="utf-8")
-    )
+    reg = gn.gate_registry.laden()
     for gate in reg["gates"]:
         for fall in gate.get("faengt", []):
             assert fall.get("fall"), gate["slug"]
@@ -247,6 +273,87 @@ def test_should_still_read_a_plain_string_drill(tmp_path):
 def test_should_not_crash_on_the_real_registry():
     # Der Fall, der das Werkzeug stillgelegt hat: ein Lauf ueber den ECHTEN
     # Bestand. Ein Pruefer, der nur an Fixtures laeuft, beweist wenig.
-    registry = json.loads((Path(gn.DEFAULT_REGISTRY)).read_text(encoding="utf-8"))
+    registry = gn.gate_registry.laden(gn.DEFAULT_REGISTRY)
     staende = [gn.pruefe_gate(g) for g in registry["gates"]]
     assert len(staende) == len(registry["gates"])
+
+
+def test_should_read_the_drill_from_the_target_repo_clone(tmp_path, monkeypatch):
+    """`repo: owner/name` → Drill liegt unter $GITHUB_DIR/name, nicht in platform."""
+    ziel = tmp_path / "gh" / "apo-hub"
+    ziel.mkdir(parents=True)
+    (ziel / "drill.py").write_text("def test_localdate(): pass\n")
+    monkeypatch.setenv("GITHUB_DIR", str(tmp_path / "gh"))
+    gate = {
+        "slug": "cutoff",
+        "repo": "achimdehnert/apo-hub",
+        "drill": "drill.py",
+        "faengt": [{"fall": "UTC-Datum", "probe": "localdate"}],
+    }
+    stand = gn.pruefe_gate(gate, str(tmp_path / "platform"))
+    assert stand["zustand"] == "gedeckt"
+
+
+def test_should_keep_the_luecke_when_the_target_clone_is_missing(tmp_path, monkeypatch):
+    monkeypatch.setenv("GITHUB_DIR", str(tmp_path / "leer"))
+    gate = {
+        "slug": "cutoff",
+        "repo": "achimdehnert/apo-hub",
+        "drill": "drill.py",
+        "faengt": [{"fall": "UTC-Datum", "probe": "localdate"}],
+    }
+    stand = gn.pruefe_gate(gate, str(tmp_path / "platform"))
+    assert stand["zustand"] == "luecke"
+
+
+# --- `platform:`-Praefix je Drill-Eintrag (Fix platform#3471) ---------------
+#
+# Realfall `built-but-never-called`: das Gate traegt `repo: iilgmbh/
+# ausschreibungs-hub` fuer Fall 1, Rev 2 zog Fall 2 aber bewusst OHNE zweiten
+# Registry-Eintrag in platform selbst nach ("ein Gate, zwei Proben, kein
+# zweiter Eintrag"). Ohne ein Signal je Eintrag gilt die Wurzel gate-weit —
+# der platform-seitige Drill wurde nie gelesen, unabhaengig von seinem Inhalt.
+
+
+def test_should_resolve_a_platform_prefixed_entry_against_this_clone_even_when_the_gate_is_foreign(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("GITHUB_DIR", str(tmp_path / "gh"))
+    fremd = tmp_path / "gh" / "apo-hub"
+    fremd.mkdir(parents=True)
+    (fremd / "drill_dort.py").write_text("def test_fall_eins(): pass  # erster_fall\n")
+    hier = tmp_path / "platform" / "tools" / "tests"
+    hier.mkdir(parents=True)
+    (hier / "drill_hier.py").write_text("def test_fall_zwei(): pass  # zweiter_fall\n")
+    gate = {
+        "slug": "cutoff",
+        "repo": "achimdehnert/apo-hub",
+        "drill": ["drill_dort.py", "platform:tools/tests/drill_hier.py"],
+        "faengt": [
+            {"fall": "eins", "probe": "erster_fall"},
+            {"fall": "zwei", "probe": "zweiter_fall"},
+        ],
+    }
+    stand = gn.pruefe_gate(gate, str(tmp_path / "platform"))
+    assert stand["zustand"] == "gedeckt"
+
+
+def test_should_keep_the_luecke_without_the_platform_prefix_even_if_the_file_exists_locally(
+    tmp_path, monkeypatch
+):
+    """Gegenprobe: ohne Praefix bleibt es bei der Gate-Wurzel — sonst waere das
+    Praefix Deko und der urspruengliche Realfall (Datei existiert nur in
+    platform, wird aber gegen den fremden Klon aufgeloest) bliebe unerklaert."""
+    monkeypatch.setenv("GITHUB_DIR", str(tmp_path / "gh"))
+    (tmp_path / "gh" / "apo-hub").mkdir(parents=True)
+    hier = tmp_path / "platform" / "tools" / "tests"
+    hier.mkdir(parents=True)
+    (hier / "drill_hier.py").write_text("zweiter_fall\n")
+    gate = {
+        "slug": "cutoff",
+        "repo": "achimdehnert/apo-hub",
+        "drill": ["tools/tests/drill_hier.py"],
+        "faengt": [{"fall": "zwei", "probe": "zweiter_fall"}],
+    }
+    stand = gn.pruefe_gate(gate, str(tmp_path / "platform"))
+    assert stand["zustand"] == "luecke"

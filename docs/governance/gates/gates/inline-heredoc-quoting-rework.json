@@ -1,0 +1,75 @@
+{
+  "slug": "inline-heredoc-quoting-rework",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": "tools/claude-hooks/block_repo_write_via_shell.py",
+  "drill": "tools/claude-hooks/tests/test_block_repo_write_via_shell.py",
+  "built": "2026-09-23",
+  "revised": "2026-09-24",
+  "revision_note": "Rueckfall ausgeweitet (Retro 02b7f5, platform#3545 §5a, Owner-Wort '9 10 go' 2026-09-24): zwei Vorkommen am 2026-09-24 ohne Schreibziel im Repo — `gh issue comment --body \"…„25 go 26 go\": …\"` kam abgeschnitten an, `git commit -m \"…(„26 go\", …)\"` scheiterte. Beide Male beendete das ASCII-Schlusszeichen eines deutschen „…\" den Shell-String. Neue Probe im selben Modul: Inline-Text an --body/--title/--message/-m/-b mit „…\" (ASCII-Schluss); korrekt geschlossenes „…“ und Heredoc-Koerper bleiben frei. Replay gegen alle 150 Bash-Befehle der Sitzung: genau die 2 Realfaelle, 0 Fehlalarme.",
+  "last_drill_pass": "2026-09-24",
+  "ref": "Retro 3bdc4e (platform#3441) §5, Owner-Entscheid '180 -> dein vorschlag' Kapitaens-Kanal 2026-09-23",
+  "zustand": "melder",
+  "expires": "2026-10-21",
+  "expires_ref": "https://github.com/achimdehnert/platform/issues/3451",
+  "faengt": [
+    {
+      "fall": "Umleitung in eine Repo-Datei (`echo x > <repo>/docs/y.md`)",
+      "probe": "redirect_into_repo"
+    },
+    {
+      "fall": "Anhaengen in eine Repo-Datei (`>>`)",
+      "probe": "append_into_repo"
+    },
+    {
+      "fall": "In-Place-Editor auf eine Repo-Datei (`sed -i`) — der Realfall vom 2026-09-23",
+      "probe": "sed_in_place_in_repo"
+    },
+    {
+      "fall": "`tee` in eine Repo-Datei",
+      "probe": "tee_into_repo"
+    },
+    {
+      "fall": "relativer Pfad, aufgeloest gegen den Worktree der Sitzung",
+      "probe": "relative_path_resolved_against_cwd"
+    },
+    {
+      "fall": "Schreibziel in einer Befehlskette versteckt (`make test && echo ok > …`)",
+      "probe": "write_hidden_in_a_chain"
+    },
+    {
+      "fall": "Heredoc MIT Schreibziel im Repo (`cat <<'EOF' > <repo>/…`) — die namensgebende Form",
+      "probe": "heredoc_that_writes_a_repo_file"
+    },
+    {
+      "fall": "Skript-Heredoc, das selbst schreibt (`python3 - <<'PY'` mit `p.write_text(...)`) — hier gibt es keine Umleitung zu finden",
+      "probe": "python_heredoc_writing_a_repo_file"
+    },
+    {
+      "fall": "`python3 -c` mit schreibendem `open(..., 'w')` auf eine Repo-Datei",
+      "probe": "python_dash_c_writing_a_repo_file"
+    },
+    {
+      "fall": "Inline-Text an `gh … --body \"…\"` mit „…\" (ASCII-Schluss) — Realfall 2026-09-24, Kommentar abgeschnitten",
+      "probe": "inline_body_with_ascii_closing_quote"
+    },
+    {
+      "fall": "`git commit -m \"…\"` mit „…\" (ASCII-Schluss) — Realfall 2026-09-24, Commit gescheitert",
+      "probe": "commit_message_with_ascii_closing_quote"
+    }
+  ],
+  "positivkontrolle": {
+    "datum": "2026-09-24",
+    "ref": "Ausweitung 2026-09-24: vier weitere Formen muessen DURCHLAUFEN — korrekt geschlossenes „…“, `--body-file`, „…\" im Heredoc-Koerper von `git commit -F -`, Inline-Text ohne deutsche Anfuehrungszeichen (test_should_stay_silent_on_*). Replay gegen 150 echte Bash-Befehle der Sitzung 02b7f5: 2 Treffer = die 2 Realfaelle, 0 Fehlalarme. Stand 2026-09-23: tools/claude-hooks/tests/test_block_repo_write_via_shell.py — acht Befehle muessen ausdruecklich DURCHLAUFEN: `git commit -F - <<'MSG'` (Heredoc an die Standardeingabe, vier davon liefen allein am 2026-09-23), Schreiben in den Scratchpad, Schreiben ausserhalb der Repo-Wurzeln, Pfad mit Variable (`> \"$S/x.json\"`, fail-open), Deskriptor-Umleitungen (`2>&1`, `>&2`), `/dev/null`, ein `>` innerhalb von Anfuehrungszeichen (PR-Text), und eine LESENDE Umleitung (`< datei`). Dazu zwei Laeufe durch `main()` mit echtem Hook-Payload: der Realfall feuert in advisory mit Exit 0 und Warnzeile, derselbe Befehl blockt mit Exit 2, sobald die Modus-Datei auf blocking steht."
+  },
+  "kalibrierfenster": {
+    "klasse": "kinds=repo-write-via-shell",
+    "seit": "2026-09-23",
+    "bis": "2026-10-21",
+    "min_beurteilbar": 10,
+    "scharf_per": "Datei ~/.claude/hooks/state/repo_write_hook_mode mit Inhalt 'blocking'",
+    "note": "Startet bewusst als advisory (Warnzeile, kein Block) und bewusst mit umgekehrter Default-Richtung zum Evidenz-Scanner: fehlende Modus-Datei heisst hier advisory. Grund: die Fehlalarm-Grenzen des Hooks sind Hypothesen, bis gate_hits sie gemessen hat — insbesondere die Annahme, dass die acht Positivkontroll-Formen die legitimen Faelle vollstaendig abdecken. Wiedervorlage 2026-10-21: Fehlalarm-Quote unter einem Drittel und mindestens 10 beurteilbare Zeilen -> blocking; weniger als 10 Zeilen -> das ist selbst der Befund, dann gehoert das Fenster aufgegeben statt verlaengert (Vorbild: das Kalibrierfenster von claim-before-cheapest-check, das im ersten Anlauf mit 1 Zeile in 3 Tagen ins Leere lief)."
+  },
+  "note": "Fuenftes Vorkommen des Slugs, davon drei am 2026-09-21 und vier am 2026-09-23 — eines beim Schreiben des Retro-Berichts selbst, eines beim Korrigieren seiner Massnahmen-Zeile per `sed -i`. Der declined-Eintrag vom 2026-09-21 ('R6 weich') hatte fuer genau diesen Fall die Bedingung gesetzt: 'beim naechsten Vorkommen ist die Vorlage ein Gate, nicht mehr eine weiche Regel'. Sie ist eingetreten.\n\nEINE ABWEICHUNG vom dort skizzierten Zuschnitt, bewusst und hier benannt: der declined-Eintrag nannte als Ausloeser `python3 - <<` / `cat <<EOF >` — also das HEREDOC. Der Hook loest stattdessen am SCHREIBZIEL aus. Grund, gemessen an einem einzigen Arbeitstag: vier `git commit -F - <<'MSG'` waeren unter der Heredoc-Regel blockiert worden, obwohl ein Heredoc an die Standardeingabe keine Datei schreibt und nie die Fehlerklasse erzeugt hat, um die es geht (stiller Patch-Kipper durch ein Anfuehrungszeichen oder einen verschobenen Anker). Ein Gate, das viermal taeglich falsch feuert, wird abgeschaltet — die Fehlalarm-Sorge aus dem urspruenglichen Ablehnungsgrund von 2026-09-16 war berechtigt, sie traf nur den falschen Ausloeser.\n\nNACHGESCHAERFT NOCH AM BAUTAG, und zwar am eigenen Fehler: zwanzig Minuten nach dem ersten Entwurf wurde dieser Registry-Eintrag selbst per `python3 - <<'PY'` mit `p.write_text(...)` geschrieben — ein Schreibvorgang OHNE jede Umleitung, den die erste Fassung des Hooks nicht sah. Das war woertlich die Grenze, die unten als (3) notiert war. Neu erkannt wird deshalb auch der Skript-Heredoc: ein Interpreter (python/perl/ruby/node), der seine Quelle per Heredoc oder `-c` bekommt UND darin schreibend zugreift UND einen Repo-Pfad im Text nennt. `git commit -F - <<'MSG'` bleibt ausdruecklich frei, weil git kein Interpreter ist — an dieser Abgrenzung haengt der ganze Zuschnitt, sie hat einen eigenen Test.\n\nNICHT gefangen, deshalb hier benannt statt im Gate behauptet: (1) Pfade mit Variablen oder Kommando-Substitution — zur Pruefzeit unbekannt, fail-open; (2) bei `sed -i` gilt das letzte Token als Ziel, mehrere Dateien in einem Aufruf werden nur teilweise erkannt; (3) ein Schreibvorgang aus einer aufgerufenen Skript-DATEI heraus (`python3 mein_skript.py`) bleibt unsichtbar — der Hook liest den Befehlstext, nicht den Inhalt fremder Dateien.",
+  "vorher_declined": "docs/governance/gates/declined/inline-heredoc-quoting-rework.json (2026-09-16 'r5 verwerfen', 2026-09-21 'R6 weich')"
+}

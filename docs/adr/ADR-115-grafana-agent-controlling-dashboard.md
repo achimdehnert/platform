@@ -146,3 +146,21 @@ Preise werden als Konfiguration gepflegt (OpenRouter-Preise, Stand 2026-03):
 - ADR-114: Discord IDE-like Communication Gateway + LLM Gateway
 - [OpenRouter Pricing](https://openrouter.ai/models)
 - [Grafana PostgreSQL Datasource](https://grafana.com/docs/grafana/latest/datasources/postgres/)
+
+## Nachtrag 2026-09-23 — `mcp_hub_grafana` stillgelegt
+
+**Befund:** Das Controlling-Grafana `mcp_hub_grafana` (aus `docker-compose.llm-mcp.yml`)
+lief auf prod nicht mehr: 0 Container, 0 Images, 0 Volumes. Es war zusammen mit
+`llm_gateway` als Waise vom Haupt-Deploy entfernt worden, und niemand hat es bemerkt.
+`grafana.iil.pet` liefert inzwischen das Grafana auf dem odoo-Host (KONZ-platform-055).
+
+**Entscheid** ([mcp-hub#285](https://github.com/achimdehnert/mcp-hub/issues/285),
+vom Owner delegiert in [#3256](https://github.com/achimdehnert/platform/issues/3256)):
+**Stilllegen.** Overlay und `grafana/` (Provisioning, Dashboard-JSON, RO-User-Skript)
+sind aus mcp-hub entfernt ([mcp-hub#286](https://github.com/achimdehnert/mcp-hub/pull/286)).
+Das Dashboard-JSON `agent_controlling.json` liegt weiter in der Git-Historie von mcp-hub.
+
+**Folgen für diesen ADR:** Die Implementierungspunkte 3 und 4 (Grafana-Service im
+Overlay, `grafana/provisioning/`) gelten nicht mehr. Die Tabelle `llm_calls` und das
+Usage-Logging (Punkte 1, 2 und 5) berührt der Entscheid nicht. Ein Controlling-Dashboard
+gehört künftig in das odoo-Host-Grafana.

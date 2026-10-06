@@ -6,7 +6,7 @@ tier: T3
 owner: achimdehnert
 spec_refs: []   # kein Klickdummy/Spec-Bezug (ADR-211) — reine CI-Governance; bewusst leer
 adr_threshold: kein neuer ADR — Mechanismus = ADR-234 R2; ggf. kleines Amendment (G1/G2); ADR-174 implementation_done_when schließen
-review_by: 2026-07-09
+review_by: 2026-10-31   # 2026-09-16: Fristen-Triage — Owner-Regel: pilot/prod erneuern; vorher 2026-07-09
 kill_criteria: "Nach 2 Wochen Pilot (Prod-Subset) mehr legitime grün-werdende Merges blockiert als rote Merges verhindert, ODER ≥1 Break-Glass/Woche nötig → zurück auf Konvention + nur Audit-Meter"
 superseded_by_spec: null
 evidence_manifest:

@@ -111,12 +111,21 @@ def kurz(text: str, laenge: int) -> str:
     return (text[: laenge - 1] + "…") if len(text) > laenge else text
 
 
-def zuordnen(text: str, betrag: float, regeln: list[dict]) -> tuple[str, str, str]:
-    """Erste passende Regel gewinnt. Rückgabe: (konto, bezeichnung, anmerkung)."""
+def regel_treffer(text: str, regeln: list[dict]) -> dict | None:
+    """Erste Regel, deren Muster auf den kleingeschriebenen Text passt — die
+    Regel selbst, nicht nur Konto/Bezeichnung (kostenabgleich braucht die
+    Zusatzfelder einer Regel: beleg, taxrule, autonom, …)."""
     klein = text.lower()
     for regel in regeln:
-        if not re.search(regel["muster"], klein):
-            continue
+        if re.search(regel["muster"], klein):
+            return regel
+    return None
+
+
+def zuordnen(text: str, betrag: float, regeln: list[dict]) -> tuple[str, str, str]:
+    """Erste passende Regel gewinnt. Rückgabe: (konto, bezeichnung, anmerkung)."""
+    regel = regel_treffer(text, regeln)
+    if regel is not None:
         konto = regel["konto"]
         anmerkung = regel.get("anmerkung", "")
         # Eine Sammelüberweisung kann mehrere Zwecke bündeln. Beträge, die nicht

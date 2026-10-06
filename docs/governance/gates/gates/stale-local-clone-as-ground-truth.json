@@ -1,0 +1,39 @@
+{
+  "slug": "stale-local-clone-as-ground-truth",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": [
+    "tools/hooks/stale_clone_check.sh",
+    "tools/hooks/foreign_clone_check.sh"
+  ],
+  "drill": [
+    "tools/tests/test_stale_clone_check.py",
+    "tools/tests/test_foreign_clone_check.py"
+  ],
+  "built": "2026-08-02",
+  "ref": "platform#1644",
+  "faengt": [
+    {
+      "fall": "lokaler Klon liegt hinter origin und wird als Wahrheit gelesen",
+      "probe": "stalen_klon"
+    },
+    {
+      "fall": "fremdes Repo wird als Inhaltsquelle gelesen, waehrend sein Klon hinter origin liegt",
+      "probe": "frist-hub 3 Commits hinter origin, gelesen aus einer meiki-hub-Sitzung (2026-09-03)"
+    },
+    {
+      "fall": "fremder Klon hinter origin, den der Hook in einer frueheren Sitzung schon geprueft hat",
+      "probe": "realfall_vom_2026_09_24_trotz_frueherer_sitzung"
+    }
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-08-02",
+  "expires": "2026-10-31",
+  "expires_note": "V1d (platform#3785, Owner-Wort 2026-10-05): bleibt, obwohl die Eignungsprobe 3/3 bestand — nach dem Umbau am 2026-09-03 kamen 2 gezaehlte Faelle (2026-09-23, 2026-09-24; einer stuetzt sich auf einen von der Retro verworfenen Befund), und ein echter Rueckfall schlaegt eine bestandene Probe. Zur Frist: scharf schalten per eigenem PR nach 0-FP-Kalibrierfenster (frozen_note) oder begruendet herabstufen; Entscheidung G7 in vorschlag-rueckfaellige-gates-2026-10-05.md. Streichen scheidet aus, solange der Fall wiederkehrt.",
+  "revised": "2026-10-05",
+  "revision_note": "Rueckfall 2026-09-24 (Retro meiki-hub 2a5c44) als Drill nachgebaut (Vorschlag G7a, platform#3722): der Hook MELDETE den Fall nicht. Ursache war nicht das Muster (es sieht `sed … ~/github/<repo>/… | grep`), sondern der Merker 'je Repo einmal pro Sitzung': benannt nach CLAUDE_SESSION_ID, die Claude Code im Hook-Prozess nicht setzt — der Merker hiess in jeder Sitzung '-ohne' und galt sitzungsuebergreifend (frist-hub seit 2026-09-03, schreib-hub seit 2026-09-12 nie wieder geprueft). Der Drill sah das nicht, weil sein Helfer die Variable selbst setzte. Fix: Kennung aus `session_id` des Ereignis-JSON, ohne Kennung kein Merker, gescheiterter Abruf meldet 'UNGEPRUEFT' statt still zu bleiben; Drill ruft den Hook wie Claude Code auf. Modus bleibt advisory; die Frist-Entscheidung ist offen (platform#3726). Vorher (2026-09-03): Ausgeweitet auf den Fall 'fremdes Repo als Inhaltsquelle'. Der SessionStart-Hook prueft CLAUDE_PROJECT_DIR und sah damit nur das Repo, in dem gearbeitet wird; ein fremdes Repo, das mitten in der Sitzung gelesen wird, war unsichtbar. Realfall 2026-09-03 (meiki-hub): portiert aus einem frist-hub-Klon drei Commits hinter origin, Spec/Bildschirme/12 Bilder/Handbuch fehlten, gefunden nur durch Zufall. Der Slug stand zu dem Zeitpunkt neunmal in den Retros und hatte bereits ein Gate — also kein neues Muster, sondern ein Gate ohne Sicht auf seinen Fall (platform#2732, Retro platform#2730). Zweiter Hook als PreToolUse(Bash): tools/hooks/foreign_clone_check.sh, je Repo einmal pro Sitzung, immer Exit 0.",
+  "positivkontrolle": {
+    "ref": "platform#3726",
+    "datum": "2026-10-05"
+  }
+}

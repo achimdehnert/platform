@@ -6,11 +6,15 @@ on:
       - "registry/repos.yaml"
       - "infra/scripts/validate_tenancy.py"
       - "infra/scripts/validate_repos.py"
+      - "Makefile"
+      - ".github/workflows/registry-lint.yml"
   pull_request:
     paths:
       - "registry/repos.yaml"
       - "infra/scripts/validate_tenancy.py"
       - "infra/scripts/validate_repos.py"
+      - "Makefile"
+      - ".github/workflows/registry-lint.yml"
 
 # Workflow-level default (least privilege, #818 permissions sweep) —
 # no job in this workflow needs to write via GITHUB_TOKEN.
@@ -31,5 +35,13 @@ jobs:
       - name: Install PyYAML
         run: pip install pyyaml
 
-      - name: Validate tenancy_mode
-        run: python3 infra/scripts/validate_tenancy.py
+      # Ueber das Make-Ziel statt per Direktaufruf, damit tools/ci_deckung.py
+      # das Ziel `lint-registry` als in CI ausgefuehrt erkennt (platform#3477,
+      # Entscheid 4). `make lint-registry` deckt validate_repos.py UND
+      # validate_tenancy.py ab (Makefile: lint-registry laeuft beide); die
+      # fruehere Stundung (8 bekannte Inkonsistenzen ports.yaml <-> Registry —
+      # archivierte Hubs, mcp-hub 8000 vs. 3000, chat-hub/lotse-raum ohne
+      # Registry-Eintrag) ist mit #3477 behoben, der Verzicht-Eintrag
+      # `lint-registry` in governance/ci-deckung-verzicht.yaml entfernt.
+      - name: Registry validieren (make lint-registry)
+        run: make lint-registry

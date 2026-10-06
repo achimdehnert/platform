@@ -6,8 +6,10 @@ consulted: –
 informed: –
 implementation_status: implemented
 implementation_evidence:
-  - ".github/workflows/guardian.yml: PR-getriggerter Job 'Architecture Guardian' (opened/synchronize/reopened), postet Review-Kommentar; Dependabot/Renovate ausgenommen."
-  - "agents/guardian.py: `python -m agents.guardian --diff <pr.diff> --format json|markdown` analysiert das PR-Diff gegen Architektur-Regeln."
+  - "path: .github/workflows/guardian.yml — PR-getriggerter Job 'Architecture Guardian' (opened/synchronize/reopened), postet Review-Kommentar; Dependabot/Renovate ausgenommen."
+  - "path: agents/guardian.py — `python -m agents.guardian --diff <pr.diff> --format json|markdown` analysiert das PR-Diff gegen Architektur-Regeln."
+  - "test: agents/tests/test_guardian.py — 18 Tests (laufen in `make test`)"
+  - "pr: platform#506 — ADR-239 verankert, 9 Refs repointet"
   - "Als CI-Check 'guardian' auf allen platform-PRs sichtbar (required check)."
 domains: [governance, ci-cd, architecture, agents]
 scope: platform

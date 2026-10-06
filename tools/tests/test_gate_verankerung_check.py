@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import gate_verankerung_check as gvc  # noqa: E402
 
-REGISTRY_REAL = os.path.join(gvc.REPO_ROOT, "docs", "governance", "gate-registry.json")
+REGISTRY_REAL = os.path.join(gvc.REPO_ROOT, "docs", "governance", "gates")
 
 
 def _gate(**over) -> dict:

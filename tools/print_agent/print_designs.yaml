@@ -46,7 +46,12 @@ designs:
     flow_s3:       "#3D7AB5"
     header_left:   "IIL GmbH  |  iil.gmbh"
     cover_label:   "IIL GmbH &nbsp;|&nbsp; iil.gmbh"
-    subtitle:      "IIL GmbH · Intelligente industrielle Lösungen"
+    # Firmierung, Owner-Korrektur 2026-09-23. Der alte Wert "Intelligente
+    # industrielle Lösungen" war frei erfunden und stand auf jedem IIL-PDF.
+    # Maßgeblich ist das Impressum (iil-relaunch/impressum.html § 5 TMG):
+    # "IIL – Privates Institut für Informationslogistik GmbH", Kurzform auf der
+    # Website "IIL – Institut für Informationslogistik GmbH".
+    subtitle:      "IIL GmbH · Institut für Informationslogistik"
     footer_suffix: "IIL GmbH · kontakt@iil.gmbh · iil.gmbh"
     llm_context:   "IT-Dienstleistungen und KI-Lösungen (IIL GmbH)"
     es_label_text: "Zusammenfassung"

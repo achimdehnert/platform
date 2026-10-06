@@ -13,6 +13,7 @@ belegt das gegen das Original (subprocess, kein Reimplementieren des Tests).
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -71,11 +72,15 @@ def _run_cli(
     )
 
 
-def _write_transcript(transcript_dir: Path, model: str, filename: str = "session.jsonl") -> None:
+def _write_transcript(
+    transcript_dir: Path, model: str, filename: str = "session.jsonl"
+) -> None:
     transcript_dir.mkdir(parents=True, exist_ok=True)
     lines = [
         json.dumps({"type": "user", "message": {"role": "user", "content": "hi"}}),
-        json.dumps({"type": "assistant", "message": {"role": "assistant", "model": model}}),
+        json.dumps(
+            {"type": "assistant", "message": {"role": "assistant", "model": model}}
+        ),
     ]
     (transcript_dir / filename).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -87,7 +92,9 @@ def test_should_report_faellig_for_major_change_against_assessed_with(tmp_path):
     log = tmp_path / "state" / "model-changes.log"
     policies = tmp_path / "policies"
     _write_policy(policies, "adr-threshold.md", "claude-fable-5")
-    _write_log(log, "2026-09-02T08:00:00Z", "claude-fable-5-1", "claude-opus-5", "MAJOR")
+    _write_log(
+        log, "2026-09-02T08:00:00Z", "claude-fable-5-1", "claude-opus-5", "MAJOR"
+    )
 
     r = _run_cli(tmp_path, "--kurz")
 
@@ -121,9 +128,13 @@ def test_should_not_be_faellig_when_already_handled(tmp_path):
     handled = tmp_path / "state" / "model-rebaseline-handled.tsv"
     policies = tmp_path / "policies"
     _write_policy(policies, "adr-threshold.md", "claude-fable-5")
-    _write_log(log, "2026-09-02T08:00:00Z", "claude-fable-5-1", "claude-opus-5", "MAJOR")
+    _write_log(
+        log, "2026-09-02T08:00:00Z", "claude-fable-5-1", "claude-opus-5", "MAJOR"
+    )
     handled.parent.mkdir(parents=True, exist_ok=True)
-    handled.write_text("2026-09-02T08:00:00Z\tclaude-fable-5-1\tclaude-opus-5\tMAJOR\n")
+    # `behandelt` haengt am PAAR (bewertet, laeuft), nicht an der Log-Zeile —
+    # siehe paar_schluessel().
+    handled.write_text("PAAR\tclaude-fable-5\tclaude-opus-5\n")
 
     r = _run_cli(tmp_path, "--kurz")
 
@@ -136,7 +147,9 @@ def test_should_mark_last_line_handled_and_become_not_faellig(tmp_path):
     log = tmp_path / "state" / "model-changes.log"
     policies = tmp_path / "policies"
     _write_policy(policies, "adr-threshold.md", "claude-fable-5")
-    _write_log(log, "2026-09-02T08:00:00Z", "claude-fable-5-1", "claude-opus-5", "MAJOR")
+    _write_log(
+        log, "2026-09-02T08:00:00Z", "claude-fable-5-1", "claude-opus-5", "MAJOR"
+    )
 
     first = _run_cli(tmp_path, "--kurz")
     assert first.returncode == 1
@@ -258,10 +271,16 @@ def _run_detector(tmp_path: Path, prev: str, curr: str) -> str:
         "HOME": str(tmp_path),
     }
     settings.write_text(json.dumps({"model": prev}), encoding="utf-8")
-    subprocess.run(["bash", str(DETECTOR)], env=env, capture_output=True, text=True, timeout=30)
+    subprocess.run(
+        ["bash", str(DETECTOR)], env=env, capture_output=True, text=True, timeout=30
+    )
     settings.write_text(json.dumps({"model": curr}), encoding="utf-8")
-    subprocess.run(["bash", str(DETECTOR)], env=env, capture_output=True, text=True, timeout=30)
-    log_lines = (state_dir / "model-changes.log").read_text(encoding="utf-8").splitlines()
+    subprocess.run(
+        ["bash", str(DETECTOR)], env=env, capture_output=True, text=True, timeout=30
+    )
+    log_lines = (
+        (state_dir / "model-changes.log").read_text(encoding="utf-8").splitlines()
+    )
     return log_lines[-1].split("\t")[3]
 
 
@@ -310,3 +329,246 @@ def test_should_use_majority_assessed_with_and_flag_disagreement(tmp_path):
     assert majority == "claude-fable-5"
     assert len(pairs) == 3
     assert mc.consensus_note(pairs) != ""
+
+
+# ── behandelt=ja darf nicht nach "fällig" klingen (Session-Start 2026-09-16) ──
+
+
+def test_should_not_print_pending_consequence_when_already_handled(tmp_path):
+    """`--kurz` druckte die MAJOR-Konsequenz auch bei fällig=nein weiter.
+
+    Die Zeile widersprach damit den zwei Feldern direkt davor; ein Leser, der den
+    Satzteil statt der Felder nahm, meldete suspendierte Vollmachten, obwohl
+    keine suspendiert waren.
+    """
+    log = tmp_path / "state" / "model-changes.log"
+    handled = tmp_path / "state" / "model-rebaseline-handled.tsv"
+    policies = tmp_path / "policies"
+    _write_policy(policies, "adr-threshold.md", "claude-fable-5")
+    _write_log(
+        log, "2026-09-02T08:00:00Z", "claude-fable-5-1", "claude-opus-5", "MAJOR"
+    )
+    handled.parent.mkdir(parents=True, exist_ok=True)
+    # `behandelt` haengt am PAAR (bewertet, laeuft), nicht an der Log-Zeile —
+    # siehe paar_schluessel().
+    handled.write_text("PAAR\tclaude-fable-5\tclaude-opus-5\n")
+
+    r = _run_cli(tmp_path, "--kurz")
+
+    assert "fällig=nein" in r.stdout
+    assert "Vollmachten suspendiert" not in r.stdout, (
+        "behandelt=ja fällig=nein darf nicht mit der MAJOR-Konsequenz enden"
+    )
+    assert "assessed_with nachgezogen" in r.stdout, (
+        "der bleibende Abstand bewertet↔läuft muss benannt sein"
+    )
+
+
+def test_should_still_print_pending_consequence_when_faellig(tmp_path):
+    """Gegenprobe: unbehandelt bleibt die harte Konsequenz stehen."""
+    log = tmp_path / "state" / "model-changes.log"
+    policies = tmp_path / "policies"
+    _write_policy(policies, "adr-threshold.md", "claude-fable-5")
+    _write_log(
+        log, "2026-09-02T08:00:00Z", "claude-fable-5-1", "claude-opus-5", "MAJOR"
+    )
+
+    r = _run_cli(tmp_path, "--kurz")
+
+    assert r.returncode == 1
+    assert "fällig=ja" in r.stdout
+    assert "Vollmachten suspendiert" in r.stdout
+
+
+def test_should_show_disagreement_in_short_line(tmp_path):
+    """Eine 12:4-Mehrheit ist keine Tatsache — `--kurz` muss das mitliefern."""
+    log = tmp_path / "state" / "model-changes.log"
+    policies = tmp_path / "policies"
+    _write_policy(policies, "a.md", "claude-fable-5")
+    _write_policy(policies, "b.md", "claude-opus-5")
+    _write_log(log, "2026-09-02T08:00:00Z", "claude-opus-5", "claude-fable-5", "MAJOR")
+
+    r = _run_cli(tmp_path, "--kurz")
+
+    assert "uneinheitlich unter 2 Policies" in r.stdout
+
+
+def test_should_resolve_alias_with_variant_suffix(tmp_path):
+    """`opus[1m]` ist der Alias `opus` mit Variante — SUFFIX ist kein Ereignis."""
+    log = tmp_path / "state" / "model-changes.log"
+    policies = tmp_path / "policies"
+    _write_policy(policies, "a.md", "claude-opus-5")
+    _write_log(log, "2026-09-02T08:00:00Z", "fable", "opus[1m]", "MAJOR")
+
+    r = _run_cli(tmp_path, "--kurz")
+
+    assert "quelle=alias-tabelle" in r.stdout, r.stdout
+    assert "läuft=claude-opus-5" in r.stdout
+    assert "GLEICH" in r.stdout
+
+
+def test_should_not_treat_old_log_line_as_blanket_pass(tmp_path):
+    """Die abgehakte Log-Zeile darf einen SPAETEREN Wechsel nicht mit abdecken.
+
+    Vorher haftete `behandelt` an der letzten Zeile von model-changes.log. Blieb
+    sie die letzte, waehrend das laufende Modell auf etwas anderes wechselte,
+    lief ein echter MAJOR als `faellig=nein` durch.
+    """
+    log = tmp_path / "state" / "model-changes.log"
+    handled = tmp_path / "state" / "model-rebaseline-handled.tsv"
+    policies = tmp_path / "policies"
+    _write_policy(policies, "adr-threshold.md", "claude-opus-5")
+    _write_log(
+        log, "2026-09-02T08:00:00Z", "claude-fable-5-1", "claude-opus-5", "MAJOR"
+    )
+    handled.parent.mkdir(parents=True, exist_ok=True)
+    handled.write_text(
+        "2026-09-02T08:00:00Z\tclaude-fable-5-1\tclaude-opus-5\tMAJOR\n"
+        "PAAR\tclaude-opus-5\tclaude-opus-5\n"
+    )
+
+    # Dasselbe Log, dasselbe handled — aber es laeuft jetzt Fable.
+    r = _run_cli(tmp_path, "--kurz", "--laufend", "claude-fable-5")
+
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert "fällig=ja" in r.stdout
+    assert "MAJOR" in r.stdout
+
+
+def test_should_read_declared_standard_model_over_majority(tmp_path):
+    """Die Erklaerung beantwortet 'womit fahren wir', nicht die Kopf-Mehrheit."""
+    policies = tmp_path / "policies"
+    _write_policy(policies, "a.md", "claude-fable-5")
+    _write_policy(policies, "b.md", "claude-fable-5")
+    _write_policy(policies, "c.md", "claude-opus-5")
+    (policies / "session-routing.md").write_text(
+        "# Routing\n<!-- rule_class: B | assessed_with: claude-fable-5 -->\n"
+        "<!-- standard-session-model: claude-opus-5 -->\n",
+        encoding="utf-8",
+    )
+    log = tmp_path / "state" / "model-changes.log"
+    _write_log(log, "2026-09-16T04:00:00Z", "fable", "opus", "MAJOR")
+
+    r = _run_cli(tmp_path, "--kurz")
+
+    assert "bewertet=claude-opus-5" in r.stdout, r.stdout
+    assert "erklärt in session-routing.md" in r.stdout
+    assert "GLEICH" in r.stdout
+    assert "nachzug=3/4" in r.stdout, "der Rueckstand der Koepfe gehoert in die Zeile"
+
+
+def test_should_parse_hyphenated_model_id_in_declaration(tmp_path):
+    """Die Modell-ID traegt Bindestriche — ein zu enges Zeichenset frisst sie."""
+    policies = tmp_path / "policies"
+    _write_policy(policies, "a.md", "claude-fable-5")
+    (policies / "session-routing.md").write_text(
+        "<!-- standard-session-model: claude-opus-5 -->\n", encoding="utf-8"
+    )
+    standard, datei = mc.read_standard_model(policies)
+    assert standard == "claude-opus-5"
+    assert datei == "session-routing.md"
+
+
+def test_should_fall_back_to_majority_without_declaration(tmp_path):
+    """Ohne Erklaerung bleibt das alte Verhalten — rueckwaertskompatibel."""
+    policies = tmp_path / "policies"
+    _write_policy(policies, "a.md", "claude-fable-5")
+    _write_policy(policies, "b.md", "claude-fable-5")
+    _write_policy(policies, "c.md", "claude-opus-5")
+    log = tmp_path / "state" / "model-changes.log"
+    _write_log(log, "2026-09-16T04:00:00Z", "opus", "fable", "MAJOR")
+
+    r = _run_cli(tmp_path, "--kurz")
+
+    assert "bewertet=claude-fable-5" in r.stdout
+    assert "uneinheitlich unter 3 Policies" in r.stdout
+
+
+# ── (f) Transkript-Auswahl bei Parallel-Sitzungen (platform#3333) ───────────
+
+
+def test_should_read_own_session_transcript_even_when_a_newer_one_exists(
+    tmp_path, monkeypatch
+):
+    """Die eigene Sitzung schlägt die jüngste Datei.
+
+    Realfall #3333: eine zweite Sitzung im selben Repo lief auf einem anderen
+    Modell und schrieb eine Sekunde später — der Check las sie und meldete einen
+    MAJOR, den es nie gab.
+    """
+    sid = "4a0dd700-898c-44f9-8e2f-e3a2af6a55f6"
+    policies = tmp_path / "policies"
+    transcripts = tmp_path / "transcripts"
+    _write_policy(policies, "adr-threshold.md", "claude-opus-5")
+    _write_transcript(transcripts, "claude-opus-5", filename=f"{sid}.jsonl")
+    _write_transcript(transcripts, "claude-sonnet-5", filename="fremd.jsonl")
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", sid)
+
+    r = _run_cli(tmp_path, "--kurz", transcript_dir=transcripts)
+
+    assert "läuft=claude-opus-5" in r.stdout, r.stdout
+    assert "quelle=transkript " in r.stdout, r.stdout
+    assert "GLEICH" in r.stdout
+    assert r.returncode == 0, r.stdout + r.stderr
+
+
+def test_should_mark_source_unsicher_when_parallel_transcripts_and_no_session_id(
+    tmp_path, monkeypatch
+):
+    """Ohne Sitzungs-ID + zweites frisches Transkript: melden, nicht fällig stellen.
+
+    Ein MAJOR aus einer womöglich fremden Sitzung darf keine Vollmachten
+    suspendieren — der Check verlangt stattdessen `--laufend`.
+    """
+    policies = tmp_path / "policies"
+    transcripts = tmp_path / "transcripts"
+    _write_policy(policies, "adr-threshold.md", "claude-opus-5")
+    _write_transcript(transcripts, "claude-opus-5", filename="alt.jsonl")
+    _write_transcript(transcripts, "claude-sonnet-5", filename="neu.jsonl")
+    # Beide Dateien entstehen in derselben Sekunde; bei gleicher mtime entscheidet
+    # die glob-Reihenfolge, welches "das juengste" ist — der Test kippte je nach
+    # Dateisystem. Das Zeitfenster bleibt, nur die Reihenfolge wird eindeutig.
+    alt = (transcripts / "alt.jsonl").stat().st_mtime
+    os.utime(transcripts / "neu.jsonl", (alt + 5, alt + 5))
+    monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
+
+    r = _run_cli(tmp_path, "--kurz", transcript_dir=transcripts)
+
+    assert "quelle=transkript-unsicher" in r.stdout, r.stdout
+    assert "fällig=nein" in r.stdout, r.stdout
+    assert "UNBESTAETIGT" in r.stdout
+    assert r.returncode == 0, r.stdout + r.stderr
+
+
+def test_should_not_mark_handled_when_source_is_unsicher(tmp_path, monkeypatch):
+    """`--behandelt` darf ein Paar aus unsicherer Quelle nicht festschreiben."""
+    handled = tmp_path / "state" / "model-rebaseline-handled.tsv"
+    policies = tmp_path / "policies"
+    transcripts = tmp_path / "transcripts"
+    _write_policy(policies, "adr-threshold.md", "claude-opus-5")
+    _write_transcript(transcripts, "claude-opus-5", filename="alt.jsonl")
+    _write_transcript(transcripts, "claude-sonnet-5", filename="neu.jsonl")
+    monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
+
+    _run_cli(tmp_path, "--kurz", "--behandelt", transcript_dir=transcripts)
+
+    assert not handled.exists(), handled.read_text(encoding="utf-8")
+
+
+def test_should_keep_explicit_laufend_ahead_of_own_session_transcript(
+    tmp_path, monkeypatch
+):
+    """`--laufend` bleibt höchste Priorität — auch mit eigener Sitzungsdatei."""
+    sid = "11111111-2222-3333-4444-555555555555"
+    policies = tmp_path / "policies"
+    transcripts = tmp_path / "transcripts"
+    _write_policy(policies, "adr-threshold.md", "claude-opus-5")
+    _write_transcript(transcripts, "claude-opus-5", filename=f"{sid}.jsonl")
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", sid)
+
+    r = _run_cli(
+        tmp_path, "--kurz", "--laufend", "claude-fable-5", transcript_dir=transcripts
+    )
+
+    assert "quelle=argument" in r.stdout, r.stdout
+    assert "läuft=claude-fable-5" in r.stdout

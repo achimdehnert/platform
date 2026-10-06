@@ -520,6 +520,172 @@ def test_should_let_an_uncaught_table_row_override_frontmatter_gates_caught(tmp_
     assert urteile["schludrige-behauptung"]["gefangen"] == 0
 
 
+# --- Zaehlweise "verwandt" (`gates_verwandt`, Vorlage platform#3722 G8) -------
+# Ein Fall, den das Gate nach seinem Zuschnitt nicht sehen konnte, ist kein
+# Rueckfall dieses Gates. Die Gegenproben halten fest, dass die Markierung nur
+# den markierten Fall entlastet — nicht den unmarkierten daneben.
+
+_GATE_VERWANDT = [
+    {"slug": "schludrige-behauptung", "mode": "advisory", "built": "2026-07-05"}
+]
+
+
+def _retro_mit_listen(verzeichnis: Path, tag: str, kuerzel: str, listen: str) -> None:
+    (verzeichnis / f"session-retro-2026-07-{tag}-platform-{kuerzel}.md").write_text(
+        f"---\nretro_schema: 1\ndate: 2026-07-{tag}\n{listen}---\n\n# Retro\n",
+        encoding="utf-8",
+    )
+
+
+def test_should_not_count_a_frontmatter_slug_marked_gates_verwandt(tmp_path):
+    for i, tag in enumerate(["10", "11", "12"]):
+        _retro_mit_listen(
+            tmp_path,
+            tag,
+            f"v{i}",
+            "recurring_findings: [schludrige-behauptung]\n"
+            "gates_verwandt: [schludrige-behauptung]\n",
+        )
+    e = _urteile(tmp_path, _GATE_VERWANDT)["schludrige-behauptung"]
+    assert e["nachher"] == 0
+    assert e["verwandt"] == 3
+    assert e["gefangen"] == 0
+    assert e["urteil"] != "RUECKFAELLIG"
+
+
+def test_should_still_count_the_same_slug_without_the_verwandt_marker(tmp_path):
+    """Gegenprobe: dieselben Retros ohne Markierung sind drei Rueckfaelle."""
+    for i, tag in enumerate(["10", "11", "12"]):
+        _retro_mit_listen(
+            tmp_path, tag, f"o{i}", "recurring_findings: [schludrige-behauptung]\n"
+        )
+    e = _urteile(tmp_path, _GATE_VERWANDT)["schludrige-behauptung"]
+    assert e["nachher"] == 3
+    assert e["verwandt"] == 0
+    assert e["urteil"] == "RUECKFAELLIG"
+
+
+def test_should_read_gates_verwandt_as_yaml_block(tmp_path):
+    _retro_mit_listen(
+        tmp_path,
+        "10",
+        "b0",
+        "recurring_findings:\n  - schludrige-behauptung\n"
+        "gates_verwandt:\n  - schludrige-behauptung\n",
+    )
+    retros = gw.lies_retros([str(tmp_path)])
+    assert retros[0][5] == ["schludrige-behauptung"]
+
+
+def test_should_not_count_a_table_row_marked_gates_verwandt(tmp_path):
+    for i, tag in enumerate(["10", "11", "12"]):
+        _retro_mit_tabelle(
+            tmp_path,
+            f"2026-07-{tag}",
+            f"z{i}",
+            [],
+            "| 1 | Fall (gates_verwandt: anderes Repo, Gate liest nur platform) | k "
+            "| hoch | SURVIVES | b | `schludrige-behauptung` |\n",
+        )
+    e = _urteile(tmp_path, _GATE_VERWANDT)["schludrige-behauptung"]
+    assert e["nachher"] == 0
+
+
+def test_should_count_a_table_row_whose_verwandt_marker_has_no_reason(tmp_path):
+    """Gegenprobe (#3754): der nackte Marker entlastet die Zeile nicht."""
+    for i, tag in enumerate(["10", "11", "12"]):
+        _retro_mit_tabelle(
+            tmp_path,
+            f"2026-07-{tag}",
+            f"n{i}",
+            [],
+            "| 1 | anderes Repo (gates_verwandt) | k | hoch | SURVIVES | b "
+            "| `schludrige-behauptung` |\n",
+        )
+    e = _urteile(tmp_path, _GATE_VERWANDT)["schludrige-behauptung"]
+    assert e["nachher"] == 3
+    assert e["urteil"] == "RUECKFAELLIG"
+
+
+def test_should_ask_for_the_scope_once_related_cases_pile_up(tmp_path):
+    """#3754: viele verwandte Faelle fuehren zu einem Urteil statt zu keinem."""
+    for i, tag in enumerate(["10", "11", "12"][: gw.VERWANDT_SCHWELLE]):
+        _retro_mit_listen(
+            tmp_path,
+            tag,
+            f"s{i}",
+            "recurring_findings: [schludrige-behauptung]\n"
+            "gates_verwandt: [schludrige-behauptung]\n",
+        )
+    e = _urteile(tmp_path, _GATE_VERWANDT)["schludrige-behauptung"]
+    assert e["urteil"] == gw.URTEIL_ZUSCHNITT
+
+
+def test_should_not_ask_for_the_scope_below_the_threshold(tmp_path):
+    """Gegenprobe: unter der Schwelle bleibt es beim bisherigen Urteil."""
+    for i, tag in enumerate(["10", "11"]):
+        _retro_mit_listen(
+            tmp_path,
+            tag,
+            f"t{i}",
+            "recurring_findings: [schludrige-behauptung]\n"
+            "gates_verwandt: [schludrige-behauptung]\n",
+        )
+    e = _urteile(tmp_path, _GATE_VERWANDT)["schludrige-behauptung"]
+    assert e["urteil"] != gw.URTEIL_ZUSCHNITT
+
+
+def test_should_let_an_unmarked_table_row_override_gates_verwandt(tmp_path):
+    """Gegenprobe: die Frontmatter-Liste entlastet nicht die unmarkierte Zeile."""
+    for i, tag in enumerate(["10", "11"]):
+        (tmp_path / f"session-retro-2026-07-{tag}-platform-u{i}.md").write_text(
+            f"---\nretro_schema: 1\ndate: 2026-07-{tag}\n"
+            "recurring_findings: [schludrige-behauptung]\n"
+            "gates_verwandt: [schludrige-behauptung]\n---\n\n"
+            "| # | Befund | Kategorie | Severity | Verdikt | Beleg | Recurrence |\n"
+            "|---|---|---|---|---|---|---|\n"
+            "| 1 | im Zuschnitt | k | hoch | SURVIVES | b | `schludrige-behauptung` |\n",
+            encoding="utf-8",
+        )
+    e = _urteile(tmp_path, _GATE_VERWANDT)["schludrige-behauptung"]
+    assert e["nachher"] == 2
+    assert e["verwandt"] == 0
+
+
+def test_should_keep_five_tuples_without_verwandt_working():
+    """Aufrufer mit der Fuenfer-Form von vor 2026-10-05 duerfen nicht brechen."""
+    gates = [{"slug": "g", "built": "2026-08-01"}]
+    e = gw.bewerte(gates, [("2026-08-05", ["g"], "a", [], [])])[0]
+    assert e["nachher"] == 1
+    assert e["verwandt"] == 0
+
+
+def test_should_name_related_cases_in_the_report(tmp_path):
+    for i, tag in enumerate(["10", "11", "12"]):
+        _retro_mit_listen(
+            tmp_path,
+            tag,
+            f"r{i}",
+            "recurring_findings: [schludrige-behauptung]\n"
+            "gates_verwandt: [schludrige-behauptung]\n",
+        )
+    registry = tmp_path / "registry.json"
+    registry.write_text(json.dumps({"gates": _GATE_VERWANDT}), encoding="utf-8")
+    lauf = subprocess.run(
+        [
+            sys.executable,
+            str(_QUELLE),
+            "--registry",
+            str(registry),
+            "--dir",
+            str(tmp_path),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert "VERWANDTEN Faellen: schludrige-behauptung (3x)" in lauf.stdout
+
+
 # --- Verfallsfristen (`expires`, Owner-Entscheid E4 / platform#2606) ---------
 # Ein Datum in der Registry, das kein Werkzeug liest, ist Prosa — genau die
 # Fehlform, an der die erste Kalibrierfrist des Claim-Gates scheiterte. Diese
@@ -609,17 +775,39 @@ E4_SCHARF_IN_EIGENEM_PR = {"untested-command-handed-to-user", "aufschub-anker"}
 def test_should_give_every_advisory_gate_in_the_real_registry_an_expiry():
     """Die eigentliche Zusage aus E4 — gemessen an der ECHTEN Registry, nicht an
     einer Attrappe: kein advisory-Gate ohne Frist, sonst ist `advisory` wieder
-    ein Endzustand statt eines Zwischenschritts."""
-    registry = json.loads(
-        (_QUELLE.parents[1] / "docs" / "governance" / "gate-registry.json").read_text(
-            encoding="utf-8"
-        )
-    )
+    ein Endzustand statt eines Zwischenschritts. Ausnahme seit V1c (#3785): ein
+    begruendeter Ausgang aus `AUSGANG_OHNE_FRIST` ersetzt die Frist."""
+    registry = gw.gate_registry.laden()
     ohne = [
         g["slug"]
         for g in registry["gates"]
         if g.get("mode") == "advisory"
         and not g.get("expires")
+        and not gw.traegt_ausgang(g)
         and g["slug"] not in E4_SCHARF_IN_EIGENEM_PR
     ]
-    assert ohne == [], f"advisory-Gate(s) ohne Verfallsfrist: {ohne}"
+    assert ohne == [], f"advisory-Gate(s) ohne Verfallsfrist oder Ausgang: {ohne}"
+
+
+def test_should_accept_a_documented_exit_instead_of_an_expiry():
+    gate = {
+        "slug": "x",
+        "mode": "advisory",
+        "ausgang": "still",
+        "ausgang_note": "kein Rueckfall",
+    }
+    assert gw.traegt_ausgang(gate)
+
+
+def test_should_reject_an_exit_without_reason_or_with_unknown_value():
+    assert not gw.traegt_ausgang({"ausgang": "still"})
+    assert not gw.traegt_ausgang({"ausgang": "still", "ausgang_note": "  "})
+    assert not gw.traegt_ausgang({"ausgang": "aussitzen", "ausgang_note": "Grund"})
+    assert not gw.traegt_ausgang({})
+
+
+def test_should_document_every_allowed_exit_in_the_registry_meta():
+    meta_pfad = _QUELLE.parents[1] / "docs/governance/gates/_meta.json"
+    meta = json.loads(meta_pfad.read_text(encoding="utf-8"))
+    for wert in gw.AUSGANG_OHNE_FRIST:
+        assert f"`{wert}`" in meta["_ausgang_doc"], wert

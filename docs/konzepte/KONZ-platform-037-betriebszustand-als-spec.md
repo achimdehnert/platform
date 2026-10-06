@@ -1,7 +1,7 @@
 ---
 concept_id: KONZ-platform-037
 title: Betriebszustand als Spec — ADR-211-Muster für Dienste, mit eingebauter Schrumpfung
-pipeline_status: idea
+pipeline_status: stale   # 2026-09-16: Fristen-Triage (Owner-Regel: idea, review_by verstrichen, >30 Tage unberuehrt) — Re-open jederzeit mit neuem review_by
 tier: T2
 owner: Achim Dehnert
 conforms_to: platform:ADR-211

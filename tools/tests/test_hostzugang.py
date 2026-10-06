@@ -114,7 +114,7 @@ def test_should_use_hosts_own_ssh_shell_when_hopping():
     }
     cmd = hostzugang.ssh_kommando(host, ssh_opts=FB_SSH_OPTS)
     assert cmd[-1] == (
-        'ssh -o BatchMode=yes -o ConnectTimeout=8 achim@10.99.0.2 '
+        "ssh -o BatchMode=yes -o ConnectTimeout=8 achim@10.99.0.2 "
         '"wsl -d Ubuntu -u root -e bash -s"'
     )
 
@@ -165,12 +165,23 @@ printf '%s\\n' "${HOSTZUGANG_CMD[@]}"
 """
 
 
-def _bash_kommando(ssh_target: str, ssh_via: str, kommando: str, *ssh_opts: str) -> list[str]:
+def _bash_kommando(
+    ssh_target: str, ssh_via: str, kommando: str, *ssh_opts: str
+) -> list[str]:
     """Ruft hostzugang_ssh_kommando() in bash auf und liest HOSTZUGANG_CMD zurück
     (ein Wort pro Zeile) — Argumente gehen als echte argv-Elemente durch `bash -c
     ... "$0" "$@"`, kein manuelles Quoting fürs Zusammensetzen des Scripts."""
     r = subprocess.run(
-        ["bash", "-c", _BASH_SCRIPT, str(HOSTZUGANG_SH), ssh_target, ssh_via, kommando, *ssh_opts],
+        [
+            "bash",
+            "-c",
+            _BASH_SCRIPT,
+            str(HOSTZUGANG_SH),
+            ssh_target,
+            ssh_via,
+            kommando,
+            *ssh_opts,
+        ],
         capture_output=True,
         text=True,
         timeout=10,
@@ -200,9 +211,7 @@ def test_should_match_python_helper_for_hop_host_with_shell():
     }
     shell = host["ssh_shell"]
     py = hostzugang.ssh_kommando(host, ssh_opts=ssh_opts)
-    bash_out = _bash_kommando(
-        host["ssh"], host["ssh_via"], shell, *ssh_opts
-    )
+    bash_out = _bash_kommando(host["ssh"], host["ssh_via"], shell, *ssh_opts)
     assert bash_out == py
 
 
@@ -225,7 +234,13 @@ def test_should_match_deploy_script_drift_probe_invocation_across_python_and_bas
         "root@88.198.191.108", "", f"bash -s -- {remote_path}", *ssh_opts
     )
     assert bash_direkt == [
-        "ssh", *ssh_opts, "root@88.198.191.108", "bash", "-s", "--", remote_path
+        "ssh",
+        *ssh_opts,
+        "root@88.198.191.108",
+        "bash",
+        "-s",
+        "--",
+        remote_path,
     ]
     # Python-Variante haengt den String als EIN Element an (kommando_direkt ist
     # kein word-splitting) — das ist der bereits bekannte, bewusst erhaltene
@@ -234,7 +249,9 @@ def test_should_match_deploy_script_drift_probe_invocation_across_python_and_bas
 
     # Hop-Host: beide betten dieselbe gequotete Zeichenkette ins innere ssh ein.
     host = {"ssh": "adehnert@10.99.0.4", "ssh_via": "root@88.198.191.108"}
-    py_hop = hostzugang.ssh_kommando(host, ssh_opts=ssh_opts, shell_default="bash -s -- " + remote_path)
+    py_hop = hostzugang.ssh_kommando(
+        host, ssh_opts=ssh_opts, shell_default="bash -s -- " + remote_path
+    )
     bash_hop = _bash_kommando(
         host["ssh"], host["ssh_via"], f"bash -s -- {remote_path}", *ssh_opts
     )

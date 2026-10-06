@@ -251,7 +251,7 @@ erfüllt und je einzeln belegt sind:
 | 3 | `check_workflow_index.py` exit 0 nach dem Bulk-Move | Exit-Code, nicht Ausgabetext |
 | 4 | **Pro Maschine:** frisch gestartete Session zeigt alle 51 im `/`-Menü, bei leerer `commands`-Lane | Muster ADR-280 §8.1 Kriterium 6: Skill-Footer `source=skills/<name>/SKILL.md` eines beliebig gewählten Aufrufs |
 | 5 | Reversibles Backup der Live-Lane existiert | Pfad + Zeitstempel von `~/.claude/commands.bak` |
-| 6 | Kein Parallel-Session-Guard aktiv (0.4-Runner meldet keine fremde Session) | Runner-Zeile `0.4 parallel-sessions` ohne WARN |
+| 6 | Kein Parallel-Session-Guard aktiv (0.4-Runner meldet keine fremde Session) | Runner-Zeile `0.4 parallel-sessions` meldet „keine andere aktive Session“ (seit #1944 K8 nie mehr WARN) |
 
 Scheitert **ein** Punkt, bleibt die `commands`-Lane bestehen — das ist ausdrücklich
 kein D1-Verstoß, weil D1 die Quell-/Lane-Struktur meint, nicht das Übergabefenster.

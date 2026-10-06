@@ -1,0 +1,9 @@
+{
+  "slug": "worktree-end-on-merge",
+  "zustand": "schranke-kandidat",
+  "vorkommen": 1,
+  "letztes_vorkommen": "2026-09-03",
+  "erhoben": "2026-09-03",
+  "quelle": "Retro 0f59ce §5a (2026-09-03)",
+  "kern": "Umbau von worktree-midsession-accumulation: repo-session.sh end gehoert in den Merge-Zug (Skill pr-merge), nicht in den SessionEnd-Reaper. Realfall: 6 Worktrees gemergter PRs blieben bis zur Retro offen."
+}

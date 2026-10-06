@@ -1,0 +1,32 @@
+{
+  "slug": "cd-fehlschlag-kette-laeuft-weiter",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": "tools/claude-hooks/cd_fehlschlag_ketten_scanner.py",
+  "drill": "tools/claude-hooks/tests/test_cd_fehlschlag_ketten_scanner.py",
+  "built": "2026-09-14",
+  "ref": "docs/retros/session-retro-2026-09-14-platform-b7822e.md (B12, Recurrence Memory x3)",
+  "note": "Eine Bash-Kette wechselt per `cd <pfad-oder-$VAR>` in ein Worktree-/Variablen-Ziel und haengt weitere Befehle mit `;`/Zeilenumbruch an, ohne Abbruch bei fehlgeschlagenem `cd` (`|| exit`/`|| return`, `&&`-Verkettung, `set -e` am Anfang). Realfall: Worktree nach Merge geraeumt, `cd $W; git switch -c …` lief im platform-Haupt-Tree weiter; ein Guard fing dort zufaellig den HEAD-Wechsel ab. Drei Memory-Vorkommen (2026-09-04 x2, 2026-09-14), vorher KEIN Gate. Nur Worktree-/Variablen-Ziele zaehlen — `cd ~/github/platform && …` ist Alltag und kein raeumbares Ziel. PreToolUse(Bash), Klartext auf stdout statt hookSpecificOutput: PreToolUse kennt `additionalContext` nicht, nur `permissionDecision` (allow=stumm, ask=haelt an, deny=blockt) — Klartext ist der bereits belegte Weg (tools/hooks/foreign_clone_check.sh).",
+  "faengt": [
+    {
+      "fall": "cd $W; weiterer Befehl ohne Abbruch-Guard",
+      "probe": "test_should_flag_cd_without_abort_guard_into_worktree_target"
+    },
+    {
+      "fall": "cd \"$W\" || exit 1; … ist die sichere Form und darf nicht feuern",
+      "probe": "test_should_not_flag_cd_with_exit_guard"
+    },
+    {
+      "fall": "cd ~/github/platform && … (Haupt-Tree, kein raeumbares Ziel)",
+      "probe": "test_should_not_flag_literal_repo_path_target"
+    }
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-09-14",
+  "ausgang": "still",
+  "ausgang_note": "V1c (platform#3785, Owner-Wort 2026-10-05): Verhaltens-Gate, das nur bei einem Treffer spricht und dem Modell sonst keinen Kontext kostet; kein Rueckfall seit Bau (gate_wirkung 2026-10-05). Eignungsprobe 3/3 bestanden: 0 ungeschuetzte cd-Ketten, jeder Lauf pruefte den Pfad vor dem Schreiben (https://github.com/achimdehnert/platform/issues/3785#issuecomment-6000515183). Frist entfaellt. Kehrt der Slug in einer Retro wieder, gilt V1d: scharf schalten oder umbauen.",
+  "positivkontrolle": {
+    "ref": "docs/retros/session-retro-2026-09-14-platform-b7822e.md",
+    "datum": "2026-09-14"
+  }
+}

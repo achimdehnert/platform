@@ -1,0 +1,35 @@
+{
+  "slug": "gh-body-file-leer-ueberschrieben",
+  "mode": "blocking",
+  "owner": "achim",
+  "module": "tools/claude-hooks/block_empty_body_file.py",
+  "drill": "tools/claude-hooks/tests/test_block_empty_body_file.py",
+  "built": "2026-09-14",
+  "ref": "platform#3182 (Retro 2026-09-14 apo-hub kbiAvn-incr, Befund #6; Owner-Freigabe im Chat 2026-09-14)",
+  "last_drill_pass": "2026-09-14",
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-09-14",
+  "faengt": [
+    {
+      "fall": "gh issue/pr edit nach Heredoc ohne Kopplung an die im selben Befehl erzeugte Body-Datei (Realfall apo-hub#125)",
+      "probe": "realfall_edit_after_heredoc_without_guard"
+    },
+    {
+      "fall": "zweiter Realfall-Versuch mit -R, Datei durch AssertionError leer",
+      "probe": "realfall_second_attempt"
+    },
+    {
+      "fall": "vorhandene leere Body-Datei",
+      "probe": "existing_empty_body_file"
+    },
+    {
+      "fall": "leerer Inline-Body",
+      "probe": "empty_inline_body"
+    }
+  ],
+  "positivkontrolle": {
+    "ref": "tools/claude-hooks/tests/test_block_empty_body_file.py -- die zwei woertlichen Befehle aus Transkript 4d84e05f (14:33:18Z, 14:33:28Z), die apo-hub#125 geleert haben, werden deny; zwei korrekt gekoppelte Befehle derselben Sitzung (14:17:07Z nur &&, 16:39:52Z test -s) werden allow",
+    "datum": "2026-09-14"
+  },
+  "note": "Retro kbiAvn-incr #6: Read-modify-write eines Issue-Bodys, `gh issue view` scheiterte ohne -R im Scratchpad, die Datei blieb leer, das `gh issue edit --body-file` in der Folgezeile nach dem Heredoc lief ungekoppelt und leerte apo-hub#125 zweimal. Der Hook liest den BEFEHLSTEXT, nicht nur die Datei: zum PreToolUse-Zeitpunkt lag die Datei noch mit altem vollem Inhalt vor. Fehlalarm-Grenze aus demselben Transkript: durchgehende &&-Ketten passieren. FAIL-OPEN bei $-Pfaden ohne Erzeugung im Befehl und bei stdin-Body."
+}

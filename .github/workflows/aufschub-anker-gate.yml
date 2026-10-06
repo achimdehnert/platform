@@ -10,21 +10,15 @@ name: Aufschub-Anker-Gate
 # Muster `built-but-never-called`: ein Gate, das nie laeuft, ist Dekoration, und der
 # Gate-Audit in #1650 haette es als "Fundstelle vorhanden" gezaehlt.
 #
-# MODUS: blocking seit 2026-09-02 (Owner-Entscheid E4, platform#2606; eigener PR je
-# Gate, wie es die frozen_note der Registry verlangt). Vorher advisory — und das
-# Kalibrierfenster brachte genau EINEN echten Treffer, dessen PR drei Minuten spaeter
-# gemergt wurde: null Fehlalarme, aber auch null Wirkung. Ein Melder, den man
-# ueberholen kann, waehrend er meldet, ist keine Schranke. Ein Fund laesst diesen Job
-# jetzt FEHLSCHLAGEN statt nur zu kommentieren.
+# MODUS: WARNEND seit 2026-10-01 (Owner-Wort "K1 bleibt, warnen", platform#3645 K1).
+# Ein Fund wird kommentiert und als ::warning:: gezeigt, der Job bleibt gruen. Grund:
+# der Kontext "Aufgeschobene Arbeit braucht einen Anker" steht inzwischen im Ruleset
+# von main (Pflicht-Check); ein Fund blockierte damit Merges wegen Redaktion — ein
+# fehlender Anker ist Nacharbeit fuer die Liste #3646, kein Grund, fertige Arbeit
+# aufzuhalten. Das Ruleset bleibt unveraendert: der Check ist Pflicht, damit ein
+# WERKZEUGFEHLER (kein Verdikt) und ein roter Selbsttest den Merge weiter aufhalten.
 #
-# REICHWEITE, ausdruecklich (sonst waere es "gebaut != feuert"): ein roter Job blockt
-# den Merge nur, wenn sein Check-Kontext im Ruleset `main-required-checks` steht.
-# Dort stehen heute drei Kontexte (guardian, gitleaks secret scan,
-# "pytest tools/tests/ + CI-tote Testorte") und dieser ist keiner davon — platform hat
-# KEINEN Aggregator-Check, in den man sich einhaengen koennte. Das Ruleset zu aendern
-# ist Owner-Recht; bis dahin ist die Wirkung "roter Check, sichtbar im PR", nicht
-# "Merge unmoeglich". Der noetige Kontext-String ist der Job-Name unten:
-# "Aufgeschobene Arbeit braucht einen Anker".
+# VORHER blocking 2026-09-02 bis 2026-10-01 (Owner-Entscheid E4, platform#2606).
 #
 # Der Tool-Selbsttest (Step 1) bleibt blockierend: die Gate-Logik selbst muss korrekt
 # sein, bevor ihr Verdikt jemanden aufhaelt. Muster uebernommen von
@@ -93,8 +87,8 @@ jobs:
           wc -l < /tmp/pr.diff | sed 's/^/Diff-Zeilen: /'
 
       # --block liefert den Befund als Exit-Code (1 = Fund, 2 = Werkzeugfehler). Seit
-      # der Scharfschaltung (2026-09-02) macht ein Fund den Schritt ROT — vorher wurde
-      # er nur kommentiert. Massgeblich ist der Exit-Code, ausdruecklich nicht die
+      # 2026-10-01 (#3645 K1) wird ein Fund nur gewarnt, der Schritt bleibt gruen;
+      # rot bleibt allein der Werkzeugfehler. Massgeblich ist der Exit-Code, ausdruecklich nicht die
       # Frage "Ausgabe nicht leer": der saubere Fall druckt ebenfalls eine Zeile
       # ("✅ Aufschub-Anker: …"), ein -s-Test haette also IMMER "Befund" gemeldet.
       # Beide Richtungen lokal falsifiziert, bevor das hier stand.
@@ -108,7 +102,7 @@ jobs:
       # `hat_befund` wird VOR dem Fehlschlag geschrieben; der Kommentar-Schritt liest
       # zusaetzlich `steps.check.outcome`, damit er nicht "sauber" meldet, falls die
       # Ausgabe eines fehlgeschlagenen Schritts einmal nicht ankommt.
-      - name: Aufschub-Anker-Check (blocking)
+      - name: Aufschub-Anker-Check (warnend)
         id: check
         run: |
           set +e
@@ -119,8 +113,7 @@ jobs:
           case "$rc" in
             0) echo "hat_befund=false" >> "$GITHUB_OUTPUT" ;;
             1) echo "hat_befund=true"  >> "$GITHUB_OUTPUT"
-               echo "::error::Aufgeschobene Arbeit ohne Tracking-Anker im PR-Text oder im Diff — Details im Kommentar am PR. Hausregel: bewusst Ausgelassenes bekommt im SELBEN Zug ein Tracking-Artefakt; der PR-Text zaehlt nicht als Tracking."
-               exit 1 ;;
+               echo "::warning::Aufgeschobene Arbeit ohne Tracking-Anker im PR-Text oder im Diff — Details im Kommentar am PR. Nacharbeit gehoert auf die Liste #3646; der Merge wird dadurch nicht aufgehalten." ;;
             *) echo "::error::deferral_anchor_check.py brach mit Exit $rc ab (Werkzeugfehler, kein Verdikt)"
                exit 1 ;;
           esac
@@ -160,10 +153,9 @@ jobs:
           script: |
             const fs = require('fs');
             const MARKER = 'Aufschub-Anker-Gate';
-            // Drei Zustaende, nicht zwei: seit der Scharfschaltung faellt der Schritt
-            // bei einem Fund UND bei einem Werkzeugfehler rot aus. Ein "sauber"-
-            // Kommentar unter einem roten Check waere die schlimmere Fehlrichtung,
-            // ein Aufschub-Vorwurf fuer einen Absturz die falsche Diagnose.
+            // Drei Zustaende: sauber, Fund (warnend, Schritt gruen) und
+            // Werkzeugfehler (Schritt rot, kein Verdikt). Ein Aufschub-Vorwurf fuer
+            // einen Absturz waere die falsche Diagnose.
             const flagge = '${{ steps.check.outputs.hat_befund }}';
             const rot = '${{ steps.check.outcome }}' === 'failure';
             const werkzeugfehler = rot && flagge !== 'true';
@@ -198,12 +190,9 @@ jobs:
               verdict,
               '```',
               '',
-              '_Blocking seit 2026-09-02 (#2606, E4): dieser Check ist rot, bis entweder',
-              'ein Tracking-Artefakt verlinkt ist oder der Treffer im PR als Fehlalarm',
-              'begründet wird — die Begründung ist zugleich die FP-Messung. Ob der Merge',
-              'dadurch wirklich verhindert wird, hängt am Ruleset `main-required-checks`;',
-              'steht dieser Kontext nicht darin, ist der rote Check sichtbar, aber nicht',
-              'bindend._',
+              '_Warnend seit 2026-10-01 (#3645 K1): der Merge wird nicht aufgehalten.',
+              'Den Anker nachziehen oder den Treffer als Fehlalarm begründen; offene',
+              'Nacharbeit gehört auf die Liste #3646._',
             ].join('\n');
 
             const fehler = [

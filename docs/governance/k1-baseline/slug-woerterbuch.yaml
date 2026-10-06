@@ -44,7 +44,13 @@ frozen_at: "2026-08-02"
 # geparst, neuer Berichtsblock. Das Zaehlwerk (recurring_findings) blieb
 # unangetastet — Baseline-Lauf mit der neuen Version erneut n=20, 16/13/3,
 # Summen-Rate 1.600 (reproduziert, nicht umdeklariert). sha 5cf0109d… -> d4fea9c6….
-tool_sha256: d4fea9c635936c65ec383062b09cc194b44060f84077d4501ab2283b137c86a6
+# Neuberechnung 2026-09-16 (Instrumentenwechsel, Gate-Registry aus Einzeldateien,
+# #1944 K7): retro_kpis liest die Registry ueber tools/gate_registry.py statt
+# json.load auf die Sammeldatei; nur der Registry-Zugriff und ein Hinweistext
+# aenderten sich. Das Zaehlwerk blieb unangetastet — Baseline-Lauf mit der neuen
+# Version erneut n=20, 16/13/3, Summen-Rate 1.600; der volle Bericht ohne
+# Fenster ist bis auf diesen Hinweistext zeichengleich. sha d4fea9c6… -> db9d1869….
+tool_sha256: db9d18692e1ca20e439ec0583f2198900a8f470d50656d1d29a8de4b4dc38e65
 
 top3:
   - canonical: claim-before-cheapest-check

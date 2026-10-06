@@ -66,16 +66,10 @@ Ausgabe Step 3 = **Fakten-Block**: Coverage n/n, Console-Errors, echte Render-De
 
 ## Step 4: UX-Experten-Subagent (überspringbar mit `--no-agent`)
 
-Übergib die Screenshots + Fakten-Block an einen **UX-Experten-Subagent** (Agent-Tool).
-- **Modell: Sonnet** (Tier-3-Review; nicht Opus — `session-routing.md` / 🌀 `delegate-mechanical-to-sonnet`).
-- **Auftrag:** gegen das **Plattform-Design-System** kritisieren —
-  `ADR-048` (HTMX-Playbook: `hx-target`/`hx-swap`/`hx-indicator`, `data-testid`),
-  `ADR-049` (Design-Token `--pui-*`), `ADR-040` (Frontend-Completeness),
-  `ADR-251` (UX-Gate am KD) + UX-Heuristik (Nielsen: Sichtbarkeit Status, Konsistenz,
-  Fehlervermeidung, Erkennbarkeit statt Erinnerung).
-- **Ausgabe:** priorisierter Verbesserungs-Backlog (Severity × Aufwand), **je Finding
-  mit DOM-/Screenshot-Beleg** — keine spekulativen „könnte schöner sein"-Punkte.
-- Read-only: der Subagent **schlägt vor**, ändert nichts.
+Übergib die Screenshots + Fakten-Block an die Rolle **UX-Prüfer** aus
+`~/.claude/policies/pruef-rollen.md` (SSoT für Aufruf, Modell, Prüfkriterien und
+Ausgabeformat — Rollen-Block von dort wörtlich in den Brief übernehmen). Read-only:
+der Subagent **schlägt vor**, ändert nichts.
 
 ## Step 5: Report + Hand-off
 
@@ -186,3 +180,5 @@ auf die Cloudflare-Auth-Wand — kein Cloudflare-Login als „Test" fehlinterpre
 - 2026-07-06: **KD-Referenz** im Output-Format ergänzt (Spec/Lokal/GitHub/iil.pet, gleiches Schema
   wie `/kd-scout`/`/klickdummy`) — hier post-build oft alle vier Felder auflösbar; ein `—` ist an
   dieser Stelle ein echter Befund (nie committed/deployed), nicht kosmetisch. 1 neuer Anti-Pattern.
+- 2026-09-29: UX-Experten-Brief aus Step 4 nach `policies/pruef-rollen.md` (Rolle UX-Prüfer)
+  gezogen — eine Quelle für alle Skills, die UX prüfen lassen. Verhalten unverändert.

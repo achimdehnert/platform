@@ -1,0 +1,19 @@
+[Unit]
+Description=Sichtbarkeits-Drift platform taeglich messen (ADR-309 §5, #3234) — Messreihe fuer Prognose und K5-Serie
+Documentation=https://github.com/achimdehnert/platform/tree/main/infra/host-maintenance
+
+[Service]
+Type=oneshot
+# Eigener Takt (Retro 8a0235 #6): Vorher lief der Melder nur beim Sitzungsstart,
+# ein Tag ohne Sitzung fehlte in der Messreihe und brach die K5-Serie. Dieselben
+# Dateien wie der Sitzungsstart; ein Eintrag je Tag, der letzte Lauf gewinnt.
+# Die Messreihe nennt Kunden-Repos und bleibt deshalb hostlokal.
+ExecStart=/usr/bin/python3 %h/github/platform/tools/sichtbarkeits_drift_melder.py --kurz \
+    --ergebnis-datei %h/.repo-session/melder/sichtbarkeit.json \
+    --messreihe %h/.repo-session/melder/sichtbarkeit-messreihe.jsonl
+TimeoutStartSec=300
+Nice=10
+IOSchedulingClass=idle
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sichtbarkeits-melder

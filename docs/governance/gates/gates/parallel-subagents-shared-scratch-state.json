@@ -1,0 +1,39 @@
+{
+  "slug": "parallel-subagents-shared-scratch-state",
+  "mode": "blocking",
+  "module": "tools/claude-hooks/block_bare_stash_pop.py",
+  "drill": "tools/claude-hooks/tests/test_block_bare_stash_pop.py",
+  "built": "2026-09-16",
+  "last_drill_pass": "2026-09-16",
+  "owner": "achim",
+  "zustand": "schranke",
+  "faengt": [
+    {
+      "fall": "blankes `git stash pop` (Realfall apo-hub 2026-09-14, Befund #4)",
+      "probe": "realfall_bare_stash_pop"
+    },
+    {
+      "fall": "blankes `git stash apply`",
+      "probe": "bare_stash_apply"
+    },
+    {
+      "fall": "blankes `git stash drop`",
+      "probe": "bare_stash_drop"
+    },
+    {
+      "fall": "blanker Aufruf in einer Befehlskette versteckt",
+      "probe": "hidden_in_a_chain"
+    },
+    {
+      "fall": "globale git-Optionen davor (`git -C <pfad> stash pop`)",
+      "probe": "global_git_options_before_stash"
+    }
+  ],
+  "positivkontrolle": {
+    "datum": "2026-09-16",
+    "ref": "tools/claude-hooks/tests/test_block_bare_stash_pop.py — vier Befehle muessen durchlaufen: `git stash list && git stash pop stash@{2}` (gelesener Eintrag), `git stash push -m wip` (nimmt niemandem etwas weg), `git stash list`/`show -p` (lesend), `git stash pop $REF` (Variable, fail-open). Bekannte Fehlalarm-Grenze eigens festgeschrieben: der Hook liest den Befehlstext, `echo 'git stash pop' >> datei` wird geblockt."
+  },
+  "note": "Retro 2026-09-14 apo-hub (40c069) Befund #4: einer von acht parallelen Fix-Subagenten holte per blankem `git stash pop` den Stash einer fremden Sitzung zurueck; keiner der acht Briefs nannte `git stash`. `refs/stash` liegt in `.git` und ist ueber alle Worktrees desselben Repos geteilt — 'der oberste Stash' ist keine Eigenschaft der eigenen Sitzung. Der Hook verbietet `git stash` nicht, er verlangt einen ausdruecklichen Eintrag. NICHT gefangen und deshalb hier benannt statt im Gate behauptet: die zweite Haelfte desselben Slugs (Befund #5, kollidierende PR-Body-Dateien im geteilten Scratchpad) hat eine andere Wurzel (Dateinamen im Delegations-Brief) und braucht eine eigene Schranke (verankert als platform#3211). Verdrahtet am 2026-09-16 (Owner traegt den PreToolUse-Eintrag in ~/.claude/settings.json ein, Lane claude-hooks per generate.py im merge-Modus verteilt, Drift-Score 0). Wirkungsbeleg am selben Tag: der Hook blockte den ersten Befehl der Sitzung, der die Zeichenkette trug — und zwar den dokumentierten Ueberblock-Fall (echo mit dem Befehlstext), nicht einen echten Pop. Dass er faengt, ist damit belegt; dass er nur echte Pops faengt, ist es nicht.",
+  "ref": "platform Session 2026-09-16; Quelle docs/retros/session-retro-2026-09-14-apo-hub-40c069.md §5 (GATE-PFLICHT)",
+  "erzwungen_seit": "2026-09-16"
+}

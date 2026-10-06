@@ -19,8 +19,15 @@ domains:
   - governance/adr
   - tooling/mcp
 implementation_status: implemented
+implementation_evidence:
+  - "path: .github/workflows/adr-validate.yml — iil-adrfw validate + audit als CI-Check auf docs/adr/**"
+  - "pr: platform#1786 — adr-validate auf den reusable Workflow aus iil-adrfw umgestellt"
+  - "path: .windsurf/workflows/adr.md — ADR-Erstellung ueber iil-adrfw-Tooling"
+  - "path: .windsurf/workflows/session-start.md — Staleness/Audit-Schritt ueber iil-adrfw MCP"
+  - "path: iil-adrfw:src/iil_adrfw/schemas/adr_frontmatter.schema.json — Frontmatter-Schema, gegen das validate prueft"
+  - "iil-adrfw auf PyPI (>=0.8.0 in adr-validate.yml), MCP-Server iil-adrfw-mcp (12 Tools)"
 staleness_months: 6
-last_reviewed: 2026-05-09
+last_reviewed: 2026-09-23
 drift_check_paths:
   - platform/.github/workflows/adr-validate.yml
   - platform/.windsurf/workflows/adr.md

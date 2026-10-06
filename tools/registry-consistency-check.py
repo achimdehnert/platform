@@ -53,6 +53,27 @@ def load_rich(path: Path) -> dict[str, dict]:
     return out
 
 
+def vergleichen(
+    flat: dict[str, dict], rich: dict[str, dict]
+) -> tuple[list[str], list[str], list[tuple[str, str, str]]]:
+    """Reine Pruefung: (nur flach, nur reich, type-Divergenz auf der Schnittmenge).
+
+    Netzfrei und dateifrei, damit sie sich mit Fixtures in beide Richtungen testen
+    laesst — bekannter Fehler → Finding, saubere Registry → leer (#2623).
+    """
+    fset, rset = set(flat), set(rich)
+    only_flat = sorted(fset - rset)
+    only_rich = sorted(rset - fset)
+
+    # Feld-Divergenz auf der Schnittmenge (gemeinsam vorhandenes Feld 'type').
+    type_mismatch = []
+    for r in sorted(fset & rset):
+        ft, rt = flat[r].get("type"), rich[r].get("type")
+        if ft is not None and rt is not None and ft != rt:
+            type_mismatch.append((r, ft, rt))
+    return only_flat, only_rich, type_mismatch
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Registry-Konsistenz-Check (ADR-234 P0).")
     ap.add_argument(
@@ -68,15 +89,7 @@ def main() -> int:
 
     flat, rich = load_flat(FLAT), load_rich(RICH)
     fset, rset = set(flat), set(rich)
-    only_flat = sorted(fset - rset)
-    only_rich = sorted(rset - fset)
-
-    # Feld-Divergenz auf der Schnittmenge (gemeinsam vorhandenes Feld 'type').
-    type_mismatch = []
-    for r in sorted(fset & rset):
-        ft, rt = flat[r].get("type"), rich[r].get("type")
-        if ft is not None and rt is not None and ft != rt:
-            type_mismatch.append((r, ft, rt))
+    only_flat, only_rich, type_mismatch = vergleichen(flat, rich)
 
     lines = [
         "# Registry-Konsistenz (ADR-234 P0)",

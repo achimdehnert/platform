@@ -31,6 +31,9 @@ GESUND = (0, "achimdehnert/platform\n")
 
 @pytest.mark.f3
 def test_should_raise_when_the_api_is_throttled():
+    """Fall `probe-drossel` (Registry: Flotten-Melder meldet 0 Befunde, weil
+    kein Repo erreichbar war) — die Probe muss die Drosselung ERKENNEN, statt
+    sie als sauberen Nullstand durchzulassen."""
     with pytest.raises(g.DrosselFehler) as exc:
         g.probe(laeufer=lambda pfad, timeout=0: RATE_LIMIT)
     assert "rate limit" in str(exc.value)
@@ -49,7 +52,10 @@ def test_should_return_false_instead_of_raising_when_asked_to():
 
 @pytest.mark.f1
 def test_should_not_accept_an_answer_about_a_different_repo():
-    """Subjektbindung: eine 200 ueber irgendetwas belegt nicht DIESES Repo."""
+    """Fall `probe-subjekt` (Registry: rate_limit als Beleg genommen statt eines
+    echten Aufrufs). Subjektbindung: eine 200 ueber irgendetwas belegt nicht
+    DIESES Repo — genau der Fehler von `gh api rate_limit`, das im Anlass-Fall
+    5000 freie Aufrufe meldete, waehrend sekundaer gedrosselt wurde."""
     assert (
         g.probe(werfen=False, laeufer=lambda pfad, timeout=0: (0, "wer/anders\n"))
         is False
@@ -83,7 +89,9 @@ def test_should_be_taken_while_a_fresh_lock_lies(tmp_path):
 
 @pytest.mark.f1
 def test_should_ignore_a_lock_left_behind_by_a_dead_run(tmp_path):
-    """Eine Sperre ohne Verfall waere schlimmer als keine — sie blockiert fuer immer."""
+    """Fall `sperre-verfall` (Registry: verwaiste Sperre blockiert die Flotte
+    dauerhaft). Eine Sperre ohne Verfall waere schlimmer als keine — sie
+    blockiert fuer immer."""
     p = tmp_path / "sperre.json"
     alt = time.time() - g.SPERR_ALTER_S - 60
     p.write_text(json.dumps({"name": "x", "seit": alt, "pid": 1}), encoding="utf-8")
@@ -99,6 +107,8 @@ def test_should_survive_a_corrupt_lock_file(tmp_path):
 
 @pytest.mark.f3
 def test_should_refuse_a_second_fleet_run(tmp_path):
+    """Fall `sperre-zweitlauf` (Registry: zwei Flotten-Scans gleichzeitig) —
+    genau der Ausloeser des Anlass-Falls: drei parallele Flotten-Scans."""
     p = tmp_path / "sperre.json"
     with g.flotten_sperre("erster", pfad=p):
         assert p.exists()

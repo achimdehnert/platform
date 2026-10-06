@@ -112,6 +112,12 @@
 # (/tools/ ist sonst bewusst ungeschuetzt, s.o.).
 /tools/pr_merge_sa.py  @achimdehnert @wirdigital
 
+# Die Abschottung der Sandbox (ADR-308): Selbstpruefung, Budget-Waechter
+# (einzige Kostengrenze je Lauf), Spiegeln, Geheimnis-Scan, Egress-Proxy.
+# Eine Lockerung dort ist eine Schutzregel-Aenderung (ADR-308 §151), keine
+# Code-Aenderung — Realfall #3718 lief ohne Review (#3724).
+/tools/sandbox/        @achimdehnert @wirdigital
+
 # Die Charta selbst. Sie steht in docs/konzepte/ zwischen 46 gewoehnlichen
 # Konzepten, die bewusst ungeschuetzt bleiben — geschuetzt wird die eine Datei,
 # die die Vollmachten des Agenten definiert, nicht das Verzeichnis.

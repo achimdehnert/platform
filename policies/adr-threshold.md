@@ -30,17 +30,24 @@ For these → **CHANGELOG entry + PR description** is enough.
 
 ## Where ADRs live
 
-`~/github/platform/docs/adr/ADR-NNN-*.md`. Get next number:
+`~/github/platform/docs/adr/ADR-NNN-*.md`. **Keine Nummer am Autorenzeitpunkt wählen**
+(ADR-228, seit 2026-09-08): ein neuer ADR startet als `docs/adr/ADR-DRAFT-<slug>.md` mit
+`id: ADR-000`; die Nummer vergibt `tools/adr_allocate.py --apply` kurz vor dem Merge.
+Wer die voraussichtlich nächste Nummer trotzdem sehen will (z. B. für einen Split wie
+ADR-188 → ADR-303…306), fragt **alle** Quellen, nicht nur `main`:
 
 ```bash
 P="${GITHUB_DIR:-$HOME/github}/platform"
-python3 "$P/scripts/adr_next_number.py"          # → ADR-281 (Stand 2026-07-22)
-python3 "$P/scripts/adr_next_number.py" --check  # Konflikt-Check
+python3 "$P/scripts/naechste_nummer.py" --art adr    # Remote-Refs + offene PRs + Reservierungen
+python3 "$P/scripts/naechste_nummer.py" --art konz   # dasselbe für KONZ-platform-NNN
 ```
+
+`scripts/adr_next_number.py` sieht nur `main` — genau die Race, die am 2026-08-12 zwei
+KONZ-043 erzeugte (#1944 K1). Nicht mehr verwenden.
 
 > Absolute Pfade mit Absicht: diese Policy wird in **jeder** Session geladen,
 > auch wenn das Arbeitsverzeichnis ein anderes Repo ist. Ein relatives
-> `scripts/adr_next_number.py` schlägt dort fehl — und die alte Zeile, die es
+> `scripts/naechste_nummer.py` schlägt dort fehl — und die alte Zeile, die es
 > ersetzt, war absolut.
 
 > ⚠️ Die früher hier dokumentierte Zeile `ls ~/github/platform/docs/adr/ | sort |

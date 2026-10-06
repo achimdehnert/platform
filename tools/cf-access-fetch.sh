@@ -22,11 +22,12 @@
 #
 #   Alle weiteren Argumente gehen unveraendert an curl.
 #
-# ABDECKUNG (gemessen 2026-08-05, `--coverage` misst es neu)
+# ABDECKUNG (gemessen 2026-09-15, `--coverage` misst es neu)
 #   iil.pet                  ja
 #   staging-*.iil.pet        ja   (eigene Access-App, Token gilt trotzdem)
 #   knowledge.iil.pet        ja
 #   kd.iil.pet               NEIN (eigene Access-App, Token nicht berechtigt)
+#   decks-hub.iil.pet        ja   (eigene Access-App, Policy ergaenzt 2026-09-15, decks-hub#98)
 #   orchestrator.iil.pet     n/a  (keine Access-Wand; API-Key statt dessen)
 #
 # SICHERHEIT
@@ -70,6 +71,7 @@ COVERAGE_HOSTS=(
   "https://iil.pet/"
   "https://knowledge.iil.pet/"
   "https://kd.iil.pet/"
+  "https://decks-hub.iil.pet/"
 )
 
 fehler() {

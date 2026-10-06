@@ -12,6 +12,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 _HOOK_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(_HOOK_DIR))
 
@@ -236,6 +238,60 @@ def test_should_not_treat_prose_starting_with_bang_as_a_command():
 # Ein Befehl, dessen Ausfuehrung der Permission-Classifier sperrt, ist nicht
 # ungetestet, sondern unausfuehrbar. Der Melder feuerte am 2026-09-01 dreimal
 # auf denselben gesperrten Befehl (Retro meiki-hub 33616e, Befund #8).
+
+
+# --- AUSWEITUNG 3: Inline-Code (2026-09-23, Retro 0405d4) ------------------
+# Realfall: In einer Board-Zeile stand `! python3 … --login iil`. Der Melder
+# schwieg, der Owner fuehrte den Befehl aus, er endete mit einer Fehlermeldung.
+# Gemessen: derselbe Befehl im eingerahmten Block feuerte, inline nicht.
+
+
+def test_should_flag_a_handed_over_command_in_inline_code():
+    """Der Realfall — eine Board-Zeile, kein Block."""
+    text = (
+        "- **[36]** 🟢 Postfach anmelden: "
+        "`! python3 tools/mail_agent/graph_mail.py --login iil` · danach ich · du"
+    )
+    untested, _ = find_untested(text, bash_commands=[])
+    assert untested == ["python3 tools/mail_agent/graph_mail.py --login iil"]
+
+
+def test_should_still_flag_a_shell_prompt_prefix_inside_a_fenced_block():
+    """Im Block bleiben alle Prompt-Zeichen zulaessig — der Block selbst sagt,
+    dass Befehle folgen. Nur inline ist `$` mehrdeutig."""
+    untested, _ = find_untested("```bash\n$ make test\n```", bash_commands=[])
+    assert untested == ["make test"]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # ohne jeden Praefix — Erwaehnung, keine Uebergabe
+        "Die Tests laufen ueber `make test`.",
+        "Siehe `tools/claude-hooks/untested_command_scanner.py`.",
+        "Der Schalter `--oeffentlich-bestaetigt` geht daran vorbei.",
+        "Das Modul heisst `pymupdf`, nicht `fitz`.",
+        # mit einem Prompt-Zeichen, das INLINE mehrdeutig ist. Alle vier haben
+        # in der ersten Fassung von AUSWEITUNG 3 gefeuert — belegte Fehlalarme
+        # eines BLOCKIERENDEN Melders, nachgetragen in derselben Sitzung.
+        "Die README zeigt als Beispiel `$ npm install`, hier laeuft nichts.",
+        "Jedes Skript hier beginnt mit `#!/bin/bash`, das ist Konvention.",
+        "Er schrieb: `> git status` als Zitat, nicht als Auftrag.",
+        "Kopiere die Datei nach `$HOME/bin/deploy.sh`.",
+    ],
+)
+def test_should_stay_silent_on_ambiguous_inline_code(text):
+    """Gegenrichtung: ohne Praefix ist eine Spanne eine Erwaehnung, keine
+    Uebergabe. Ohne diese Grenze feuerte der Melder auf jeden Dateinamen."""
+    untested, placeholders = find_untested(text, bash_commands=[])
+    assert untested == []
+    assert placeholders == []
+
+
+def test_should_stay_silent_when_the_inline_command_was_actually_run():
+    """Gegenrichtung: wer den Befehl selbst ausgefuehrt hat, uebergibt nicht."""
+    untested, _ = find_untested("`! make test`", bash_commands=["make test"])
+    assert untested == []
 
 
 def test_should_stay_silent_when_execution_was_denied():

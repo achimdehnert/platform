@@ -10,6 +10,9 @@ import importlib.util
 import json
 import pathlib
 import sys
+import time
+
+import pytest
 
 _SRC = pathlib.Path(__file__).resolve().parents[1] / "mail_agent" / "sendeabgleich.py"
 _spec = importlib.util.spec_from_file_location("sendeabgleich", _SRC)
@@ -79,6 +82,40 @@ class TestZuordnung:
             _vorgang(), _mail("NIS2", datum="2026-08-18")
         )
 
+    def test_should_match_mail_sent_same_day_after_last_check(self):
+        # Realfall platform#3658: Prüfung 06:34, Versand 10:18 am selben Tag.
+        v = _vorgang(letzte_pruefung="2026-10-01 06:34")
+        assert sa.nach_letzter_pruefung(v, _mail("NIS2", datum="2026-10-01 10:18"))
+
+    def test_should_ignore_mail_sent_same_day_before_last_check(self):
+        v = _vorgang(letzte_pruefung="2026-10-01 06:34")
+        assert not sa.nach_letzter_pruefung(v, _mail("NIS2", datum="2026-10-01 05:50"))
+
+    def test_should_count_whole_day_when_one_side_has_no_time(self):
+        v = _vorgang(letzte_pruefung="2026-10-01 06:34")
+        assert sa.nach_letzter_pruefung(v, _mail("NIS2", datum="2026-10-01"))
+        v = _vorgang(letzte_pruefung="2026-10-01")
+        assert sa.nach_letzter_pruefung(v, _mail("NIS2", datum="2026-10-01 05:50"))
+
+
+class TestZeitstempel:
+    @pytest.fixture(autouse=True)
+    def _utc(self, monkeypatch):
+        monkeypatch.setenv("TZ", "UTC")
+        time.tzset()
+        yield
+        monkeypatch.undo()
+        time.tzset()
+
+    def test_should_keep_minute_from_imap_date_header(self):
+        assert sa._datum_iso("Thu, 01 Oct 2026 12:18:00 +0200") == "2026-10-01 10:18"
+
+    def test_should_keep_minute_from_graph_utc_stamp(self):
+        assert sa._graph_zeit("2026-10-01T10:18") == "2026-10-01 10:18"
+
+    def test_should_return_empty_for_unparsable_date(self):
+        assert sa._datum_iso("kein Datum") == ""
+
 
 class TestVorschlaege:
     def test_should_propose_flip_on_single_match(self):
@@ -101,6 +138,39 @@ class TestVorschlaege:
         b = sa.vorschlaege(ledger, {"iil": mails})
         assert b[0]["lage"] == "treffer"
         assert b[0]["mails"][0].datum == "2026-08-21", "juengste Mail ist der Beleg"
+
+    def test_should_not_flip_when_only_shared_words_match(self):
+        """Realfall 2026-10-01: 'guenzburg' stand in vielen offenen Vorgängen."""
+        ledger = {
+            "vorgaenge": [
+                _vorgang(nr=1, thread_key="Guenzburg Schnittstelle", gegenueber="LRA"),
+                _vorgang(nr=2, bucket="warten", thread_key="Guenzburg Workshop"),
+            ]
+        }
+        b = sa.vorschlaege(
+            ledger, {"iil": [_mail("Testsystem Guenzburg: drei Fragen")]}
+        )
+        assert b[0]["lage"] == "mehrdeutig"
+
+    def test_should_flip_when_one_word_belongs_only_to_this_vorgang(self):
+        ledger = {
+            "vorgaenge": [
+                _vorgang(nr=1, thread_key="Guenzburg Schnittstelle", gegenueber="LRA"),
+                _vorgang(nr=2, bucket="warten", thread_key="Guenzburg Workshop"),
+            ]
+        }
+        b = sa.vorschlaege(ledger, {"iil": [_mail("AW: Guenzburg Schnittstelle")]})
+        assert b[0]["lage"] == "treffer"
+
+    def test_should_ignore_closed_vorgaenge_when_counting_shared_words(self):
+        ledger = {
+            "vorgaenge": [
+                _vorgang(nr=1, thread_key="Guenzburg"),
+                _vorgang(nr=2, bucket="erledigt", thread_key="Guenzburg"),
+            ]
+        }
+        b = sa.vorschlaege(ledger, {"iil": [_mail("AW: Guenzburg")]})
+        assert b[0]["lage"] == "treffer"
 
     def test_should_report_open_when_nothing_matches(self):
         ledger = {"vorgaenge": [_vorgang()]}

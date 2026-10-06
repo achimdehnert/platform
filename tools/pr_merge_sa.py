@@ -40,6 +40,7 @@ import re
 import subprocess
 import sys
 from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 
 from bot_review_kandidaten import juengste_je_name
 
@@ -76,10 +77,26 @@ def regeln(pfad=None) -> dict:
     return block
 
 
+# `_build-docker.yml` ist der gemeinsam genutzte Ablauf, der ein Image baut und in
+# die Registry schiebt — der Aufruf selbst nennt kein Marker-Wort, wirkt aber so.
 PROD_MARKER = re.compile(
-    r"\b(prod|production|publish|pypi|ghcr\.io|docker\s+push|migrate)\b", re.IGNORECASE
+    r"\b(prod|production|publish|pypi|ghcr\.io|docker\s+push|migrate|_build-docker\.yml)\b",
+    re.IGNORECASE,
 )
 DEPLOY_MARKER = re.compile(r"\b(deploy|ship|release|ssh)\b", re.IGNORECASE)
+# Was an einer Workflow-Datei NICHT wirkt und deshalb vor der Marker-Suche
+# entfaellt (Owner-Wort 2026-10-05, dev-hub#453): Kommentare, das Verzeichnis
+# `deploy/` als Pfadbestandteil und der Aufruf eines gemeinsam genutzten Ablaufs,
+# der nur prueft. Realfaelle: robo-lab galt als Deploy-Repo, weil ein Testlauf
+# Dateien unter `/deploy/…` auscheckt; 20 Paket-Repos galten als Publish-Repos,
+# weil ihr Testlauf `_ci-pypi.yml` heisst. Die Liste nennt nur Ablaeufe, deren
+# Inhalt gelesen wurde — ein Deploy-Ablauf gehoert nie hinein.
+REINE_PRUEF_WORKFLOWS = ("_ci-pypi.yml",)
+_KOMMENTAR = re.compile(r"(^|\s)#.*$", re.MULTILINE)
+_VERZEICHNIS_DEPLOY = re.compile(r"\bdeploy/", re.IGNORECASE)
+_PRUEF_AUFRUF = re.compile(
+    r"uses:\s*\S*/(?:%s)@\S+" % "|".join(re.escape(n) for n in REINE_PRUEF_WORKFLOWS)
+)
 # Markdown-tolerant: `Freigabe:`, `**Freigabe:**`, `**Freigabe**:` — der Vermerk aus
 # /prompt (Auftrag-Modus) kam fett, der Regex las nur plain (#2603, Realfall #2602).
 FREIGABE_VERMERK = re.compile(
@@ -94,6 +111,21 @@ PROD_IM_APPROVAL = re.compile(
 # woertlich auf das Wort "deploy" festgelegt (Freigabe: akzeptiert durch Owner
 # — deploy) — der Vermerk-Pfad prueft deshalb ausschliesslich dieses Wort.
 DEPLOY_IM_VERMERK = re.compile(r"\bdeploy\b", re.IGNORECASE)
+# Pruefrage (autonomy-gates.md, Owner-Weisung 2026-08-27; Block angeglichen
+# 2026-09-16, #3244): W3 braucht M1 — Auto-Deploy ist Normalbetrieb, kein
+# Vorlagegrund. Vorlagepflichtig bleiben die vier Klassen der Pruefrage; zwei
+# davon sind mechanisch erkennbar und halten M3 (Deploy-Wort) aufrecht:
+# Datenmigration (Migrationsdatei im Diff) und Irreversibles (Publish-Workflow,
+# den der Merge anstoesst). Security-Config faengt der Governance-Pfad (M2),
+# die echte Wahlfrage ist kein Werkzeug-Kriterium, sondern Urteil des Agenten VOR dem Aufruf.
+PUBLISH_MARKER = re.compile(
+    r"\b(publish|pypi|ghcr\.io|docker\s+push|_build-docker\.yml)\b", re.IGNORECASE
+)
+MIGRATION_PFAD = re.compile(r"(^|/)migrations/[^/]+\.py$")
+# Issue-Verweise im PR-Text: `#123` (PR-Repo) oder `owner/repo#123`. Der Auftrag
+# eines Cross-Repo-Programms liegt im Leit-Repo (Realfall dev-hub#357 mit
+# Auftrag platform#3234), nicht im Repo des PR.
+ISSUE_VERWEIS = re.compile(r"(?:\b([\w.-]+/[\w.-]+))?#(\d+)\b")
 
 
 @dataclass
@@ -113,6 +145,12 @@ class Facts:
     checks_total: int = 0
     checks_failing: int = 0
     checks_pending: int = 0
+    # Gruende, warum die Pruefrage bei W3 doch M3 verlangt (leer = M1 genuegt)
+    pruef_pflicht: list = field(default_factory=list)
+    # Nur bei Org-Profil: per API aufgeloeste Repo-ID, vor dem Merge erneut verglichen
+    repo_id: int | None = None
+    # Der gepruefte Kopf-Commit; der Merge greift nur, wenn der PR noch auf ihm steht
+    head_sha: str = ""
 
 
 @dataclass
@@ -172,7 +210,7 @@ def classify(f: Facts, r: dict) -> Verdict:
             False,
             f"fehlt: gruenes CI ({f.checks_failing} Check(s) rot)",
         )
-    if f.checks_total == 0:
+    if f.checks_total == 0 and not r.get("actions_aus"):
         nicht_doku = [p for p in f.files if not ist_doku(p, r["doku_glob"])]
         if nicht_doku:
             return Verdict(
@@ -185,10 +223,20 @@ def classify(f: Facts, r: dict) -> Verdict:
     noetig = r["deckung"].get(f.wirkung)
     if noetig is None:
         raise Unklar(f"Wirkung {f.wirkung} steht nicht in der Deckungstabelle")
+    if f.wirkung == "W3" and f.pruef_pflicht:
+        noetig = "M3"
+    # Reine Doku braucht kein Mandat (Owner-Wort 2026-10-05): der Deploy, den der
+    # Merge anstoesst, liefert unveraenderten Code aus. Die Pruef-Pflicht
+    # (Publish-Workflow) und die Governance-Pfade oben bleiben davon unberuehrt.
+    elif r.get("doku_ohne_mandat") and all(
+        ist_doku(p, r["doku_glob"]) for p in f.files
+    ):
+        noetig = "M0"
     if RANG[f.mandat] < RANG[noetig]:
         if noetig == "M3":
+            anlass = f" ({'; '.join(f.pruef_pflicht)})" if f.pruef_pflicht else ""
             grund = (
-                "fehlt: M3 — Approve-Review mit Deploy-Wort ODER Vermerk "
+                f"fehlt: M3{anlass} — Approve-Review mit Deploy-Wort ODER Vermerk "
                 "„Freigabe: akzeptiert durch Owner — deploy” mit dieser "
                 "PR-Nummer im verlinkten Issue (#2812)"
             )
@@ -214,6 +262,78 @@ def _gh(args: list):
         return json.loads(p.stdout)
     except json.JSONDecodeError as exc:
         raise Unklar(f"gh-Antwort nicht lesbar: {exc}")
+
+
+def aufgeloestes_repo(repo: str) -> tuple[str, int]:
+    """(full_name, id) laut GitHub-API — nach Umbenennung/Transfer der NEUE Eigentuemer."""
+    daten = _gh(["api", f"repos/{repo}"])
+    try:
+        return daten["full_name"], int(daten["id"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise Unklar(f"Repo {repo} nicht aufloesbar: {exc}")
+
+
+def actions_an(repo: str) -> bool:
+    daten = _gh(["api", f"repos/{repo}/actions/permissions"])
+    if not isinstance(daten, dict) or "enabled" not in daten:
+        raise Unklar(f"Actions-Zustand von {repo} nicht lesbar")
+    return bool(daten["enabled"])
+
+
+#: Was ein Org-Profil heute tragen darf. Jeder andere Schluessel ist eine
+#: unbekannte Angabe und verweigert (ADR-308 §4.4) — sonst wirkte ein Tippfehler
+#: still als Grundregel oder ein neuer Schluessel ohne Werkzeug-Pruefung.
+PROFIL_SCHLUESSEL = {"actions_aus"}
+
+
+def gepruefte_profile(roh) -> dict:
+    """org_profile normalisiert; unbekannte oder widerspruechliche Angaben => UNKLAR.
+
+    Auch fuer Repos ausserhalb jeder Profil-Org: ein kaputter Policy-Block wird nicht
+    teilweise angewandt (fail_closed wie bei `regeln`)."""
+    if roh is None:
+        return {}
+    if not isinstance(roh, dict):
+        raise Unklar("org_profile ist keine Zuordnung Org → Profil")
+    profile: dict = {}
+    for org, profil in roh.items():
+        schluessel = str(org).lower()
+        if schluessel in profile:
+            raise Unklar(f"org_profile nennt {schluessel} doppelt — widerspruechlich")
+        if not isinstance(profil, dict) or set(profil) - PROFIL_SCHLUESSEL:
+            raise Unklar(f"org_profile {schluessel}: unbekannte Angabe {profil!r}")
+        if profil.get("actions_aus") is not True:
+            raise Unklar(
+                f"org_profile {schluessel}: M0 setzt actions_aus: true voraus (§4.4)"
+            )
+        profile[schluessel] = profil
+    return profile
+
+
+def regeln_fuer(
+    repo: str, r: dict, aufloesen=None, actions=None
+) -> tuple[dict, int | None]:
+    """Org-Profil aus `sa_m.org_profile` (ADR-308 §4.4) — sonst die Grundregeln.
+
+    Sicherheitsvertrag: Das Profil gilt nur, wenn die API das Repo derselben Org
+    zuordnet wie der Aufruf. Leitet GitHub nach Umbenennung oder Transfer zu einem
+    anderen Eigentuemer weiter, ist das UNKLAR, nie die Grundregel. Die ID geht
+    mit, damit main() vor dem Merge einen Zielwechsel bemerkt. `actions_aus` wird
+    gemessen, nicht geglaubt: laufen Actions doch, ist das UNKLAR.
+    """
+    aufloesen = aufloesen or aufgeloestes_repo
+    actions = actions or actions_an
+    org = repo.split("/")[0].lower()
+    profile = gepruefte_profile(r.get("org_profile"))
+    if org not in profile:
+        return r, None
+    voller_name, repo_id = aufloesen(repo)
+    if voller_name.lower() != repo.lower():
+        raise Unklar(f"{repo} zeigt laut API auf {voller_name} — Org-Profil verweigert")
+    profil = {**r, **profile[org]}
+    if profil.get("actions_aus") and actions(repo):
+        raise Unklar(f"Org-Profil {org} setzt Actions aus voraus, {repo} hat sie an")
+    return profil, repo_id
 
 
 def _paths_ignore_deckt_alles(kopf: str, dateien: list) -> bool:
@@ -258,6 +378,13 @@ def workflow_texte(repo: str) -> list:
     return texte
 
 
+def wirksamer_text(text: str) -> str:
+    """Der Teil einer Workflow-Datei, der etwas tut — Grundlage der Marker-Suche."""
+    text = _KOMMENTAR.sub(r"\1", text)
+    text = _PRUEF_AUFRUF.sub("uses:", text)
+    return _VERZEICHNIS_DEPLOY.sub("", text)
+
+
 def wirkung_des_merges(repo: str, dateien: list, r: dict) -> str:
     """Trigger lesen, nicht Dateinamen raten. Unlesbar => Unklar."""
     if repo in r.get("sync_only_repos", []):
@@ -265,6 +392,7 @@ def wirkung_des_merges(repo: str, dateien: list, r: dict) -> str:
 
     stufe = "W0"
     for text in workflow_texte(repo):
+        text = wirksamer_text(text)
         kopf = text.split("jobs:", 1)[0]
         if "push:" not in kopf or not re.search(r"\bmain\b", kopf):
             continue
@@ -275,6 +403,25 @@ def wirkung_des_merges(repo: str, dateien: list, r: dict) -> str:
         if DEPLOY_MARKER.search(text):
             stufe = "W2"
     return stufe
+
+
+def pruef_pflicht_gruende(repo: str, dateien: list, r: dict) -> list:
+    """Die mechanisch pruefbaren Klassen der Pruefrage — leer heisst: M1 genuegt."""
+    gruende = []
+    if any(MIGRATION_PFAD.search(p) for p in dateien):
+        gruende.append("Datenmigration im Diff")
+    if repo not in r.get("sync_only_repos", []):
+        for text in workflow_texte(repo):
+            text = wirksamer_text(text)
+            kopf = text.split("jobs:", 1)[0]
+            if "push:" not in kopf or not re.search(r"\bmain\b", kopf):
+                continue
+            if _paths_ignore_deckt_alles(kopf, dateien):
+                continue
+            if PUBLISH_MARKER.search(text):
+                gruende.append("Publish-Workflow auf main (irreversibel)")
+                break
+    return gruende
 
 
 def mandat_des_prs(repo: str, nummer: int, pr: dict) -> str:
@@ -304,9 +451,19 @@ def mandat_des_prs(repo: str, nummer: int, pr: dict) -> str:
     # weiterhin, unveraendert).
     pr_nummer_in_zeile = re.compile(rf"(?<!\d)#{nummer}(?!\d)")
     gefunden_m1 = False
-    for treffer in re.findall(r"#(\d+)", pr.get("body") or ""):
+    for verweis_repo, treffer in ISSUE_VERWEIS.findall(pr.get("body") or ""):
         try:
-            issue = _gh(["issue", "view", treffer, "-R", repo, "--json", "body,state"])
+            issue = _gh(
+                [
+                    "issue",
+                    "view",
+                    treffer,
+                    "-R",
+                    verweis_repo or repo,
+                    "--json",
+                    "body,state",
+                ]
+            )
         except Unklar:
             continue
         issue_body = issue.get("body") or ""
@@ -325,6 +482,12 @@ def mandat_des_prs(repo: str, nummer: int, pr: dict) -> str:
     return "M0"
 
 
+#: Antwort von GitHub, wenn der Plan Rulesets fuer private Repos nicht kennt
+#: (Free-Plan, etwa iilsandbox). Dort kann keine Regel existieren. Nur genau
+#: dieser Text zaehlt — ein anderes 403 (Rate-Limit, fehlendes Recht) bleibt UNKLAR.
+PLAN_OHNE_RULESETS = "Upgrade to GitHub Pro or make this repository public"
+
+
 def pull_request_regel(repo: str, branch: str) -> bool:
     """Liegt auf dem Zielbranch ueberhaupt eine `pull_request`-Regel?
 
@@ -336,6 +499,9 @@ def pull_request_regel(repo: str, branch: str) -> bool:
         rules = _gh(["api", f"repos/{repo}/rules/branches/{branch}"])
     except Unklar as exc:
         if "404" in str(exc) or "Not Found" in str(exc):
+            return False
+        # Live-Test S9 (#3724): ohne diesen Zweig war jeder iilsandbox-PR UNKLAR
+        if PLAN_OHNE_RULESETS in str(exc):
             return False
         raise
     if not isinstance(rules, list):
@@ -376,7 +542,7 @@ def review_ist_pflicht(
 def gather(repo: str, nummer: int, r: dict) -> Facts:
     felder = (
         "state,isDraft,mergeable,mergeStateStatus,reviewDecision,latestReviews,"
-        "files,baseRefName,statusCheckRollup,body"
+        "files,baseRefName,statusCheckRollup,body,headRefOid"
     )
     pr = _gh(["pr", "view", str(nummer), "-R", repo, "--json", felder])
     if pr.get("mergeable") == "UNKNOWN":
@@ -409,12 +575,17 @@ def gather(repo: str, nummer: int, r: dict) -> Facts:
             failing,
             pending,
         ),
-        wirkung=wirkung_des_merges(repo, dateien, r),
+        # Actions aus (gemessen in regeln_fuer): kein Workflow kann wirken
+        wirkung="W0" if r.get("actions_aus") else wirkung_des_merges(repo, dateien, r),
+        pruef_pflicht=(
+            [] if r.get("actions_aus") else pruef_pflicht_gruende(repo, dateien, r)
+        ),
         mandat=mandat_des_prs(repo, nummer, pr),
         files=dateien,
         checks_total=len(roll),
         checks_failing=failing,
         checks_pending=pending,
+        head_sha=pr.get("headRefOid") or "",
     )
 
 
@@ -431,17 +602,60 @@ def repo_aus_cwd() -> str:
 
 JOURNAL = pathlib.Path.home() / ".claude" / "pr-merge-sa.jsonl"
 
+#: Journal-Feld "ergebnis" fuer einen ausgefuehrten Merge. Nur diese beiden
+#: zaehlt der Sandbox-Benchmark als Merge (tools/sandbox/benchmark.py,
+#: dort gespiegelt und per Test gleichgehalten).
+ERGEBNIS_GEMERGT = "gemergt"
+ERGEBNIS_AUTO_MERGE = "auto_merge"
+#: Der PR war beim Aufruf schon gemergt: das Ziel ist erreicht, das ist kein
+#: Abbruch mangels Mandat (Rueckschau platform#3685, 49 von 353 Abbruechen).
+#: In benchmark.py gespiegelt wie die beiden oben.
+ERGEBNIS_BEREITS_GEMERGT = "bereits_gemergt"
+HINWEIS_WIEDERHOLUNG = (
+    "Unveraenderte Lage: der vorige Versuch auf diesen PR brach mit demselben "
+    "Grund ab. Erst die Ursache beheben, dann erneut aufrufen."
+)
+
 
 def journal(zeile: dict) -> None:
     """Jede Entscheidung wird protokolliert. Die Policy verlangt eine Ratsche
     ("erste Fehlanwendung setzt zurueck") — ohne Zaehlung waere sie nicht
-    pruefbar, und eine unpruefbare Ratsche ist keine."""
+    pruefbar, und eine unpruefbare Ratsche ist keine. Der Zeitstempel macht
+    Wochenwerte moeglich (Sandbox-Benchmark B1, platform#3685); Format wie
+    beim Owner-Wort-Hook, damit beide Satzarten dieselbe Woche ergeben."""
+    zeile = {"ts": datetime.now(timezone.utc).isoformat(timespec="seconds"), **zeile}
     try:
         JOURNAL.parent.mkdir(parents=True, exist_ok=True)
         with JOURNAL.open("a") as f:
             f.write(json.dumps(zeile, ensure_ascii=False) + "\n")
     except OSError:
         pass  # ein blindes Journal darf keinen Merge verhindern
+
+
+def ist_wiederholung(repo: str, nummer: int, grund: str) -> bool:
+    """True, wenn der juengste echte Versuch auf diesen PR mit demselben Grund
+    abbrach. Trockenlaeufe und Owner-Wort-Zeilen des Hooks zaehlen nicht als
+    Versuch. Ein unlesbares Journal ergibt False — die Markierung ist Messung,
+    kein Gate."""
+    letzter = None
+    try:
+        with JOURNAL.open() as f:
+            for zeile in f:
+                try:
+                    satz = json.loads(zeile)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(satz, dict) or "owner_wort" in satz:
+                    continue
+                if satz.get("dry_run"):
+                    continue
+                if satz.get("repo") == repo and satz.get("pr") == nummer:
+                    letzter = satz
+    except OSError:
+        return False
+    return (
+        bool(letzter) and not letzter.get("erlaubt") and letzter.get("grund") == grund
+    )
 
 
 def main(argv=None) -> int:
@@ -456,7 +670,9 @@ def main(argv=None) -> int:
     try:
         r = regeln(args.policy)
         repo = args.repo or repo_aus_cwd()
+        r, repo_id = regeln_fuer(repo, r)
         fakten = gather(repo, args.nummer, r)
+        fakten.repo_id = repo_id
         urteil = classify(fakten, r)
     except Unklar as exc:
         print(f"UNKLAR: {exc}", file=sys.stderr)
@@ -473,43 +689,104 @@ def main(argv=None) -> int:
             f"{marke} {repo}#{args.nummer}: {urteil.wirkung}/{urteil.mandat} — {urteil.grund}"
         )
 
-    journal(
-        {
-            "repo": repo,
-            "pr": args.nummer,
-            "wirkung": urteil.wirkung,
-            "mandat": urteil.mandat,
-            "erlaubt": urteil.erlaubt,
-            "grund": urteil.grund,
-            "dry_run": bool(args.dry_run),
-        }
+    # Eine Zeile je Aufruf, NACH dem Merge-Versuch: "erlaubt" ist das Urteil,
+    # "ergebnis" das, was tatsaechlich geschah. Vorher stand eine von GitHub
+    # abgelehnte Gegenprobe im Journal wie ein Merge (S9, #3724).
+    code, ergebnis = 3, "abgebrochen"
+    wiederholung = (
+        not urteil.erlaubt
+        and not args.dry_run
+        and ist_wiederholung(repo, args.nummer, urteil.grund)
     )
+    if wiederholung:
+        print(HINWEIS_WIEDERHOLUNG, file=sys.stderr)
+    try:
+        if not urteil.erlaubt:
+            code = 2
+            ergebnis = (
+                ERGEBNIS_BEREITS_GEMERGT
+                if fakten.state == "MERGED"
+                else "nicht_gedeckt"
+            )
+        elif args.dry_run:
+            print("(dry-run — nicht gemergt)")
+            code, ergebnis = 0, "dry_run"
+        else:
+            code, ergebnis = _merge(args.nummer, repo, repo_id, r, fakten, urteil)
+    finally:
+        journal(
+            {
+                "repo": repo,
+                "pr": args.nummer,
+                "wirkung": urteil.wirkung,
+                "mandat": urteil.mandat,
+                "erlaubt": urteil.erlaubt,
+                "grund": urteil.grund,
+                "dry_run": bool(args.dry_run),
+                "ergebnis": ergebnis,
+                "exit": code,
+                **({"wiederholung": True} if wiederholung else {}),
+            }
+        )
+    return code
 
-    if not urteil.erlaubt:
-        return 2
-    if args.dry_run:
-        print("(dry-run — nicht gemergt)")
-        return 0
+
+def _merge(nummer, repo, repo_id, r, fakten, urteil) -> tuple[int, str]:
+    """Gedeckter Merge mit den Pruefungen direkt davor → (Exit-Code, Ergebnis)."""
+    if repo_id is not None:
+        # Zielwechsel zwischen Pruefung und Merge (ADR-308 §8.2): dieselbe ID oder nichts
+        try:
+            jetzt = aufgeloestes_repo(repo)
+        except Unklar as exc:
+            print(f"UNKLAR: {exc}", file=sys.stderr)
+            return 3, "unklar"
+        if jetzt[0].lower() != repo.lower() or jetzt[1] != repo_id:
+            print(
+                f"UNKLAR: {repo} hat seit der Pruefung das Ziel gewechselt",
+                file=sys.stderr,
+            )
+            return 3, "unklar"
+
+    # Ohne Rulesets (iilsandbox) haelt nichts einen Push zwischen Pruefung und
+    # Merge auf: gemergt wird genau der gepruefte Kopf oder nichts (#3724).
+    if not fakten.head_sha:
+        print("UNKLAR: Kopf-Commit des PR nicht lesbar — kein Merge", file=sys.stderr)
+        return 3, "unklar"
+    if r.get("actions_aus"):
+        # Neu gemessen, nicht aus regeln_fuer() geglaubt: Actions koennen seitdem an sein
+        try:
+            an = actions_an(repo)
+        except Unklar as exc:
+            print(f"UNKLAR: {exc}", file=sys.stderr)
+            return 3, "unklar"
+        if an:
+            print(
+                f"UNKLAR: {repo} hat seit der Pruefung Actions an — W0 gilt nicht mehr",
+                file=sys.stderr,
+            )
+            return 3, "unklar"
 
     befehl = [
         "gh",
         "pr",
         "merge",
-        str(args.nummer),
+        str(nummer),
         "-R",
         repo,
         "--squash",
         "--delete-branch",
+        "--match-head-commit",
+        fakten.head_sha,
     ]
     if urteil.auto:
         befehl.append("--auto")
     p = subprocess.run(befehl, capture_output=True, text=True)
     if p.returncode != 0:
         print(f"Merge fehlgeschlagen: {p.stderr.strip()[:300]}", file=sys.stderr)
-        return 3
+        return 3, "abgelehnt"
     wie = "Auto-Merge gesetzt" if urteil.auto else "gemergt"
-    print(f"{wie}: {repo}#{args.nummer} ({urteil.mandat} deckt {urteil.wirkung})")
-    return 0
+    print(f"{wie}: {repo}#{nummer} ({urteil.mandat} deckt {urteil.wirkung})")
+    return 0, ERGEBNIS_AUTO_MERGE if urteil.auto else ERGEBNIS_GEMERGT
 
 
 if __name__ == "__main__":

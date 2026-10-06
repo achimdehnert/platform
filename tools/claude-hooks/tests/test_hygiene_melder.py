@@ -12,6 +12,7 @@ import datetime as dt
 import importlib.util
 import io
 import json
+import os
 import pathlib
 import sys
 
@@ -24,6 +25,18 @@ sys.modules[_spec.name] = hm
 _spec.loader.exec_module(hm)
 
 JETZT = dt.datetime(2026, 8, 2, 12, 0, tzinfo=dt.timezone.utc)
+
+# Die echten Funktionen, bevor die autouse-Fixture sie fuer main() abklemmt.
+KONTINGENT = hm.kontingent_befund
+LANGLAEUFER = hm.langlaeufer
+
+
+@pytest.fixture(autouse=True)
+def ohne_host(monkeypatch, tmp_path):
+    """main() darf in Tests weder gh rufen noch den echten Host lesen."""
+    monkeypatch.setattr(hm, "SETTINGS", tmp_path / "keine-settings.json")
+    monkeypatch.setattr(hm, "kontingent_befund", lambda: None)
+    monkeypatch.setattr(hm, "langlaeufer", lambda: [])
 
 
 def lease(d: pathlib.Path, name: str, expires: str | None) -> pathlib.Path:
@@ -142,6 +155,81 @@ def test_should_return_empty_when_the_copy_dir_is_missing(welt):
     wurzel, _, _ = welt
 
     assert hm.driftende_kopien(wurzel, wurzel / "gibtsnicht") == []
+
+
+_FOOTER = (
+    "\n\n# MANAGED-BY: platform/tools/cc-skill-dist · generated=true · "
+    "source=tools/claude-hooks/a.py · source_commit=9caf8a5b3950 · "
+    "content_hash=sha256:549b35e9f2dd5536 · do_not_edit\n"
+)
+
+
+def test_should_not_count_the_managed_footer_as_drift(welt):
+    """platform#3611: jede Lane-Kopie traegt den Footer, die Quelle nicht."""
+    wurzel, quelle, kopien = welt
+    (quelle / "a.py").write_text("gleich\n", encoding="utf-8")
+    (kopien / "a.py").write_text("gleich" + _FOOTER, encoding="utf-8")
+
+    assert hm.driftende_kopien(wurzel, kopien) == []
+
+
+def test_should_report_drift_behind_a_managed_footer(welt):
+    wurzel, quelle, kopien = welt
+    (quelle / "a.py").write_text("neu\n", encoding="utf-8")
+    (kopien / "a.py").write_text("alt" + _FOOTER, encoding="utf-8")
+
+    assert hm.driftende_kopien(wurzel, kopien) == ["a.py"]
+
+
+def test_should_strip_the_footer_like_the_lane_doctor():
+    """Gegenstueck zu doctor.py — beide muessen dieselbe Kopie gleich lesen."""
+    doctor_pfad = _SRC.parents[1] / "cc-skill-dist" / "doctor.py"
+    spec = importlib.util.spec_from_file_location("cc_doctor", doctor_pfad)
+    doctor = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(doctor)
+
+    for kopie in ("x = 1" + _FOOTER, "x = 1\n", "#!/bin/bash\necho a" + _FOOTER):
+        assert hm.ohne_managed_footer(kopie) == doctor.strip_managed_footer(kopie).rstrip(
+            "\n"
+        )
+
+
+def test_should_find_drift_when_running_as_the_distributed_copy(tmp_path):
+    """platform#3611 Kriterium 4: der Melder laeuft als Kopie unter
+    ~/.claude/hooks — `__file__` zeigt dann nicht in den platform-Checkout."""
+    import shutil
+    import subprocess
+
+    home = tmp_path / "home"
+    kopien = home / ".claude" / "hooks"
+    kopien.mkdir(parents=True)
+    quelle = tmp_path / "github" / "platform" / "tools" / "claude-hooks"
+    quelle.mkdir(parents=True)
+    shutil.copy(_SRC, quelle / "hygiene_melder.py")
+    kopie = kopien / "hygiene_melder.py"
+    kopie.write_text(_SRC.read_text(encoding="utf-8").rstrip("\n") + _FOOTER, encoding="utf-8")
+    (kopien / "zweiter.py").write_text("alt" + _FOOTER, encoding="utf-8")
+    (quelle / "zweiter.py").write_text("neu\n", encoding="utf-8")
+
+    ergebnis = subprocess.run(
+        [
+            sys.executable,
+            str(kopie),
+            "--leases",
+            str(tmp_path / "leases"),
+            "--settings",
+            str(tmp_path / "settings.json"),
+            "--ohne-kontingent",
+        ],
+        input="{}",
+        capture_output=True,
+        text=True,
+        env={**os.environ, "HOME": str(home), "GITHUB_DIR": str(tmp_path / "github")},
+    )
+
+    assert ergebnis.returncode == 0, ergebnis.stderr
+    kontext = json.loads(ergebnis.stdout)["hookSpecificOutput"]["additionalContext"]
+    assert "1 verteilte Hook-Kopie(n) weichen von der platform-Quelle ab: zweiter.py." in kontext
 
 
 # --- main(): schweigen im Normalfall, nie blockieren -------------------------
@@ -306,171 +394,151 @@ def test_should_report_the_rest_as_unclassified_when_the_budget_runs_out(tmp_pat
     assert k["kandidat"] == []
 
 
-# --- Gemergt, aber offen (Umbau 2026-09-07, platform#2374) -------------------
-#
-# Die Klasse misst absichtlich NICHT die Lease-Uhr: der Realfall 0f59ce hatte
-# sechs Baeume gemergter PRs offen, alle mit gueltigem Lease. Genau deshalb war
-# das Gate blind — die alte Klasse wartet sieben Tage auf einen Ablauf, der
-# Fehler passiert in Minuten.
+# --- Verschleiss ohne Zeugen (dev-hub#404 Baustein A) -------------------------
 
 
-def _lease_gueltig_mit_branch(
-    d: pathlib.Path, name: str, branch: str, baum: pathlib.Path
-) -> None:
-    d.mkdir(exist_ok=True)
-    (d / f"{name}.json").write_text(
+def _settings(d: pathlib.Path, *befehle: str) -> pathlib.Path:
+    p = d / "settings.json"
+    p.write_text(
         json.dumps(
-            {
-                "repo": "achimdehnert/platform",
-                "branch": branch,
-                "worktree": str(baum),
-                # Bewusst weit in der Zukunft: ein GUELTIGES Lease.
-                "expires_at": "2099-01-01T00:00:00Z",
-            }
+            {"hooks": {"Stop": [{"hooks": [{"type": "command", "command": b} for b in befehle]}]}}
         ),
         encoding="utf-8",
     )
+    return p
 
 
-def test_should_flag_a_merged_branch_whose_worktree_is_still_open(tmp_path):
-    # POSITIVKONTROLLE am Realfall 0f59ce: gueltiges Lease, PR gemergt, Baum da.
-    leases, baum = tmp_path / "l", tmp_path / "baum"
-    baum.mkdir()
-    _lease_gueltig_mit_branch(leases, "a", "session/2026-09-03/x/y", baum)
-
-    ergebnis = hm.gemergt_aber_offen(leases, pr_state=lambda b, r: "merged")
-
-    assert ergebnis["offen"] == [("session/2026-09-03/x/y", str(baum))]
-    assert ergebnis["unklar"] == 0
+def _skript(d: pathlib.Path, name: str, shebang: str, ausfuehrbar=True) -> pathlib.Path:
+    p = d / name
+    p.write_text(f"#!{shebang}\n", encoding="utf-8")
+    p.chmod(0o755 if ausfuehrbar else 0o644)
+    return p
 
 
-def test_should_stay_silent_for_an_open_pr(tmp_path):
-    leases, baum = tmp_path / "l", tmp_path / "baum"
-    baum.mkdir()
-    _lease_gueltig_mit_branch(leases, "a", "session/2026-09-03/x/y", baum)
+def test_should_report_hook_whose_interpreter_is_a_self_link(tmp_path):
+    # Realfall 2026-09-28: `.venv -> <selber Pfad>`, rc 126 ab 03:17.
+    venv = tmp_path / ".venv"
+    venv.symlink_to(venv)
+    hook = _skript(tmp_path, "log_llm_call.py", f"{venv}/bin/python")
 
-    assert hm.gemergt_aber_offen(leases, pr_state=lambda b, r: "open")["offen"] == []
+    befunde = hm.kaputte_hooks(_settings(tmp_path, str(hook)))
 
-
-def test_should_ignore_a_lease_whose_worktree_is_already_gone(tmp_path):
-    # Kein Baum = nichts, was hier offen waere; das ist Sache der Alt-Klasse.
-    leases = tmp_path / "l"
-    _lease_gueltig_mit_branch(leases, "a", "b", tmp_path / "weg")
-
-    assert hm.gemergt_aber_offen(leases, pr_state=lambda b, r: "merged")["offen"] == []
+    assert len(befunde) == 1
+    assert befunde[0].startswith("log_llm_call.py: Interpreter")
 
 
-def test_should_count_unjudgeable_leases_instead_of_calling_them_healthy(tmp_path):
-    leases, baum = tmp_path / "l", tmp_path / "baum"
-    baum.mkdir()
-    _lease_gueltig_mit_branch(leases, "a", "b", baum)
+def test_should_accept_healthy_hooks(tmp_path):
+    ok = _skript(tmp_path, "ok.py", "/usr/bin/env python3")
+    direkt = _skript(tmp_path, "direkt.sh", "/bin/sh")
 
-    def _wirft(branch, repo):
-        raise RuntimeError("gh weg")
-
-    ergebnis = hm.gemergt_aber_offen(leases, pr_state=_wirft)
-    assert ergebnis["offen"] == [] and ergebnis["unklar"] == 1
+    befehle = (str(ok), str(direkt), f"python3 {ok} --hook")
+    assert hm.kaputte_hooks(_settings(tmp_path, *befehle)) == []
 
 
-def test_should_count_leases_beyond_the_time_budget_as_unjudgeable(tmp_path):
-    leases, baum = tmp_path / "l", tmp_path / "baum"
-    baum.mkdir()
-    for i in range(3):
-        _lease_gueltig_mit_branch(leases, f"a{i}", f"b{i}", baum)
+def test_should_report_missing_and_non_executable_hooks(tmp_path):
+    lahm = _skript(tmp_path, "lahm.py", "/usr/bin/env python3", ausfuehrbar=False)
 
-    uhr = iter([0.0, 1.0, 99.0, 99.0, 99.0, 99.0])
-    ergebnis = hm.gemergt_aber_offen(
-        leases, pr_state=lambda b, r: "merged", zeitbudget=5.0, _uhr=lambda: next(uhr)
+    befunde = hm.kaputte_hooks(
+        _settings(tmp_path, str(tmp_path / "weg.sh"), str(lahm), f"python3 {tmp_path}/fehlt.py")
     )
-    assert ergebnis["unklar"] >= 1
+
+    assert befunde == ["weg.sh: Datei fehlt", "lahm.py: nicht ausfuehrbar", "fehlt.py: Datei fehlt"]
 
 
-def test_should_stay_silent_without_a_merge_probe(tmp_path):
-    # Kein pr_state (Reaper nicht importierbar, gh fehlt) = Klasse uebersprungen,
-    # nicht "alles in Ordnung" behauptet und nicht abgestuerzt.
-    leases, baum = tmp_path / "l", tmp_path / "baum"
-    baum.mkdir()
-    _lease_gueltig_mit_branch(leases, "a", "b", baum)
+def test_should_return_no_hooks_for_missing_or_broken_settings(tmp_path):
+    kaputt = tmp_path / "kaputt.json"
+    kaputt.write_text("{{{", encoding="utf-8")
 
-    assert hm.gemergt_aber_offen(leases, pr_state=None)["offen"] == []
+    assert hm.kaputte_hooks(tmp_path / "weg.json") == []
+    assert hm.kaputte_hooks(kaputt) == []
 
 
-def test_should_report_merged_open_worktrees_in_the_session_start_output(
-    tmp_path, capsys, stdin_leer, monkeypatch
-):
-    leases, baum = tmp_path / "l", tmp_path / "baum"
-    baum.mkdir()
-    _lease_gueltig_mit_branch(leases, "a", "session/2026-09-03/x/y", baum)
-    monkeypatch.setattr(hm, "_reaper_pr_state", lambda: lambda b, r: "merged")
+def test_should_report_broken_hook_via_main(tmp_path, capsys, stdin_leer):
+    (tmp_path / "leases").mkdir()
+    settings = _settings(tmp_path, str(tmp_path / "weg.sh"))
 
-    rc = hm.main(["--platform", str(tmp_path / "leer"), "--leases", str(leases)])
-    ausgabe = capsys.readouterr().out
-
-    assert rc == 0
-    assert "BEREITS GEMERGTEM PR" in ausgabe
-    assert "repo-session.sh end" in ausgabe
-
-
-def test_should_count_unknown_pr_state_as_unjudgeable(tmp_path):
-    # Der Fehlermodus, an dem die Klasse im ersten Anlauf selbst scheiterte:
-    # `pr_state` antwortet 'unknown' (gh-Aufruf gescheitert), und die Klasse
-    # meldete nichts — 85 Leases, 0 Befunde, 3,8 s. Still gruen ist kein Ergebnis.
-    leases, baum = tmp_path / "l", tmp_path / "baum"
-    baum.mkdir()
-    _lease_gueltig_mit_branch(leases, "a", "b", baum)
-
-    ergebnis = hm.gemergt_aber_offen(leases, pr_state=lambda b, r: "unknown")
-    assert ergebnis["offen"] == [] and ergebnis["unklar"] == 1
-
-
-def test_should_expand_a_bare_repo_name_via_the_worktree_remote(tmp_path):
-    # Realfall: das Lease traegt `wedding-hub`, `gh --repo wedding-hub` scheitert.
-    baum = tmp_path / "baum"
-    baum.mkdir()
-    import subprocess as sp
-
-    sp.run(["git", "init", "-q"], cwd=baum, check=True)
-    sp.run(
-        [
-            "git",
-            "remote",
-            "add",
-            "origin",
-            "git@github.com:achimdehnert/wedding-hub.git",
-        ],
-        cwd=baum,
-        check=True,
+    hm.main(
+        ["--platform", str(tmp_path), "--leases", str(tmp_path / "leases"),
+         "--settings", str(settings)]
     )
-    assert hm.voller_repo_name("wedding-hub", str(baum)) == "achimdehnert/wedding-hub"
+
+    text = json.loads(capsys.readouterr().out)["hookSpecificOutput"]["additionalContext"]
+    assert "koennen nicht starten: weg.sh: Datei fehlt" in text
 
 
-def test_should_expand_an_https_remote_too(tmp_path):
-    baum = tmp_path / "baum"
-    baum.mkdir()
-    import subprocess as sp
-
-    sp.run(["git", "init", "-q"], cwd=baum, check=True)
-    sp.run(
-        ["git", "remote", "add", "origin", "https://github.com/meiki-lra/meiki-hub"],
-        cwd=baum,
-        check=True,
-    )
-    assert hm.voller_repo_name("meiki-hub", str(baum)) == "meiki-lra/meiki-hub"
-
-
-def test_should_keep_an_already_qualified_repo_name(tmp_path):
-    assert (
-        hm.voller_repo_name("achimdehnert/platform", str(tmp_path))
-        == "achimdehnert/platform"
+def _rate(core: int, graphql: int = 5000) -> str:
+    return json.dumps(
+        {"resources": {"core": {"limit": 5000, "remaining": core},
+                       "graphql": {"limit": 5000, "remaining": graphql}}}
     )
 
 
-def test_should_skip_leases_older_than_the_freshness_window(tmp_path):
-    jetzt = dt.datetime(2026, 9, 7, 12, 0, tzinfo=dt.timezone.utc)
-    alt = {"last_touch": "2026-07-08T10:00:00Z"}
-    frisch = {"last_touch": "2026-09-06T10:00:00Z"}
-    assert hm.ist_frisch(alt, jetzt, 3) is False
-    assert hm.ist_frisch(frisch, jetzt, 3) is True
-    # Ohne lesbaren Zeitstempel wird geprueft, nicht uebersprungen.
-    assert hm.ist_frisch({}, jetzt, 3) is True
-    assert hm.ist_frisch({"last_touch": "kaputt"}, jetzt, 3) is True
+def _laeufer(probe_ok: bool, rate: str):
+    def lauf(pfad: str):
+        if pfad.startswith("repos/"):
+            return (0, "achimdehnert/platform") if probe_ok else (1, "API rate limit exceeded")
+        return 0, rate
+    return lauf
+
+
+def test_should_report_secondary_throttling_although_rate_limit_is_full():
+    # platform#2735: rate_limit meldet 5000 frei, echte Abrufe scheitern.
+    drossel = hm._drossel_modul()
+    assert drossel is not None
+
+    befund = KONTINGENT(laeufer=_laeufer(False, _rate(5000)), drossel=drossel)
+
+    assert befund and "weist echte Abrufe ab" in befund
+
+
+def test_should_report_primary_quota_below_threshold():
+    befund = KONTINGENT(laeufer=_laeufer(True, _rate(5000, 900)), drossel=hm._drossel_modul())
+
+    assert befund == "GitHub-Kontingent knapp: graphql 900/5000."
+
+
+def test_should_stay_silent_on_healthy_quota_or_missing_gh():
+    drossel = hm._drossel_modul()
+
+    assert KONTINGENT(laeufer=_laeufer(True, _rate(4000)), drossel=drossel) is None
+    assert KONTINGENT(laeufer=lambda p: (127, "gh: command not found"), drossel=drossel) is None
+    assert KONTINGENT(laeufer=lambda p: (1, "HTTP 401: Bad credentials"), drossel=drossel) is None
+
+
+def _proc(d: pathlib.Path, btime: int) -> pathlib.Path:
+    d.mkdir()
+    (d / "stat").write_text(f"cpu  1 2 3\nbtime {btime}\n", encoding="utf-8")
+    return d
+
+
+def _prozess(proc: pathlib.Path, pid: int, argv: list[str], start_ticks: int) -> None:
+    p = proc / str(pid)
+    p.mkdir()
+    (p / "cmdline").write_bytes("\0".join(argv).encode() + b"\0")
+    # Feld 22 = starttime; nach `)` ist es der 20. Eintrag (Index 19).
+    (p / "stat").write_text(f"{pid} (x y) S" + " 0" * 18 + f" {start_ticks} 0 0\n")
+
+
+def test_should_find_old_gh_loop_and_mcp_but_not_old_dev_server(tmp_path):
+    takt = os.sysconf("SC_CLK_TCK")
+    proc = _proc(tmp_path / "proc", btime=1_000_000)
+    jetzt = 1_000_000 + 20 * 86400
+    alt, frisch = 0, (19 * 86400) * takt  # Start bei Boot bzw. vor einem Tag
+    geheim = "tok-nie-ins-log"
+    _prozess(proc, 11, ["bash", "-c", f"until false; do gh pr view 1 --token {geheim}; sleep 60; done"], alt)
+    _prozess(proc, 12, ["npm", "exec", "@modelcontextprotocol/server-github"], alt)
+    _prozess(proc, 13, ["python3", "-m", "http.server", "--directory", "/home/x/github/repo"], alt)
+    _prozess(proc, 14, ["gh", "run", "watch"], frisch)
+
+    funde = LANGLAEUFER(tage=7, proc=proc, jetzt=jetzt, uid=os.getuid())
+
+    assert [(pid, tage) for pid, tage, _ in funde] == [(11, 20), (12, 20)]
+    assert funde[0][2] == "bash"
+    assert all(geheim not in label for _, _, label in funde)
+
+
+def test_should_skip_processes_of_other_users(tmp_path):
+    proc = _proc(tmp_path / "proc", btime=1_000_000)
+    _prozess(proc, 11, ["gh", "run", "watch"], 0)
+
+    assert LANGLAEUFER(tage=7, proc=proc, jetzt=1_000_000 + 30 * 86400, uid=os.getuid() + 1) == []

@@ -247,6 +247,7 @@ MVC + Default-Flip in shared-ci, Fleet-Welle über alle 10 Hubs (inkl. explizite
 
 ## Changelog
 
+- 2026-09-22: Opt-out `gpu-box`/`ci-gpu` **beendet**. writing-hub hatte `integration-tests` schon am 2026-09-01 auf `ubuntu-latest` zurückgelegt (Box läuft nur auf Zuruf, platform#2543); der Runner bekam danach nur noch shared-ci-Jobs ohne `runs_on` per Zufall (2026-09-19: Resolve/Build/Notify). Die WSL hielt dafür 24 vCPU / 64 GB wach. Owner-Entscheid: WSL aus; Runner bei GitHub entfernt, Keepalive-Aufgabe und `vmIdleTimeout=-1` auf der Box entfernt; `hosts.yaml` `runners.gpu-box: deleted`. Bootstrap-Skript bleibt für eine Wiederinbetriebnahme. Folge-Issue Windows-Probe: platform#3364.
 - 2026-08-28: Kill-Gate (c) erfüllt per Spending-Entscheid (Usage-Report als Baseline); Opt-out `gpu-box`/`ci-gpu` für writing-hub eingetragen. Quelle: platform#2392, Retro #2408 (R7).
 - 2026-07-16: Initial (T3, aus platform#1217). Drei blinde Agenten + Konfliktmatrix K1–K5;
   Entwurfs-These in K3 revidiert (Minimal-Bootstrap wird eingecheckt, Zombie-Runner deregistriert).

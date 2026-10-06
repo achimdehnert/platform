@@ -1,0 +1,18 @@
+{
+  "slug": "autonomous-no-human-review",
+  "mode": "process",
+  "owner": "achim",
+  "module": "tools/ruleset_perimeter_check.py",
+  "drill": "tools/tests/test_ruleset_perimeter_check.py",
+  "built": "2026-08-12",
+  "ref": "platform#1650 Owner-Entscheid 2026-08-12",
+  "note": "Waechter, nicht Enforcement: die Wirkung selbst ist das GitHub-Ruleset main-required-checks (require_code_owner_review) + CODEOWNERS-Perimeter (KONZ-032 B1/B1-2). Das Modul bestaetigt taeglich (.github/workflows/ruleset-waechter.yml), dass beides noch scharf ist — eine stille Lockerung wird binnen eines Tages rot statt nie. Bekannter Trade-off: tools/ liegt selbst NICHT im Perimeter; das gepinnte Soll in der Moduldatei koennte review-frei geaendert werden, CODEOWNERS/.github aber nicht — die zweite Haelfte bleibt also immer bewacht.",
+  "faengt": [
+    {
+      "fall": "Ruleset ohne erzwungenes Code-Owner-Review",
+      "probe": "code_owner"
+    }
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-08-12"
+}

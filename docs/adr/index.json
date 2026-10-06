@@ -1,7 +1,7 @@
 {
-  "generated": "2026-09-08",
-  "total": 248,
-  "next_free": 303,
+  "generated": "2026-10-05",
+  "total": 255,
+  "next_free": 310,
   "adrs": [
     {
       "number": 7,
@@ -2241,7 +2241,9 @@
       "date": "2026-03-13",
       "domains": [],
       "supersedes": [],
-      "superseded_by": [],
+      "superseded_by": [
+        "ADR-307"
+      ],
       "amends": [
         "ADR-118-platform-store-billing-hub-user-registration.md"
       ],
@@ -3122,7 +3124,11 @@
         "ADR-171 (Temporal RAG Infrastructure — Schema)",
         "ADR-172 (rag-mcp Server — Platform-Wide RAG API)",
         "ADR-173 (Document Intake Routing Pattern)",
-        "ADR-187 (Document Intelligence Pipeline)"
+        "ADR-187 (Document Intelligence Pipeline)",
+        "ADR-303",
+        "ADR-304",
+        "ADR-305",
+        "ADR-306"
       ],
       "implementation_status": "partial"
     },
@@ -3366,9 +3372,10 @@
         "ADR-021-unified-deployment-pattern.md",
         "ADR-106-port-audit.md",
         "ADR-156-reliable-deployment-pipeline.md",
-        "ADR-164-port-strategy-conflict-free-dev-staging-prod.md"
+        "ADR-164-port-strategy-conflict-free-dev-staging-prod.md",
+        "ADR-292-two-lane-deployment-six-host-standard.md  # begrenzt die Reichweite des Backend-Teils (2026-09-16)"
       ],
-      "implementation_status": "none"
+      "implementation_status": "partial  # 2026-09-16: Edge (Tunnel, DNS, SSL) live seit 2026-05-14; Backend-Teil durch ADR-292 Lane G auf risk-hub + meiki/frist begrenzt, s. Changelog"
     },
     {
       "number": 199,
@@ -3430,7 +3437,7 @@
         "ADR-208",
         "dev-hub#39"
       ],
-      "implementation_status": "in_progress"
+      "implementation_status": "partial  # 2026-09-16: Statusline/Stop-Hook deployed; Amendment-Punkte 2 (lokales Ledger) und 3 (Pricing-Resolver) nicht umgesetzt, s. Changelog"
     },
     {
       "number": 202,
@@ -4098,7 +4105,7 @@
       "id": "ADR-233",
       "file": "ADR-233-parallel-session-worktree-convention.md",
       "title": "Parallel-Session-Worktree-Konvention — Isolation von Integration entkoppeln",
-      "status": "proposed",
+      "status": "deprecated",
       "date": "2026-06-01",
       "domains": [
         "dx",
@@ -4115,7 +4122,7 @@
         "ADR-209",
         "ADR-234"
       ],
-      "implementation_status": "partial  # 2026-06-04: pre-commit-Backstop (main-tree-protect) verdrahtet; Snap-back-Hook-Aktivierung via 'tools/main-tree-guard.sh install .' je Checkout"
+      "implementation_status": "killgate-failed  # 2026-09-28: Kill-Gate §8 ausgewertet — unauthorized_head_flips/30d > 0 in 8/85 Repos (platform: 43), Stichtag 2026-09-01 verstrichen. Tools bleiben nutzbar, Enforcement-Anspruch entfaellt."
     },
     {
       "number": 234,
@@ -4501,8 +4508,8 @@
       "id": "ADR-249",
       "file": "ADR-249-telefonagent-produkt-swappable-ports.md",
       "title": "Telefon-/Sprachagent als eigenständiges iilgmbh-Produkt: Swappable-Ports-Architektur + Souveränitäts-Profil, MVP mPA, erster regulierter Pilot meiki-hub",
-      "status": "proposed",
-      "date": "2026-06-17",
+      "status": "accepted",
+      "date": "2026-09-22",
       "domains": [
         "product",
         "architecture",
@@ -4672,7 +4679,9 @@
       "supersedes": [],
       "superseded_by": [],
       "amends": [],
-      "amended_by": [],
+      "amended_by": [
+        "ADR-309"
+      ],
       "related": [
         "ADR-230",
         "ADR-233"
@@ -5451,7 +5460,7 @@
         "ADR-248",
         "ADR-257"
       ],
-      "implementation_status": "none"
+      "implementation_status": "partial"
     },
     {
       "number": 290,
@@ -5732,6 +5741,151 @@
         "ADR-208"
       ],
       "implementation_status": "none"
+    },
+    {
+      "number": 303,
+      "id": "ADR-303",
+      "file": "ADR-303-vector-store-schema-adr171-tenant-uuid.md",
+      "title": "Vector-Store-Schema: ADR-171 als Single Source of Truth, tenant_id ist UUID",
+      "status": "accepted",
+      "date": "2026-05-07",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-022",
+        "ADR-087",
+        "ADR-171",
+        "ADR-187",
+        "ADR-188",
+        "ADR-304",
+        "ADR-305",
+        "ADR-306"
+      ],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 304,
+      "id": "ADR-304",
+      "file": "ADR-304-embedding-modell-multilingual-e5-large.md",
+      "title": "Embedding-Modell: multilingual-e5-large als Primärmodell",
+      "status": "accepted",
+      "date": "2026-05-07",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-171",
+        "ADR-188",
+        "ADR-303",
+        "ADR-305",
+        "ADR-306"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 305,
+      "id": "ADR-305",
+      "file": "ADR-305-rag-mcp-single-api-collection-naming.md",
+      "title": "rag-mcp als einzige API und Collection-Namenskonvention {repo}:{domain}",
+      "status": "accepted",
+      "date": "2026-05-07",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-075",
+        "ADR-172",
+        "ADR-188",
+        "ADR-303",
+        "ADR-304",
+        "ADR-306"
+      ],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 306,
+      "id": "ADR-306",
+      "file": "ADR-306-dsgvo-fallback-policy-je-collection.md",
+      "title": "DSGVO-Fallback-Policy je Collection: Cloud-Embedding nur mit allow_cloud",
+      "status": "accepted",
+      "date": "2026-05-07",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-188",
+        "ADR-303",
+        "ADR-304",
+        "ADR-305"
+      ],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 307,
+      "id": "ADR-307",
+      "file": "ADR-307-identitaet-cloudflare-access-statt-authentik.md",
+      "title": "Identität über Cloudflare Access und lokales Login — Ablösung von Authentik (ADR-142)",
+      "status": "proposed",
+      "date": "2026-09-16",
+      "domains": [],
+      "supersedes": [
+        "ADR-142"
+      ],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-102",
+        "ADR-118",
+        "ADR-198",
+        "ADR-264",
+        "ADR-292"
+      ],
+      "implementation_status": "none"
+    },
+    {
+      "number": 308,
+      "id": "ADR-308",
+      "file": "ADR-308-sandbox-werkstatt-als-weiterentwicklungs-template.md",
+      "title": "Adopt an autonomous sandbox workshop as the benchmarked development template for the production environment",
+      "status": "accepted",
+      "date": "2026-10-04",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 309,
+      "id": "ADR-309",
+      "file": "ADR-309-platform-umzug-iilgmbh-dann-privat.md",
+      "title": "platform zieht in die Org iilgmbh und wird erst dort privat",
+      "status": "proposed",
+      "date": "2026-10-05",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-255"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-255",
+        "ADR-263"
+      ],
+      "implementation_status": "in_progress"
     },
     {
       "number": 400,

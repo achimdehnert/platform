@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import base64
 import binascii
+import concurrent.futures
 import copy
 import json
 import os
@@ -603,9 +604,37 @@ def check_python_version(repo: str, token: str) -> list[DriftItem]:
 # Flotte real nicht hat (deploy_runs_on-Regression #461; gate-Job fehlte in
 # v1.0.2 trotz #548-Behauptung). Zwei Regeln:
 #   shared-ci-tag-outdated (warn):  Consumer pinnt nicht-neuesten Tag
-#   shared-ci-tag-stale    (error): neuester Tag ≠ platform-main-Kanon
+#   shared-ci-tag-stale    (error): neuester Tag ≠ Kanon-main der Datei
+#
+# Welcher main der Kanon ist, haengt an der Datei (Owner-Entscheid 2026-09-23,
+# platform#3398): Fuer die Deploy-Reusables ist iilgmbh/shared-ci die einzige
+# Quelle. Die Regel verglich den Tag bis dahin mit platform-main und behauptete
+# damit einen Master, den die Praxis laengst umgedreht hatte (Historie der
+# platform-Kopie: "die Divergenz lief andersherum", "aus shared-ci main
+# nachgezogen"). Jeder Deploy-Fix musste so doppelt landen — genau das Doppel,
+# aus dem die Drift-Klasse "Tag ≠ main" entsteht. Fuer diese Dateien wird der
+# neueste Tag deshalb gegen shared-ci-main geprueft; eine platform-Kopie wird
+# gar nicht mehr gelesen.
+#
+# Dazu kommen `_ci-pypi.yml` (Kanon-Umzug schon 2026-08-19, ADR-226 Amendment,
+# hier nie nachgezogen) und `_build-docker.yml` (Owner-Go 2026-10-05, #3775):
+# beide Kopien wurden von eigenen Bots auf neue Action-Versionen gehoben, und
+# jeder Bump in platform meldete in jedem Aufrufer einen Error, obwohl shared-ci
+# seine eigenen Bumps ueber Dependabot und auto-release.yml zieht. Alle
+# uebrigen Dateien behalten vorerst den platform-Kanon.
 
 SHARED_CI_REPO = "iilgmbh/shared-ci"
+_PLATFORM_REPO = f"{GITHUB_ORG}/platform"
+SHARED_CI_SSOT_DATEIEN = frozenset(
+    {"_deploy-unified.yml", "_deploy-hetzner.yml", "_ci-pypi.yml", "_build-docker.yml"}
+)
+
+
+def _kanon_repo(name: str) -> str:
+    """Repo, dessen main fuer `name` der Kanon ist (#3398)."""
+    return SHARED_CI_REPO if name in SHARED_CI_SSOT_DATEIEN else _PLATFORM_REPO
+
+
 SHARED_CI_PIN_RE = re.compile(
     r"iilgmbh/shared-ci/\.github/workflows/([\w.-]+\.ya?ml)@([\w./-]+)"
 )
@@ -818,8 +847,14 @@ def _normalisiere_pin_kommentare(text: str) -> str:
     return _ACTION_PIN_KOMMENTAR_RE.sub(lambda m: "@" + m.group(1), text)
 
 
-def shared_ci_deckt_kanon(tagged: str, canonical: str) -> bool:
-    """True, wenn Tag-Inhalt und platform-Kanon dasselbe TUN.
+def shared_ci_deckt_kanon(
+    tagged: str, canonical: str, kanon_repo: str = _PLATFORM_REPO
+) -> bool:
+    """True, wenn Tag-Inhalt und Kanon (main von `kanon_repo`) dasselbe TUN.
+
+    `kanon_repo` ist platform oder — fuer `SHARED_CI_SSOT_DATEIEN` — shared-ci
+    selbst (#3398); dann entfaellt die Port-Normalisierung faktisch, weil beide
+    Seiten dasselbe Repo nennen, und es zaehlt nur noch, was der Workflow tut.
 
     Faellt auf exakten Textvergleich zurueck, wenn eine Seite nicht als YAML
     ladbar ist — lieber ein Fehlalarm als ein stillschweigend uebersehener
@@ -833,7 +868,7 @@ def shared_ci_deckt_kanon(tagged: str, canonical: str) -> bool:
     except yaml.YAMLError:
         return tagged == canonical
     return _kanon_normalform(tag_tree, SHARED_CI_REPO) == _kanon_normalform(
-        kanon_tree, f"{GITHUB_ORG}/platform"
+        kanon_tree, kanon_repo
     )
 
 
@@ -844,7 +879,141 @@ def _kanon_normalform(tree: Any, repo: str) -> Any:
     )
 
 
-def kanon_richtung(tagged: str, canonical: str) -> tuple[int, int]:
+def _ohne_fremde_action_versionen(node: Any) -> Any:
+    """Normalform ohne die Versionen FREMDER Actions (`owner/action@v1` → `owner/action`).
+
+    Refs auf das eigene Repo (`<SELF_REPO>/…@ref`) und lokale Actions (`./…`)
+    bleiben unberuehrt — ein anderer Ref dort ist ein anderer Stand, kein
+    Versions-Update.
+    """
+    if isinstance(node, list):
+        return [_ohne_fremde_action_versionen(v) for v in node]
+    if not isinstance(node, dict):
+        return node
+    out: dict[str, Any] = {}
+    for key, value in node.items():
+        if (
+            key == "uses"
+            and isinstance(value, str)
+            and "@" in value
+            and not value.startswith((_SELF_REPO + "/", "./"))
+        ):
+            out[key] = value.rsplit("@", 1)[0]
+        else:
+            out[key] = _ohne_fremde_action_versionen(value)
+    return out
+
+
+def nur_action_versionen_verschieden(
+    tagged: str, canonical: str, kanon_repo: str = _PLATFORM_REPO
+) -> bool:
+    """True, wenn Tag und Kanon sich NUR in Versionen fremder Actions unterscheiden.
+
+    Anlass (platform#1745, Messung 2026-10-05): 6 von 9 Drift-Errors der Flotte
+    waren `shared-ci-tag-stale` an einer Datei, die auf main nur durch die
+    automatischen Action-Updates bewegt worden war. Jedes solche Update machte
+    in jedem Konsumenten einen „sofort fixen"-Error, ohne dass dort etwas falsch
+    war. Ein solcher Unterschied wird deshalb als Warnung gemeldet, nicht als
+    Error: er bleibt sichtbar, aber er uebertoent den naechsten echten nicht.
+
+    Nicht als YAML ladbar → False (dann bleibt es beim Error — lieber ein
+    Fehlalarm als ein stillschweigend herabgestufter Drift).
+    """
+    try:
+        tag_tree = yaml.safe_load(_normalisiere_pin_kommentare(tagged))
+        kanon_tree = yaml.safe_load(_normalisiere_pin_kommentare(canonical))
+    except yaml.YAMLError:
+        return False
+    tag_form = _kanon_normalform(tag_tree, SHARED_CI_REPO)
+    kanon_form = _kanon_normalform(kanon_tree, kanon_repo)
+    if tag_form == kanon_form:
+        return False  # gar kein Unterschied — hier nichts herabzustufen
+    return _ohne_fremde_action_versionen(tag_form) == _ohne_fremde_action_versionen(
+        kanon_form
+    )
+
+
+VERSIONEN_RUECKSTAND = "rueckstand"
+VERSIONEN_VORSPRUNG = "vorsprung"
+VERSIONEN_UNKLAR = "unklar"
+
+_VERSION_RE = re.compile(r"v?(\d+(?:\.\d+)*)")
+
+
+def _fremde_action_versionen(node: Any) -> list[tuple[str, str]]:
+    """(action, version) je `uses` einer fremden Action, in Baum-Reihenfolge."""
+    if isinstance(node, list):
+        return [p for v in node for p in _fremde_action_versionen(v)]
+    if not isinstance(node, dict):
+        return []
+    paare: list[tuple[str, str]] = []
+    for key in sorted(node, key=str):
+        value = node[key]
+        if (
+            key == "uses"
+            and isinstance(value, str)
+            and "@" in value
+            and not value.startswith((_SELF_REPO + "/", "./"))
+        ):
+            name, version = value.rsplit("@", 1)
+            paare.append((name, version))
+        else:
+            paare.extend(_fremde_action_versionen(value))
+    return paare
+
+
+def _versions_vergleich(tag_version: str, kanon_version: str) -> int | None:
+    """-1 Tag aelter, 1 Tag neuer, 0 gleich auf der gemeinsamen Stellenzahl.
+
+    None, wenn eine Seite keine Versionsnummer traegt (Branch, nackter SHA).
+    `v4` gegen `v4.37.9` gilt als gleich: der kurze Ref bewegt sich mit.
+    """
+    a = _VERSION_RE.fullmatch(tag_version)
+    b = _VERSION_RE.fullmatch(kanon_version)
+    if not a or not b:
+        return None
+    links = [int(x) for x in a.group(1).split(".")]
+    rechts = [int(x) for x in b.group(1).split(".")]
+    stellen = min(len(links), len(rechts))
+    links, rechts = links[:stellen], rechts[:stellen]
+    return (links > rechts) - (links < rechts)
+
+
+def action_versionen_richtung(
+    tagged: str, canonical: str, kanon_repo: str = _PLATFORM_REPO
+) -> str:
+    """Richtung eines reinen Versions-Unterschieds: liegt der Tag zurueck oder vorn?
+
+    Seit platform#3742 war jeder solche Unterschied eine Warnung, ohne Richtung.
+    Ein Tag mit AELTEREN Actions als der Kanon ist aber ein Rueckstand, den ein
+    neuer Tag behebt, und bleibt deshalb ein Error (platform#3756). Nur der
+    Vorsprung warnt. Eine einzige aeltere Action genuegt fuer "Rueckstand";
+    nicht vergleichbare Refs ergeben "unklar" und bleiben damit ebenfalls Error.
+    """
+    try:
+        tag_tree = yaml.safe_load(_normalisiere_pin_kommentare(tagged))
+        kanon_tree = yaml.safe_load(_normalisiere_pin_kommentare(canonical))
+    except yaml.YAMLError:
+        return VERSIONEN_UNKLAR
+    links = _fremde_action_versionen(_kanon_normalform(tag_tree, SHARED_CI_REPO))
+    rechts = _fremde_action_versionen(_kanon_normalform(kanon_tree, kanon_repo))
+    if len(links) != len(rechts):
+        return VERSIONEN_UNKLAR
+    urteile = [
+        _versions_vergleich(tv, kv)
+        for (tn, tv), (kn, kv) in zip(links, rechts)
+        if tn == kn and tv != kv
+    ]
+    if -1 in urteile:
+        return VERSIONEN_RUECKSTAND
+    if None in urteile or 1 not in urteile:
+        return VERSIONEN_UNKLAR
+    return VERSIONEN_VORSPRUNG
+
+
+def kanon_richtung(
+    tagged: str, canonical: str, kanon_repo: str = _PLATFORM_REPO
+) -> tuple[int, int]:
     """(nur im Tag, nur im Kanon) — Zeilen der normalisierten Baeume.
 
     Der Fix-Hinweis der Regel behauptete jahrelang eine Richtung ("platform nach
@@ -865,7 +1034,7 @@ def kanon_richtung(tagged: str, canonical: str) -> tuple[int, int]:
         ).splitlines()
 
     try:
-        a = zeilen(canonical, f"{GITHUB_ORG}/platform")
+        a = zeilen(canonical, kanon_repo)
         b = zeilen(tagged, SHARED_CI_REPO)
     except yaml.YAMLError:
         return (0, 0)
@@ -920,7 +1089,11 @@ def _get_content_at(owner_repo: str, path: str, ref: str, token: str) -> str | N
 
 
 def _shared_ci_state(token: str) -> dict:
-    """Einmal pro Lauf: neuester Tag + Abgleich Tag-Inhalt vs platform-Kanon."""
+    """Einmal pro Lauf: neuester Tag + Abgleich Tag-Inhalt vs Kanon-main.
+
+    Kanon ist je Datei `_kanon_repo(name)`: shared-ci-main fuer die
+    Deploy-Reusables (#3398), sonst platform-main.
+    """
     global _SHARED_CI_STATE
     if _SHARED_CI_STATE is not None:
         return _SHARED_CI_STATE
@@ -929,6 +1102,8 @@ def _shared_ci_state(token: str) -> dict:
     latest = latest_shared_ci_tag(tags)
     stale_files: list[str] = []
     richtungen: dict[str, tuple[int, int]] = {}
+    nur_versionen: list[str] = []
+    versions_richtung: dict[str, str] = {}
     if latest:
         listing = (
             _api_get(
@@ -945,23 +1120,33 @@ def _shared_ci_state(token: str) -> dict:
             name = item["name"]
             if not _im_kanon_abgleich(name):
                 continue
+            kanon_repo = _kanon_repo(name)
             canonical = _get_content_at(
-                f"{GITHUB_ORG}/platform", f".github/workflows/{name}", "main", token
+                kanon_repo, f".github/workflows/{name}", "main", token
             )
             if canonical is None:
-                continue  # existiert nur in shared-ci — kein Kanon-Abgleich
+                continue  # existiert nicht im Kanon-Repo — kein Kanon-Abgleich
             tagged = _get_content_at(
                 SHARED_CI_REPO, f".github/workflows/{name}", latest, token
             )
             # Strukturell vergleichen, nicht per Text-Ersetzung — Begruendung
             # und Messung siehe `shared_ci_deckt_kanon`.
-            if tagged is not None and not shared_ci_deckt_kanon(tagged, canonical):
+            if tagged is not None and not shared_ci_deckt_kanon(
+                tagged, canonical, kanon_repo
+            ):
                 stale_files.append(name)
-                richtungen[name] = kanon_richtung(tagged, canonical)
+                richtungen[name] = kanon_richtung(tagged, canonical, kanon_repo)
+                if nur_action_versionen_verschieden(tagged, canonical, kanon_repo):
+                    nur_versionen.append(name)
+                    versions_richtung[name] = action_versionen_richtung(
+                        tagged, canonical, kanon_repo
+                    )
     _SHARED_CI_STATE = {
         "latest_tag": latest,
         "stale_files": stale_files,
         "richtungen": richtungen,
+        "nur_versionen": nur_versionen,
+        "versions_richtung": versions_richtung,
     }
     return _SHARED_CI_STATE
 
@@ -969,7 +1154,7 @@ def _shared_ci_state(token: str) -> dict:
 def check_shared_ci_tag_drift(
     repo: str, token: str, state: dict | None = None
 ) -> list[DriftItem]:
-    """Prüft shared-ci-Pins des Repos gegen neuesten Tag + platform-Kanon."""
+    """Prüft shared-ci-Pins des Repos gegen neuesten Tag + Kanon-main (#3398)."""
     drifts = []
     pins: list[tuple[str, str, str]] = []  # (wf_file, pinned_file, ref)
     for wf_file in _get_dir_files(repo, ".github/workflows", token):
@@ -999,7 +1184,29 @@ def check_shared_ci_tag_drift(
             )
         if pinned_file in stale_files:
             nur_tag, nur_kanon = state.get("richtungen", {}).get(pinned_file, (0, 0))
-            if nur_tag > nur_kanon:
+            kanon_name = (
+                "shared-ci-main-Kanon"
+                if pinned_file in SHARED_CI_SSOT_DATEIEN
+                else "platform-main-Kanon"
+            )
+            if pinned_file in SHARED_CI_SSOT_DATEIEN:
+                # Kanon ist shared-ci-main selbst (#3398): es gibt nichts zu
+                # portieren, nur einen Tag, der hinter main liegt.
+                if nur_tag > nur_kanon:
+                    richtung = (
+                        f"Tag hat Zeilen, die shared-ci-main nicht mehr hat "
+                        f"({nur_tag} zu {nur_kanon}) — Ruecknahme auf main pruefen"
+                    )
+                else:
+                    richtung = (
+                        f"shared-ci-main ist voraus ({nur_kanon} zu {nur_tag} "
+                        "Zeilen) — neuen Tag schneiden"
+                    )
+                hinweis = (
+                    "in iilgmbh/shared-ci von main einen neuen Tag schneiden; "
+                    "platform ist fuer diese Datei kein Kanon (#3398)"
+                )
+            elif nur_tag > nur_kanon:
                 richtung = (
                     f"shared-ci ist VORAUS ({nur_tag} zu {nur_kanon} Zeilen) — "
                     "Kanon nachziehen, NICHT portieren"
@@ -1017,13 +1224,24 @@ def check_shared_ci_tag_drift(
             else:
                 richtung = "beide Seiten haben Eigenes — Datei fuer Datei entscheiden"
                 hinweis = "keine Seite ist Obermenge: zusammenfuehren, nicht portieren"
+            # Unterschied nur in Versionen fremder Actions (platform#1745):
+            # im Konsumenten gibt es nichts zu beheben → Warnung statt Error.
+            # Das gilt nur fuer den Vorsprung des Tags (platform#3756): liegt er
+            # zurueck oder ist die Richtung nicht messbar, bleibt es ein Error.
+            nur_versionen = pinned_file in state.get("nur_versionen", [])
+            versionen = state.get("versions_richtung", {}).get(
+                pinned_file, VERSIONEN_UNKLAR
+            )
+            if nur_versionen:
+                richtung += " — nur Action-Versionen verschieden, Tag: " + versionen
+            nur_warnen = nur_versionen and versionen == VERSIONEN_VORSPRUNG
             drifts.append(
                 DriftItem(
                     rule="shared-ci-tag-stale",
-                    severity="error",
+                    severity="warn" if nur_warnen else "error",
                     file=f".github/workflows/{wf_file}",
                     message=(
-                        f"shared-ci@{latest}/{pinned_file} ≠ platform-main-Kanon — "
+                        f"shared-ci@{latest}/{pinned_file} ≠ {kanon_name} — "
                         f"{richtung} (🌀 Tag≠main)"
                     ),
                     fix_hint=hinweis,
@@ -1195,22 +1413,65 @@ def print_json_output(drifts: list[RepoDrift]) -> None:
 
 def _scanne(targets: dict, token: str, iil_latest: dict[str, str]) -> list[RepoDrift]:
     """Der eigentliche Durchlauf — ausgelagert, damit `main` ihn in die Sperre
-    einwickeln kann, ohne dass die Schleife selbst davon weiss."""
-    results: list[RepoDrift] = []
-    for repo, props in targets.items():
-        repo_type = props.get("type", "?") if isinstance(props, dict) else "?"
-        registry_archived = (
-            bool(props.get("archived")) if isinstance(props, dict) else False
+    einwickeln kann, ohne dass die Schleife selbst davon weiss.
+
+    Die Repos werden nebenlaeufig geprueft (platform#3373). `check_repo` haelt
+    keinen Zustand: es bekommt Repo, Typ, Token und die PyPI-Tabelle uebergeben
+    und liest ueber `_api_get` nur; es gibt keinen Cache und keine veraenderliche
+    Modulvariable, die sich zwei Threads teilen wuerden.
+
+    Motiv: dieser Durchlauf ist mit Abstand der teuerste Schritt von
+    `/session-ende` (E.6, gemessen 254 s von 264 s Gesamtlauf) und besteht fast
+    nur aus Wartezeit auf die GitHub-API. Die Breite ist absichtlich klein und
+    ueber `DRIFT_CHECK_PARALLEL` einstellbar: GitHub drosselt oberhalb einer
+    gewissen Gleichzeitigkeit, und ein gedrosselter Lauf meldet `None` statt
+    eines Inhalts — also eine Drift, die keine ist. `=1` faellt exakt auf den
+    alten, sequenziellen Ablauf zurueck.
+
+    Ausgabe-Reihenfolge und -Wortlaut bleiben die der Registry: eingesammelt
+    wird in Reihenfolge der Eingabe, nicht in Reihenfolge des Eintreffens.
+    """
+    posten = [
+        (
+            repo,
+            props.get("type", "?") if isinstance(props, dict) else "?",
+            bool(props.get("archived")) if isinstance(props, dict) else False,
         )
-        print(f"  {repo}...", end="", flush=True)
-        result = check_repo(repo, repo_type, token, iil_latest, registry_archived)
+        for repo, props in targets.items()
+    ]
+    try:
+        breite = int(os.environ.get("DRIFT_CHECK_PARALLEL", "6"))
+    except ValueError:
+        breite = 6
+    breite = max(1, min(breite, len(posten) or 1))
+
+    def _melde(repo: str, result: RepoDrift) -> None:
         if result.archived:
-            print(" ⏸ archiviert — uebersprungen")
+            print(f"  {repo}... ⏸ archiviert — uebersprungen")
         else:
             print(
-                f" {result.status_icon} ({len(result.errors)}E, {len(result.warnings)}W)"
+                f"  {repo}... {result.status_icon} "
+                f"({len(result.errors)}E, {len(result.warnings)}W)"
             )
-        results.append(result)
+
+    if breite == 1:
+        results = []
+        for repo, repo_type, registry_archived in posten:
+            r = check_repo(repo, repo_type, token, iil_latest, registry_archived)
+            _melde(repo, r)
+            results.append(r)
+        return results
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=breite) as pool:
+        futures = [
+            pool.submit(check_repo, repo, repo_type, token, iil_latest, archiviert)
+            for repo, repo_type, archiviert in posten
+        ]
+        results = []
+        for (repo, _typ, _arch), fut in zip(posten, futures, strict=True):
+            r = fut.result()
+            _melde(repo, r)
+            results.append(r)
     return results
 
 

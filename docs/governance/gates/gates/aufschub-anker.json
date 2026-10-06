@@ -1,0 +1,43 @@
+{
+  "slug": "aufschub-anker",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": [
+    "tools/deferral_anchor_check.py",
+    "tools/claude-hooks/block_issue_close_without_anchor.py"
+  ],
+  "drill": [
+    "tools/tests/test_deferral_anchor_check.py",
+    "tools/claude-hooks/tests/test_block_issue_close_without_anchor.py"
+  ],
+  "built": "2026-08-10",
+  "ref": "platform#1650",
+  "covers": [
+    "workaround-without-tracking-anchor",
+    "planned-phase-no-issue",
+    "tracking-doc-stale-after-new-occurrence",
+    "deferred-item-no-tracking-issue"
+  ],
+  "note": "EIN Gate fuer vier Slugs (covers, gespiegelt aus GATE_HEADER.covers). Das Werkzeug lag seit ceb90db0 gebaut und getestet im Repo, aber mit NULL Aufrufern — verdrahtet erst in .github/workflows/aufschub-anker-gate.yml. Deshalb steht `built` auf dem Verdrahtungs-, nicht auf dem Schreibdatum: ein Gate ohne Aufrufer ist nicht gebaut.",
+  "faengt": [
+    {
+      "fall": "Aufschub im PR-Text ohne Anker",
+      "probe": "anker"
+    },
+    {
+      "fall": "warnend: Fund laesst den Pflicht-Check gruen, ein Werkzeugfehler faerbt ihn rot",
+      "probe": "werkzeugfehler"
+    },
+    {
+      "fall": "Issue von Hand geschlossen, Kommentar vertagt auf ein Issue ohne Nummer (Retro 97a9a1 #1)",
+      "probe": "issue_close"
+    }
+  ],
+  "zustand": "melder",
+  "revised": "2026-10-01",
+  "revision_note": "HERABSTUFUNG blocking -> warnend am 2026-10-01 (Owner-Wort 'K1 bleibt, warnen', platform#3645 K1). Der Kontext 'Aufgeschobene Arbeit braucht einen Anker' steht inzwischen im Ruleset von main; ein Fund blockierte damit fertige Arbeit wegen Redaktion. Jetzt: Fund = ::warning:: + PR-Kommentar, Job gruen; rot bleiben nur Werkzeugfehler (Exit 2) und der Tool-Selbsttest, damit der Pflicht-Check ein fehlendes Verdikt weiter aufhaelt. Bewusst ohne `expires`: der warnende Zustand ist Owner-Entscheid, kein Kalibrierfenster. Nacharbeit aus Funden geht auf die Liste #3646. Der Hook block_issue_close_without_anchor.py bleibt unveraendert. | VORHER: AUSWEITUNG (Quelle+Reichweite) am 2026-09-30 (Retro 97a9a1 Befund #1, platform#3169, Owner-Wort 'R3 go'): ein Issue in einem Ziel-Repo wurde per `gh issue close` geschlossen, ein Kommentar darin vertagte Folgearbeit mit 'Mittelfristig: … eigenes Issue.' ohne Nummer. Zwei Luecken: (1) Quelle — die Wendungsliste kannte weder Zeitwoerter noch 'eigenes Issue'; ergaenzt um mittelfristig/langfristig/eigene[sn] Issue|Ticket|PR, kalibriert an 400 gemergten PR-Texten (ein Zusatzfund). (2) Reichweite — das Gate lief nur als platform-Workflow auf PRs; ein Issue, das von Hand geschlossen wird, sah es in keinem Repo. Neu: PreToolUse-Hook tools/claude-hooks/block_issue_close_without_anchor.py blockt `gh issue close` in jedem Repo, solange Body/Kommentare eine unverankerte Stelle tragen; ein Anker im Schliess-Kommentar deckt alle Funde (Grenze im Docstring). Fail-open bei jedem Werkzeug-/Netzfehler. Wirksam erst mit der Hook-Registrierung in ~/.claude/settings.json (Owner-Schritt). | VORHER: AUSWEITUNG (Quelle) am 2026-09-10 (Retro oqu6Z6 Befund 3, Owner-Wort '51 go autonom', platform#3060): das Gate las nur PR-Text; sechs Aufschuebe standen als Prosa in Sachstand-Kommentaren des Auftrags-Issues #3015 ('Kandidat', 'bleibt offen', 'Folge-PR') — kein Anker, kein Alarm. Neu: deferral_anchor_check.py --issue N [--repo] prueft Body + alle Kommentare mit derselben ANKER-Regex (Checkbox-Zeilen mit Anker gelten als gedeckt), plus Advisory-Schritt in aufschub-anker-gate.yml, der die erste 'Refs #N' des PR-Bodys nachprueft (continue-on-error, Step-Summary). Umsetzung platform#3059 (Governance-Pfad, Owner-Approval). Das Gate hat am selben Tag auf zwei der Umsetzungs-PRs selbst gefeuert (#3057, #3059: 'Registry-Eintrag folgt gesondert' ohne Anker) — behoben durch #3060 als Anker. | VORHER: SCHARFSCHALTUNG advisory -> blocking am 2026-09-02 (Owner-Entscheid E4, platform#2606, eigener PR gemaess frozen_note). Kalibrierfenster 2026-08-10 bis 2026-09-02: EIN echter Treffer, null Fehlalarme — und der getroffene PR (#2607) wurde drei Minuten spaeter gemergt. Null FP UND null Wirkung: ein Melder, den man ueberholen kann, waehrend er meldet, ist keine Schranke. Ein Fund laesst den Job in .github/workflows/aufschub-anker-gate.yml jetzt FEHLSCHLAGEN (Exit 1 statt nur Kommentar); der Werkzeugfehler-Zweig (Exit 2) bleibt davon getrennt und bekommt einen eigenen Kommentar, damit ein Absturz nicht als Aufschub-Vorwurf gelesen wird. REICHWEITEN-GRENZE, ausdruecklich: platform hat keinen Aggregator-Check; der rote Job blockt den Merge erst, wenn der Kontext \"Aufgeschobene Arbeit braucht einen Anker\" im Ruleset main-required-checks (ID 17621471, heute drei Kontexte) steht — das ist Owner-Recht und im PR als Owner-Punkt benannt. Bis dahin: roter, sichtbarer Check, kein bindendes Gate.",
+  "positivkontrolle": {
+    "ref": "Warnend 2026-10-01: tools/tests/test_deferral_anchor_check.py::test_should_warnen_aber_gruen_bleiben_wenn_ein_aufschub_ohne_anker_dasteht (echter run-Block, Fund -> Exit 0 + ::warning::), Gegenprobe ::test_should_den_job_rot_machen_bei_einem_werkzeugfehler (Exit 2 -> rot). | VORHER 2026-09-30: tools/claude-hooks/tests/test_block_issue_close_without_anchor.py::test_should_block_the_real_close_with_an_unanchored_deferral_comment (Realfall-Befehl gegen nachgebauten Kommentar -> deny); Gegenprobe ::test_should_allow_the_close_when_the_closing_comment_names_an_anchor. Quelle: tools/tests/test_deferral_anchor_check.py::test_should_flag_a_time_word_with_an_issue_without_number, Gegenprobe ::test_should_accept_the_same_issue_reference_with_a_number. | VORHER 2026-09-10: ::test_should_flag_a_deferral_in_an_issue_comment_without_an_anchor; Echtfall PR #3057 -> Required Check rot (Run 34478380848).",
+    "datum": "2026-10-01"
+  }
+}

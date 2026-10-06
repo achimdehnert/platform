@@ -2,7 +2,7 @@
 status: accepted
 decision_date: 2026-05-14
 deciders: [Achim Dehnert]
-implementation_status: in_progress
+implementation_status: partial  # 2026-09-16: Statusline/Stop-Hook deployed; Amendment-Punkte 2 (lokales Ledger) und 3 (Pricing-Resolver) nicht umgesetzt, s. Changelog
 related: [ADR-199-rejected, ADR-203, ADR-208, dev-hub#39]
 ---
 
@@ -87,7 +87,7 @@ Latenz-Budget: < 100 ms. Bei DB-Fehler: fail-silent, statusline zeigt nur Modell
 turn: $0.0823 (Opus-4-7, 2.4s) │ session-total: $4.27 (52 turns)
 ```
 
-Claude Code surfaces hook-stderr für den User. Bei hohen Per-Turn-Kosten (> $0.20) ergänzt die Zeile: `▲ consider /model sonnet for routine work`.
+Claude Code surfaces hook-stderr für den User. Bei hohen Per-Turn-Kosten (> $0.30, `HOT_BURN_TURN_USD`) ergänzt die Zeile: `▲ consider /model sonnet for routine work`.
 
 ### 3. (Optional, Phase 2) `/model`-Wechsel-Prompt mit Cost-Vergleich
 
@@ -130,6 +130,34 @@ Dafür braucht es Claude-Code-Hook-Support für SlashCommand-PreExecution — he
 
 Zusätzlich: kurzes README-Snippet `~/.claude/scripts/README.md` das Setup beschreibt (DB-URL env-var, optional SSH-Tunnel).
 
+### Stand der Umsetzung (Sync 2026-09-16, #155)
+
+Das deployte Skript (`~/.claude/scripts/cost_statusline.py`, ~200 LOC) weicht in
+sechs Punkten vom Text oben ab. Alle sechs sind **in den ADR übernommen**, nicht
+aus dem Code gestrichen:
+
+| Verhalten im Code | Festlegung |
+|---|---|
+| Datei-Cache `~/.cache/iil-routing/statusline.json`, TTL **30 s** je Session | übernommen — schützt die DB vor jedem Frame; Invalidierung allein über die TTL |
+| 7-Tage-Summe (`7d: $X`) in der Statusline | übernommen |
+| Hinweis `🔥 burn rate hoch` ab **$0.30/Turn** (`HOT_BURN_TURN_USD`) | übernommen; der Text oben nannte $0.20 — der Code-Wert gilt |
+| Hinweis `💸 >$X heute` ab **$100/Tag** (`DAY_HINT_USD`) | übernommen |
+| Tier-3-Hinweis bei Opus und Turn < **$0.10** (`TIER_3_DOWNGRADE_CEILING_USD`) | übernommen — beantwortet Open Question 1 |
+| In-Process `psycopg` statt Subprozess (~150 ms/Render gespart) | übernommen als Design-Entscheid |
+
+**Schwellen sind tunbar (#156, Option A):** `CLAUDE_TIER3_CEILING_USD`,
+`CLAUDE_HOT_BURN_USD`, `CLAUDE_DAY_HINT_USD` — Umgebungsvariablen mit den
+Code-Defaults; unlesbare Werte fallen auf den Default zurück. Option B
+(Policy-Datei) bewusst nicht: die Datei liegt außerhalb jedes Repos, eine
+Policy-Datei hätte denselben Verteilungsweg wie das Skript und brächte nichts.
+
+**Datenquelle bleibt die Prod-DB über den Tunnel (`127.0.0.1:15435`), gecacht** —
+Amendment-Punkt 2 (lokales Session-Ledger) ist damit *nicht* umgesetzt; der
+30-s-Cache hat den Latenz-Einwand in der Praxis erledigt. Open Question 2 ist
+**geschlossen als „Tunnel“** (#157) mit Wiedervorlage-Auslöser: **≥ 3 Workstations**
+adoptieren die Statusline **oder** Tunnel-Verfügbarkeit **< 99,5 % über 30 Tage**
+(`0.7.24 registry-erreichbarkeit` misst den Tunnel-Endpunkt mit).
+
 ## Why no PR / no platform-commit
 
 Diese Änderungen liegen alle unter `~/.claude/` — User-Setup, nicht Repo-Code. ADR-201 dokumentiert die Entscheidung; die Implementierung wird im lokalen Setup gemacht und kann optional via dotfiles-Repo verteilt werden.
@@ -139,14 +167,16 @@ Diese Änderungen liegen alle unter `~/.claude/` — User-Setup, nicht Repo-Code
 - [ ] Statusline zeigt während aktiver Session: `<model> │ turn: $X │ session: $Y │ today: $Z`
 - [ ] Stop-Hook gibt nach jedem Turn eine stderr-Zeile mit turn-cost + session-total aus
 - [ ] Bei Tier-Mismatch (Opus aktiv für Tier-3-trend): Hinweis sichtbar (statusline emoji + stop-line suffix)
-- [ ] User-Berichtetes Awareness-Niveau steigt: 14-Tage-Beobachtung post-deploy zeigt **>30 %** Reduktion `opus_per_session_ratio` (Grafana panel 211)
+- ~~User-Berichtetes Awareness-Niveau steigt: 14-Tage-Beobachtung post-deploy zeigt **>30 %** Reduktion `opus_per_session_ratio` (Grafana panel 211)~~ — **gestrichen** (Amendment 2026-05-16 Punkt 1, #154): die Metrik war nirgends definiert, Panel 211 zeigt etwas anderes; das Abnahmekriterium ist technisch (Zahl korrekt, p95 < 100 ms, ≤ 1 % Abweichung zu `llm_calls.cost_usd`)
 
 ## Open Questions
 
-1. Tier-Mismatch-Heuristik: wie definiert man „session-trend ist Tier 3"? Vorschlag: wenn letzte 5 turns Avg Cost < Tier-4-Floor / 3 → empfehle Tier-3. Konfigurierbar.
-2. SSH-Tunnel oder lokales Read-Replica für die DB? Vorschlag: Tunnel für jetzt, Replica wenn mehrere Devs adopten.
+1. ~~Tier-Mismatch-Heuristik~~ — beantwortet: Opus aktiv **und** Kosten der letzten 15 Minuten < $0.10 (`TIER_3_DOWNGRADE_CEILING_USD`) ⇒ Hinweis (s. Stand der Umsetzung).
+2. ~~SSH-Tunnel oder lokales Read-Replica?~~ — geschlossen 2026-09-16 als „Tunnel“, Wiedervorlage bei ≥ 3 Workstations oder Tunnel < 99,5 %/30 d (#157).
 3. Slash-Command-Pre-Hook (Phase 2): Recherche, ob Claude Code das unterstützt — separate Task.
 
 ## Changelog
+
+- 2026-09-16: **Sync mit der deployten Umsetzung** (Owner-Entscheid E2, Sichtung #3226; schließt #154, #155, #156, #157). `implementation_status: partial`; sechs Code-Abweichungen in den ADR übernommen (30-s-Cache, 7d-Summe, drei Hinweis-Schwellen mit Konstanten, In-Process-psycopg); $0.20→$0.30 auf den Code-Wert korrigiert; Schwellen per Umgebungsvariable tunbar (Option A); Open Questions 1 und 2 geschlossen; das gestrichene Kriterium aus dem Amendment auch in der Kriterienliste gestrichen. Nicht umgesetzt und offen benannt: Amendment-Punkte 2 (lokales Ledger) und 3 (Pricing-Resolver).
 
 - 2026-05-14: Initial. Direkt-Folge der ADR-199-Rejection. Status: accepted (geht direkt in Implementierung).

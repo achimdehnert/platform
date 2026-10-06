@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+import gate_registry  # noqa: E402
 from retro_kpis import (  # noqa: E402
     GATE_REGISTRY,
     _create_gate_issue,
@@ -628,8 +629,7 @@ class TestRegistryDeclined:
         assert "issue-not-reconciled-after-cross-repo-fix" not in declined
 
     def test_should_list_revoked_decision_under_widerrufen(self):
-        with open(GATE_REGISTRY, encoding="utf-8") as fh:
-            reg = json.load(fh)
+        reg = gate_registry.laden(GATE_REGISTRY)
         revoked = {d["slug"] for d in reg.get("widerrufen", [])}
         assert "issue-not-reconciled-after-cross-repo-fix" in revoked
 

@@ -1,0 +1,7 @@
+[Unit]
+Description=Paperless-Tag "verbuchen" -> sevdesk-Beleg (Owner-Wort 2026-09-21)
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/github/platform
+ExecStart=/usr/bin/python3 %h/github/platform/tools/sevdesk/verbuchen_wache.py

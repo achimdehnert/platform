@@ -1,0 +1,22 @@
+{
+  "slug": "drill-path-not-invocation-path",
+  "mode": "meta",
+  "owner": "achim",
+  "module": "",
+  "drill": "tools/claude-hooks/tests/test_hook_invocation_contract.py",
+  "built": "2026-08-02",
+  "ref": "Retro 287b23 #1 / PR #1660",
+  "note": "Cross-cutting: drillt Executable-Bit + Shebang + Direktaufruf ALLER registrierten Module — der echte settings.json-Pfad, nicht der Interpreter-Pfad.",
+  "faengt": [
+    {
+      "fall": "registriertes Modul ist nicht executable",
+      "probe": "executable"
+    },
+    {
+      "fall": "registriertes Modul ohne Shebang",
+      "probe": "shebang"
+    }
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-08-02"
+}

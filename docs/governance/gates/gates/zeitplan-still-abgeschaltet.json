@@ -1,0 +1,24 @@
+{
+  "slug": "zeitplan-still-abgeschaltet",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": "tools/zeitplan_wach.py",
+  "drill": "tools/tests/test_zeitplan_wach.py",
+  "built": "2026-08-20",
+  "ref": "platform#2114",
+  "note": "GitHub schaltet schedule-Trigger nach 60 Tagen Repo-Inaktivitaet ab. infra-deploy lief dadurch drei Wochen ohne Datenbank-Backup, ohne dass ein Check rot wurde.",
+  "faengt": [
+    {
+      "fall": "schedule-Workflow von GitHub still deaktiviert",
+      "probe": "disabled"
+    }
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-08-20",
+  "ausgang": "selten-schwer",
+  "ausgang_note": "V1c (platform#3785, Owner-Wort 2026-10-05): billiger Melder fuer einen seltenen Fall mit hohem Schaden — GitHub schaltet schedule-Trigger nach 60 Tagen Inaktivitaet still ab, und jeder Melder, der an einem Zeitplan haengt, verstummt dann unbemerkt. Eine Probe beweist hier nichts, der Fall haengt nicht vom Modell ab. Frist entfaellt.",
+  "positivkontrolle": {
+    "ref": "tools/tests/test_zeitplan_wach.py::test_should_report_a_schedule_disabled_by_github - ein von GitHub still deaktivierter schedule-Workflow wird gemeldet (Muster infra-deploy, drei Wochen ohne Backup); Gegenproben ::test_should_ignore_active_workflows und ::test_should_separate_manual_from_automatic_disabling.",
+    "datum": "2026-10-05"
+  }
+}

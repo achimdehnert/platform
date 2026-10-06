@@ -23,7 +23,7 @@ implementation_status: none
   23 ADRs trugen so einen Wert, entstanden durch Abschreiben von Nachbardateien.
   Geprueft von tools/adr_umsetzungsstand_check.py (platform#2931).
 
-  PFLICHTFELDER: status, decision_date, deciders, Titel, §1–§5, §9 Confirmation
+  PFLICHTFELDER: status, decision_date, deciders, Titel, §1–§5, §8 Confirmation
   OPTIONALE FELDER: consulted, informed, §6 Migration Tracking (nur bei Transitions)
 
   NUMMERNVERGABE (ADR-228, seit 2026-09-08): ein neues ADR startet als ENTWURF.

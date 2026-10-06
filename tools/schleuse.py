@@ -92,6 +92,82 @@ REGELN = [
         14,
         "Inhalte ins Ziel-Repo holen, dann leeren (box-schleuse.sh leere von-box)",
     ),
+    # Ab hier die Klassen aus der Bestandsaufnahme vom 2026-09-23 (#3405): 168
+    # von 291 Eintraegen trugen keine Regel und liefen still auf die
+    # 90-Tage-Grenze zu. Die folgenden Muster benennen die haeufigsten Arten,
+    # damit ein Eintrag mit einer Begruendung verfaellt und nicht nur mit einem
+    # Datum. Reihenfolge: sprechende Klassen vor der allgemeinen Datums-Regel,
+    # sonst heisst am Ende alles "Datierte Uebergabe".
+    (
+        # GRENZE zu "Bericht" (Position 6, steht damit VOR dieser Regel): beide
+        # Muster treffen `review-…`. Die Reihenfolge entscheidet, und sie ist
+        # hier richtig herum — gemessen am Bestand vom 2026-09-23 sind die
+        # einzigen beiden `review-`-Dateien echte Berichte
+        # (`review-skill-einmotten-adaption-2026-07-17.md`,
+        # `review-KONZ-writing-hub-014-zweitmeinung-2026-08-20.md`) und gehoeren
+        # nach `docs/` des betroffenen Repos, nicht in einen PR-Text.
+        # `review 1.md`/`review 2.md` mit LEERZEICHEN sind dagegen Notizen zu
+        # einem PR und landen hier. Die Tests halten beide Richtungen fest;
+        # wer die Reihenfolge aendert, bricht sie sichtbar (Retro 4ed2e5 #2).
+        "PR-/Issue-Text",
+        re.compile(r"^(pr-|issue-|commit-|review[ -]).*\.(md|txt)$", re.I),
+        14,
+        "Text steht im PR/Issue selbst — die Kopie hier ist nur Transport",
+    ),
+    (
+        "Wegwerf-Skript",
+        re.compile(r".*\.(sh|ps1|cmd|bat|py)$"),
+        21,
+        "einmal gelaufen; was bleiben soll, gehoert nach tools/ des Ziel-Repos",
+    ),
+    (
+        "Bildschirmfoto",
+        re.compile(r".*\.(png|jpe?g|gif|webp)$", re.I),
+        30,
+        "Bild gehoert an das Issue/den PR oder in die Doku",
+    ),
+    (
+        "Lauf-Ausgabe",
+        re.compile(
+            r".*\.(csv|ndjson|log)$"
+            r"|.*(inventar|beleg|probe|verifikation|rohbefund|-before-|-after-)"
+            r".*\.(txt|json)$",
+            re.I,
+        ),
+        30,
+        "die Zahl gehoert ins Issue/Konzept, die Rohdatei nicht in die Schleuse",
+    ),
+    (
+        "Dokument-Entwurf",
+        re.compile(
+            r".*(entwurf|freigegeben|zweitmeinung|kurzfassung|vorlagen)"
+            r".*\.(md|pdf|docx|odt)$",
+            re.I,
+        ),
+        30,
+        "gehoert nach Outline/Paperless oder ins Ziel-Repo",
+    ),
+    (
+        "Modell-Ausgabe",
+        # Alle Zweige sind PRAEFIXE. Bis 2026-09-23 stand hier `k4w?$` — das `$`
+        # entstand beim Verteilen des Musters ueber zwei String-Literale und
+        # machte aus dem Praefix einen exakten Vergleich: `k4` und `k4w` trafen,
+        # `k4-run-2026` nicht. Kein Test fiel darauf, weil im Bestand nur die
+        # beiden exakten Ordner lagen (Retro 4ed2e5 #4).
+        re.compile(
+            r"^(lora-|bakeoff|panels-|mitlora|nulllinie|kagero-|k4w?"
+            r"|sprache-probe|music-lab-|comfyui-)",
+            re.I,
+        ),
+        30,
+        "Modell-/GPU-Ergebnis gehoert auf die GPU-Box oder weg",
+    ),
+    (
+        "Datierte Uebergabe",
+        re.compile(r".*(\d{4}-\d{2}-\d{2}|\d{8}).*"),
+        45,
+        "Name traegt ein Datum: einmaliger Transport, nach Ankunft weg",
+    ),
 ]
 
 MELDE_TAGE = 30  # Die Schleuse ist ein Foerderband: was einen Monat liegt,

@@ -116,6 +116,29 @@ if python3 -c 'import pytest' >/dev/null 2>&1; then
   check "T14 tools/*.py im Diff + pytest tools/tests rot -> deny" deny "$(run_hook "cd $P1 && git push")"
 fi
 
+# T15–T18 (Retro 916eb7, Ausweitung): Repo ohne ruff-Config, dessen CI ruff und
+# shellcheck aufruft — Realfall iilgmbh/chat-hub#101/#103.
+mk_ci_repo() { # $1=dir $2=workflow-run-zeile
+  mkdir -p "$1/.github/workflows"; git -C "$1" init -q
+  git -C "$1" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+  printf 'jobs:\n  lint:\n    steps:\n      - run: %s\n' "$2" > "$1/.github/workflows/ci.yml"
+  printf 'x=1\ny  =  2\n' > "$1/bad.py"
+  git -C "$1" add -A && git -C "$1" -c user.email=t@t -c user.name=t commit -qm c
+}
+R1="$FIX/r1"; mk_ci_repo "$R1" "ruff format --check deploy/"
+check "T15 keine ruff-Config, CI ruft ruff format -> deny" deny "$(run_hook "cd $R1 && git push")"
+R2="$FIX/r2"; mk_ci_repo "$R2" "make test"
+check "T16 keine ruff-Config, CI ohne ruff -> silent" silent "$(run_hook "cd $R2 && git push")"
+if command -v shellcheck >/dev/null 2>&1 || docker image inspect koalaman/shellcheck:stable >/dev/null 2>&1; then
+  S1="$FIX/s1"; mk_ci_repo "$S1" "shellcheck deploy/*.sh"
+  printf '#!/usr/bin/env bash\nset -e\nsource ./env.sh\necho $1\n' > "$S1/run.sh"
+  git -C "$S1" add -A && git -C "$S1" -c user.email=t@t -c user.name=t commit -qm sh
+  check "T17 .sh im Diff, CI ruft shellcheck, Befund -> deny" deny "$(run_hook "cd $S1 && git push")"
+  S2="$FIX/s2"; mk_ci_repo "$S2" "make test"
+  cp "$S1/run.sh" "$S2/run.sh"; git -C "$S2" add -A && git -C "$S2" -c user.email=t@t -c user.name=t commit -qm sh
+  check "T18 .sh im Diff, CI ohne shellcheck -> silent" silent "$(run_hook "cd $S2 && git push")"
+fi
+
 check "T10 origin aufloesbar + 0 .py -> silent (#1754)" silent "$(run_hook "cd $D && git push origin feature")"
 
 rm -rf "$FIX" "$FOREIGN"

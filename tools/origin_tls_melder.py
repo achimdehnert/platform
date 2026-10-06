@@ -113,7 +113,7 @@ from pathlib import Path  # noqa: E402
 # Vokabular kommt aus tools/betriebsstatus.py — drei Kopien einer Liste
 # sind drei Gelegenheiten, dass sie auseinanderlaufen (#2586 K5).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from betriebsstatus import STATUS_ERLAUBT  # noqa: E402
+from betriebsstatus import STATUS_ERLAUBT, wirksamer_status  # noqa: E402
 
 PROD_HOSTS = ("prod", "prod-b")
 SSH = ["ssh", "-o", "ConnectTimeout=10", "-o", "BatchMode=yes"]
@@ -167,7 +167,11 @@ def _hosts_yaml_pfad() -> str:
 
 
 def lade_dienste(pfad: str) -> list[dict]:
-    """Dienste mit deklarierter Prod-Domain, inklusive Lebenszyklus-Angabe."""
+    """Dienste mit deklarierter Prod-Domain, inklusive Lebenszyklus-Angabe.
+
+    ``betriebsstatus`` ist der WIRKSAME Status (#3507): eine Ausnahme ohne
+    gueltige Deklaration zaehlt als ``aktiv`` und wird wieder geprueft.
+    """
     daten = yaml.safe_load(open(pfad, encoding="utf-8")) or {}
     raus = []
     for name, v in (daten.get("services") or {}).items():
@@ -178,7 +182,7 @@ def lade_dienste(pfad: str) -> list[dict]:
                 "name": name,
                 "domain": str(v["domain_prod"]),
                 "host": str(v.get("prod_host", "prod")),
-                "betriebsstatus": str(v.get("betriebsstatus", "aktiv")),
+                "betriebsstatus": wirksamer_status(name, v),
                 "grund": v.get("betriebsstatus_grund"),
             }
         )

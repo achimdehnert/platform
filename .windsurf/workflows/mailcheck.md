@@ -84,7 +84,8 @@ Ein leeres Ergebnis ohne Deckungsangabe ist ein Fehler, kein Befund (#1820 Krite
    Elemente/Objekte"); je offenem Vorgang gezielt `--von/--an <gegenüber>`.
    Danach NUR das Post-Ingest-Restfenster live nachziehen `[live]` (ein Listen-Aufruf
    je Konto, Tabelle „Live-Fallback").
-4. **Rauschen erkennen + wegräumen** (s.u.) — offensichtlich unwichtige Mails verschieben,
+4. **Rauschen erkennen + wegräumen** (s.u.) — zuerst `lernordner.py --apply` (was der Owner
+   in die Lernordner gezogen hat), dann offensichtlich unwichtige Mails verschieben,
    damit sie die offene Liste nicht zumüllen.
 5. **Offene Vorgänge korrelieren** — jede getrackte Position gegen Eingang **und** Gesendetes
    prüfen: **gesendet → Status fortschreiben / Punkt schließen**; Antwort da → nächster Schritt;
@@ -275,6 +276,25 @@ Sammel-/Archiv-Ordner verschieben (reversibel):
   „unklar" listen; nie in den Papierkorb, wenn Aufbewahrung denkbar ist. Der Owner bestätigt
   neue „unwichtig"-Absender einmal, dann dürfen sie stehen.
 
+### Lernordner — der Owner zieht, das Werkzeug lernt (#3629)
+
+In jedem Postfach (IIL, HNU, AD) liegen zwei Ordner: **„Lernen Absender loeschen"** und
+**„Lernen Domain loeschen"** (AD: unter `INBOX.`). Zieht der Owner eine Mail hinein, ist das
+sein Wort für die Regel — keine Rückfrage, keine zweite Bestätigung.
+
+```bash
+python3 tools/mail_agent/lernordner.py --apply     # Schritt 4, bei JEDEM /mailcheck
+python3 tools/mail_agent/lernordner.py             # Trockenlauf
+python3 tools/mail_agent/lernordner.py --anlegen   # einmalig: Ordner anlegen
+```
+
+Der Lauf trägt Adresse bzw. Domain in `nach_ordner_zur_loeschung` und `owner_gelernt` ein,
+verschiebt die gezogenen Mails nach „Zur Loeschung" und danach die Posteingangs-Mails aller
+gelernten Absender. **Belege und eigene Adressen bleiben geschützt** und gehen zurück in den
+Posteingang; nur die Gesendet-Historie übersteuert der Owner-Zug. Eigene, Hochschul- und
+Freemail-Domains werden nie als ganze Domain gelernt. Die Zeile `Bilanz <konto>` je Konto
+ins Ergebnis übernehmen, auch bei `0`.
+
 ## Erledigtes wegräumen (Schritt 7a)
 
 Rauschen (Schritt 4) und Erledigtes sind zwei verschiedene Dinge. Rauschen erkennt man am
@@ -442,8 +462,11 @@ Prüfer überlebt.
       Lücke unsichtbar, sobald das Board „gut aussieht": ein Posten ohne Anker trägt
       keinen Link in seine Mail und meldet das nirgends von selbst.
       Stand beim Einbau (2026-08-10): **11 von 17** ohne Anker.
-- [ ] **Schritt 7a gelaufen** — `ablage_erledigt.py --straenge` mindestens als
-      Trockenlauf, Ergebnis im Board genannt (auch „0 Nachrichten"). Ein Board, das
+- [ ] **Schritt 4 Lernordner gelaufen** (#3629) — `lernordner.py --apply`, die Zeile
+      `Bilanz <konto>` je Konto im Ergebnis genannt (auch bei `0`).
+- [ ] **Schritt 7a gelaufen** — `ablage_erledigt.py --straenge --apply` (Owner-Entscheid
+      2026-09-30, #3629 K6: Erledigtes wird automatisch abgelegt, nicht nur gezeigt),
+      Ergebnis im Board genannt (auch „0 Nachrichten"). Ein Board, das
       Vorgänge als erledigt führt, während ihre Mails im Posteingang liegen, hat die
       Aufräum-Hälfte seiner Aufgabe nicht erledigt.
 - [ ] **Melder grün** (#2799 K5): `python3 tools/mail_agent/ablage_erledigt.py --pruefe`

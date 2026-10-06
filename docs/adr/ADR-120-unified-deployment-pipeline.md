@@ -200,6 +200,11 @@ jobs:
 > `achimdehnert/platform/.github/workflows/_ci-python.yml@v1` — diesen Pfad gibt es nicht mehr
 > (platform-Kopie retired via #1437, SSoT ist `iilgmbh/shared-ci`). `_deploy-unified.yml` liegt
 > weiterhin in platform. Kopierfertig ist `docs/templates/ci.yml`.
+>
+> ℹ️ **Pfad-Hinweis (nachgetragen 2026-09-23, #3398):** Auch `_deploy-unified.yml` und
+> `_deploy-hetzner.yml` gibt es in platform nicht mehr. Einzige Quelle ist
+> `iilgmbh/shared-ci`, aufgerufen mit festem Tag (`@vX.Y.Z`). Der Satz oben, dass
+> `_deploy-unified.yml` weiterhin in platform liegt, gilt nicht mehr.
 
 ### Zentrales Reusable Workflow
 

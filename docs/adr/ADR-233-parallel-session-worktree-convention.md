@@ -1,6 +1,6 @@
 ---
-status: proposed
-implementation_status: partial  # 2026-06-04: pre-commit-Backstop (main-tree-protect) verdrahtet; Snap-back-Hook-Aktivierung via 'tools/main-tree-guard.sh install .' je Checkout
+status: deprecated
+implementation_status: killgate-failed  # 2026-09-28: Kill-Gate §8 ausgewertet — unauthorized_head_flips/30d > 0 in 8/85 Repos (platform: 43), Stichtag 2026-09-01 verstrichen. Tools bleiben nutzbar, Enforcement-Anspruch entfaellt.
 decision_date: 2026-06-01
 deciders: Achim Dehnert
 domains: [dx, git-workflow, drift-prevention, governance]
@@ -13,7 +13,7 @@ tags: [git, worktree, parallel-sessions, branch-strategy, integration, claude-co
 
 | Attribut       | Wert                                                    |
 |----------------|---------------------------------------------------------|
-| **Status**     | Proposed                                                |
+| **Status**     | Deprecated (Kill-Gate §8 verletzt, 2026-09-28)          |
 | **Scope**      | platform (org-weit, alle Repos & Coding-Sessions)       |
 | **Repo**       | platform                                                |
 | **Erstellt**   | 2026-06-01                                              |
@@ -161,6 +161,29 @@ strukturell. Darum ist der Guard Teil der **Entscheidung**, nicht der Risiko-Mit
   gilt die Konvention als **nicht erzwingbar** → Status `Deprecated`, zurück auf Status quo mit dokumentierter
   Warnung. „Routinemäßig" ist damit durch eine Zahl ersetzt (M28-6).
 
+### 8.1 Kill-Gate-Auswertung (2026-09-28)
+
+Kriterium (a) erfüllt — beide Tools existieren. Kriterium (b) **verletzt**: `main-tree-guard.sh report`
+zeigt `unauthorized_head_flips/30d > 0` in 8 von 85 überwachten Checkouts, davon 43 allein im
+platform-Haupt-Tree:
+
+| Repo | Flips/30d |
+|---|---|
+| platform | 43 |
+| writing-hub | 11 |
+| mcp-hub | 2 |
+| apo-hub | 1 |
+| frist-hub | 1 |
+| iil-pet-portal | 1 |
+| iil-voice-agent | 1 |
+| odoo-hub | 1 |
+
+Der Bot-Kommentar in [#2567](https://github.com/achimdehnert/platform/issues/2567) (2026-09-01) empfahl
+abweichend `detect-only` statt der hier selbst vereinbarten Formel — ohne neue Evidenz für die
+Abschwächung. Per §8-Wortlaut gilt darum: **Status `Deprecated`**. Die gebauten Tools
+(`repo-session.sh`, `worktree-reaper.py`, `main-tree-guard.sh`) bleiben als optionale Helfer nutzbar,
+nur der verpflichtende Enforcement-Anspruch (§2.1) entfällt.
+
 ## 9. Glossar
 
 | Begriff | Bedeutung |
@@ -210,6 +233,37 @@ Widerspruch zu „Main-Tree heilig = Ritual + ggf. Hook" — der Guard ist jetzt
   `repo-session`-Wrapper als Entscheidung (nicht Ritual), Lease-Ledger, geschärfte Reaper-Semantik
   (nie Branch löschen / unmerged-clean nur markieren), messbares Kill-Gate, Disk-Budget, Alternativen
   E/F/G. Tag-Tabelle §11.
+## Kopierfertiger CLAUDE.md-Schnipsel
+
+Damit die Formulierung zwischen den Repos nicht driftet, gilt der folgende Block
+als Kanon. In die `CLAUDE.md` eines Ziel-Repos uebernehmen, nichts daran aendern
+ausser dem Repo-Namen im Beispielaufruf:
+
+```markdown
+## Editieren — Worktree, nicht Haupt-Tree (ADR-233)
+
+Der Haupt-Checkout bleibt auf `main`; read-only-Analyse dort ist erlaubt, ein
+`git switch`/`checkout -b` nicht (parallele Sitzungen kollidieren ueber den HEAD).
+Editiert wird in einem eigenen Worktree:
+
+    bash ~/github/platform/tools/repo-session.sh start ~/github/<repo> \
+      --task "<slug>" --ziel "<Sitzungsziel>"
+
+Das Skript liegt in **platform**, nicht im eigenen Repo. Wer `tools/repo-session.sh`
+aus dem Repo-Wurzelverzeichnis aufruft, bekommt „file not found" ohne Hinweis auf
+den wahren Ort.
+```
+
+**Warum der Pfad ausgeschrieben ist:** Ein Agent liest die Zeile woertlich. Ohne
+`platform/`-Praefix liest sie sich repo-lokal, und der Aufruf schlaegt mit einer
+Meldung fehl, die den echten Ort nicht nennt — gefunden bei `/repo-optimize
+trading-hub` (2026-07-16, Befund LLM-2, platform#1196).
+
+**Stand der Flotte bei Aufnahme dieses Blocks (2026-09-21):** 4 `CLAUDE.md`
+nennen das Skript, alle vier mit korrektem Praefix; 23 nennen es gar nicht. Der
+Drift, den #1196 beobachtet hatte, ist damit ausgelaufen — der Block steht hier
+fuer die 23, die noch nichts dazu sagen, und fuer jedes neue Repo.
+
 - **2026-07-04:** `repo-session.sh reap [<repo>]` + Auto-Reap bei `start` (Retro f5e1d F-P4,
   Gate `worktree-midsession-accumulation` ×2 → Gate-Pflicht, #913): jede neue Session räumt
   zuerst gemergte+cleane Orphan-Worktrees des Ziel-Repos via `worktree-reaper.py --apply` ab

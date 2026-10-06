@@ -1,4 +1,4 @@
-"""Tests fuer die Deckblatt-Meta-Zeilen (print_agent.extract_meta).
+"""Tests fuer die Deckblatt-Meta-Zeilen (deckblatt_meta.extract_meta).
 
 Der Deckblatt-Filter entfernt Zeilen wie ``**Auftraggeber:** Firma`` aus dem
 Fliesstext mit der Begruendung, sie stuenden bereits auf dem Deckblatt. Stimmt
@@ -13,10 +13,13 @@ import importlib.util
 import sys
 from pathlib import Path
 
-_AGENT = Path(__file__).resolve().parents[1] / "print_agent.py"
-_spec = importlib.util.spec_from_file_location("print_agent_unter_test", _AGENT)
+# Wie in den Nachbartests: das Modul direkt aus der Datei laden, tools/print_agent ist
+# kein Package. deckblatt_meta ist importfrei — print_agent selbst zieht weasyprint/
+# litellm, die in der CI-Testumgebung fehlen (#2621).
+_MODUL = Path(__file__).resolve().parents[1] / "deckblatt_meta.py"
+_spec = importlib.util.spec_from_file_location("deckblatt_meta", _MODUL)
 pa = importlib.util.module_from_spec(_spec)
-sys.modules["print_agent_unter_test"] = pa
+sys.modules["deckblatt_meta"] = pa
 _spec.loader.exec_module(pa)
 
 

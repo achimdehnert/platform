@@ -1,0 +1,7 @@
+{
+  "slug": "host-fix-not-mirrored-to-iac",
+  "decided": "2026-09-07",
+  "owner": "achim",
+  "ref": "platform#2895 Items 53+54 (Owner-Go 2026-09-07) · Anker platform#2907",
+  "reason": "Verzicht auf ein EIGENES Gate, nicht auf die Klasse. Die Pruefstelle waere ein Stop-Hook auf schreibende ssh/docker/systemctl-Kommandos gegen /etc, /opt und Prod-Configs ohne Aenderung unter infra/ im selben Zug — verdrahtet wird ein solcher Hook in ~/.claude/settings.json, also AUSSERHALB dieses Repos. Ein Registry-Eintrag ohne diese Zeile waere ein Gate im Zustand `ohne-traeger`, den _zustand_doc ausdruecklich als Befund fuehrt: das Modul existiert, niemand ruft es auf. Das getragene Restrisiko ist damit benannt und in platform#2907 verankert; jedes neue Vorkommen ist laut _declined_doc Anlass, die Entscheidung zu pruefen. Teilweise gedeckt ist die Klasse heute schon: ein host-veraenderndes Kommando loest den Scope-Checkpoint aus (Rev 4 kennt systemctl/docker/kill, _PROD kennt die Prod-Ziele) — der verlangt ein durables Artefakt, aber nicht ausgerechnet eines unter infra/."
+}

@@ -36,6 +36,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from board import LEDGER, _verlaufseintrag, lade, vorgaenge_von  # noqa: E402
+from privat_datei import schreibe_privat  # noqa: E402
 
 TOOL_VERSION = "alterung.py/1"
 
@@ -194,8 +195,8 @@ def main(argv: list[str] | None = None) -> int:
                 f"#{args.zurueck} '{vorgang.get('kurz')}': war schon bei 'owner' — keine Aenderung."
             )
             return 0
-        ledger_pfad.write_text(
-            json.dumps(ledger, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        schreibe_privat(
+            ledger_pfad, json.dumps(ledger, ensure_ascii=False, indent=2) + "\n"
         )
         print(
             f"#{args.zurueck} '{vorgang.get('kurz')}': bucket={vorgang.get('bucket')!r}"
@@ -227,8 +228,8 @@ def main(argv: list[str] | None = None) -> int:
                 f"Keine Aenderung (Stichtag {stichtag.isoformat()}, {args.tage} Tage)."
             )
             return 0
-        ledger_pfad.write_text(
-            json.dumps(ledger, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        schreibe_privat(
+            ledger_pfad, json.dumps(ledger, ensure_ascii=False, indent=2) + "\n"
         )
         for vorgang in geaendert:
             print(f"  #{vorgang.get('nr')} '{vorgang.get('kurz')}': owner -> warten")

@@ -36,8 +36,11 @@ EIN Token in drei Dateien; wer nur eine erneuert, hinterlässt zwei stille Altbe
 **Nicht betroffen — bewusst nicht mitrotieren:**
 - `~/.config/gh/hosts.yml` — die `gh`-CLI hat einen eigenen OAuth-Token (`gho_…`) aus
   `gh auth login`, unabhängig vom PAT.
-- **prod-b** (`89.167.43.30`) — dessen GHCR-Login läuft über `~/.secrets/github_write_packages`,
-  ein separater Token mit eigenem Ablaufdatum.
+- **prod-b** (`89.167.43.30`) — dessen GHCR-Login steht in `/root/.docker/config.json` auf
+  prod-b (dort gibt es **keine** Datei `~/.secrets/github_write_packages`). Quelle ist der
+  separate Token `~/.secrets/github_write_packages` auf dem Dev-Desktop, mit eigenem
+  Ablaufdatum. Wird er erneuert, muss prod-b neu angemeldet werden (siehe unten), sonst
+  scheitert dort der nächste Pull mit `denied` (Realfall 2026-09-30, iilgmbh/risk-hub#778).
 - Pulls **innerhalb** von GitHub Actions — die nutzen den `GITHUB_TOKEN` des Workflows.
 
 **Ungeklärt (Werte sind von aussen nicht lesbar):** die Repo-Secrets `PLATFORM_DEPLOY_TOKEN`,
@@ -162,7 +165,16 @@ pkill -f "start-deployment-mcp"
 ## Was NICHT mitrotiert wird
 
 - `~/.config/gh/hosts.yml` — eigener `gho_`-OAuth-Token der `gh`-CLI.
-- **prod-b** — nutzt `~/.secrets/github_write_packages` mit eigenem Ablaufdatum.
+- **prod-b** — Docker-Login aus `~/.secrets/github_write_packages` (Dev-Desktop), eigenes
+  Ablaufdatum. Nach dessen Erneuerung (Prod-Eingriff, Owner-Go):
+
+  ```bash
+  # Wert nur per Pipe, nie in der Ausgabe
+  sed -nE 's/^[A-Z_]+=//p' ~/.secrets/github_write_packages \
+    | ssh root@89.167.43.30 'docker login ghcr.io -u achimdehnert --password-stdin'
+  # Positivkontrolle: privates Image muss aufloesbar sein
+  ssh root@89.167.43.30 'docker manifest inspect ghcr.io/iilgmbh/minio:RELEASE.2025-09-07T16-13-09Z >/dev/null && echo OK'
+  ```
 - Actions-interne Pulls — laufen über den `GITHUB_TOKEN` des Workflows.
 
 ## Tote Token erkennen, bevor sie Zeit kosten

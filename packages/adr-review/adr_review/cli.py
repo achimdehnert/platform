@@ -159,7 +159,15 @@ def _complete(model: str, system: str, user: str) -> str | None:
             api_key=key,
             timeout=60,
         )
-        return (resp.choices[0].message.content or "").strip()
+        text = (resp.choices[0].message.content or "").strip()
+        if not text:
+            # Leere Antwort ist ein Fehlschlag, keine Bewertung: sonst fiele der
+            # Score still auf 5 (`concerns`) und der Kommentar bliebe leer (#642).
+            print(
+                f"adr-review: {model} lieferte eine leere Antwort — als Fehlschlag gewertet"
+            )
+            return None
+        return text
     except Exception as e:  # noqa: BLE001
         print(f"adr-review: {model} fehlgeschlagen: {e}")
         return None

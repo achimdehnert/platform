@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Apply ALTER TABLE statements to platform database."""
+import os
+
 import psycopg
 
-conn = psycopg.connect('postgresql://bfagent:bfagent_dev_2024@localhost:5432/platform')
+conn = psycopg.connect(os.environ['PLATFORM_DATABASE_URL'])
 cur = conn.cursor()
 
 # Add missing columns

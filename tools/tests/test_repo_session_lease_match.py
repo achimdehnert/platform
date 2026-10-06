@@ -160,3 +160,58 @@ def test_should_close_lease_on_exact_canonical_match_no_regression(tmp_path):
     lease_dir = tmp_path / ".repo-session" / "leases"
     assert list(lease_dir.glob("*.json.closed"))
     assert not list(lease_dir.glob("*.json"))
+
+
+# ── claude_session (platform#2234): Lease → Claude-Sitzung ──────────────────
+
+
+def _start_lease(tmp_path, **env_extra) -> dict:
+    work = _make_fixture_repo(tmp_path)
+    env = {**_env(tmp_path), **env_extra}
+    res = subprocess.run(
+        [
+            shutil.which("bash"),
+            str(REPO_SESSION_SH),
+            "start",
+            str(work),
+            "--task",
+            "cs",
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert res.returncode == 0, res.stderr
+    (lease_file,) = list((tmp_path / ".repo-session" / "leases").glob("*.json"))
+    return json.loads(lease_file.read_text())
+
+
+def test_should_write_claude_session_from_environment_into_lease(tmp_path):
+    lease = _start_lease(
+        tmp_path, CLAUDE_CODE_SESSION_ID="e911bf49-94e1-4b4c-86ed-f4a4337ba501"
+    )
+    assert lease["claude_session"] == "e911bf49-94e1-4b4c-86ed-f4a4337ba501"
+    # additiv: die bisherigen Felder bleiben, `session_id` bleibt die Lease-ID
+    assert lease["session_id"] != lease["claude_session"]
+    for feld in (
+        "session_id",
+        "owner",
+        "repo",
+        "branch",
+        "base_sha",
+        "worktree",
+        "created_at",
+        "last_touch",
+        "expires_at",
+        "ziel",
+        "intended_pr",
+        "ephemeral",
+    ):
+        assert feld in lease
+
+
+def test_should_write_empty_claude_session_without_environment(tmp_path):
+    """Gegenprobe: ohne Variable ein leeres Feld — kein erfundener Wert."""
+    lease = _start_lease(tmp_path)
+    assert lease["claude_session"] == ""

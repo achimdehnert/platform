@@ -1,4 +1,4 @@
-"""Drill für das Gate `secret-leak-via-safe-pattern` (block_env_cat.sh v4).
+"""Drill für das Gate `secret-leak-via-safe-pattern` (block_env_cat.sh v6).
 
 Jeder Block-Fall ist ein realer Leak aus einem Retro: `cat .env` (2026-07-03 F1),
 `cut -d= -f1` auf Nicht-KV-Datei + Glob-Loop (f4a546 #1, 2026-07-10),
@@ -140,3 +140,78 @@ def test_should_let_a_quoted_mention_in_an_issue_body_pass():
 def test_should_let_the_tolerant_reader_pass():
     """Negativkontrolle: der dokumentierte Weg bleibt frei."""
     assert _entscheidung("WERT=$(tools/secret_lesen.sh synthetic_api_key)") == "allow"
+
+
+# --- v6: Ablaufverfolgung + Umgebungs-Kommando (platform#3428, 2026-09-23) ----
+#
+# Positivkontrolle ist der Realfall: ein entfernt aufgerufener Befehl unter
+# Ablaufverfolgung liest die Umgebung eines Containers in eine Variable. Die
+# v5-Fassung von origin/main laesst alle Block-Faelle dieses Abschnitts durch
+# (gefahren am 2026-10-05). Gegenproben: jede Haelfte allein bleibt frei.
+
+_INSPECT = "docker inspect synthetic-app --format '{{.Config.Env}}'"
+
+
+def test_should_block_remote_xtrace_around_container_env():
+    kommando = f"ssh synthetic-host \"bash -x -c 'E=$({_INSPECT}); echo fertig'\""
+    assert _entscheidung(kommando) == "deny"
+
+
+def test_should_block_set_x_before_an_env_dump():
+    assert _entscheidung("set -x; WERTE=$(printenv); echo fertig") == "deny"
+    assert _entscheidung("set -o xtrace && docker compose -f c.yml config") == "deny"
+
+
+def test_should_block_xtrace_on_a_local_script_that_reads_container_env(tmp_path):
+    skript = tmp_path / "diagnose.sh"
+    skript.write_text(f"#!/bin/bash\nE=$({_INSPECT})\necho fertig\n")
+    assert _entscheidung(f"bash -x {skript}") == "deny"
+
+
+def test_should_let_xtrace_without_an_env_dump_pass():
+    """Gegenprobe: Ablaufverfolgung allein ist ein legitimes Werkzeug."""
+    assert _entscheidung("set -x; make build; set +x") == "allow"
+    assert _entscheidung("ssh synthetic-host 'bash -x /opt/app/start.sh'") == "allow"
+
+
+def test_should_let_an_env_dump_without_xtrace_pass():
+    """Gegenprobe: das Umgebungs-Kommando allein ist nicht Sache DIESER Regel."""
+    assert _entscheidung(f"{_INSPECT} | grep -o '^[A-Z_]*='") == "allow"
+    assert _entscheidung("env PYTHONPATH=. python3 -m pytest -x tests/") == "allow"
+
+
+def test_should_let_a_quoted_trace_recipe_in_an_issue_body_pass():
+    """Gegenprobe (v3-Lehre): ein Zitat in Prosa ist kein Befehlstext."""
+    kommando = 'gh issue create --title x --body "Nie set -x mit printenv kombinieren"'
+    assert _entscheidung(kommando) == "allow"
+
+
+# --- v6: eingebettete Notiz (Fehlalarm 2026-09-24) ----------------------------
+
+
+def test_should_let_a_note_that_mentions_a_secret_path_pass():
+    """Realfall: `cat > notiz <<'EOF'` mit dem PFAD einer Token-Datei im Text."""
+    kommando = (
+        f"cat > /tmp/notiz.md <<'EOF'\nDer Wert liegt in {_DIR}/synthetic_token\nEOF"
+    )
+    assert _entscheidung(kommando) == "allow"
+
+
+def test_should_still_block_a_reader_after_the_note():
+    """Gegenprobe: nur der Rumpf faellt weg, nicht das Kommando dahinter."""
+    kommando = f"cat > /tmp/notiz.md <<'EOF'\nText\nEOF\ncat {_DIR}/synthetic_token"
+    assert _entscheidung(kommando) == "deny"
+
+
+def test_should_still_check_a_heredoc_that_feeds_a_shell():
+    """Gegenprobe: ein Heredoc an eine Shell oder in eine Pipe ist Programmtext."""
+    rumpf = f"cat {_DIR}/synthetic_token"
+    assert _entscheidung(f"bash <<'EOF'\n{rumpf}\nEOF") == "deny"
+    assert _entscheidung(f"cat <<'EOF' | sh\n{rumpf}\nEOF") == "deny"
+
+
+def test_should_still_check_a_note_with_unquoted_delimiter():
+    """Gegenprobe: ohne Quote expandiert die Shell den Rumpf, er bleibt Programmtext."""
+    rumpf = f"$(cat {_DIR}/synthetic_token)"
+    assert _entscheidung(f"cat > /tmp/notiz.md <<EOF\n{rumpf}\nEOF") == "deny"
+    assert _entscheidung(f"cat > /tmp/notiz.md <<'EOF'\n{rumpf}\nEOF") == "allow"

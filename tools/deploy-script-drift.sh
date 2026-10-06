@@ -67,13 +67,17 @@ SRC_VER=$(grep -m1 '^DEPLOY_SH_VERSION=' "$SRC" | cut -d'"' -f2 || echo "unversi
 # Deploy aus. Das unterscheidet der Lauf unten an der fehlenden Datei, nicht an einer
 # zweiten Namensliste, die genauso veralten würde.
 #
-# `ssh_via`/`ssh_shell`/`betrieb` gehen mit — GPU-Box/GX10 haben den Schlüssel nur
+# `ssh_via`/`ssh_shell` gehen mit — GPU-Box/GX10 haben den Schlüssel nur
 # auf dem prod-Hop (kein wg0-Peer von hier aus) und antworten deshalb nur über ein
 # verschachteltes ssh, analog tools/flottenbild.py messe_knoten() (platform#2774
 # Befund: der Melder erklärte beide für „nicht erreichbar", obwohl sie vom Hop aus
-# antworten).
-mapfile -t TARGETS < <(python3 - "$HOSTS_YAML" <<'PY'
+# antworten). Die fünfte Spalte ist `auf_zuruf`, wenn eine gültige Deklaration
+# besteht — gelesen über befund_journal.deklarationen_fuer(), dieselbe Funktion
+# wie in den Python-Meldern, mit Ablaufdatum (#3495 V2).
+mapfile -t TARGETS < <(python3 - "$HOSTS_YAML" "$PLATFORM_DIR/tools" <<'PY'
 import sys, yaml
+sys.path.insert(0, sys.argv[2])
+import befund_journal
 d = yaml.safe_load(open(sys.argv[1]))
 for name, h in sorted((d.get("hosts") or {}).items()):
     if isinstance(h, dict) and h.get("ssh"):
@@ -83,9 +87,14 @@ for name, h in sorted((d.get("hosts") or {}).items()):
         # rutschte eine Spalte nach vorn, gx10 meldete "nicht erreichbar" statt
         # "ohne Kopie" (gemessen 2026-09-03, platform#2774). "|" kollabiert nicht
         # und kommt in keinem der Felder vor.
+        betrieb = (
+            "auf_zuruf"
+            if befund_journal.deklarationen_fuer(name, art="auf_zuruf")
+            else ""
+        )
         print(
             f"{name}|{h['ssh']}|{h.get('ssh_via') or ''}|"
-            f"{h.get('ssh_shell') or ''}|{h.get('betrieb') or ''}"
+            f"{h.get('ssh_shell') or ''}|{betrieb}"
         )
 PY
 )

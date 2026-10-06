@@ -1,0 +1,25 @@
+{
+  "slug": "handover-auslagerung-verschluckt-offenes",
+  "mode": "blocking",
+  "owner": "achim",
+  "module": "scripts/checks/handover_auslagerung_check.py",
+  "drill": [
+    "tools/tests/test_handover_auslagerung_check.py"
+  ],
+  "built": "2026-09-08",
+  "ref": "platform#2980",
+  "faengt": [
+    {
+      "fall": "Stand-Block wandert ins Archiv, eine darin genannte OFFENE Issue-Nummer steht danach nirgends mehr im Handover",
+      "probe": "verschwundene-offene-referenz"
+    },
+    {
+      "fall": "Referenz nur im Markdown-Label statt in der URL gelesen (falscher Owner)",
+      "probe": "linktext-normalisierung"
+    }
+  ],
+  "positivkontrolle": {
+    "ref": "Zwei unabhaengige Belege. (1) RUECKWIRKEND: gegen den Commit von platform#2967 gerechnet (`verschwundene(git show 093a6aed^:AGENT_HANDOVER.md, git show 093a6aed:AGENT_HANDOVER.md)`) nennt der Check achimdehnert/robo-lab#66 und #81 - genau die beiden offenen Punkte, die dort wirklich verloren gingen (Befund platform#2974). (2) IM ECHTBETRIEB, wenige Stunden spaeter in platform#2983: beim Auslagern von Sitzung 8661c35d meldete er 19 verschwundene Referenzen, davon SIEBEN OPEN (billing-hub#52, odoo-hub#32, platform#2931/#2944/#2961/#2962/#2969); alle sieben wurden daraufhin als Faden 54-60 nachgetragen. Ohne den Check waeren sie still verschwunden. Gegenprobe: eine unveraenderte Datei und eine in die Fadenliste VERSCHOBENE Referenz erzeugen keinen Befund (test_should_stay_silent_when_the_reference_was_rescued_into_the_threads), und eine geschlossene Nummer darf mit dem Block gehen (test_should_let_a_closed_reference_go).",
+    "datum": "2026-09-08"
+  }
+}

@@ -4,7 +4,7 @@
 # Label `prod-b-server` (ADR-257: nie plain self-hosted, nie prod-server).
 #
 # Aufruf (lokal, braucht gh mit Admin auf dem Ziel-Repo):
-#   bash prod-b-runner.sh achimdehnert/coach-hub
+#   bash prod-b-runner.sh <org>/<repo>
 #
 # Gate autonomous-no-human-review (Welle #1695 Phase 0): nach der Registrierung
 # PFLICHT ein Beweis-Lauf in CI — Dummy-Job mit `runs-on: [self-hosted, prod-b-server]`

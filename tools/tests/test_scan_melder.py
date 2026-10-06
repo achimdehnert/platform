@@ -79,6 +79,39 @@ def test_should_report_each_stuck_file_only_once_per_window():
     assert sm.haengende([aelter], jetzt=JETZT)  # der Lauf bleibt trotzdem rot
 
 
+def test_should_alarm_copy_with_old_mtime_once_by_arrival_time():
+    """Realfall 2026-09-30 (doc-hub#19/#23): per Explorer kopiert, mtime 13 Tage alt.
+
+    Gemessen an der mtime lag die Datei sofort jenseits des Alarm-Fensters — fuenf
+    Tage rot, kein Alarm-Issue. Massgeblich ist die Ankunft im Ordner.
+    """
+    kopie = {**_datei("schleuse/scan-eingang/x.pdf", 13 * 24 * 60), "eingang": JETZT - 45 * MIN}
+    trotz = sm.BEOBACHTET_TROTZ_IGNORANZ
+    assert sm.haengende([kopie], jetzt=JETZT, neu_seit_min=60, beobachtet_trotz=trotz)
+    eine_stunde_spaeter = {**kopie, "eingang": JETZT - 105 * MIN}
+    assert sm.haengende([eine_stunde_spaeter], jetzt=JETZT, neu_seit_min=60, beobachtet_trotz=trotz) == []
+
+
+def test_should_take_arrival_from_ctime_on_real_filesystem(tmp_path):
+    """Invariante gegen das echte `find`: mtime zurueckgesetzt, Eingang bleibt jetzt."""
+    import os
+    import time
+
+    ordner = tmp_path / "achim" / "2026"
+    ordner.mkdir(parents=True)
+    datei = ordner / "Rechnung (2).pdf"
+    datei.write_bytes(b"%PDF-1.7\n")
+    alt = time.time() - 13 * 24 * 3600
+    os.utime(datei, (alt, alt))
+    dateien, lesbar = sm.sammle(str(tmp_path), None)
+    assert lesbar
+    [d] = dateien
+    assert d["pfad"] == "achim/2026/Rechnung (2).pdf"
+    assert abs(d["mtime"] - alt) < 2
+    assert time.time() - d["eingang"] < 60
+    assert d["groesse"] == 9
+
+
 def test_should_keep_folder_and_file_names_out_of_short_line():
     """Repo und Actions-Log sind oeffentlich — die Kurzzeile nennt nur Zahlen."""
     treffer = sm.haengende([_datei("tilly/07092026101932.pdf", 23 * 60)], jetzt=JETZT)

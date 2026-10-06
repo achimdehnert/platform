@@ -11,6 +11,9 @@ on:
       - "tools/adr_draft_guard.py"
       - "tools/adr_umsetzungsstand_check.py"
       - "scripts/gen_adr_index.py"
+      # Gate-Registry: eine `gate:`-Belegzeile (KONZ-065) zeigt auf einen Slug
+      # dort — verschwindet er, muss das ADR rot werden, nicht die Registry.
+      - "docs/governance/gates/**"
       # Diese Datei selbst — sonst ist der Workflow gegen Aenderungen an sich
       # blind: ein PR, der NUR hier editiert, laeuft nie, und die Aenderung
       # erreicht main ohne einen einzigen Lauf. Genau das war bei der Umstellung
@@ -27,6 +30,7 @@ on:
       - "tools/adr_draft_guard.py"
       - "tools/adr_umsetzungsstand_check.py"
       - "scripts/gen_adr_index.py"
+      - "docs/governance/gates/**"
       - ".github/workflows/adr-validate.yml"
   schedule:
     - cron: "0 6 * * 1"  # Weekly Monday 06:00 UTC
@@ -148,20 +152,44 @@ jobs:
       # ADR-088, ADR-109, ADR-130, ADR-131, ADR-145 je eins; jedes gegen git-Historie
       # bzw. Ziel-Repo verifiziert (0 bekannte Falsch-Positive).
       # platform#1318 raeumt genau diese 10 ADRs auf — auf dessen Stand gemessen:
-      # 0 Findings. Promotion zu gating (`--gate` setzen, `exit 0` entfernen) erst
-      # nach Merge von #1318 — vgl. feedback_advisory_scanner_reactivation_needs_baseline
+      # 0 Findings. Promotion zu gating (`--gate` setzen) erst nach sauberer
+      # Baseline — vgl. feedback_advisory_scanner_reactivation_needs_baseline
       # (dauerroter non-blocking Check = Alarm-Muedigkeit).
-      - name: ADR implementation_evidence-Pfade (SUGGEST, non-gating)
-        run: |
-          set +e
-          python3 tools/adr_evidence_paths.py --format github
-          exit 0
+      #
+      # KONZ-platform-065 (Owner „D1–D4 ja", 2026-09-23): Promotion auf die
+      # Pilotliste `docs/adr/.adr-evidence-pilot` verengt (10 ADRs mit typisierten
+      # Belegzeilen path:/gate:/test:/pr:). Dort ist ein Finding rot (`--gate-pilot`
+      # → Exit 1, `::error`); ausserhalb der Liste exitet das Skript weiter 0 und
+      # meldet `::warning`. Kein `set +e`/`exit 0` mehr — der Exit-Code IST das Gate.
+      # Kill-Gate (KONZ-065): >10 % Falsch-Positive ueber 30 Tage → `--gate-pilot`
+      # hier entfernen und die Pilotliste loeschen.
+      - name: ADR implementation_evidence (SUGGEST; Pilotliste gating, KONZ-065)
+        run: python3 tools/adr_evidence_paths.py --format github --gate-pilot
 
-      # ADR Index frisch? (gating) — regeneriert index.json + INDEX.md und vergleicht
-      # gegen committed Stand. Datum-sensitive Zeilen ("generated", Kommentar-Header)
-      # werden beim Diff ausgeblendet, damit der Check tagesstabil ist.
-      # Lösung bei Rot: python3 scripts/gen_adr_index.py lokal ausführen + committen.
-      - name: ADR index freshness (gating)
+  # ADR Index frisch? — regeneriert index.json + INDEX.md und vergleicht gegen den
+  # committeten Stand. Datum-sensitive Zeilen werden beim Diff ausgeblendet, damit
+  # der Check tagesstabil ist. Lösung bei Rot: `python3 scripts/gen_adr_index.py`
+  # lokal ausführen und das Ergebnis committen.
+  #
+  # **Eigener Job seit 2026-09-22 (Retro 8946e8, Befund 12).** Vorher lief er als
+  # Schritt in `platform-checks` und hieß dort „(gating)" — der Job stand aber
+  # nicht in den Required Checks des Rulesets. Folge: ADR-249 wurde mit
+  # `status: accepted` in der Datei und `proposed` im Index gemergt, während der
+  # Schritt zweimal rot war und niemanden aufhielt. Ein Etikett, das nichts
+  # verspricht, ist schlimmer als keins: es lässt den Leser glauben, da sei ein Tor.
+  # Als eigener Job ist er required-fähig, ohne die bewusst als `SUGGEST` geführten
+  # Nachbarschritte mitzublockieren.
+  adr-index-freshness:
+    name: ADR index freshness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
+
+      - name: Index regenerieren und vergleichen
         run: |
           cp docs/adr/index.json docs/adr/index.json.bak
           cp docs/adr/INDEX.md docs/adr/INDEX.md.bak

@@ -9,6 +9,7 @@ Zwei Dinge muessen bewiesen sein, nicht nur behauptet:
 import base64
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -24,11 +25,13 @@ from pr_merge_sa import (  # noqa: E402
     ist_doku,
     ist_governance,
     regeln,
+    regeln_fuer,
     review_ist_pflicht,
 )
 
 REGELN = {
-    "deckung": {"W0": "M0", "W1": "M1", "W2": "M2", "W3": "M3"},
+    # W3: M1 seit 2026-08-27 (Pruefrage), Block angeglichen 2026-09-16 (#3244)
+    "deckung": {"W0": "M0", "W1": "M1", "W2": "M2", "W3": "M1"},
     "doku_glob": ["*.md", "docs/**", "README*", "CHANGELOG*"],
     "governance_pfade": [
         ".github/",
@@ -40,6 +43,7 @@ REGELN = {
         "docs/konzepte/KONZ-platform-025-lotsen-charta.md",
         "CODEOWNERS",
         "tools/pr_merge_sa.py",
+        "tools/sandbox/",
     ],
     "sync_only_repos": ["achimdehnert/platform"],
 }
@@ -94,6 +98,58 @@ def test_should_accept_staging_deploy_after_approval():
     assert u.erlaubt is True
 
 
+DOKU_FREI = {**REGELN, "doku_ohne_mandat": True}
+
+
+def test_should_accept_doc_only_pr_in_deploy_repo_without_mandate():
+    """Owner-Wort 2026-10-05: reine Doku braucht kein Mandat, auch wenn der
+    Merge einen Deploy anstoesst."""
+    for wirkung in ("W1", "W2", "W3"):
+        u = classify(
+            _facts(wirkung=wirkung, mandat="M0", files=["docs/x.md", "README.md"]),
+            DOKU_FREI,
+        )
+        assert u.erlaubt is True, wirkung
+
+
+def test_should_keep_mandate_for_doc_only_pr_when_switch_is_off():
+    u = classify(_facts(wirkung="W2", mandat="M0", files=["docs/x.md"]), REGELN)
+    assert u.erlaubt is False
+    assert "M2" in u.grund
+
+
+def test_should_keep_mandate_when_one_file_is_not_doc():
+    u = classify(
+        _facts(
+            wirkung="W2", mandat="M0", files=["docs/x.md", "app/x.py"], checks_total=2
+        ),
+        DOKU_FREI,
+    )
+    assert u.erlaubt is False
+
+
+def test_should_keep_approval_for_governance_doc_despite_switch():
+    u = classify(
+        _facts(wirkung="W1", mandat="M0", files=["docs/adr/ADR-001.md"]), DOKU_FREI
+    )
+    assert u.erlaubt is False
+    assert "Governance-Pfad" in u.grund
+
+
+def test_should_keep_deploy_word_for_doc_pr_with_publish_workflow():
+    u = classify(
+        _facts(
+            wirkung="W3",
+            mandat="M0",
+            files=["README.md"],
+            pruef_pflicht=["Publish-Workflow"],
+        ),
+        DOKU_FREI,
+    )
+    assert u.erlaubt is False
+    assert "M3" in u.grund
+
+
 def test_should_accept_prod_when_approval_names_it():
     u = classify(
         _facts(wirkung="W3", mandat="M3", files=["app/x.py"], checks_total=2), REGELN
@@ -104,25 +160,41 @@ def test_should_accept_prod_when_approval_names_it():
 # --- Ablehnungen: jede mit Grund ----------------------------------------------
 
 
-def test_should_reject_prod_deploy_with_plain_approval():
+def test_should_reject_prod_deploy_with_plain_approval_when_pruefrage_greift():
+    """Greift die Pruefrage (hier: Datenmigration), reicht ein plain Approval nicht."""
     u = classify(
-        _facts(wirkung="W3", mandat="M2", files=["app/x.py"], checks_total=2), REGELN
+        _facts(
+            wirkung="W3",
+            mandat="M2",
+            files=["app/x.py"],
+            checks_total=2,
+            pruef_pflicht=["Datenmigration im Diff"],
+        ),
+        REGELN,
     )
     assert u.erlaubt is False and "fehlt: M3" in u.grund
 
 
-def test_should_reject_doc_pr_in_prod_repo_without_named_approval():
-    """Der Fall, an dem SA-6 zu weit war: Doku aendert nichts, der Deploy laeuft
-    trotzdem."""
+def test_should_accept_doc_pr_in_prod_repo_with_auftrag():
+    """Bis 2026-08-27 brauchte das M3 (SA-6 war zu weit, Auto-Deploy lief trotzdem).
+    Seit der Pruefrage ist Auto-Deploy Normalbetrieb: Auftrag (M1) genuegt, wenn
+    keine der vier Klassen greift."""
     u = classify(_facts(wirkung="W3", mandat="M1", files=["README.md"]), REGELN)
-    assert u.erlaubt is False and "fehlt: M3" in u.grund
+    assert u.erlaubt is True
 
 
 def test_should_name_the_deploy_vermerk_path_when_w3_lacks_m3():
     """#2812 (b): die Meldung nennt beide Wege zu M3, nicht nur den generischen
     Ablehnungssatz."""
     u = classify(
-        _facts(wirkung="W3", mandat="M0", files=["app/x.py"], checks_total=2), REGELN
+        _facts(
+            wirkung="W3",
+            mandat="M0",
+            files=["app/x.py"],
+            checks_total=2,
+            pruef_pflicht=["Publish-Workflow auf main (irreversibel)"],
+        ),
+        REGELN,
     )
     assert u.erlaubt is False
     assert "fehlt: M3" in u.grund
@@ -258,6 +330,193 @@ def test_should_read_rules_from_the_policy_itself():
     assert aus_policy.get("sync_only_repos") == REGELN["sync_only_repos"]
 
 
+def test_should_keep_base_rules_outside_profiled_orgs():
+    r = {**REGELN, "org_profile": {"iilsandbox": {"actions_aus": True}}}
+    gerufen = []
+    profil, repo_id = regeln_fuer(
+        "achimdehnert/platform", r, aufloesen=lambda x: gerufen.append(x)
+    )
+    assert profil is r and repo_id is None and gerufen == []
+
+
+# --- Org-Profil (ADR-308 §4.4): Sandbox-Org mit M0, nur wenn gemessen -------------
+
+SANDBOX = {**REGELN, "org_profile": {"iilsandbox": {"actions_aus": True}}}
+
+
+def _profil(repo="iilsandbox/dev-hub", aufgeloest=None, an=False):
+    return regeln_fuer(
+        repo,
+        SANDBOX,
+        aufloesen=lambda x: (aufgeloest or x, 4711),
+        actions=lambda x: an,
+    )
+
+
+def test_should_merge_sandbox_code_pr_without_checks_and_mandat():
+    profil, repo_id = _profil()
+    assert repo_id == 4711
+    u = classify(
+        _facts(repo="iilsandbox/dev-hub", mandat="M0", files=["apps/x.py"]), profil
+    )
+    assert u.erlaubt is True
+
+
+def test_should_still_reject_code_pr_without_checks_outside_profile():
+    u = classify(_facts(mandat="M0", files=["apps/x.py"]), REGELN)
+    assert u.erlaubt is False
+
+
+def test_should_keep_governance_paths_under_approval_in_sandbox():
+    profil, _ = _profil()
+    u = classify(
+        _facts(repo="iilsandbox/platform", mandat="M0", files=["policies/x.md"]),
+        profil,
+    )
+    assert u.erlaubt is False and "Governance" in u.grund
+
+
+def test_should_refuse_profile_when_repo_was_transferred_out_of_sandbox():
+    with pytest.raises(Unklar, match="achimdehnert/dev-hub"):
+        _profil(aufgeloest="achimdehnert/dev-hub")
+
+
+def test_should_refuse_profile_when_actions_run_in_sandbox():
+    with pytest.raises(Unklar, match="Actions"):
+        _profil(an=True)
+
+
+# --- Profil-Negativtests ADR-308 §8.2 (Rest steht oben und in selbstpruefung) ----
+
+
+@pytest.mark.parametrize(
+    "repo", ["achimdehnert/platform", "iilgmbh/risk-hub", "iilsandbox-fake/dev-hub"]
+)
+def test_should_apply_production_rules_to_production_targets(repo):
+    profil, repo_id = regeln_fuer(
+        repo, SANDBOX, aufloesen=pytest.fail, actions=pytest.fail
+    )
+    assert profil is SANDBOX and repo_id is None
+    u = classify(_facts(repo=repo, mandat="M0", files=["apps/x.py"]), profil)
+    assert u.erlaubt is False
+
+
+@pytest.mark.parametrize(
+    "org_profile",
+    [
+        {"iilsandbox": {"actions_aus": True}, "IILSandbox": {"actions_aus": True}},
+        {"iilsandbox": {"actions_aus": True, "deckung": {"W3": "M0"}}},
+        {"iilsandbox": {"action_aus": True}},
+        {"iilsandbox": {"actions_aus": False}},
+        {"iilsandbox": {}},
+        {"iilsandbox": True},
+        ["iilsandbox"],
+    ],
+)
+def test_should_refuse_contradictory_or_unknown_profile(org_profile):
+    r = {**REGELN, "org_profile": org_profile}
+    for repo in ("iilsandbox/dev-hub", "achimdehnert/platform"):
+        with pytest.raises(Unklar, match="org_profile"):
+            regeln_fuer(repo, r, aufloesen=pytest.fail, actions=pytest.fail)
+
+
+def test_should_accept_the_ratified_profile_from_the_policy():
+    profil, repo_id = regeln_fuer(
+        "iilsandbox/dev-hub",
+        regeln(),
+        aufloesen=lambda x: (x, 1),
+        actions=lambda x: False,
+    )
+    assert profil["actions_aus"] is True and repo_id == 1
+
+
+def test_should_not_merge_when_repo_target_changed_after_check(monkeypatch, capsys):
+    import pr_merge_sa
+
+    gemergt = []
+    ids = iter([4711, 9999])
+    monkeypatch.setattr(pr_merge_sa, "regeln", lambda *_a, **_k: SANDBOX)
+    monkeypatch.setattr(pr_merge_sa, "aufgeloestes_repo", lambda x: (x, next(ids)))
+    monkeypatch.setattr(pr_merge_sa, "actions_an", lambda x: False)
+    monkeypatch.setattr(
+        pr_merge_sa,
+        "gather",
+        lambda *_a, **_k: _facts(repo="iilsandbox/dev-hub", mandat="M0"),
+    )
+    monkeypatch.setattr(pr_merge_sa, "journal", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        pr_merge_sa.subprocess, "run", lambda *a, **k: gemergt.append(a) or None
+    )
+    assert pr_merge_sa.main(["1", "iilsandbox/dev-hub"]) == 3
+    assert gemergt == []
+    assert "Ziel gewechselt" in capsys.readouterr().err
+
+
+class _Lauf:
+    returncode = 0
+    stderr = ""
+
+
+def _merge_main(monkeypatch, repo, fakten, regeln_block=REGELN):
+    import pr_merge_sa
+
+    befehle = []
+    monkeypatch.setattr(pr_merge_sa, "regeln", lambda *_a, **_k: regeln_block)
+    monkeypatch.setattr(pr_merge_sa, "aufgeloestes_repo", lambda x: (x, 4711))
+    monkeypatch.setattr(pr_merge_sa, "gather", lambda *_a, **_k: fakten)
+    monkeypatch.setattr(pr_merge_sa, "journal", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        pr_merge_sa.subprocess, "run", lambda b, **k: befehle.append(b) or _Lauf()
+    )
+    return pr_merge_sa.main(["1", repo]), befehle
+
+
+def test_should_pin_merge_to_checked_head_commit(monkeypatch):
+    code, befehle = _merge_main(
+        monkeypatch, "owner/repo", _facts(mandat="M0", head_sha="abc123")
+    )
+    assert code == 0
+    befehl = befehle[0]
+    assert befehl[befehl.index("--match-head-commit") + 1] == "abc123"
+
+
+def test_should_not_merge_when_head_commit_is_unknown(monkeypatch, capsys):
+    code, befehle = _merge_main(monkeypatch, "owner/repo", _facts(mandat="M0"))
+    assert code == 3
+    assert befehle == []
+    assert "Kopf-Commit" in capsys.readouterr().err
+
+
+def test_should_not_merge_when_actions_turned_on_after_check(monkeypatch, capsys):
+    import pr_merge_sa
+
+    messungen = iter([False, True])
+    monkeypatch.setattr(pr_merge_sa, "actions_an", lambda x: next(messungen))
+    code, befehle = _merge_main(
+        monkeypatch,
+        "iilsandbox/dev-hub",
+        _facts(repo="iilsandbox/dev-hub", mandat="M0", head_sha="abc123"),
+        SANDBOX,
+    )
+    assert code == 3
+    assert befehle == []
+    assert "Actions an" in capsys.readouterr().err
+
+
+def test_should_merge_sandbox_pr_when_actions_stay_off(monkeypatch):
+    import pr_merge_sa
+
+    monkeypatch.setattr(pr_merge_sa, "actions_an", lambda x: False)
+    code, befehle = _merge_main(
+        monkeypatch,
+        "iilsandbox/dev-hub",
+        _facts(repo="iilsandbox/dev-hub", mandat="M0", head_sha="abc123"),
+        SANDBOX,
+    )
+    assert code == 0
+    assert "--match-head-commit" in befehle[0]
+
+
 def test_should_raise_unklar_when_policy_has_no_rule_block(tmp_path):
     leer = tmp_path / "ohne.md"
     leer.write_text("# keine Regel hier\n")
@@ -282,10 +541,24 @@ def test_should_recognize_doc_paths(pfad, erwartet):
 
 
 @pytest.mark.parametrize(
-    "pfad", [".github/workflows/ci.yml", "CODEOWNERS", "policies/x.md"]
+    "pfad",
+    [
+        ".github/workflows/ci.yml",
+        "CODEOWNERS",
+        "policies/x.md",
+        "tools/sandbox/waechter.py",
+        "tools/sandbox/selbstpruefung.py",
+    ],
 )
 def test_should_recognize_governance_paths(pfad):
     assert ist_governance(pfad, REGELN["governance_pfade"]) is True
+
+
+@pytest.mark.parametrize(
+    "pfad", ["tools/sandbox_hilfe.py", "tools/tests/test_sandbox_waechter.py"]
+)
+def test_should_not_treat_sandbox_lookalikes_as_governance(pfad):
+    assert ist_governance(pfad, REGELN["governance_pfade"]) is False
 
 
 # --- Journal: ohne Zaehlung keine pruefbare Ratsche ---------------------------
@@ -304,6 +577,167 @@ def test_should_journal_every_decision(monkeypatch, tmp_path):
     assert len(zeilen) == 1
     assert zeilen[0]["pr"] == 7 and zeilen[0]["erlaubt"] is True
     assert zeilen[0]["dry_run"] is True
+    assert datetime.fromisoformat(zeilen[0]["ts"]).tzinfo is not None
+
+
+class _Abgelehnt:
+    returncode = 1
+    stderr = "GraphQL: Head branch was modified. Review and try the merge again."
+
+
+def _journal_nach_merge(monkeypatch, fakten, lauf, zeilen):
+    """main() mit echtem Merge-Pfad; Journalzeilen landen in `zeilen`."""
+    import pr_merge_sa
+
+    monkeypatch.setattr(pr_merge_sa, "regeln", lambda *_a, **_k: REGELN)
+    monkeypatch.setattr(pr_merge_sa, "aufgeloestes_repo", lambda x: (x, 4711))
+    monkeypatch.setattr(pr_merge_sa, "gather", lambda *_a, **_k: fakten)
+    monkeypatch.setattr(pr_merge_sa, "journal", zeilen.append)
+    monkeypatch.setattr(pr_merge_sa.subprocess, "run", lauf)
+    return pr_merge_sa.main(["1", "owner/repo"])
+
+
+def test_should_journal_rejected_merge_as_not_merged(monkeypatch):
+    """Realfall S9-Gegenprobe (#3724): GitHub lehnte ab, das Journal sagte nur
+    „erlaubt“ — und der Sandbox-Benchmark zaehlte es als Merge."""
+    zeilen = []
+    code = _journal_nach_merge(
+        monkeypatch,
+        _facts(mandat="M0", head_sha="abc123"),
+        lambda b, **k: _Abgelehnt(),
+        zeilen,
+    )
+    assert code == 3
+    assert len(zeilen) == 1
+    assert zeilen[0]["erlaubt"] is True
+    assert (zeilen[0]["ergebnis"], zeilen[0]["exit"]) == ("abgelehnt", 3)
+
+
+def test_should_journal_merged_result_after_successful_merge(monkeypatch):
+    import pr_merge_sa
+
+    zeilen = []
+    code = _journal_nach_merge(
+        monkeypatch,
+        _facts(mandat="M0", head_sha="abc123"),
+        lambda b, **k: _Lauf(),
+        zeilen,
+    )
+    assert code == 0
+    assert len(zeilen) == 1
+    assert zeilen[0]["ergebnis"] == pr_merge_sa.ERGEBNIS_GEMERGT
+
+
+def test_should_journal_auto_merge_when_checks_still_run(monkeypatch):
+    import pr_merge_sa
+
+    zeilen = []
+    code = _journal_nach_merge(
+        monkeypatch,
+        _facts(mandat="M0", head_sha="abc123", checks_total=1, checks_pending=1),
+        lambda b, **k: _Lauf(),
+        zeilen,
+    )
+    assert code == 0
+    assert zeilen[0]["ergebnis"] == pr_merge_sa.ERGEBNIS_AUTO_MERGE
+
+
+def test_should_journal_unklar_when_check_before_merge_fails(monkeypatch):
+    zeilen, gerufen = [], []
+    code = _journal_nach_merge(
+        monkeypatch, _facts(mandat="M0"), lambda b, **k: gerufen.append(b), zeilen
+    )
+    assert code == 3
+    assert gerufen == []
+    assert (zeilen[0]["ergebnis"], zeilen[0]["exit"]) == ("unklar", 3)
+
+
+def test_should_journal_once_even_when_merge_call_crashes(monkeypatch):
+    def _absturz(b, **k):
+        raise FileNotFoundError("gh")
+
+    zeilen = []
+    with pytest.raises(FileNotFoundError):
+        _journal_nach_merge(
+            monkeypatch, _facts(mandat="M0", head_sha="abc123"), _absturz, zeilen
+        )
+    assert len(zeilen) == 1
+    assert zeilen[0]["ergebnis"] == "abgebrochen"
+
+
+def _journal_in_datei(monkeypatch, tmp_path, fakten):
+    """main() ohne Merge-Pfad gegen ein Journal in tmp_path; gibt dessen Zeilen zurueck."""
+    import pr_merge_sa
+
+    ziel = tmp_path / "journal.jsonl"
+    monkeypatch.setattr(pr_merge_sa, "JOURNAL", ziel)
+    monkeypatch.setattr(pr_merge_sa, "regeln", lambda *_a, **_k: REGELN)
+    monkeypatch.setattr(pr_merge_sa, "gather", lambda *_a, **_k: fakten)
+
+    def lauf(*argumente):
+        code = pr_merge_sa.main(["7", "owner/repo", *argumente])
+        return code, [json.loads(z) for z in ziel.read_text().splitlines()]
+
+    return lauf
+
+
+def test_should_journal_already_merged_pr_apart_from_missing_mandate(
+    monkeypatch, tmp_path
+):
+    """Rueckschau platform#3685: 49 von 353 „Abbruechen“ trafen einen PR, der
+    schon gemergt war — das Ziel war erreicht, kein Mandat fehlte."""
+    import pr_merge_sa
+
+    lauf = _journal_in_datei(monkeypatch, tmp_path, _facts(state="MERGED"))
+    code, zeilen = lauf()
+    assert code == 2
+    assert zeilen[0]["erlaubt"] is False
+    assert zeilen[0]["ergebnis"] == pr_merge_sa.ERGEBNIS_BEREITS_GEMERGT
+
+
+def test_should_mark_repeat_when_previous_attempt_had_same_reason(
+    monkeypatch, tmp_path, capsys
+):
+    """Rueckschau platform#3685: 72 Abbrueche trugen woertlich den Grund des
+    vorigen Versuchs auf denselben PR."""
+    import pr_merge_sa
+
+    lauf = _journal_in_datei(monkeypatch, tmp_path, _facts(wirkung="W1", mandat="M0"))
+    code, zeilen = lauf()
+    assert code == 2 and "wiederholung" not in zeilen[0]
+    assert pr_merge_sa.HINWEIS_WIEDERHOLUNG not in capsys.readouterr().err
+
+    code, zeilen = lauf()
+    assert code == 2 and zeilen[1]["wiederholung"] is True
+    assert zeilen[1]["ergebnis"] == "nicht_gedeckt"
+    assert pr_merge_sa.HINWEIS_WIEDERHOLUNG in capsys.readouterr().err
+
+
+def test_should_not_mark_repeat_for_dry_run_or_changed_reason(monkeypatch, tmp_path):
+    import pr_merge_sa
+
+    lauf = _journal_in_datei(monkeypatch, tmp_path, _facts(wirkung="W1", mandat="M0"))
+    lauf()
+    _, zeilen = lauf("--dry-run")
+    assert "wiederholung" not in zeilen[1]
+
+    # Ein Trockenlauf dazwischen unterbricht die Kette nicht: der juengste
+    # echte Versuch bleibt der Massstab.
+    _, zeilen = lauf()
+    assert zeilen[2]["wiederholung"] is True
+
+    monkeypatch.setattr(
+        pr_merge_sa, "gather", lambda *_a, **_k: _facts(wirkung="W3", mandat="M0")
+    )
+    _, zeilen = lauf()
+    assert "wiederholung" not in zeilen[3]
+
+
+def test_should_not_mark_repeat_when_journal_is_unreadable(monkeypatch, tmp_path):
+    import pr_merge_sa
+
+    monkeypatch.setattr(pr_merge_sa, "JOURNAL", tmp_path / "fehlt.jsonl")
+    assert pr_merge_sa.ist_wiederholung("owner/repo", 7, "egal") is False
 
 
 def test_should_not_block_merge_when_journal_is_unwritable(monkeypatch, tmp_path):
@@ -411,6 +845,46 @@ def test_should_not_call_pending_checks_a_missing_review():
 def test_should_never_require_review_without_a_rule():
     pr = {"reviewDecision": "REVIEW_REQUIRED", "mergeStateStatus": "BLOCKED"}
     assert review_ist_pflicht(pr, hat_regel=False) is False
+
+
+def _rules_fehler(meldung: str):
+    import pr_merge_sa
+
+    def _fake(args):
+        raise pr_merge_sa.Unklar(f"gh {' '.join(args[:3])} …: {meldung}")
+
+    return _fake
+
+
+def test_should_read_no_rule_when_plan_has_no_rulesets(monkeypatch):
+    """Live-Test S9 (#3724), Wortlaut gemessen an iilsandbox/chat-hub#1: der
+    Free-Plan kennt keine Rulesets fuer private Repos, also gibt es keine Regel."""
+    import pr_merge_sa
+
+    monkeypatch.setattr(
+        pr_merge_sa,
+        "_gh",
+        _rules_fehler(
+            "gh: Upgrade to GitHub Pro or make this repository public to enable"
+            " this feature. (HTTP 403)"
+        ),
+    )
+    assert pr_merge_sa.pull_request_regel("iilsandbox/chat-hub", "main") is False
+
+
+@pytest.mark.parametrize(
+    "meldung",
+    [
+        "gh: API rate limit exceeded for user. (HTTP 403)",
+        "gh: Resource not accessible by personal access token (HTTP 403)",
+    ],
+)
+def test_should_stay_unklar_on_other_403_from_rules(monkeypatch, meldung):
+    import pr_merge_sa
+
+    monkeypatch.setattr(pr_merge_sa, "_gh", _rules_fehler(meldung))
+    with pytest.raises(pr_merge_sa.Unklar):
+        pr_merge_sa.pull_request_regel("iilsandbox/chat-hub", "main")
 
 
 def test_should_merge_clean_doc_pr_that_github_does_not_block():
@@ -642,3 +1116,139 @@ def test_should_prefer_review_m3_over_vermerk_and_never_read_the_issue(monkeypat
     }
     assert pr_merge_sa.mandat_des_prs("owner/repo", 2804, pr) == "M3"
     assert aufrufe == []
+
+
+# ── Pruefrage (#3244): W3 braucht M1, M3 nur bei mechanisch erkannter Klasse ──
+
+
+def test_should_cover_w3_with_m1_when_pruefrage_finds_nothing():
+    """Auto-Deploy ist Normalbetrieb (Policy 2026-08-27): CI-gruen + Auftrag reicht."""
+    f = _facts(wirkung="W3", mandat="M1", files=["apps/core/x.py"], checks_total=3)
+    v = classify(f, REGELN)
+    assert v.erlaubt, v.grund
+
+
+def test_should_still_need_m3_for_w3_when_migration_in_diff():
+    f = _facts(
+        wirkung="W3",
+        mandat="M1",
+        files=["apps/core/x.py"],
+        checks_total=3,
+        pruef_pflicht=["Datenmigration im Diff"],
+    )
+    v = classify(f, REGELN)
+    assert not v.erlaubt
+    assert "M3" in v.grund and "Datenmigration" in v.grund
+
+
+def test_should_find_migration_and_publish_as_pruef_pflicht(monkeypatch):
+    import pr_merge_sa
+
+    publish = (
+        "on:\n  push:\n    branches: [main]\njobs:\n  p:\n    run: twine upload pypi\n"
+    )
+    monkeypatch.setattr(pr_merge_sa, "workflow_texte", lambda repo: [publish])
+    gruende = pr_merge_sa.pruef_pflicht_gruende(
+        "owner/app", ["apps/x/migrations/0002_y.py"], REGELN
+    )
+    assert gruende == [
+        "Datenmigration im Diff",
+        "Publish-Workflow auf main (irreversibel)",
+    ]
+    assert pr_merge_sa.pruef_pflicht_gruende("owner/app", ["docs/x.md"], REGELN) == [
+        "Publish-Workflow auf main (irreversibel)"
+    ]
+    monkeypatch.setattr(pr_merge_sa, "workflow_texte", lambda repo: [])
+    assert pr_merge_sa.pruef_pflicht_gruende("owner/app", ["docs/x.md"], REGELN) == []
+
+
+_PUSH_MAIN = "on:\n  push:\n    branches: [main]\n  pull_request:\njobs:\n  t:\n"
+
+
+def _urteil(monkeypatch, *texte):
+    """Wirkung und Pruef-Pflicht eines Code-PR bei den gegebenen Workflow-Texten."""
+    import pr_merge_sa
+
+    monkeypatch.setattr(pr_merge_sa, "workflow_texte", lambda repo: list(texte))
+    return (
+        pr_merge_sa.wirkung_des_merges("owner/app", ["app/x.py"], REGELN),
+        pr_merge_sa.pruef_pflicht_gruende("owner/app", ["app/x.py"], REGELN),
+    )
+
+
+def test_should_not_treat_a_deploy_directory_in_a_test_run_as_deploy(monkeypatch):
+    """Realfall robo-lab: der Testlauf checkt Dateien unter `/deploy/…` aus."""
+    text = _PUSH_MAIN + (
+        "    run: git sparse-checkout set --no-cone /deploy/pre_train/g1/motion.pt\n"
+        "    run: shellcheck deploy/*.sh && ruff check deploy/ tests/\n"
+    )
+    assert _urteil(monkeypatch, text) == ("W0", [])
+
+
+def test_should_ignore_marker_words_in_comments(monkeypatch):
+    text = (
+        "# Der Deploy laeuft NICHT automatisch, Prod bleibt unberuehrt.\n"
+        + _PUSH_MAIN
+        + "    run: pytest  # vgl. publish-pypi.yml, ghcr.io\n"
+    )
+    assert _urteil(monkeypatch, text) == ("W0", [])
+
+
+def test_should_not_count_main_in_a_comment_as_trigger(monkeypatch):
+    """Realfall illustration-hub: `KEIN Trigger auf main` stand nur im Kommentar."""
+    text = (
+        "# KEIN Trigger auf `main`.\non:\n  push:\n    tags: ['v*']\n"
+        "jobs:\n  deploy:\n    name: Deploy production\n"
+    )
+    assert _urteil(monkeypatch, text) == ("W0", [])
+
+
+def test_should_not_treat_the_shared_package_test_run_as_publish(monkeypatch):
+    text = _PUSH_MAIN + (
+        "    uses: iilgmbh/shared-ci/.github/workflows/_ci-pypi.yml@v1.1.11\n"
+    )
+    assert _urteil(monkeypatch, text) == ("W0", [])
+
+
+def test_should_keep_deploy_and_publish_for_workflows_that_act(monkeypatch):
+    publish = ["Publish-Workflow auf main (irreversibel)"]
+    deploy = _PUSH_MAIN + "    name: Deploy\n    run: ./deploy.sh\n"
+    assert _urteil(monkeypatch, deploy) == ("W2", [])
+    prod = _PUSH_MAIN + "    run: docker build --target production .\n"
+    assert _urteil(monkeypatch, prod) == ("W3", [])
+    twine = _PUSH_MAIN + "    run: twine upload --repository pypi dist/*\n"
+    assert _urteil(monkeypatch, twine) == ("W3", publish)
+    eigener = _PUSH_MAIN + "    uses: ./.github/workflows/publish-pypi.yml\n"
+    assert _urteil(monkeypatch, eigener) == ("W3", publish)
+
+
+def test_should_treat_the_shared_image_build_as_publish(monkeypatch):
+    """Realfall: der Aufruf nennt kein Marker-Wort, schiebt aber ein Image."""
+    text = _PUSH_MAIN + (
+        "    uses: iilgmbh/shared-ci/.github/workflows/_build-docker.yml@v1.1.18\n"
+        "    with:\n      image_name: app-web   # -> ghcr.io/owner/app-web\n"
+    )
+    assert _urteil(monkeypatch, text) == (
+        "W3",
+        ["Publish-Workflow auf main (irreversibel)"],
+    )
+
+
+def test_should_read_the_auftrag_from_a_cross_repo_issue_reference(monkeypatch):
+    """Realfall dev-hub#357: der Auftrag liegt in platform#3234, der PR in dev-hub."""
+    import pr_merge_sa
+
+    gelesen = []
+
+    def _fake(args):
+        gelesen.append(args[args.index("-R") + 1])
+        return {"body": "Freigabe: akzeptiert durch Owner 2026-09-16", "state": "OPEN"}
+
+    monkeypatch.setattr(pr_merge_sa, "_gh", _fake)
+    pr = {
+        "reviewDecision": None,
+        "latestReviews": [],
+        "body": "Zahlt ein auf achimdehnert/platform#3234",
+    }
+    assert pr_merge_sa.mandat_des_prs("achimdehnert/dev-hub", 357, pr) == "M1"
+    assert gelesen == ["achimdehnert/platform"]

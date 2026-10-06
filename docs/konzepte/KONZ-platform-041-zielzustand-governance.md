@@ -1,7 +1,7 @@
 ---
 concept_id: KONZ-platform-041
 title: Zielzustand-Governance — ADR-Invarianten verdrahten statt neu deklarieren
-pipeline_status: idea
+pipeline_status: stale   # 2026-09-16: Fristen-Triage (Owner-Regel: idea, review_by verstrichen, >30 Tage unberuehrt) — Re-open jederzeit mit neuem review_by
 tier: T3
 owner: Achim Dehnert
 spec_refs: [platform:ADR-211, platform:KONZ-platform-037, platform:KONZ-platform-038]

@@ -139,8 +139,12 @@ def test_should_exit_with_data_error_when_source_is_unreadable(tmp_path):
     assert code == EXIT_DATENFEHLER
 
 
-def test_should_block_the_real_coach_hub_case_from_the_repos_own_declaration():
-    """Positivkontrolle an echten Daten: findet der Preflight den Realfall wieder?"""
+def test_should_not_pass_the_real_coach_hub_case_after_its_entry_was_removed():
+    """Positivkontrolle an echten Daten: findet der Preflight den Realfall wieder?
+
+    coach-hub ist seit dem Rueckbau (2026-10-04) nicht mehr deklariert. Ein Deploy
+    dorthin darf weiterhin nicht durchgehen — jetzt als Scope-Luecke statt als Verstoss.
+    """
     wurzel = Path(__file__).resolve().parents[2]
     code = main(
         [
@@ -156,7 +160,7 @@ def test_should_block_the_real_coach_hub_case_from_the_repos_own_declaration():
             str(wurzel / "infra" / "hosts.yaml"),
         ]
     )
-    assert code == EXIT_VERSTOSS
+    assert code == EXIT_SCOPE
 
 
 @pytest.mark.parametrize(
