@@ -60,6 +60,14 @@ for repo in "${REPOS[@]}"; do
   ziel="$LAUF/eingang/repos/$(basename "$repo")"
   # Nur der Standard-Branch ohne Tags: der Scan deckt dann jedes Objekt der Kopie ab.
   git clone -q --no-local --single-branch --no-tags "$repo" "$ziel"
+  if [ -n "$TOKEN_DATEI" ]; then
+    # GitHub-Modus: Stand des Standard-Branches bei origin, nicht der lokale Checkout.
+    # Realfall W2 (platform#3685): Klon 8 Commits hinter origin, Werkstueck war schon upstream.
+    git -C "$repo" fetch -q origin
+    standard="$(git -C "$repo" symbolic-ref -q --short refs/remotes/origin/HEAD | sed 's#^origin/##')"
+    git -C "$ziel" fetch -q "$repo" "refs/remotes/origin/${standard:-main}"
+    git -C "$ziel" reset -q --hard FETCH_HEAD
+  fi
   git -C "$ziel" remote remove origin
   KOPIEN+=("$ziel")
 done
