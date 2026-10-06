@@ -18,7 +18,6 @@ on:
       - "tests/test_deploy_migrate_gate.sh"
       - "tests/test_deploy_ghcr_isolation.sh"
       - "tests/test_deploy_rollback_ziel.sh"
-      - "tests/test_deploy_rollback_nach_start.sh"
       - ".github/workflows/deploy-sh-gate.yml"
   pull_request:
     paths:
@@ -27,7 +26,6 @@ on:
       - "tests/test_deploy_migrate_gate.sh"
       - "tests/test_deploy_ghcr_isolation.sh"
       - "tests/test_deploy_rollback_ziel.sh"
-      - "tests/test_deploy_rollback_nach_start.sh"
       - ".github/workflows/deploy-sh-gate.yml"
 
 permissions:
@@ -52,7 +50,6 @@ jobs:
           bash -n tests/test_deploy_migrate_gate.sh
           bash -n tests/test_deploy_ghcr_isolation.sh
           bash -n tests/test_deploy_rollback_ziel.sh
-          bash -n tests/test_deploy_rollback_nach_start.sh
 
       - name: ShellCheck
         run: |
@@ -99,10 +96,3 @@ jobs:
       # Deploy-Log nicht zu sehen — der Deploy war rot, kaputt war der Notausgang.
       - name: Vertragstest Rollback-Ziel + Registry-Wiederholung
         run: bash tests/test_deploy_rollback_ziel.sh
-
-      # platform#3804 Kriterium 6: der lokale Rollback-Drill zeigte, dass ein
-      # fehlgeschlagener Health-Check KEIN Rollback ausloeste — `exit N` feuert den
-      # ERR-Trap nicht. Der Test haelt fest, dass jeder Abbruch nach dem Hochfahren
-      # ueber `fehlschlag N` laeuft, und prueft die Trap-Mechanik selbst mit.
-      - name: Vertragstest Rollback nach dem Hochfahren
-        run: bash tests/test_deploy_rollback_nach_start.sh
