@@ -42,6 +42,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   ausgeklammert (Lücke aus dem ersten Fleet-Audit-Lauf 2026-07-04: bfagent).
 
 ### Fixed
+- `scripts/deploy.sh` 2026-10-06.1 (#3804 K6): Abbruch nach dem Hochfahren (Health-Check,
+  Fehlerzustand, Crashloop-Gate) löst jetzt das Rollback aus — `exit N` feuerte den
+  ERR-Trap nicht, der kaputte Stand blieb stehen. Vertragstest
+  `tests/test_deploy_rollback_nach_start.sh` (Verdrahtung im `deploy-sh-gate` folgt als
+  eigener Governance-PR). Host-Kopien noch alt.
 - `tools/cc-skill-dist`: `-prototype`-Suffix aus `GENERATOR_VERSION` entfernt
   (generate.py 0.2.0, windsurf-subset.py 0.1.0) + Banner bereinigt — DoD F-C
   (claude-skills.md, session-retro 2026-06-05): Live-Manifeste tragen keine

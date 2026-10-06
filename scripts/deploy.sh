@@ -11,7 +11,7 @@ set -euo pipefail
 # tools/deploy-script-drift.sh gegen die Host-Kopien geprüft — die Host-Kopie
 # wird von Hand verteilt und lief messbar auseinander (Prod hing am 2026-07-25
 # eine Revision hinter Git+Staging, u.a. ohne den override-Fix aus platform#1075).
-DEPLOY_SH_VERSION="2026-09-02.1"
+DEPLOY_SH_VERSION="2026-10-06.1"
 
 APP_NAME="${1:?'APP_NAME fehlt'}"
 APP_PATH="${2:?'APP_PATH fehlt'}"
@@ -245,6 +245,13 @@ rollback() {
   exit "$ec"
 }
 trap rollback ERR
+
+# Abbruch NACH dem Hochfahren (Health-Check, Fehlerzustand, Crashloop-Gate) muss
+# durch den ERR-Trap laufen, sonst gibt es kein Rollback: ein nacktes `exit N`
+# feuert den Trap nicht, `return N` aus einer Funktion schon. Gefunden im lokalen
+# Rollback-Drill 2026-10-06 (platform#3804, Kriterium 6): das kaputte Abbild blieb
+# stehen und `.env` trug seinen Tag — exakt der Stand, den der Trap verhindern soll.
+fehlschlag() { return "$1"; }
 
 echo "═══════════════════════════════════════════════════"
 echo "iil-Platform Deploy — ADR-120 (deploy.sh $DEPLOY_SH_VERSION)"
@@ -571,13 +578,13 @@ if [[ -n "$HEALTH_CHECK_URL" ]]; then
     fi
     echo "⏳ Versuch $i/$HEALTH_CHECK_RETRIES — HTTP $HTTP_CODE"
     sleep 5
-    [[ $i -eq "$HEALTH_CHECK_RETRIES" ]] && { echo "❌ Health-Check fehlgeschlagen nach $((HEALTH_CHECK_RETRIES * 5))s"; exit 4; }
+    [[ $i -eq "$HEALTH_CHECK_RETRIES" ]] && { echo "❌ Health-Check fehlgeschlagen nach $((HEALTH_CHECK_RETRIES * 5))s"; fehlschlag 4; }
   done
 else
   sleep 5
   docker compose "${COMPOSE_ARGS[@]}" ps | grep -qi "unhealthy\|exit\|error" && {
     echo "❌ Container in Fehlerzustand"
-    exit 5
+    fehlschlag 5
   }
   echo "✅ Container läuft"
 fi
@@ -635,7 +642,7 @@ if [[ "${SKIP_CRASHLOOP_GATE:-0}" != "1" ]]; then
     done
     if [[ -n "$_bad" ]]; then
       echo "❌ Crashloop-Gate fehlgeschlagen:$_bad — Deploy gilt als NICHT gesund."
-      exit 6
+      fehlschlag 6
     fi
     echo "✅ Crashloop-Gate OK — kein Container crashloopt (Δ RestartCount = 0)"
   fi
