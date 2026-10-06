@@ -265,7 +265,7 @@ Den Rückweg verantwortet die Host-Session des Owners; ein eigener Dienst ist da
 | `platform` | 1a Rückschau | ✅ Abgeschlossen | 2026-10-06 | Journal-Auswertung auf dem Host (platform#3784, SB2): 705 Aufrufe, 353 Abbrüche — 34 % hätte eine vorab eingeholte Freigabe vermieden, 38 % nur eine pfadbezogene, 14 % waren Wiederholung nach Erfolg; bestätigt `claim-before-cheapest-check` als nächsten Erkenntnisauftrag |
 | `platform` `tools/sandbox/` | 1b Abschottung nachrüsten | ✅ Abgeschlossen | 2026-10-05 | #3695, #3702, #3707: Egress-Allowlist und Secret-Scan je mit Gegenprobe, Host-Kontext, Hooks belegt (§4.3); Profil-Negativtests belegt (#3721); #3731, #3736, #3738 gemergt; Live-Merge-Test S9 bestanden, Voraussetzung #3747 (§4.7) |
 | `iilsandbox` | 2 Spiegel der Pilot-Repos, Org-Token | ✅ Abgeschlossen | 2026-10-05 | fünf Spiegel privat, Actions aus, nur Standard-Branch; Sandbox-Token kann keine Repos anlegen (#3710, gemessen 403); Org-Profil vom Owner gesetzt (#3715) |
-| Pilot-Repos | 3 Pilot, 2 Wochen | 🟡 Läuft | 2026-10-06 | Paket 1 (P1–P3) bestanden; Paket 2 (E4 bestanden, W1 eingereicht mcp-hub#305); Paket 3 (W2 zurückgezogen: Kopie 8 Commits alt, Fix #3799). B2 5/6, B3 offen bis W1-Entscheid, B6 1,16 USD-Gegenwert im Abo für sechs Aufträge (platform#3685) |
+| Pilot-Repos | 3 Pilot, 2 Wochen | 🟡 Läuft | 2026-10-06 | Paket 1 (P1–P3) bestanden; Paket 2 (E4 bestanden, W1 eingereicht mcp-hub#305); Paket 3 (W2 zurückgezogen: Kopie 8 Commits alt, Fix #3799). B2 5/6, B3 1/1 (W1 angenommen), B6 1,16 USD-Gegenwert im Abo für sechs Aufträge (platform#3685) |
 | `platform` | 4 Entscheid: ausweiten, Rückfallposition oder stoppen | ⬜ Ausstehend | – | nach Ablauf aller B4-Fenster (§4.7) |
 
 ---
