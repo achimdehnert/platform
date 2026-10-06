@@ -746,9 +746,12 @@ Drei harte Lehren · PR-Kadenz session-retro 2026-07-02 · `[skip ci]`-Messung p
 >    `guardian` required) — ein Direkt-Push auf main scheitert dort mit GH013.
 
 **PR-Kadenz-Hygiene (session-retro 2026-07-02, PK-3/PK-4):**
-- **Rebase-on-ready (R-6):** `gh pr update-branch` erst **unmittelbar vor** dem finalen
-  Push/Merge, nicht früh — verkürzt das Konflikt-Fenster gegen zwischenzeitlich gemergte
-  main-Änderungen (Realfall: 2 manuelle Textkonflikte #829/#832).
+- **Rebase nur bei Konflikt (R-6, neu gefasst 2026-10-06, #3812):** `gh pr update-branch`
+  nur, wenn GitHub den PR als `DIRTY` meldet. Gemessen am 2026-10-06: Von 54 Repos mit
+  offenen PRs verlangt keines aktuelle Branches (`strict_required_status_checks_policy`
+  überall `false`). Ein PR, der nur hinter main liegt, ist mergebar. Ein Update kostet
+  einen zusätzlichen CI-Lauf ohne Nutzen. Die alte Fassung („unmittelbar vor dem finalen
+  Merge“) stammt aus zwei Textkonflikten (#829/#832). Konflikte meldet GitHub selbst.
 - **Bündeln statt Kleinst-PR-Schwarm (R-7):** thematisch gekoppelte Kleinfixes in **wenige,
   breitere** PRs zusammenfassen, wo sie nicht kollidieren — 11/17 PRs dieser Session trugen
   Catch-up-Merge-Tax durch sequenzielles Selbst-Mergen gegen den wandernden eigenen main.
