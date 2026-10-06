@@ -8,6 +8,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- `tools/migrations_additiv.py` (#3804 K7): Prüfskript „nur additive Migrationen" vor
+  einem autonomen Prod-Deploy — vergleicht zwei Git-Stände eines Hubs, liest neue
+  Django-Migrationen per `ast` und meldet RemoveField/DeleteModel/AlterField/Rename*/
+  RunSQL/RunPython sowie geänderte Alt-Migrationen als Verstoß (Exit 1 = Stopp).
+  Tests `tools/tests/test_migrations_additiv.py`.
 - `tools/schleuse.py` (#3405): sieben neue Klassen — PR-/Issue-Text, Wegwerf-Skript,
   Bildschirmfoto, Lauf-Ausgabe, Dokument-Entwurf, Modell-Ausgabe, Datierte Übergabe.
   Bestandsaufnahme am 2026-09-23: 168 von 291 Einträgen in `~/shared` trugen keine
