@@ -254,9 +254,7 @@ git commit -m "session-ende($(basename $repo)): $(date +%Y-%m-%d) — <Beschreib
   `git commit --amend` ohne den Token + Force-Push.
 → **NICHT pushen**, wenn der User „nicht pushen" sagt oder ein PR-Review läuft.
 → Fremde dirty Files (andere Session, unbekannte Herkunft): liegen lassen + melden.
-→ **Kein Update nur wegen „hinter main“:** `gh pr update-branch` nur bei Konflikt
-  (`mergeStateStatus` = `DIRTY`). Kein Repo verlangt aktuelle Branches, ein Update kostet
-  einen CI-Lauf ohne Nutzen (#3812). → `LEHREN#3.1`
+→ `gh pr update-branch` nur bei Konflikt (`DIRTY`), nie nur wegen „hinter main“. → `LEHREN#3.1`
 
 ### 3.1b Cleanup: Temporäre Dateien entfernen (PFLICHT — nach 0e, nie davor)
 
