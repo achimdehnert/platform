@@ -14,8 +14,7 @@ name: "Sync /opt/platform (Prod-Werkzeugklon)"
 #
 # Kein SSH noetig: der self-hosted Runner laeuft auf demselben Host wie der Klon
 # und als root; /opt/platform gehoert root (755). Gleiches Muster wie
-# sync-registry-to-devhub.yml, das aus demselben Grund von appleboy/ssh-action
-# auf direkten Zugriff umgestellt wurde.
+# sync-adrs-to-devhub.yml (direkter Zugriff per docker exec statt SSH).
 #
 # BEWUSST OHNE paths-Filter: der Klon soll `main` als Ganzes tracken. Ein Filter
 # wuerde exakt die Drift wiederherstellen, die dieser Workflow beseitigt — fuer
