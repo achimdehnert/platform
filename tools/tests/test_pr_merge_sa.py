@@ -1289,8 +1289,10 @@ def _uhr_und_schlaf():
 def test_should_wait_for_bot_approval_and_then_allow():
     import pr_merge_sa
 
-    ohne = _facts(repo=PLATFORM, files=[".github/workflows/x.yml"], mandat="M0")
-    mit = _facts(repo=PLATFORM, files=[".github/workflows/x.yml"], mandat="M2")
+    # Checks gruen: sonst sperrt nach dem Approve "kein einziger Check"
+    gemeinsam = dict(repo=PLATFORM, files=[".github/workflows/x.yml"], checks_total=3)
+    ohne = _facts(mandat="M0", **gemeinsam)
+    mit = _facts(mandat="M2", **gemeinsam)
     folge = iter([ohne, ohne, mit])
     starts = []
     uhr, schlaf = _uhr_und_schlaf()
