@@ -4,7 +4,7 @@ FROM node:22-bookworm-slim
 
 ARG CLAUDE_CODE_VERSION=2.1.288
 RUN apt-get update \
- && apt-get install -y --no-install-recommends git python3 python3-pytest make ca-certificates curl gh \
+ && apt-get install -y --no-install-recommends git python3 python3-pytest python3-yaml make ca-certificates curl gh \
  && rm -rf /var/lib/apt/lists/*
 RUN npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
 
