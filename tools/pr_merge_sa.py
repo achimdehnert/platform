@@ -63,6 +63,9 @@ RANG = {"M0": 0, "M1": 1, "M2": 2, "M3": 3}
 #: approvte Minuten spaeter).
 BOT_REVIEW_REPOS = ("achimdehnert/platform",)
 BOT_REVIEW_WORKFLOW = "bot-review.yml"
+#: Login des Bots, wie CODEOWNERS ihn nennt (klein, ohne @).
+BOT_LOGIN = "iil-lotse"
+CODEOWNERS_PFAD = ".github/CODEOWNERS"
 GRUND_FEHLT_APPROVAL = "fehlt: ein Approval"
 #: Cron */20 plus Laufzeit plus Checks, die noch laufen.
 BOT_WARTEN_MINUTEN = 30
@@ -168,6 +171,8 @@ class Facts:
     repo_id: int | None = None
     # Der gepruefte Kopf-Commit; der Merge greift nur, wenn der PR noch auf ihm steht
     head_sha: str = ""
+    # Dateien, deren CODEOWNERS-Zeile den Review-Bot nicht nennt; None = unbekannt
+    ohne_bot_owner: list | None = None
 
 
 @dataclass
@@ -191,12 +196,48 @@ def ist_governance(pfad: str, pfade: list) -> bool:
     return any(pfad.startswith(p) or name == p for p in pfade)
 
 
+def codeowner_der_datei(pfad: str, codeowners: str) -> list | None:
+    """Owner der letzten passenden CODEOWNERS-Zeile ([] = keine Zeile passt).
+
+    Versteht nur die Muster, die platform nutzt: `/datei` und `/verzeichnis/`.
+    Ein Muster mit Wildcard ergibt None (unbekannt) — lieber kein Bot-Hinweis
+    als ein falscher."""
+    owner: list = []
+    for zeile in codeowners.splitlines():
+        teile = zeile.split("#", 1)[0].split()
+        if not teile:
+            continue
+        muster, *namen = teile
+        if any(z in muster for z in "*?["):
+            return None
+        muster = muster.lstrip("/")
+        if pfad == muster or (muster.endswith("/") and pfad.startswith(muster)):
+            owner = [n.lstrip("@").lower() for n in namen]
+    return owner
+
+
+def dateien_ohne_bot_owner(files: list, codeowners: str) -> list | None:
+    """Dateien, die einen Code-Owner haben, aber nicht den Review-Bot — dort
+    ersetzt sein Approve das menschliche nicht (`require_code_owner_review`)."""
+    ohne = []
+    for pfad in files:
+        owner = codeowner_der_datei(pfad, codeowners)
+        if owner is None:
+            return None
+        if owner and BOT_LOGIN not in owner:
+            ohne.append(pfad)
+    return ohne
+
+
 def bot_kann_approven(f: Facts) -> bool:
     """True, wenn das fehlende Approve vom Review-Bot kommen kann: Repo mit Bot,
-    kein Tabu-Pfad im Diff. Ob die Checks schon gruen sind, entscheidet der Bot
-    selbst — hier nur, ob Warten ueberhaupt etwas bringt."""
-    return f.repo in BOT_REVIEW_REPOS and not any(
-        p.startswith(t) or p == t for p in f.files for t in BOT_TABU
+    kein Tabu-Pfad im Diff, keine Datei mit Code-Owner ohne den Bot (Realfall
+    #3809: Bot approvte, GitHub blieb BLOCKED). Ob die Checks schon gruen sind,
+    entscheidet der Bot selbst — hier nur, ob Warten ueberhaupt etwas bringt."""
+    return (
+        f.repo in BOT_REVIEW_REPOS
+        and f.ohne_bot_owner == []
+        and not any(p.startswith(t) or p == t for p in f.files for t in BOT_TABU)
     )
 
 
@@ -624,7 +665,22 @@ def gather(repo: str, nummer: int, r: dict) -> Facts:
         checks_failing=failing,
         checks_pending=pending,
         head_sha=pr.get("headRefOid") or "",
+        ohne_bot_owner=(
+            ohne_bot_owner_live(repo, pr.get("baseRefName", "main"), dateien)
+            if repo in BOT_REVIEW_REPOS
+            else None
+        ),
     )
+
+
+def ohne_bot_owner_live(repo: str, basis: str, dateien: list) -> list | None:
+    """CODEOWNERS vom Basis-Branch lesen; nicht lesbar -> None (kein Bot-Hinweis)."""
+    try:
+        antwort = _gh(["api", f"repos/{repo}/contents/{CODEOWNERS_PFAD}?ref={basis}"])
+        text = base64.b64decode(antwort["content"]).decode("utf-8")
+    except (Unklar, KeyError, ValueError):
+        return None
+    return dateien_ohne_bot_owner(dateien, text)
 
 
 def repo_aus_cwd() -> str:
