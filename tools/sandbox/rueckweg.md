@@ -3,6 +3,14 @@
 Gilt für Werkstücke. Erkenntnisaufträge enden mit dem geprüften Bericht und einem
 Eintrag im [Vorschlagsregister](vorschlagsregister.md).
 
+## Auftragskarte: Kriterien ausführbar
+
+Jedes Akzeptanzkriterium steht mit seinem Befehl in der Karte selbst. Ein Verweis auf
+einen anderen Lauf („das `find` aus P3“) reicht nicht: Der Agent sieht nur seine Karte
+und seine Kopie, nicht frühere Läufe (Lehre W1, platform#3685). Zu jedem Kriterium steht,
+ob es im Container oder erst auf dem Host geprüft wird; was nur auf dem Host prüfbar ist,
+meldet der Agent als offen, statt es zu raten.
+
 ## Patch-Ablage im Lauf
 
 Der Agent legt Änderungen an einer Kopie als Patch ab, nie als Push:
