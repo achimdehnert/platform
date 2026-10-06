@@ -19,7 +19,7 @@
 | Install-Dir | `/opt/actions-runner-platform` | `ls -d` @ Host |
 | Registriert auf | `https://github.com/achimdehnert/platform`, agentName `prod-server` | `.runner`-Config (URL/Name, keine Secrets) |
 | Tooling | `config.sh` + `svc.sh` vorhanden | `ls` @ Host |
-| Abhängige Workflows | **10 aktive** self-hosted (`_ci-python`, `sync-adrs-to-devhub`, `sync-registry-to-devhub`, `megatest`, `backup-meter`, `branch-protection-meter`, `apply-branch-protection`, `platform-audit`, `sync-policies-to-orchestrator`, `scaffold-tests`) | `grep runs-on:self-hosted .github/workflows/` |
+| Abhängige Workflows | **9 aktive** self-hosted (`_ci-python`, `sync-adrs-to-devhub`, `megatest`, `backup-meter`, `branch-protection-meter`, `apply-branch-protection`, `platform-audit`, `sync-policies-to-orchestrator`, `scaffold-tests`) | `grep runs-on:self-hosted .github/workflows/` |
 | Repo-Secrets (Anzahl) | **15** | `gh secret list --repo achimdehnert/platform` |
 | Secret-Quell-SSoT | [`infra/secrets-inventory.yaml`](../../infra/secrets-inventory.yaml) (378 Z.) + `~/.secrets/` | vorhanden |
 
