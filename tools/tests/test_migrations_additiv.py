@@ -63,6 +63,48 @@ def test_should_measure_separate_database_and_state_by_database_ops():
     assert len(ma.verstoesse_in_quelle(boese, "p")) == 1
 
 
+MARKER = "# migrations_additiv: ok — RLS-Policies anlegen, remove_rls hebt sie auf\n"
+RUNPY_MIT_RUECKWEG = "migrations.RunPython(apply_rls, remove_rls)"
+
+
+def test_should_accept_runpython_with_reverse_and_marker():
+    quelle = MARKER + _mig(RUNPY_MIT_RUECKWEG)
+    assert ma.verstoesse_in_quelle(quelle, "p") == []
+    assert ma.marker_grund(quelle) == "RLS-Policies anlegen, remove_rls hebt sie auf"
+
+
+def test_should_accept_marker_with_plain_hyphen_and_reverse_code_keyword():
+    quelle = "# migrations_additiv: ok - Grund\n" + _mig(
+        "migrations.RunPython(code=apply_rls, reverse_code=remove_rls)"
+    )
+    assert ma.verstoesse_in_quelle(quelle, "p") == []
+
+
+def test_should_flag_runpython_without_marker_naming_the_marker():
+    befunde = ma.verstoesse_in_quelle(_mig(RUNPY_MIT_RUECKWEG), "p")
+    assert len(befunde) == 1
+    assert "Markerzeile" in befunde[0] and "reverse_code" not in befunde[0]
+
+
+@pytest.mark.parametrize(
+    "op",
+    [
+        "migrations.RunPython(apply_rls)",
+        "migrations.RunPython(apply_rls, migrations.RunPython.noop)",
+        "migrations.RunPython(code=apply_rls, reverse_code=migrations.RunPython.noop)",
+    ],
+)
+def test_should_flag_runpython_without_real_reverse_despite_marker(op):
+    befunde = ma.verstoesse_in_quelle(MARKER + _mig(op), "p")
+    assert len(befunde) == 1
+    assert "reverse_code" in befunde[0]
+
+
+def test_should_not_let_marker_excuse_other_operations():
+    quelle = MARKER + _mig('migrations.RunSQL("DROP TABLE lauf")')
+    assert len(ma.verstoesse_in_quelle(quelle, "p")) == 1
+
+
 def _repo_mit_zwei_staenden(
     tmp_path: Path, zweite_migration: str, alt_aendern: bool = False
 ) -> Path:
@@ -99,8 +141,17 @@ def test_should_pass_end_to_end_for_additive_commit(tmp_path):
             'migrations.AddField(model_name="a", name="n", field=models.IntegerField(null=True))'
         ),
     )
-    assert ma.pruefe(repo, "alt", "neu") == []
+    assert ma.pruefe(repo, "alt", "neu") == ([], [])
     assert ma.main(["x", str(repo), "alt", "neu"]) == 0
+
+
+def test_should_report_accepted_runpython_reason_end_to_end(tmp_path, capsys):
+    repo = _repo_mit_zwei_staenden(tmp_path, MARKER + _mig(RUNPY_MIT_RUECKWEG))
+    befunde, ausnahmen = ma.pruefe(repo, "alt", "neu")
+    assert befunde == []
+    assert len(ausnahmen) == 1 and "remove_rls hebt sie auf" in ausnahmen[0]
+    assert ma.main(["x", str(repo), "alt", "neu"]) == 0
+    assert "RunPython zugelassen" in capsys.readouterr().out
 
 
 def test_should_fail_end_to_end_for_removed_field_and_rewritten_history(tmp_path):
@@ -109,7 +160,7 @@ def test_should_fail_end_to_end_for_removed_field_and_rewritten_history(tmp_path
         _mig('migrations.RemoveField(model_name="a", name="n")'),
         alt_aendern=True,
     )
-    befunde = ma.pruefe(repo, "alt", "neu")
+    befunde, _ = ma.pruefe(repo, "alt", "neu")
     assert any("RemoveField" in b for b in befunde)
     assert any("Alt-Migration M" in b for b in befunde)
     assert ma.main(["x", str(repo), "alt", "neu"]) == 1
