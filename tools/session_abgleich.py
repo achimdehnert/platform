@@ -129,6 +129,14 @@ _FREIE_REF_RE = re.compile(
 )
 # Unangehaktes Kaestchen im Issue-Body (Markdown-Task-Liste).
 _OFFENES_KAESTCHEN_RE = re.compile(r"^\s*[-*+]\s+\[ \]\s+", re.MULTILINE)
+# PR-Text nennt Ausstehendes — zusammen mit `Closes` schliesst er das Issue vor
+# der Zielerreichung (schreib-hub#82 „folgt nach dem Merge", #85 „Noch offen:").
+# Nacktes „nach dem Merge" bleibt aussen vor: im Replay 2026-10-07 beschrieb es
+# zweimal eine Wirkung bzw. Vorgeschichte (frist-hub#216, schreib-hub#63).
+_AUSSTEHEND_RE = re.compile(
+    r"\b(steht aus|stehen aus|noch offen|folgt nach dem merge|ausstehend)\b",
+    re.IGNORECASE,
+)
 # Unified-Diff-Kopfzeilen.
 _DATEI_RE = re.compile(r"^\+\+\+ b/(.+)$")
 _HUNK_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
@@ -235,6 +243,13 @@ def hat_offene_kaestchen(body: str) -> bool:
     return bool(body) and bool(_OFFENES_KAESTCHEN_RE.search(body))
 
 
+def ausstehende_zeilen(body: str) -> list[str]:
+    """Zeilen des PR-Texts, die Ausstehendes nennen (rein, regex-only)."""
+    if not body:
+        return []
+    return [z.strip() for z in body.splitlines() if _AUSSTEHEND_RE.search(z)]
+
+
 def beleg_referenzen(body: str, eigene_nummer: int | None = None) -> list[dict]:
     """PR-Nummern, die in einer BELEG-Zeile genannt werden (rein).
 
@@ -318,6 +333,10 @@ def befunde_issues(prs: list[dict], issues: list[dict]) -> list[dict]:
               ist (chat-hub #27, ausschreibungs-hub #184, writing-hub `Refs`).
     Befund B: ein durch die PR geschlossenes Issue traegt im Body noch
               unangehakte Kaestchen `- [ ]` (DoD nur im PR-Text umgedeutet).
+    Befund C: die PR schliesst das Issue (`Closes`), ihr Text nennt aber
+              Ausstehendes („steht aus", „noch offen", „nach dem Merge") —
+              geschlossen vor der Zielerreichung (schreib-hub#82/#85). Mit
+              `Refs` ist derselbe Text richtig und kein Befund.
     Unbekannter Issue-Zustand → HINWEIS, nie Entwarnung.
     """
     genau: dict[tuple[str, int], dict] = {}
@@ -334,6 +353,7 @@ def befunde_issues(prs: list[dict], issues: list[dict]) -> list[dict]:
             continue
         pr_repo = _repo_von(pr)
         pr_ref = _ref_text(pr_repo, int(pr.get("number")))
+        ausstehend = ausstehende_zeilen(str(pr.get("body") or ""))
         for ref in referenzierte_issues(str(pr.get("body") or "")):
             ziel_repo = ref["repo"] or pr_repo
             nummer = ref["nummer"]
@@ -389,6 +409,20 @@ def befunde_issues(prs: list[dict], issues: list[dict]) -> list[dict]:
                         f"geschlossen durch {pr_ref}, aber der Issue-Body traegt "
                         "noch unangehakte `- [ ]`-Kaestchen — DoD nur im PR-Text "
                         "umgedeutet",
+                    )
+                )
+            if zustand == "CLOSED" and ref["schliessend"] and ausstehend:
+                schluessel = ("C", ziel_repo, nummer)
+                if schluessel in gesehen:
+                    continue
+                gesehen.add(schluessel)
+                ergebnisse.append(
+                    _befund(
+                        SLUG_ISSUES,
+                        ziel_ref,
+                        f"geschlossen durch {pr_ref} (`{ref['schluessel']}`), dessen "
+                        f"Text noch Ausstehendes nennt: „{ausstehend[0][:120]}\" — "
+                        "Issue vor der Zielerreichung geschlossen, `Refs` waere richtig",
                     )
                 )
     return ergebnisse

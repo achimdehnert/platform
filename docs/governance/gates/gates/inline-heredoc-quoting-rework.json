@@ -62,7 +62,10 @@
     "datum": "2026-09-24",
     "ref": "Ausweitung 2026-09-24: vier weitere Formen muessen DURCHLAUFEN — korrekt geschlossenes „…“, `--body-file`, „…\" im Heredoc-Koerper von `git commit -F -`, Inline-Text ohne deutsche Anfuehrungszeichen (test_should_stay_silent_on_*). Replay gegen 150 echte Bash-Befehle der Sitzung 02b7f5: 2 Treffer = die 2 Realfaelle, 0 Fehlalarme. Stand 2026-09-23: tools/claude-hooks/tests/test_block_repo_write_via_shell.py — acht Befehle muessen ausdruecklich DURCHLAUFEN: `git commit -F - <<'MSG'` (Heredoc an die Standardeingabe, vier davon liefen allein am 2026-09-23), Schreiben in den Scratchpad, Schreiben ausserhalb der Repo-Wurzeln, Pfad mit Variable (`> \"$S/x.json\"`, fail-open), Deskriptor-Umleitungen (`2>&1`, `>&2`), `/dev/null`, ein `>` innerhalb von Anfuehrungszeichen (PR-Text), und eine LESENDE Umleitung (`< datei`). Dazu zwei Laeufe durch `main()` mit echtem Hook-Payload: der Realfall feuert in advisory mit Exit 0 und Warnzeile, derselbe Befehl blockt mit Exit 2, sobald die Modus-Datei auf blocking steht."
   },
-  "kalibrierfenster": {
+  "kalibrierfenster_aufgegeben": {
+    "datum": "2026-10-07",
+    "ref": "Retro 767d40 (platform#3839, Streichbahn/R8), Owner-Wort 'R8 streichen' 2026-10-07",
+    "grund": "Liegezeit: gate_wirkung meldete '0/10 beurteilbar seit 2026-09-23, Frist 2026-10-21 — sammelt noch', 14 Tage ohne eine beurteilbare Zeile; in Sitzung 767d40 0 Treffer bei 1203 Bash-Aufrufen. Die eigene Wiedervorlage-Regel unten verlangt genau das: weniger als 10 Zeilen -> Fenster aufgeben statt verlaengern. Das Gate bleibt als Melder (advisory) bestehen; `revised` bleibt unveraendert, die Erkennung ist nicht geaendert. Scharfschalten nur per eigenem PR mit neuer Messgrundlage.",
     "klasse": "kinds=repo-write-via-shell",
     "seit": "2026-09-23",
     "bis": "2026-10-21",
