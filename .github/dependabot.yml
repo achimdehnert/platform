@@ -1,3 +1,9 @@
+# Ein Bot je Repo (platform#3817): Versions-Updates macht hier Renovate (renovate.json,
+# Dashboard #3291). Dependabot erzeugte daneben Einzel-PRs fuer dieselben Actions und
+# umging die Major-Sperre des Dashboards (setup-node 5 -> 7, setup-python 5 -> 7).
+# `open-pull-requests-limit: 0` schaltet nur die Versions-PRs ab; Sicherheits-Updates
+# laufen unabhaengig davon weiter. Die Eintraege bleiben, damit die Oekosysteme
+# deklariert sind (future_readiness_score D02.3).
 version: 2
 updates:
   - package-ecosystem: "pip"
@@ -7,7 +13,7 @@ updates:
       day: "monday"
       time: "06:00"
       timezone: "Europe/Berlin"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     commit-message:
       prefix: "deps"
     labels:
@@ -17,6 +23,7 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 0
     commit-message:
       prefix: "ci"
     labels:
