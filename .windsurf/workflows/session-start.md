@@ -23,7 +23,7 @@ einzige Source of Truth**, der Sync (0.2) kein Optional.
 Die mechanischen Unterphasen laufen in **einem** Skript-Aufruf; die Einzel-Befehle leben in
 `platform/tools/session_start_checks.sh` (dort gepflegt, hier NICHT duplizieren). → `LEHREN#runner-motiv`
 
-### 0.R Runner ausführen (PFLICHT — ersetzt 0.0/0.1/0.2/0.4/0.4.1/0.4.2-Validate/0.5/0.5.1/0.6/0.7/0.9)
+### 0.R Runner ausführen (PFLICHT)
 
 // turbo
 ```bash
@@ -91,6 +91,7 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
 | `0.7.29 container-speicher` | OOM, anon > 70 %, Limit-Treffer, Timer steht | `SAMMELPHASE` | Ursache im Container; Limit-PR, Prod = Owner (#3400) |
 | `0.7.30 speicher-druck` | Druck in 24 h oder Timer steht | — | größte cgroup drosseln; oomd nur mit Owner-Go (#3607) |
 | `0.7.31 hintergrund-wache` | dev-hub-Agent ≥ 3× rot, Beat-Eintrag tot | `OK: …` | reparieren/stilllegen (dev-hub#424); `SKIP` ≠ Entwarnung |
+| `0.7.32 pr-bestand` | Bestand wächst, Timer steht | `SAMMELPHASE` | Treiber deckeln (#3823) |
 
 **`◌`/`nicht messbar`/`SAMMELPHASE` = Lücke, kein Pass — ins Board.** `ℹ️ HINWEIS` = Melder
 selbst herabgestuft, der **Melder** ist der Befund. Block „⏳ ohne Entscheidung > 14 d" = es
@@ -98,9 +99,9 @@ fehlt die Entscheidung. → `LEHREN#warn-klassenkunde`
 
 **Troubleshooting:** Runner hängt > 5 s → Shell blockiert, Session neu starten. **NIEMALS
 `ping`.** pgvector-Tunnel → `sudo systemctl start ssh-tunnel-postgres`. Der Runner stasht nicht.
-→ `LEHREN#troubleshooting`
+`0.6` rot → MCP neu starten. → `LEHREN#troubleshooting`
 
-### Architecture Context laden (ex-0.4.2, environment-abhängig)
+### Architecture Context laden (environment-abhängig)
 
 adrfw-MCP gebunden → Staleness, Health-Score (warnen < 0.95), Constraints; Ergebnis in 1 Satz.
 Sonst `docs/adr/index.json` + CORE_CONTEXT, tiefe Audits `/adr-health`. → `LEHREN#architektur-kontext`
@@ -172,13 +173,13 @@ cd "$wt"   # Branch session/<date>/<owner>/<slug> von origin/main + Lease
 
 → `LEHREN#error-learning-template`
 
-## Phase 2.6: Handover ↔ Memory Reconciliation (Drift-Guard — NEU 2026-06-24)
+## Phase 2.6: Handover ↔ Memory Reconciliation (Drift-Guard)
 
 Jede offene Prio gegen das Warm-Start-Memory abgleichen: sagt ein **neuerer** Eintrag
 „erledigt"? → **nicht blind starten**, Diskrepanz belegt spiegeln und den Handover **vor**
 Arbeitsbeginn sauberziehen. Die Diskrepanz IST der Fund. → `LEHREN#handover-memory-reconciliation`
 
-## Phase 2.7: Session-Zielzustand klären (Zielzustand-Loop — NEU 2026-08-07, PFLICHT für Arbeits-Sessions)
+## Phase 2.7: Session-Zielzustand klären (Zielzustand-Loop — PFLICHT für Arbeits-Sessions)
 
 (`policies/zielzustand.md` + SA-4 aus `policies/autonomy-gates.md`)
 
@@ -195,7 +196,7 @@ Arbeitsbeginn sauberziehen. Die Diskrepanz IST der Fund. → `LEHREN#handover-me
 
 ---
 
-## Startklar-Checkliste (PFLICHT — NEU 2026-07-15, Ausführungstreue-Gate)
+## Startklar-Checkliste (PFLICHT — Ausführungstreue-Gate)
 
 | # | Check | Status |
 |---|-------|--------|

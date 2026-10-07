@@ -90,3 +90,39 @@ def test_should_stay_advisory_when_input_unreadable(tmp_path):
     )
     assert res.returncode == 0
     assert res.stdout.startswith("nicht pruefbar:")
+
+
+def _lesen(journal: Path, jetzt: str):
+    return subprocess.run(
+        [sys.executable, str(SCRIPT), "--lesen", "--journal", str(journal), "--jetzt", jetzt],
+        capture_output=True, text=True, timeout=15,
+    )
+
+
+def test_should_read_journal_without_measuring_and_warn_on_growth(tmp_path):
+    """#3823 K2: der Sitzungsstart liest nur, eine Zeile, Exit 1 bei WARN."""
+    journal = tmp_path / "journal.jsonl"
+    _run(tmp_path, [_pr(1, "2026-09-28T00:00:00Z")], "2026-09-29T12:00:00+00:00", journal)
+    prs = [_pr(1, "2026-09-28T00:00:00Z"), _pr(2, "2026-10-05T00:00:00Z", login="app/renovate", bot=True)]
+    _run(tmp_path, prs, "2026-10-06T12:00:00+00:00", journal)
+    res = _lesen(journal, "2026-10-07T08:00:00+00:00")
+    assert res.returncode == 1, res.stdout
+    assert len(res.stdout.strip().splitlines()) == 1
+    assert res.stdout.startswith("WARN:") and "renovate +1" in res.stdout
+    assert len(journal.read_text(encoding="utf-8").splitlines()) == 2
+
+
+def test_should_pass_reading_when_backlog_shrinks(tmp_path):
+    journal = tmp_path / "journal.jsonl"
+    _run(tmp_path, [_pr(1, "2026-09-28T00:00:00Z"), _pr(2, "2026-09-28T00:00:00Z")], "2026-09-29T12:00:00+00:00", journal)
+    _run(tmp_path, [_pr(1, "2026-09-28T00:00:00Z")], "2026-10-06T12:00:00+00:00", journal)
+    res = _lesen(journal, "2026-10-07T08:00:00+00:00")
+    assert res.returncode == 0 and res.stdout.startswith("OK:"), res.stdout
+
+
+def test_should_flag_missing_or_stale_journal_as_timer_down(tmp_path):
+    journal = tmp_path / "journal.jsonl"
+    assert _lesen(journal, "2026-10-07T08:00:00+00:00").returncode == 2
+    _run(tmp_path, [_pr(1, "2026-09-28T00:00:00Z")], "2026-09-29T12:00:00+00:00", journal)
+    res = _lesen(journal, "2026-10-08T12:00:00+00:00")
+    assert res.returncode == 2 and "Timer steht" in res.stdout

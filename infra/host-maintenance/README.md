@@ -177,6 +177,24 @@ systemctl --user enable --now speicher-druck.timer
 python3 tools/speicher_druck_melder.py --lesen   # Beleg: Exit 0 und eine Zeile
 ```
 
+## PR-Bestand (platform#3823 — dev/session host, `--user`)
+
+`tools/pr_bestand.py` zählt jeden Montag die offenen PRs aller vier Orgs, je Erzeuger
+und Alter, mit einer `gh search prs`-Abfrage je Org. Jeder Lauf hängt einen
+Schnappschuss an `~/.claude/pr-bestand-journal.jsonl`. Der Sitzungsstart (0.7.32)
+liest daraus mit `--lesen` den Trend, ohne selbst zu messen. Anlass waren 177 offene
+PRs am 2026-10-06, die erst eine Handzählung sichtbar gemacht hat. Der Dienst braucht
+ein angemeldetes `gh` des Sitzungsnutzers.
+
+Install:
+```bash
+cp infra/host-maintenance/pr-bestand.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now pr-bestand.timer
+systemctl --user start pr-bestand.service        # erster Schnappschuss sofort
+python3 tools/pr_bestand.py --lesen              # Beleg: eine Zeile, Exit 0 oder 1
+```
+
 ## systemd-oomd für die Sitzungen (platform#3616 — dev/session host, root)
 
 Der Speicherdruck-Melder meldet, verhindert aber keinen Kill. Am 2026-09-26 lagen

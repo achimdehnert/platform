@@ -1501,6 +1501,23 @@ else
   record "0.7.30 speicher-druck" "SKIP" "tools/speicher_druck_melder.py fehlt"
 fi
 
+# ── 0.7.32 PR-Bestand: neuer Stau sichtbar, bevor er wieder 177 erreicht ───────
+# platform#3823: am 2026-10-06 lagen 177 offene PRs in den vier Orgs, gemerkt hat es
+# niemand, bis eine Sitzung von Hand zaehlte. Der Timer pr-bestand.timer misst
+# woechentlich (#3823 K1); hier wird NUR das Journal gelesen, ohne Netz (K2).
+# Exit 1 = WARN (Bestand waechst oder zu viele alte PRs), Exit 2 = Timer steht.
+if [ -f "$PLATFORM_DIR/tools/pr_bestand.py" ]; then
+  # Ohne Pipe: `--lesen` gibt genau eine Zeile aus (Lehre platform#3373).
+  PB_OUT=$(python3 "$PLATFORM_DIR/tools/pr_bestand.py" --lesen 2>&1)
+  PB_RC=$?
+  case "$PB_RC" in
+    0) record "0.7.32 pr-bestand" "PASS" "$PB_OUT" ;;
+    *) record "0.7.32 pr-bestand" "WARN" "$PB_OUT" ;;
+  esac
+else
+  record "0.7.32 pr-bestand" "SKIP" "tools/pr_bestand.py fehlt"
+fi
+
 # ── 0.7.31 Hintergrund-Wache dev-hub: Status geschrieben, aber nie gelesen ──────
 # dev-hub#388: der Celery-Task `session_governance` lief 82 Tage in 1958 von 1958
 # Laeufen rot, ohne dass es jemand bemerkte — es gab einen Status, aber keinen Leser.
