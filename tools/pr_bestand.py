@@ -19,10 +19,16 @@ Trend je Woche. Unter 7 Tagen Abstand gibt es keinen Trend, sondern die Zeile
     python3 tools/pr_bestand.py                      # alle Orgs, Journal schreiben
     python3 tools/pr_bestand.py --kein-journal       # nur anzeigen
     python3 tools/pr_bestand.py --eingabe prs.json   # Fixture statt gh (Tests)
+    python3 tools/pr_bestand.py --lesen              # nur Journal lesen, eine Zeile
 
 Ausgabe: eine Tabelle je Erzeuger, danach genau eine Bewertungszeile
 `OK|WARN|SAMMELPHASE: ...`. Exit immer 0 — der Melder ist advisory; fehlt `gh`
 oder das Netz, steht `nicht pruefbar: <grund>` da.
+
+Gemessen wird woechentlich vom Timer `pr-bestand.timer` (#3823 K1). Der
+Sitzungsstart misst nicht selbst, sondern liest mit `--lesen` den juengsten
+Schnappschuss aus dem Journal, ohne Netzzugriff (#3823 K2). Exit bei `--lesen`:
+0 OK oder SAMMELPHASE, 1 WARN, 2 kein frischer Schnappschuss (Timer steht).
 """
 
 from __future__ import annotations
@@ -44,6 +50,8 @@ ALT_TAGE = 30
 SCHWELLE_ALT = 40
 TREND_FENSTER_TAGE = 28
 TREND_MIN_TAGE = 7
+# Der Timer misst woechentlich; ein Tag Spielraum fuer einen verpassten Lauf.
+LESEN_MAX_ALTER_TAGE = 8
 FELDER = "number,title,author,createdAt,updatedAt,repository,isDraft,url"
 
 PROJECT_FACTS = re.compile(r"project[-_ ]facts", re.I)
@@ -132,6 +140,18 @@ def bewertung(aktuell: dict, frueher: list[dict]) -> str:
     return f"{stufe}: {alt_teil}; {trend}"
 
 
+def zeile_lesen(journal: list[dict], jetzt: datetime) -> tuple[int, str]:
+    """Juengsten Schnappschuss gegen die frueheren bewerten — eine Zeile, kein Netz."""
+    if not journal:
+        return 2, "kein Journal (pr-bestand.timer installiert? README host-maintenance)"
+    letzter = journal[-1]
+    gemessen = datetime.fromisoformat(letzter["zeit"])
+    if jetzt - gemessen > timedelta(days=LESEN_MAX_ALTER_TAGE):
+        return 2, f"Journal veraltet (letzter Schnappschuss {letzter['zeit'][:10]}), Timer steht"
+    text = bewertung(letzter, journal[:-1])
+    return (1 if text.startswith("WARN") else 0), f"{text} · gemessen {letzter['zeit'][:10]}"
+
+
 def tabelle(s: dict) -> str:
     zeilen = ["| Erzeuger | offen | aelter als %d Tage |" % ALT_TAGE, "|---|---|---|"]
     for name, werte in s["je_erzeuger"].items():
@@ -147,12 +167,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--journal", type=Path, default=JOURNAL)
     p.add_argument("--kein-journal", action="store_true")
     p.add_argument("--jetzt", help="ISO-Zeit statt der Uhr (Tests)")
+    p.add_argument("--lesen", action="store_true", help="nur Journal lesen, eine Zeile (Sitzungsstart)")
     return p
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     jetzt = datetime.fromisoformat(args.jetzt) if args.jetzt else datetime.now(timezone.utc)
+    if args.lesen:
+        rc, text = zeile_lesen(lies_journal(args.journal), jetzt)
+        print(text)
+        return rc
     try:
         if args.eingabe:
             prs = json.loads(args.eingabe.read_text(encoding="utf-8"))

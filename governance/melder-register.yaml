@@ -401,6 +401,12 @@ melder:
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.7.31"
+  - phase: "0.7.32 pr-bestand"
+    leser: "Session-Start-Board → Agent (Treiber aus der Zeile ist der Erzeuger: dessen Zufluss deckeln, Muster #3817; alte PRs nach Ledger #3812 mergen oder mit Grund schliessen) (platform#3823)"
+    wiedervorlage_tage: 7
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.32"
   - phase: "0.7.26 ci-deckung"
     leser: "Session-Start-Board → Agent (Ziel gedeckt/verzichtet nachziehen, dann `make <ziel>` in den Workflow oder Grund in governance/ci-deckung-verzicht.yaml); Owner bei Scope-Fragen ueber Repo-Grenzen"
     wiedervorlage_tage: 14

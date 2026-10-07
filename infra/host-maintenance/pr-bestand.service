@@ -1,0 +1,18 @@
+[Unit]
+Description=PR-Bestand der vier Orgs messen und ins Journal schreiben (platform#3823 K1)
+Documentation=https://github.com/achimdehnert/platform/issues/3823
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+# Eine `gh search prs`-Abfrage je Org, nur lesend. Journal jeder Lauf:
+# ~/.claude/pr-bestand-journal.jsonl (liest Sitzungsstart 0.7.32 mit --lesen).
+# Endet immer mit 0: ohne Netz steht "nicht pruefbar" im Log, und der fehlende
+# Schnappschuss meldet sich nach 8 Tagen selbst als "Timer steht".
+ExecStart=/usr/bin/python3 %h/github/platform/tools/pr_bestand.py
+Nice=10
+IOSchedulingClass=idle
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pr-bestand

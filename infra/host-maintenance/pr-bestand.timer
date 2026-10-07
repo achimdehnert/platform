@@ -1,0 +1,14 @@
+[Unit]
+Description=PR-Bestand woechentlich messen, Montag 05:00 UTC (platform#3823 K1)
+
+[Timer]
+# Woechentlich reicht: der Trend wird je Woche gerechnet, und der Stau vom
+# 2026-10-06 (177 PRs) wuchs ueber Monate. Montag frueh, damit die erste Sitzung
+# der Woche den frischen Schnappschuss liest. Persistent holt einen verpassten
+# Lauf nach, wenn der Host zur Zeit aus war.
+OnCalendar=Mon *-*-* 05:00:00
+Persistent=true
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target
