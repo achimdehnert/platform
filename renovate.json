@@ -22,7 +22,7 @@
   ],
   "prHourlyLimit": 5,
   "prConcurrentLimit": 12,
-  "rebaseWhen": "behind-base-branch",
+  "rebaseWhen": "conflicted",
   "automerge": false,
   "packageRules": [
     {
@@ -180,6 +180,20 @@
         "github-actions"
       ],
       "enabled": false
+    },
+    {
+      "description": "Laufzeit-Versionen (Python, Postgres) auch bei Minor nur nach Freigabe im Dependency Dashboard — python 3.12 → 3.14 ist fuer Renovate ein Minor und lief am Major-Gate vorbei: 6 Einzel-PRs am 2026-10-06, Dockerfiles brechen an site-packages (platform#3817)",
+      "matchPackageNames": [
+        "python",
+        "postgres",
+        "postgis/postgis",
+        "/pgvector/"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "major"
+      ],
+      "dependencyDashboardApproval": true
     }
   ],
   "vulnerabilityAlerts": {
