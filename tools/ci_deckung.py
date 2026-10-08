@@ -200,9 +200,22 @@ SHELL_NOOP_ODER_BUILTIN = {
     "umask",
     "trap",
     "wait",
+    "break",
+    "continue",
+    "sleep",
     "{",
     "}",
 }
+
+# Schleifenkopf einer Rezeptzeile (platform#3845, writing-hub `test-session`:
+# `for i in $$(seq 1 30); do docker exec ... && break; sleep 1; done`). Kopf und
+# Steuerwoerter sind kein Kommando; die Zeile liefert hoechstens EIN Kandidat
+# (das erste echte Kommando im Schleifenkoerper).
+SCHLEIFEN_EINLEITER = {"for", "while", "until"}
+SCHLEIFEN_KOERPER_RE = re.compile(r"(?:^|[;\s])do(?:\s|$)")
+# Make-Funktions-/Variablenaufruf, der nach dem Wegfall der Variablen uebrig
+# bleibt (`$(if $(K),-k "$(K)",)`) — ein Fragment, kein Werkzeug.
+MAKE_FUNKTION_PRAEFIXE = ("$(", "${")
 
 # Shell-Kontrollwoerter fuehren kein Werkzeug an, sie rahmen es nur ein
 # (Realfall chat-hub `lint` nach chat-hub#110: `if command -v shellcheck ...;
@@ -414,9 +427,24 @@ def _normalize_one(kommando: str) -> str:
             continue
         out.append(tok)
         i += 1
-    if not out or out[0] in SHELL_NOOP_ODER_BUILTIN:
+    if (
+        not out
+        or out[0] in SHELL_NOOP_ODER_BUILTIN
+        or out[0].startswith(MAKE_FUNKTION_PRAEFIXE)
+    ):
         return ""
     return " ".join(out)
+
+
+def _rezeptzeile_unterkommandos(logisch: str) -> tuple[list[str], bool]:
+    """Unterkommandos einer logischen Rezeptzeile. Bei einer Schleifenzeile nur die
+    des Koerpers (hinter `do`) und `True` als Kennzeichen: die Zeile zaehlt dann
+    hoechstens einmal (platform#3845)."""
+    erstes = logisch.lstrip("@-+ \t").split()[:1]
+    if erstes and erstes[0] in SCHLEIFEN_EINLEITER:
+        koerper = SCHLEIFEN_KOERPER_RE.split(logisch, maxsplit=1)
+        return _split_subcommands(koerper[1] if len(koerper) > 1 else ""), True
+    return _split_subcommands(logisch), False
 
 
 def normalize_command(zeile: str) -> list[str]:
@@ -469,7 +497,8 @@ def parse_makefile(text: str) -> list[Kommando]:
                 # (Docker-Ersatz fuer fehlendes shellcheck). Gedeckt wird der
                 # Hauptzweig; ein Fallback, den der CI nie braucht, ist kein Befund.
                 fallback = False
-                for sub in _split_subcommands(logisch):
+                subs, ist_schleife = _rezeptzeile_unterkommandos(logisch)
+                for sub in subs:
                     erstes = sub.split()[:1]
                     if erstes == ["else"] or erstes == ["elif"]:
                         fallback = True
@@ -484,6 +513,8 @@ def parse_makefile(text: str) -> list[Kommando]:
                             ergebnisse.append(
                                 Kommando(ziel=ziel, roh=sub, normalisiert=norm)
                             )
+                        if ist_schleife:
+                            break
             i += 1
             continue
         if not raw or raw[0].isspace() or raw.lstrip().startswith("#"):

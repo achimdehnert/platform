@@ -639,3 +639,35 @@ def test_should_detect_a_cycle_between_two_reusable_workflows(tmp_path):
     ergebnis = cd.scan_repo(str(repo), github_base=str(github_base))
     assert ergebnis["befunde"] == []
     assert any(n["ziel"] == "test" for n in ergebnis["nicht_pruefbar"])
+
+
+# ───────── platform#3845: Shell-Schleife in Make-Rezept (writing-hub) ──────
+
+_FIXTURE_TEST_SESSION = (
+    Path(__file__).parent / "fixtures" / "ci_deckung" / "writing-hub-test-session.mk"
+)
+
+
+def test_should_not_split_shell_loop_into_fragments_realfall_writing_hub():
+    """Realfall platform#3845: writing-hub `test-session` lieferte 7 Fragmente
+    (`for i in …`, `break`, `sleep 1`, `$(if $(K),-k …)`). Eine Schleifenzeile ist
+    hoechstens EIN Kandidat; Steuerwoerter und Make-Funktionsfragmente nie."""
+    kommandos = cd.parse_makefile(_FIXTURE_TEST_SESSION.read_text(encoding="utf-8"))
+    normalisiert = [k.normalisiert for k in kommandos if k.ziel == "test-session"]
+    assert not {"break", "sleep 1"} & set(normalisiert), normalisiert
+    assert not any(n.startswith(("for ", "$(")) for n in normalisiert), normalisiert
+    # docker rm, docker run, die Schleifenzeile (ein Kandidat); die pytest-Zeile
+    # besteht nur aus Make-Variablen/-Funktion und liefert keinen.
+    assert len(normalisiert) == 3, normalisiert
+
+
+def test_should_still_detect_real_check_command_next_to_loop_target():
+    """Gegenprobe zu #3845: ein echtes Pruefkommando im selben Makefile bleibt
+    erkannt."""
+    kommandos = cd.parse_makefile(_FIXTURE_TEST_SESSION.read_text(encoding="utf-8"))
+    assert [k.normalisiert for k in kommandos if k.ziel == "lint"] == ["ruff check ."]
+
+
+def test_should_treat_control_words_and_make_functions_as_no_command():
+    for zeile in ("break", "continue", "sleep 1", "$(if $(K),-k x,)"):
+        assert cd._normalize_one(zeile) == "", zeile
