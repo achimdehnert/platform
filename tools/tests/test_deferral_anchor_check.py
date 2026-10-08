@@ -166,7 +166,12 @@ def test_should_ueberschrift_mit_anker_im_abschnitt_nicht_melden():
 
 
 def test_should_ueberschrift_ohne_anker_im_abschnitt_melden():
-    """Gegenprobe: das groessere Fenster darf das Gate nicht zahnlos machen."""
+    """Gegenprobe: das groessere Fenster darf das Gate nicht zahnlos machen.
+
+    Seit der Je-Posten-Regel (platform#3859 M7) meldet der Abschnitt seine
+    Posten, nicht die Ueberschrift; Zeile 3 kommt nur einmal, obwohl sie auch
+    selbst eine Aufschub-Wendung traegt.
+    """
     text = "\n".join(
         [
             "## Bewusst nicht in diesem PR",
@@ -175,7 +180,7 @@ def test_should_ueberschrift_ohne_anker_im_abschnitt_melden():
             "- Niemand nennt hier ein Issue.",
         ]
     )
-    assert [z for z, _ in stellen(text)] == [1, 3]
+    assert [z for z, _ in stellen(text)] == [3, 4]
 
 
 def test_should_anker_hinter_naechster_ueberschrift_nicht_einsammeln():
@@ -188,14 +193,15 @@ def test_should_anker_hinter_naechster_ueberschrift_nicht_einsammeln():
         [
             "## Bewusst nicht in diesem PR",
             "",
-            "- Kein Anker in diesem Abschnitt.",
+            # Nicht mit „Kein“ beginnen: das waere eine Unterlassung (M7-Ausnahme).
+            "- Der Umbau bleibt liegen, ohne Anker in diesem Abschnitt.",
             "",
             "## Ganz anderes Thema",
             "",
             "Hier steht #1650, gehoert aber nicht dazu.",
         ]
     )
-    assert [z for z, _ in stellen(text)] == [1]
+    assert [z for z, _ in stellen(text)] == [3]
 
 
 # ── Fehlermodus „Auszeichnung" (2026-08-23, platform#2211) ───────────────────
@@ -713,3 +719,80 @@ def test_should_parse_concatenated_json_pages():
     ergebnis = dac._parse_verkettete_json_arrays(ausgabe)
 
     assert [e["id"] for e in ergebnis] == [1, 2, 3]
+
+
+# --- Je Posten statt je Abschnitt (platform#3859 M7) --------------------------
+
+#: Nachgebaut nach meiki-lra/meiki-hub#582 (Retro 767d40-incr Befund #2), nicht
+#: zitiert: ein Anker im ersten Posten deckte nach der Abschnittsregel alle.
+REALFALL_582 = "\n".join(
+    [
+        "## Bewusst ausgelassen, mit Folgeschritt",
+        "",
+        "- **Gate in den uebrigen Repos**: je ein kleiner PR, nach dem Merge von shared-ci#108.",
+        "- **Wortlisten zusammenfuehren**: bleiben vorerst getrennt.",
+        "- **Kern, Minor-Schritte**: Enums in `dto.py`, Fallback in `registry.py`.",
+        "- **Bestand (145)**: der Abbau ist eine eigene Entscheidung.",
+    ]
+)
+
+
+def test_should_je_posten_ohne_eigenen_anker_melden():
+    """Positivkontrolle M7: drei Posten ohne Anker, obwohl der erste einen hat."""
+    assert [z for z, _ in stellen(REALFALL_582)] == [4, 5, 6]
+
+
+def test_should_abschnitt_mit_anker_je_posten_nicht_melden():
+    """Negativprobe: jeder Posten mit eigenem Issue -> kein Fund."""
+    text = REALFALL_582.replace("getrennt.", "getrennt, #110.").replace(
+        "`registry.py`.", "`registry.py`, #64."
+    ).replace("Entscheidung.", "Entscheidung, #590.")
+    assert stellen(text) == []
+
+
+def test_should_sammel_anker_im_vortext_alle_posten_decken():
+    """Negativprobe: ein Ledger-Issue vor dem ersten Posten deckt den Abschnitt."""
+    text = REALFALL_582.replace(
+        "## Bewusst ausgelassen, mit Folgeschritt\n",
+        "## Bewusst ausgelassen, mit Folgeschritt\n\nAlle Posten gesammelt in #590.\n",
+    )
+    assert stellen(text) == []
+
+
+def test_should_unterpunkt_zum_posten_zaehlen():
+    """Negativprobe: der Anker im Unterpunkt deckt seinen Posten."""
+    text = "\n".join(
+        [
+            "## Bewusst nicht in diesem PR",
+            "- Der Umbau bleibt liegen.",
+            "  - Getrackt in #77.",
+        ]
+    )
+    assert stellen(text) == []
+
+
+def test_should_unterlassung_ohne_aufschub_nicht_melden():
+    """Negativprobe: ein Posten, der eine unterlassene Handlung feststellt.
+
+    Kalibrierung 2026-10-08 (1615 echte Texte): die einzigen Fehlalarme waren
+    Posten wie „Keine Mail gesendet“ unter „Bewusst nicht getan“.
+    """
+    text = "\n".join(
+        [
+            "## Bewusst nicht getan",
+            "- Keine Mail gesendet.",
+            "- Nicht geloescht: das Material bleibt bis zur Anweisung liegen, siehe #12.",
+        ]
+    )
+    assert stellen(text) == []
+
+
+def test_should_unterlassung_mit_aufschub_weiter_melden():
+    """Gegenprobe: „Kein …“ mit Aufschub-Wendung bleibt ein Fund."""
+    text = "\n".join(
+        [
+            "## Bewusst nicht in diesem PR",
+            "- Kein Drill fuer den Sonderfall, folgt separat.",
+        ]
+    )
+    assert [z for z, _ in stellen(text)] == [2]
