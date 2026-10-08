@@ -1,0 +1,38 @@
+{
+  "slug": "rohes-pytest-statt-make-test",
+  "mode": "blocking",
+  "module": "tools/claude-hooks/block_rohes_pytest.py",
+  "drill": "tools/claude-hooks/tests/test_block_rohes_pytest.py",
+  "built": "2026-10-08",
+  "last_drill_pass": "2026-10-08",
+  "owner": "achim",
+  "zustand": "schranke",
+  "faengt": [
+    {
+      "fall": "`cd <worktree> && .venv/bin/python -m pytest tests/test_x.py -q` in einem Repo mit `test:`-Ziel (Realfall Retro 767d40-incr Befund #18, 49 rohe Laeufe)",
+      "probe": "realfall_cd_worktree_venv_python_pytest"
+    },
+    {
+      "fall": "alle Aufrufformen: pytest, python -m pytest, python3 -m pytest, .venv/bin/pytest, uv run pytest, mit Env-Praefix, nach Pipe/Semikolon",
+      "probe": "each_pytest_form_via_cwd"
+    },
+    {
+      "fall": "Worktree mit `.git` als Datei",
+      "probe": "in_a_worktree_with_git_file"
+    },
+    {
+      "fall": "wirksames Verzeichnis = Ziel des letzten `cd`, nicht cwd",
+      "probe": "target_of_last_cd_over_cwd"
+    },
+    {
+      "fall": "Ersatz in der Begruendung: `make test ARGS=\"...\"` bei ARGS im Makefile, sonst `make test`",
+      "probe": "name_args_replacement_when_makefile_uses_args"
+    }
+  ],
+  "positivkontrolle": {
+    "datum": "2026-10-08",
+    "ref": "tools/claude-hooks/tests/test_block_rohes_pytest.py — je Durchlass-Kriterium ein Test: `make test`, `grep`/`echo pytest`, pytest in `docker exec`/`docker compose exec|run`, Repo ohne `test:`-Ziel (auch `test := 1` und ohne Makefile), ausserhalb eines Git-Repos, `pytest --version`/`--help`, Variable im cd-Pfad und offenes Anfuehrungszeichen (fail-open). Mutationsprobe: Bedingung 2 (Ziel `test:` im Makefile) entfernt -> 4 von 36 Drill-Tests rot (make test gesamt: 4 von 6871). Kalibrierung am Transkript 767d40: 1940 Bash-Befehle, 40 gesperrt, 0 Fehlalarme."
+  },
+  "note": "Retro increment-retro-767d40-incr (platform#3859) Befund #18, Owner-Wort 'M6 go': in einer Sitzung liefen 49 rohe pytest-Aufrufe in Repo-Worktrees, obwohl die Hausregel 'Tests: make test, nie rohes pytest' lautet. Das Makefile-Ziel traegt Testpfade, Einstellungen und CI-Flags, die ein roher Aufruf nicht kennt. GRENZEN dokumentiert im Header: `bash -c`, `xargs`, Skripte die pytest selbst starten, Heredocs und `cd` mit Variable im Pfad werden nicht ausgewertet (fail-open). Verdrahtung in ~/.claude/settings.json ist Owner-Recht (Charta Art. 3) und steht im PR-Body.",
+  "ref": "platform Session 2026-10-08; Quelle docs/retros/session-retro-2026-10-08-meiki-hub-767d40-incr.md (platform#3859 Befund #18)"
+}
