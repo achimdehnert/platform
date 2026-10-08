@@ -1,0 +1,16 @@
+# governance/merge-sa-owner-wort-repos.yaml — Repo-Positivliste (Liste L) fuer
+# Merges MIT gesetztem OWNER_WORT durch tools/pr_merge_sa.py.
+#
+# Quelle: platform#3804 Kriterium K7. Owner-Wort 2026-10-08 "D go"; Ausschluss
+# meiki-lra/* und ttz-lif/* nach Owner-Wort 2026-10-06 (kein autonomes Deploy).
+#
+# Semantik: Ist die Umgebungsvariable OWNER_WORT gesetzt (die Permission-Regel
+# erlaubt den Aufruf dann ohne Owner-Klick), merged pr_merge_sa.py nur Repos
+# dieser Liste. Ohne OWNER_WORT gilt der normale Pfad, diese Datei wirkt nicht.
+# Fehlt die Datei, ist sie unlesbar oder leer: Abweisung mit OWNER_WORT (fail closed).
+#
+# Schema: Schluessel `repos`, Liste von "owner/repo" (Gross-/Kleinschreibung egal).
+# Aenderungen an dieser Datei gehen nur ueber einen Owner-approvten PR.
+repos:
+  - iilgmbh/risk-hub
+  - achimdehnert/writing-hub

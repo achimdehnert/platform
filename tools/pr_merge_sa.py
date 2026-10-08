@@ -35,6 +35,7 @@ import argparse
 import base64
 import fnmatch
 import json
+import os
 import pathlib
 import re
 import subprocess
@@ -52,6 +53,13 @@ class Unklar(Exception):
 
 
 POLICY = pathlib.Path(__file__).resolve().parents[1] / "policies" / "autonomy-gates.md"
+
+#: Repo-Positivliste fuer Merges MIT gesetztem OWNER_WORT (platform#3804, K7).
+OWNER_WORT_REPOS = (
+    pathlib.Path(__file__).resolve().parents[1]
+    / "governance"
+    / "merge-sa-owner-wort-repos.yaml"
+)
 
 RANG = {"M0": 0, "M1": 1, "M2": 2, "M3": 3}
 
@@ -95,6 +103,37 @@ def regeln(pfad=None) -> dict:
         if schluessel not in block:
             raise Unklar(f"sa_m-Block unvollstaendig: {schluessel} fehlt")
     return block
+
+
+def owner_wort_repos(pfad=None) -> set:
+    """Liest Liste L (kleingeschrieben). Fehlt/unlesbar/leer → UNKLAR (fail closed)."""
+    quelle = pathlib.Path(pfad) if pfad else OWNER_WORT_REPOS
+    try:
+        import yaml
+
+        eintraege = yaml.safe_load(quelle.read_text())["repos"]
+        repos = {str(e).strip().lower() for e in eintraege}
+    except Exception as exc:  # noqa: BLE001 — jede Lesestoerung ist UNKLAR
+        raise Unklar(f"Repo-Positivliste nicht lesbar ({quelle.name}): {exc}")
+    if not repos:
+        raise Unklar(f"Repo-Positivliste leer ({quelle.name})")
+    return repos
+
+
+def pruefe_owner_wort_repo(repo: str, env=None, pfad=None) -> str | None:
+    """Mit OWNER_WORT nur Repos aus Liste L. → Abweisungsgrund oder None.
+    Ohne OWNER_WORT (normaler Pfad) wird nichts geprueft."""
+    env = os.environ if env is None else env
+    if not env.get("OWNER_WORT", "").strip():
+        return None
+    if repo.lower() in owner_wort_repos(pfad):
+        return None
+    return (
+        f"{repo} steht nicht in der Repo-Positivliste fuer Merges mit OWNER_WORT "
+        f"({OWNER_WORT_REPOS.name}, platform#3804 K7) — meiki-lra/* und ttz-lif/* "
+        f"sind ausgeschlossen. Ohne OWNER_WORT aufrufen (normaler Pfad) oder "
+        f"Owner fragen."
+    )
 
 
 # `_build-docker.yml` ist der gemeinsam genutzte Ablauf, der ein Image baut und in
@@ -812,6 +851,10 @@ def main(argv=None) -> int:
     try:
         r = regeln(args.policy)
         repo = args.repo or repo_aus_cwd()
+        abweisung = pruefe_owner_wort_repo(repo)
+        if abweisung:
+            print(f"✗ {repo}#{args.nummer}: {abweisung}", file=sys.stderr)
+            return 2
         r, repo_id = regeln_fuer(repo, r)
 
         def pruefen():

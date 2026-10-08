@@ -1393,3 +1393,76 @@ def test_should_not_name_bot_review_when_codeowners_unreadable():
         REGELN,
     )
     assert u.erlaubt is False and "--warte-auf-bot" not in u.grund
+
+
+# --- Repo-Positivliste fuer Merges mit OWNER_WORT (platform#3804 K7) ----------
+
+MIT_WORT = {"OWNER_WORT": "RA 2026-10-08 05:00Z"}
+
+
+def test_should_allow_listed_repo_with_owner_wort():
+    from pr_merge_sa import pruefe_owner_wort_repo
+
+    assert pruefe_owner_wort_repo("iilgmbh/risk-hub", MIT_WORT) is None
+    assert pruefe_owner_wort_repo("achimdehnert/writing-hub", MIT_WORT) is None
+
+
+@pytest.mark.parametrize("repo", ["meiki-lra/meiki-hub", "ttz-lif/ttz-hub"])
+def test_should_reject_excluded_repo_with_owner_wort(repo):
+    from pr_merge_sa import pruefe_owner_wort_repo
+
+    grund = pruefe_owner_wort_repo(repo, MIT_WORT)
+    assert grund and "Positivliste" in grund and repo in grund
+
+
+def test_should_not_check_repo_without_owner_wort():
+    from pr_merge_sa import pruefe_owner_wort_repo
+
+    assert pruefe_owner_wort_repo("meiki-lra/meiki-hub", {}) is None
+    assert pruefe_owner_wort_repo("meiki-lra/meiki-hub", {"OWNER_WORT": " "}) is None
+
+
+def test_should_reject_with_owner_wort_when_list_file_missing(tmp_path):
+    from pr_merge_sa import pruefe_owner_wort_repo
+
+    with pytest.raises(Unklar):
+        pruefe_owner_wort_repo(
+            "iilgmbh/risk-hub", MIT_WORT, tmp_path / "gibt-es-nicht.yaml"
+        )
+
+
+def test_should_reject_with_owner_wort_when_list_is_empty(tmp_path):
+    from pr_merge_sa import pruefe_owner_wort_repo
+
+    leer = tmp_path / "leer.yaml"
+    leer.write_text("repos: []\n")
+    with pytest.raises(Unklar):
+        pruefe_owner_wort_repo("iilgmbh/risk-hub", MIT_WORT, leer)
+
+
+def test_should_exit_2_for_excluded_repo_with_owner_wort_before_any_api_call(
+    monkeypatch, capsys
+):
+    import pr_merge_sa
+
+    monkeypatch.setenv("OWNER_WORT", "RA 2026-10-08 05:00Z")
+    monkeypatch.setattr(pr_merge_sa, "regeln", lambda *_a, **_k: REGELN)
+    monkeypatch.setattr(
+        pr_merge_sa,
+        "gather",
+        lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("kein API-Zugriff")),
+    )
+    assert pr_merge_sa.main(["1", "meiki-lra/meiki-hub"]) == 2
+    assert "Positivliste" in capsys.readouterr().err
+
+
+def test_should_exit_3_with_owner_wort_when_list_file_missing(
+    monkeypatch, tmp_path, capsys
+):
+    import pr_merge_sa
+
+    monkeypatch.setenv("OWNER_WORT", "RA 2026-10-08 05:00Z")
+    monkeypatch.setattr(pr_merge_sa, "OWNER_WORT_REPOS", tmp_path / "fehlt.yaml")
+    monkeypatch.setattr(pr_merge_sa, "regeln", lambda *_a, **_k: REGELN)
+    assert pr_merge_sa.main(["1", "iilgmbh/risk-hub"]) == 3
+    assert "UNKLAR" in capsys.readouterr().err
