@@ -1083,6 +1083,65 @@ def test_should_include_fix_in_json_report(journal: Path, capsys) -> None:
     assert satz["fix_ueberfaellig"] is True
 
 
+# ── #3495: bestandene Fix-Messung abhaken (--gemessen) ──────────────────────
+
+
+def _ueberfaelliger_fix(journal: Path) -> str:
+    _lauf([ZEILE], journal)
+    fid = next(iter(bj.lade(journal)["befunde"]))
+    bj.main(_fix_args(fid, "https://example/pull/1", journal))
+    return fid
+
+
+def test_should_clear_overdue_flag_after_passed_measurement(journal: Path) -> None:
+    fid = _ueberfaelliger_fix(journal)
+    assert bj.fix_ueberfaellig(bj.lade(journal)["befunde"][fid], bj._heute()) is True
+    rc = bj.main(
+        ["--gemessen", fid, "--ergebnis", "Melder still", "--datei", str(journal)]
+    )
+    assert rc == 0
+    e = bj.lade(journal)["befunde"][fid]
+    assert e["fix"]["gemessen_am"] == bj._heute()
+    assert e["fix"]["ergebnis"] == "Melder still"
+    assert bj.fix_ueberfaellig(e, bj._heute()) is False
+    text = bj.bericht(bj.lade(journal), "platform")
+    assert "✅ Fix-Messung bestanden" in text
+    assert "⏰ Fix-Messung überfällig" not in text
+
+
+def test_should_stay_overdue_without_measurement(journal: Path) -> None:
+    """Gegenprobe: ohne --gemessen bleibt die Messung ueberfaellig."""
+    fid = _ueberfaelliger_fix(journal)
+    text = bj.bericht(bj.lade(journal), "platform")
+    assert bj.fix_ueberfaellig(bj.lade(journal)["befunde"][fid], bj._heute()) is True
+    assert "⏰ Fix-Messung überfällig" in text
+
+
+def test_should_reset_measurement_when_new_fix_is_set(journal: Path) -> None:
+    fid = _ueberfaelliger_fix(journal)
+    bj.main(["--gemessen", fid, "--ergebnis", "ok", "--datei", str(journal)])
+    bj.main(_fix_args(fid, "https://example/pull/2", journal))
+    e = bj.lade(journal)["befunde"][fid]
+    assert "gemessen_am" not in e["fix"]
+    assert bj.fix_ueberfaellig(e, bj._heute()) is True
+
+
+def test_should_reject_measurement_without_fix(journal: Path, capsys) -> None:
+    _lauf([ZEILE], journal)
+    fid = next(iter(bj.lade(journal)["befunde"]))
+    rc = bj.main(["--gemessen", fid, "--ergebnis", "ok", "--datei", str(journal)])
+    assert rc != 0
+    assert "fix" not in bj.lade(journal)["befunde"][fid]
+    assert "keinen Fix" in capsys.readouterr().err
+
+
+def test_should_reject_measurement_without_ergebnis(journal: Path) -> None:
+    fid = _ueberfaelliger_fix(journal)
+    rc = bj.main(["--gemessen", fid, "--datei", str(journal)])
+    assert rc != 0
+    assert "gemessen_am" not in bj.lade(journal)["befunde"][fid]["fix"]
+
+
 # ── Deklarationen mit Pflicht-Ablauf (#3495 V2) ──────────────────────────────
 
 

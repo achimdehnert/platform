@@ -216,7 +216,9 @@ def klassifiziere(
             "klasse": FIX_UEBERFAELLIG,
             "grund": f"Messdatum {fix.get('messung')} verstrichen",
         }
-    faellig = [str(d) for d in (wv, fix.get("messung")) if d]
+    # Eine bestandene Messung (`--gemessen`, #3495) ist keine Faelligkeit mehr.
+    messung = None if fix.get("gemessen_am") else fix.get("messung")
+    faellig = [str(d) for d in (wv, messung) if d]
     ergebnis: dict = {"klasse": VERANKERT, "grund": ""}
     if eintrag.get("infra"):
         seit = anker_seit(eintrag, gespeichert, heute)

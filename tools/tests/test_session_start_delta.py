@@ -105,6 +105,22 @@ def test_should_keep_anchored_entry_quiet_and_report_its_due_date():
     assert k["faellig"] == "2026-09-28"
 
 
+def test_should_not_report_passed_fix_measurement_as_due():
+    """#3495: bestandene Messung (`--gemessen`) ist keine Faelligkeit mehr."""
+    e = _eintrag(
+        wiedervorlage=None,
+        fix={
+            "gesetzt_am": "2026-09-20",
+            "messung": "2026-09-28",
+            "gemessen_am": "2026-10-01",
+            "ergebnis": "Melder still",
+        },
+    )
+    k = _klasse(e)
+    assert k["klasse"] == sd.VERANKERT
+    assert k["faellig"] is None
+
+
 def test_should_resubmit_infra_backup_finding_anchored_for_17_days():
     """Positivkontrolle #3486: Backup-Befund, seit 17 Tagen verankert, ohne Zustand."""
     e = _eintrag(
