@@ -167,6 +167,48 @@ ABSCHNITT_MAX = 20
 
 UEBERSCHRIFT = re.compile(r"^\s{0,3}#{1,6}\s")
 
+#: Listenpunkt (`-`, `*`, `+`, `1.`, `1)`) mit Einrueckung als Gruppe 1.
+POSTEN = re.compile(r"^(\s*)(?:[-*+]|\d+[.)])\s+\S")
+
+#: Posten, der eine unterlassene Handlung feststellt („Keine Mail gesendet“),
+#: statt Arbeit zu vertagen. Gemessen 2026-10-08: die einzigen drei Fehlalarme
+#: der Je-Posten-Regel auf 377 echten Texten waren genau diese Form.
+UNTERLASSUNG = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+(?:kein|keine|nicht)\b", re.IGNORECASE)
+
+
+def _posten_ohne_anker(zeilen: list[str], von: int, bis: int) -> list[tuple[int, str]] | None:
+    """Je Posten der obersten Ebene im Abschnitt: die ohne eigenen Anker.
+
+    None, wenn der Abschnitt keine Posten hat oder der Vortext vor dem ersten
+    Posten einen Anker traegt (Sammel-Issue fuer alle Posten) — dann gilt die
+    Abschnittsregel. Unterpunkte und Folgezeilen gehoeren zu ihrem Posten.
+
+    Anlass (platform#3859 M7, Retro 767d40-incr Befund #2): Unter
+    „## Bewusst ausgelassen, mit Folgeschritt“ in meiki-lra/meiki-hub#582 standen
+    sechs Posten; `shared-ci#108` im ersten Posten deckte nach der Abschnittsregel
+    alle sechs, fuenf davon hatten kein Issue.
+    """
+    posten = [
+        (j, len(m.group(1)))
+        for j in range(von, bis)
+        if (m := POSTEN.match(zeilen[j]))
+    ]
+    if not posten:
+        return None
+    if ANKER.search(ohne_pr_referenzen("\n".join(zeilen[von : posten[0][0]]))):
+        return None
+    ebene = min(e for _, e in posten)
+    starts = [j for j, e in posten if e == ebene]
+    funde: list[tuple[int, str]] = []
+    for k, start in enumerate(starts):
+        ende = starts[k + 1] if k + 1 < len(starts) else bis
+        block = "\n".join(zeilen[start:ende])
+        if UNTERLASSUNG.match(zeilen[start]) and not AUFSCHUB.search(block):
+            continue
+        if not ANKER.search(ohne_pr_referenzen(block)):
+            funde.append((start + 1, zeilen[start].strip()))
+    return funde
+
 
 def finde_ankerlose_stellen(text: str, fenster: int = FENSTER) -> list[tuple[int, str]]:
     """(Zeilennummer, Zeile) je Aufschub-Stelle ohne Anker in der Naehe.
@@ -205,6 +247,12 @@ def finde_ankerlose_stellen(text: str, fenster: int = FENSTER) -> list[tuple[int
                 if UEBERSCHRIFT.match(zeilen[j]):
                     bis = j
                     break
+            # Je Posten statt je Abschnitt (platform#3859 M7): ein Anker
+            # deckt nur den Posten, in dem er steht.
+            je_posten = _posten_ohne_anker(zeilen, i + 1, bis)
+            if je_posten is not None:
+                funde.extend(je_posten)
+                continue
             von = i
         else:
             von, bis = max(0, i - fenster), min(len(zeilen), i + fenster + 1)
@@ -214,7 +262,9 @@ def finde_ankerlose_stellen(text: str, fenster: int = FENSTER) -> list[tuple[int
         if ANKER.search(ohne_pr_referenzen("\n".join(zeilen[von:bis]))):
             continue
         funde.append((i + 1, zeile.strip()))
-    return funde
+    # Ein Posten mit eigener Aufschub-Wendung kaeme sonst zweimal: als Zeile
+    # und als Posten seiner Ueberschrift.
+    return sorted(dict(funde).items())
 
 
 #: Zeilenanfaenge, die eine hinzugefuegte Zeile als Prosa-im-Code ausweisen.
