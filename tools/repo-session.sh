@@ -8,6 +8,12 @@
 #   "owner": "achim"
 #   "last_drill_pass": "2026-08-12"
 #   "evidence": "tools/tests/test_repo_session_pr_collision.py"
+# Zweites Gate in dieser Datei — Eigentums-Guard in cmd_end() (platform#3859 M1):
+#   "slug": "fremde-worktrees-beendet"
+#   "mode": "blocking"
+#   "owner": "achim"
+#   "last_drill_pass": "2026-10-08"
+#   "evidence": "tools/tests/test_repo_session_end_eigene_sitzung.py"
 # Der Guard selbst: check_pr_collision() unten — harter Block beim `start`,
 # wenn ein offener PR denselben Task-Slug traegt (ADR-233 R-6). Bestand seit
 # 5cefbb0a, registriert erst 2026-08-12 (platform#1650 Nachmessung: ein echtes,
@@ -24,7 +30,8 @@
 #   repo-session.sh befunde                    # aktive Befund-Sperren (key, Lease, Alter)
 #   repo-session.sh list
 #   repo-session.sh abstand [<repo>]           # Commits hinter origin/main je Lease; exit 1 ueber Schwelle
-#   repo-session.sh end <worktree-path>        # Worktree entfernen (nur wenn clean), Lease schliessen
+#   repo-session.sh end <worktree-path> [--fremd]  # Worktree entfernen (nur wenn clean), Lease schliessen;
+#                                              # in einer Claude-Sitzung nur eigene Lease, sonst exit 4
 #   repo-session.sh reap [<repo-path>]         # gemergte+cleane Session-Worktrees des Repos abraeumen
 #                                              # (default: Repo des cwd); Leases werden .closed
 #
@@ -464,8 +471,35 @@ PY
   echo "$n Lease(s)."
 }
 
+#   Gibt claude_session der Lease zum (kanonischen) Worktree-Pfad aus,
+#   "<ohne-sitzung>" fuer Alt-Leases ohne das Feld, "<kein-lease>" ohne Treffer.
+lease_sitzung() {
+  python3 - "$LEASE_DIR" "$1" <<'PY'
+import glob, json, os, sys
+lease_dir, ziel = sys.argv[1], sys.argv[2]
+for pfad in sorted(glob.glob(os.path.join(lease_dir, "*.json"))):
+    try:
+        lease = json.load(open(pfad))
+    except (OSError, ValueError):
+        continue
+    wt = lease.get("worktree") or ""
+    if wt and os.path.realpath(wt) == ziel:
+        print(lease.get("claude_session") or "<ohne-sitzung>")
+        break
+else:
+    print("<kein-lease>")
+PY
+}
+
 cmd_end() {
-  local wt="${1:-}"; [ -n "$wt" ] || die "worktree-path fehlt"
+  local wt="" fremd=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --fremd) fremd=1; shift;;
+      *) [ -z "$wt" ] || die "unerwartetes Argument: $1"; wt="$1"; shift;;
+    esac
+  done
+  [ -n "$wt" ] || die "worktree-path fehlt"
   local repo; repo="$(git -C "$wt" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's#/\.git$##')" || true
   # Dirty-Guard: nie einen Tree mit uncommitted changes entfernen
   if [ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ]; then
@@ -478,6 +512,24 @@ cmd_end() {
   # dem Entfernen auflösen, weil "$wt" danach nicht mehr existiert und
   # realpath dann fehlschlaegt.
   local wt_canon; wt_canon="$(realpath "$wt" 2>/dev/null || readlink -f "$wt" 2>/dev/null || printf '%s' "$wt")"
+  # Eigentums-Guard (Gate fremde-worktrees-beendet, platform#3859 M1): Am
+  # 2026-10-08 beendete eine Aufraeum-Schleife ueber das Pfadmuster
+  # `<datum>-<owner>-*` Worktrees fuenf fremder Sitzungen, eine davon aktiv.
+  # Der Pfad traegt Datum und Konto, nicht die Sitzung; dasselbe Konto faehrt
+  # parallele Sitzungen. Laeuft `end` in einer Claude-Sitzung, muss die Lease
+  # dieser Sitzung gehoeren. Fremde und herrenlose Worktrees raeumt `reap`
+  # (Karenz, aktive Leases), mit Owner-Wort `--fremd`. Ohne
+  # CLAUDE_CODE_SESSION_ID (Mensch am Terminal) prueft der Guard nicht.
+  local eigene="${CLAUDE_CODE_SESSION_ID:-}"
+  if [ -n "$eigene" ] && [ "$fremd" -eq 0 ]; then
+    local lease_cs; lease_cs="$(lease_sitzung "$wt_canon")"
+    if [ "$lease_cs" != "$eigene" ]; then
+      echo "⛔ Worktree $wt gehoert nicht dieser Sitzung (Lease: $lease_cs, eigene: $eigene)." >&2
+      echo "   'end' beendet nur Worktrees mit Lease dieser Sitzung. Fremde raeumt 'repo-session.sh reap <repo>'" >&2
+      echo "   (achtet Karenz und aktive Leases); mit Owner-Wort: 'repo-session.sh end <worktree> --fremd'." >&2
+      exit 4
+    fi
+  fi
   git -C "$wt" worktree remove "$wt" 2>/dev/null || git worktree remove "$wt"
   # Lease schliessen — Pfade auf beiden Seiten kanonisieren statt exaktem
   # String-Vergleich (#1360 Defekt 2): der im Lease gespeicherte Pfad kann
