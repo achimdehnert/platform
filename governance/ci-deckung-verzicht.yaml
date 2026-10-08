@@ -54,3 +54,41 @@
 - repo: meiki-hub
   ziel: lint
   grund: "Lokaler Spiegel dreier CI-Schritte, die unter anderem Namen laufen: markdownlint als markdownlint-cli2-action in lint.yml (advisory, continue-on-error wie das `|| true` im Make-Ziel), Platzhalter-Scan (einzutragen/TODO/FIXME/TBD/XXX) als eigener Schritt in quality.yml, scripts/glossar-check.py als Schritt in quality.yml (continue-on-error). Das Werkzeug matcht Kommandotext und sieht die Action und die Inline-Schritte nicht."
+
+# writing-hub: acht Ziele (Owner-Wort 2026-10-08 "R1 verzicht alle", Session-Start
+# 0.7.26 meldete 14 Kommandos). Die CI ruft nie `make`, sondern pytest/ruff direkt
+# (shared-ci _ci-python.yml) bzw. `make klickdummy`; die Make-Ziele sind lokale
+# Huellen um denselben Lauf oder lesen Prod. Die 7 gemeldeten Kommandos unter
+# `test-session` sind Fragmente einer Shell-Schleife — Melder-Befund platform#3845.
+
+- repo: writing-hub
+  ziel: test-pg
+  grund: "Lokale Huelle: startet einen eigenen postgres:16-alpine-Container und faehrt darin pytest (alles ausser tests/ux). In CI laeuft pytest direkt ueber shared-ci _ci-python.yml@v1.1.20 (ci.yml Job `ci`) plus gezielte pytest-Schritte im Lecture-Outline-Job; das Werkzeug sieht den Aufruf ohne `make` nicht."
+
+- repo: writing-hub
+  ziel: test-v
+  grund: "Verbose-Variante von test-pg (gleicher pytest-Lauf mit -v); Deckung wie test-pg ueber shared-ci _ci-python.yml."
+
+- repo: writing-hub
+  ziel: lint
+  grund: "`ruff check .` laeuft in CI ueber shared-ci _ci-python.yml@v1.1.20 (ci.yml Job `ci`), nicht ueber make."
+
+- repo: writing-hub
+  ziel: test-ux
+  grund: "Playwright-Tests tests/ux brauchen ein installiertes Chromium; CI faehrt davon den Parity-Test im Klickdummy-Job (`make klickdummy`, ci.yml Zeile 120) und sonst tests/e2e direkt. Rest der UX-Suite bewusst lokal (Owner 2026-10-08)."
+
+- repo: writing-hub
+  ziel: klickdummy-i1
+  grund: "Teilmenge von `make klickdummy`, das CI im Klickdummy-Job faehrt (ci.yml Zeile 120, Pfadfilter klickdummy/, templates/lectures/, tests/ux/test_lecture_outline_wizard_parity.py). Ein eigener Aufruf wuerde I1 doppelt fahren."
+
+- repo: writing-hub
+  ziel: test-smoke
+  grund: "Prod-Zugriff: tests/smoke liest den Bestand der laufenden Instanz (writing.iil.pet, Prefix /projekte/) — nur vom Dev-Host mit Zugang pruefbar, nicht im Runner."
+
+- repo: writing-hub
+  ziel: gui-pruefung-live
+  grund: "Prod-Zugriff: faehrt tests/smoke/test_bestand_ist_lesbar.py gegen die Live-Instanz, dieselbe Begruendung wie test-smoke."
+
+- repo: writing-hub
+  ziel: test-session
+  grund: "Kein Pruefziel, sondern das Hilfsziel von test-pg/test-ux fuer den Container-Lebenszyklus (docker run, pg_isready-Schleife, trap). Die 7 gemeldeten Kommandos (`break`, `sleep 1`, `for i in …`) sind Bruchstuecke der Schleife — Melder-Befund platform#3845; Verzicht bis der Melder logische Zeilen ganz liest."
