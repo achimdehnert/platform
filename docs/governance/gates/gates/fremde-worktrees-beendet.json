@@ -1,0 +1,30 @@
+{
+  "slug": "fremde-worktrees-beendet",
+  "mode": "blocking",
+  "owner": "achim",
+  "module": "tools/repo-session.sh",
+  "drill": "tools/tests/test_repo_session_end_eigene_sitzung.py",
+  "built": "2026-10-08",
+  "ref": "platform#3859 M1 (Increment-Retro 767d40-incr, Owner-Wort 'M1 go')",
+  "note": "Realfall 2026-10-08: Eine Aufraeum-Schleife ueber das Pfadmuster `<datum>-<owner>-*` rief `repo-session.sh end` auf Worktrees fuenf fremder Sitzungen desselben Kontos auf, eine davon aktiv. Der Worktree-Pfad traegt Datum und Konto, nicht die Sitzung. Guard in cmd_end(): laeuft `end` mit CLAUDE_CODE_SESSION_ID, muss das Lease-Feld `claude_session` dieser Sitzung entsprechen; fremde, herrenlose (Alt-Lease ohne Feld) und lease-lose Worktrees enden mit exit 4 und Verweis auf `reap`. Override `--fremd` nur mit Owner-Wort. Ohne CLAUDE_CODE_SESSION_ID (Mensch am Terminal) keine Pruefung.",
+  "faengt": [
+    {
+      "fall": "end auf dem Worktree einer anderen Claude-Sitzung",
+      "probe": "other_session"
+    },
+    {
+      "fall": "end auf einem Worktree mit Alt-Lease ohne claude_session",
+      "probe": "lease_without_session_field"
+    },
+    {
+      "fall": "end auf einem Worktree ohne Lease",
+      "probe": "worktree_without_lease"
+    }
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-10-08",
+  "positivkontrolle": {
+    "ref": "tools/tests/test_repo_session_end_eigene_sitzung.py::test_should_block_end_on_worktree_of_other_session (fremde Lease -> exit 4, Worktree und Lease bleiben); Gegenproben ::test_should_end_own_worktree, ::test_should_end_foreign_worktree_with_fremd_flag, ::test_should_not_check_without_claude_session. Mutationsprobe 2026-10-08: Guard-Block in cmd_end entfernt -> drei Drills rot.",
+    "datum": "2026-10-08"
+  }
+}
