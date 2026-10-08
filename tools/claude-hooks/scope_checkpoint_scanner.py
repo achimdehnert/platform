@@ -307,6 +307,23 @@ def _repos_aus_kommando(cmd: str) -> set[str]:
 _AUSGABE_MAX = 20000
 
 
+#: Wo ein echtes Repo als Verzeichnis liegt (Namensauflösung relativ zu HOME,
+#: damit Tests ein Wegwerf-HOME setzen können).
+_REPO_ORTE = ("github", ".repo-session/worktrees")
+
+
+def _repo_existiert(name: str) -> bool:
+    """Gibt es ``~/github/<name>`` oder ``~/.repo-session/worktrees/<name>``?
+
+    #3836: Tool-Ausgaben werden gern mit ``cut -c1-60`` gekuerzt; aus
+    ``…/worktrees/risk-hub`` wird ``…/worktrees/ris``. Der Name hinter dem Marker
+    ist dann kein Repo, wurde aber gezaehlt und loeste Fehlalarme aus. Nur fuer
+    Ausgaben angewandt: dort steht der Pfad ohne Gewaehr auf Vollstaendigkeit,
+    in Eingaben (Edit/Write/Kommando) steht, was der Agent selbst geschrieben hat.
+    """
+    return any((Path.home() / ort / name).is_dir() for ort in _REPO_ORTE)
+
+
 def _repos_aus_ausgabe(text: str) -> set[str]:
     """Repos, die ein Kommando laut seiner eigenen AUSGABE angefasst hat.
 
@@ -324,7 +341,7 @@ def _repos_aus_ausgabe(text: str) -> set[str]:
     Nur fuer Ergebnisse SCHREIBENDER Kommandos aufrufen: ein `grep -rn ~/github/`
     nennt dieselben Pfade, ohne irgendetwas anzufassen.
     """
-    return _repos_aus_kommando(text[:_AUSGABE_MAX])
+    return {r for r in _repos_aus_kommando(text[:_AUSGABE_MAX]) if _repo_existiert(r)}
 
 
 def im_checkpoint_genannt(repo: str, texte: list[str]) -> bool:
