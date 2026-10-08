@@ -42,7 +42,8 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-ORGS = ("achimdehnert", "iilgmbh", "ttz-lif", "meiki-lra")
+# Org-Liste als Datendatei, nicht im Code (Retro 3b46a0 M8, platform#3848).
+ORGS_DATEI = Path(__file__).resolve().parents[1] / "registry" / "pr-bestand-orgs.json"
 JOURNAL = Path.home() / ".claude" / "pr-bestand-journal.jsonl"
 ALT_TAGE = 30
 # Ab so vielen PRs ueber ALT_TAGE wird gewarnt: gemessen 2026-10-06 nach dem
@@ -55,6 +56,14 @@ LESEN_MAX_ALTER_TAGE = 8
 FELDER = "number,title,author,createdAt,updatedAt,repository,isDraft,url"
 
 PROJECT_FACTS = re.compile(r"project[-_ ]facts", re.I)
+
+
+def lade_orgs(pfad: Path = ORGS_DATEI) -> tuple[str, ...]:
+    """Liest die Org-Liste aus der Datendatei; leer oder kaputt ist ein Fehler, kein Default."""
+    orgs = json.loads(pfad.read_text(encoding="utf-8")).get("orgs")
+    if not orgs or not all(isinstance(o, str) and o for o in orgs):
+        raise ValueError(f"{pfad}: 'orgs' fehlt oder ist leer")
+    return tuple(orgs)
 
 
 def erzeuger(pr: dict) -> str:
@@ -162,7 +171,8 @@ def tabelle(s: dict) -> str:
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--org", action="append", help="Org (mehrfach); Default: alle vier")
+    p.add_argument("--org", action="append", help="Org (mehrfach); Default: registry/pr-bestand-orgs.json")
+    p.add_argument("--orgs-datei", type=Path, default=ORGS_DATEI, help=argparse.SUPPRESS)
     p.add_argument("--eingabe", type=Path, help="JSON-Liste im Format von gh search prs")
     p.add_argument("--journal", type=Path, default=JOURNAL)
     p.add_argument("--kein-journal", action="store_true")
@@ -182,8 +192,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.eingabe:
             prs = json.loads(args.eingabe.read_text(encoding="utf-8"))
         else:
-            prs = lade_live(tuple(args.org) if args.org else ORGS)
-    except (OSError, subprocess.SubprocessError, json.JSONDecodeError) as fehler:
+            prs = lade_live(tuple(args.org) if args.org else lade_orgs(args.orgs_datei))
+    except (OSError, subprocess.SubprocessError, ValueError) as fehler:
         print(f"nicht pruefbar: {type(fehler).__name__}: {fehler}")
         return 0
     aktuell = schnappschuss(prs, jetzt)
