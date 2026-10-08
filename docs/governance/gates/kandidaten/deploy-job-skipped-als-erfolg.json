@@ -1,0 +1,9 @@
+{
+  "slug": "deploy-job-skipped-als-erfolg",
+  "quelle": "Retro 3b46a0 §5 (2026-10-08, platform#3848), Owner-Wort 'M1 go' 2026-10-08",
+  "kern": "Antwort auf den vierten Zaehler von deploy-green-not-prod-healthy (declined seit 2026-08-23, Grund: Phase 0.7.12 misst laufende Container). Der Grund traegt nicht fuer stillgelegte Repos ohne Container: travel-beat Lauf 37628198087 hatte Conclusion success bei Job deploy = skipped (vars.DEPLOY_ENABLED), die Sitzung meldete 'Deploy success' oeffentlich in platform#3812. Gate: die Deploy-Meldung nach einem Merge liest den Job-Status (gh run view <id> --json jobs, Job deploy/production = success), nie die Workflow-Conclusion; skipped heisst 'kein Deploy', mit Grund. Positivkontrolle: Lauf 37628198087 muss als 'kein Deploy' erkannt werden.",
+  "zustand": "schranke-kandidat",
+  "vorkommen": 1,
+  "letztes_vorkommen": "2026-10-07",
+  "erhoben": "2026-10-08"
+}

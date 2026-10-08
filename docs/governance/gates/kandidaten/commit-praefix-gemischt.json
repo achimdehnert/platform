@@ -1,0 +1,9 @@
+{
+  "slug": "commit-praefix-gemischt",
+  "quelle": "Retro 3b46a0 §5 (2026-10-08, platform#3848), Form per Owner-Wort 'M5 type(scope)' 2026-10-08 festgelegt",
+  "kern": "Gate-Pflicht (Zaehler 2). Vorbedingung erfuellt: die Titelform ist entschieden und steht in CORE_CONTEXT §Konventionen. Gate: PR-Titel-Check in der CI gegen ^(feat|fix|refactor|docs|test|chore)\\([a-z0-9-]+\\): , advisory bis zur Frist. Positivkontrolle: '[docs](retros): …' muss melden, 'docs(retros): …' muss durchlaufen.",
+  "zustand": "schranke-kandidat",
+  "vorkommen": 2,
+  "letztes_vorkommen": "2026-10-07",
+  "erhoben": "2026-10-08"
+}
