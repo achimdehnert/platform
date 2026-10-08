@@ -43,6 +43,19 @@ def _isolieren(tmp_path, monkeypatch):
     )
 
 
+@pytest.fixture(autouse=True)
+def _repos_vorhanden(tmp_path, monkeypatch):
+    """#3836: Namen aus Tool-Ausgaben zaehlen nur, wenn das Verzeichnis existiert.
+
+    Die Fixture-Ausgaben nennen echte Repo-Namen; in CI gibt es kein ~/github.
+    Ein Wegwerf-HOME legt sie an (und schuetzt vor dem echten HOME).
+    """
+    home = tmp_path / "home"
+    for name in ("platform", "risk-hub", "dev-hub", "mcp-hub"):
+        (home / "github" / name).mkdir(parents=True)
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+
+
 def _zeile_text(text: str) -> dict:
     return {
         "type": "assistant",
