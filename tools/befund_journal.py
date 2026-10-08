@@ -66,6 +66,9 @@ Kommandos:
   --beleg ID ...           Kommando, Ausgabe, Knoten, Positivkontrolle an einen Befund haengen.
   --fix ID --pr URL --wirkung "<Satz>" [--messung YYYY-MM-DD]
                            Fix in Arbeit vermerken: PR, erwartete Wirkung, Messdatum.
+  --gemessen ID --ergebnis "<Satz>"
+                           Bestandene Fix-Messung abhaken — der Fix ist dann nicht
+                           mehr ueberfaellig, auch wenn der Befund im Journal bleibt.
   --bericht --json         Dieselben Daten maschinenlesbar — fuer eine Leseflaeche
                            ausserhalb dieser Maschine (KONZ-054 E2).
   --praezision --json      Trefferquote je Melder maschinenlesbar (#2690 K3) —
@@ -98,6 +101,13 @@ und liegt das Messdatum in der Vergangenheit, waehrend der Eintrag weiterhin im
 Journal steht (Phase hat ihn nicht geheilt), markiert der Bericht ihn als
 ueberfaellig — dieselbe Ruhe-vs-laut-Mechanik wie bei
 `entscheiden_bis`, nur fuer den laufenden Fix statt fuer den Erstbefund.
+
+Seit 2026-10-08 (#3495) laesst sich eine bestandene Messung abhaken:
+`--gemessen ID --ergebnis "<Satz>"` setzt ``fix.gemessen_am`` und ``fix.ergebnis``;
+danach ist der Fix nicht mehr ueberfaellig. Realfall: `0.7.2 cron-melder::platform`
+— Fix #3675 wirkte, der Befund blieb aber aus anderem Grund (Rueckstau #3340) im
+Journal und meldete dauerhaft FIX-MESSUNG-UEBERFAELLIG. Ein neues `--fix` ersetzt
+den ganzen Fix-Eintrag und damit auch die alte Messung.
 
 Seit 2026-09-24 (#3495 V2) Deklarationen — Ausnahmen mit Pflicht-Ablaufdatum:
     Der Sonderfall "Knoten mit `betrieb: auf_zuruf` ist unerreichbar -> schlaeft,
@@ -1084,7 +1094,7 @@ def fix_ueberfaellig(eintrag: dict, heute: str) -> bool:
     einen Eintrag in der Hand haelt, dessen ``fix.messung`` in der Vergangenheit liegt.
     """
     fix = eintrag.get("fix")
-    if not fix or not fix.get("messung"):
+    if not fix or not fix.get("messung") or fix.get("gemessen_am"):
         return False
     return heute > str(fix["messung"])
 
@@ -1182,7 +1192,12 @@ def bericht(
                 f"\n      🔧 Fix in Arbeit: {fx.get('pr')} — {fx.get('wirkung')} "
                 f"(Messung {fx.get('messung')})"
             )
-            if fix_ueberfaellig(e, _heute()):
+            if fx.get("gemessen_am"):
+                fix_zeile += (
+                    f"\n      ✅ Fix-Messung bestanden am {fx['gemessen_am']}: "
+                    f"{fx.get('ergebnis')}"
+                )
+            elif fix_ueberfaellig(e, _heute()):
                 fix_zeile += "\n      ⏰ Fix-Messung überfällig"
         rueck = f"\n      🔁 {_wiederkehr_zeile(e)}" if e.get("wiederkehr") else ""
         zeilen.append(
@@ -1224,6 +1239,14 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         metavar="DATUM",
         help=f"mit --fix: Messdatum YYYY-MM-DD (Default: +{FRIST_FIX_MESSUNG_TAGE} Tage)",
+    )
+    p.add_argument(
+        "--gemessen",
+        metavar="ID",
+        help="bestandene Fix-Messung abhaken (mit --ergebnis)",
+    )
+    p.add_argument(
+        "--ergebnis", default=None, help="mit --gemessen: Messergebnis als Satz"
     )
     p.add_argument(
         "--deklaration",
@@ -1369,6 +1392,26 @@ def main(argv: list[str] | None = None) -> int:
         }
         sichere(daten, pfad)
         print(f"Fix in Arbeit: {a.fix} -> {a.pr} · Messung {messung}")
+        return 0
+
+    if a.gemessen:
+        e = daten.get("befunde", {}).get(a.gemessen)
+        if e is None:
+            print(f"Kein Befund mit ID {a.gemessen}", file=sys.stderr)
+            return 2
+        if not e.get("fix"):
+            print(
+                f"{a.gemessen} hat keinen Fix in Arbeit — erst --fix setzen.",
+                file=sys.stderr,
+            )
+            return 2
+        if not a.ergebnis:
+            print("--gemessen braucht --ergebnis.", file=sys.stderr)
+            return 2
+        e["fix"]["gemessen_am"] = _heute()
+        e["fix"]["ergebnis"] = a.ergebnis
+        sichere(daten, pfad)
+        print(f"Fix-Messung bestanden: {a.gemessen} · {a.ergebnis}")
         return 0
 
     if a.deklaration:
