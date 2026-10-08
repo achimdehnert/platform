@@ -155,6 +155,67 @@ class TestBefundeIssues:
         ]
         assert sa.befunde_issues(prs, issues) == []
 
+    def test_should_flag_closes_when_pr_text_names_pending_work(self):
+        """POSITIVKONTROLLE schreib-hub#84/#85 (2026-10-07): `Closes #84`, im
+        selben Text „Noch offen: Browser-Probe … nach dem Merge" — das Issue
+        trug nummerierte Kriterien ohne Kaestchen, Befund B sah nichts."""
+        prs = [
+            {
+                "number": 85,
+                "repo": "meiki-lra/schreib-hub",
+                "state": "MERGED",
+                "body": "Closes #84 (Owner 07.10.2026: Variante A)\n\n"
+                "- **Noch offen:** Browser-Probe im lokalen Stack nach dem Merge.",
+            }
+        ]
+        issues = [
+            {
+                "number": 84,
+                "repo": "meiki-lra/schreib-hub",
+                "state": "CLOSED",
+                "body": "## Kriterien\n\n1. Anrede-Zusatz je Schreiben\n2. Browser-Probe",
+            }
+        ]
+        befunde = sa.befunde_issues(prs, issues)
+        assert len(befunde) == 1
+        assert befunde[0]["ref"] == "meiki-lra/schreib-hub#84"
+        assert "Noch offen" in befunde[0]["text"]
+
+    def test_should_flag_closes_when_binding_follows_after_merge(self):
+        """POSITIVKONTROLLE schreib-hub#80/#82: „folgt nach dem Merge"."""
+        prs = [
+            {
+                "number": 82,
+                "repo": "meiki-lra/schreib-hub",
+                "state": "MERGED",
+                "body": "Closes #80\n\n- Die Bindung im Haus-Profil folgt nach dem Merge.",
+            }
+        ]
+        issues = [{"number": 80, "repo": "meiki-lra/schreib-hub", "state": "CLOSED", "body": "1. K1"}]
+        assert len(sa.befunde_issues(prs, issues)) == 1
+
+    def test_should_stay_green_when_pending_work_is_only_referenced(self):
+        """GEGENPROBE schreib-hub#87: „Mutationsprobe steht aus" mit `Refs #34`
+        ist der richtige Umgang — kein Befund C (Befund A fuer das offene Issue
+        bleibt, das ist der bestehende writing-hub-Fall)."""
+        prs = [
+            {
+                "number": 87,
+                "repo": "meiki-lra/schreib-hub",
+                "state": "MERGED",
+                "body": "Refs #34\n\n- Mutationsprobe: **steht aus**, Nachtrag als Kommentar",
+            }
+        ]
+        issues = [{"number": 34, "repo": "meiki-lra/schreib-hub", "state": "OPEN", "body": "1. K1"}]
+        befunde = sa.befunde_issues(prs, issues)
+        assert not any("Ausstehendes" in b["text"] for b in befunde)
+
+    def test_should_stay_green_when_closes_without_pending_work(self):
+        """GEGENPROBE: `Closes` ohne ausstehende Arbeit im Text."""
+        prs = [{"number": 86, "repo": "r/s", "state": "MERGED", "body": "Closes #80\n\nAlle Kriterien belegt."}]
+        issues = [{"number": 80, "repo": "r/s", "state": "CLOSED", "body": "1. K1"}]
+        assert sa.befunde_issues(prs, issues) == []
+
     def test_should_stay_green_when_pr_is_not_merged(self):
         """GEGENPROBE: ein OFFENER PR darf sein Issue offen lassen."""
         prs = [
