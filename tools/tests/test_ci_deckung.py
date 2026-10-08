@@ -671,3 +671,28 @@ def test_should_still_detect_real_check_command_next_to_loop_target():
 def test_should_treat_control_words_and_make_functions_as_no_command():
     for zeile in ("break", "continue", "sleep 1", "$(if $(K),-k x,)"):
         assert cd._normalize_one(zeile) == "", zeile
+
+
+def test_should_keep_target_whose_command_contains_a_make_function_realfall_test_smoke():
+    """Regression aus platform#3857: writing-hub `test-smoke` verschwand ganz, weil
+    das Kommando nach dem Wegfall der Variablen mit `$(if` begann und verworfen
+    wurde. Der Funktionsaufruf faellt weg, das Werkzeug-Argument bleibt."""
+    makefile = (
+        "test-smoke:\n"
+        '\t@SMOKE_BASE_URL="$(SMOKE_BASE_URL)" $(TEST_ENV) \\\n'
+        "\t\t$(TEST_PYTEST) $(if $(SMOKE_ARGS),$(SMOKE_ARGS),-q) tests/smoke\n"
+    )
+    kommandos = cd.parse_makefile(makefile)
+    assert [k.normalisiert for k in kommandos if k.ziel == "test-smoke"] == [
+        "tests/smoke"
+    ]
+
+
+def test_should_strip_only_make_functions_not_variables_or_shell_substitution():
+    entferne = cd._ohne_make_funktionen
+    assert entferne('pytest $(if $(K),-k "$(K)",) tests') == "pytest  tests"
+    assert entferne("x ${shell echo {a}} y") == "x  y"
+    # Gegenproben: Variable, Shell-Substitution `$$(…)`, offene Klammer bleiben.
+    assert entferne("$(TEST_PYTEST) tests") == "$(TEST_PYTEST) tests"
+    assert entferne("for i in $$(seq 1 30); do") == "for i in $$(seq 1 30); do"
+    assert entferne("ruff $(if $(X),a") == "ruff $(if $(X),a"
