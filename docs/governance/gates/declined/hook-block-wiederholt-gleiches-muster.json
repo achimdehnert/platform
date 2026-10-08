@@ -1,0 +1,7 @@
+{
+  "slug": "hook-block-wiederholt-gleiches-muster",
+  "decided": "2026-10-08",
+  "owner": "achim",
+  "ref": "Retro 3b46a0 (platform#3848 §5, §7 M7), Owner-Wort 'M7 go' 2026-10-08",
+  "reason": "Kein Gate-Versagen, sondern ein Beleg fuer die bestehenden Hooks: sleep-Block (2026-10-07T09:18Z, 14:09Z) und Leerer-Body-Guard (2026-10-06T13:43Z, 2026-10-07T11:17Z) fingen jedes Mal. Kosten je Wiederholung ein Tool-Aufruf, kein Schaden, kein Artefakt betroffen. Ein zweites Gate, das das Wiederholen eines bereits geblockten Musters blockt, haette nichts zu fangen, was der erste Hook nicht schon faengt. Neue Vorkommen sind nur dann Anlass zur Ueberpruefung, wenn eine Wiederholung durchrutscht oder ein Artefakt beschaedigt."
+}
