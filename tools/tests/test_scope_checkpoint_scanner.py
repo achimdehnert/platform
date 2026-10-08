@@ -98,3 +98,39 @@ class TestReposAusKommando:
 
     def test_should_return_an_empty_set_without_a_marker(self):
         assert sc._repos_aus_kommando("echo hallo") == set()
+
+
+class TestReposAusAusgabe:
+    """#3836: gekuerzte Pfade in Tool-Ausgaben sind keine Repos."""
+
+    @pytest.fixture
+    def home(self, tmp_path, monkeypatch):
+        (tmp_path / "github" / "risk-hub").mkdir(parents=True)
+        (tmp_path / ".repo-session" / "worktrees" / "writing-hub").mkdir(parents=True)
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        return tmp_path
+
+    @pytest.mark.parametrize(
+        "ausgabe",
+        [
+            "Worktree entfernt: /home/devuser/.repo-session/worktrees/ris",
+            "Worktree entfernt: /home/devuser/.repo-session/worktrees/wri",
+            "Worktree entfernt: /home/devuser/.repo-session/worktrees/wri…",
+            "/home/devuser/github/ris",
+        ],
+    )
+    def test_should_ignore_truncated_path_in_tool_output(self, home, ausgabe):
+        assert sc._repos_aus_ausgabe(ausgabe) == set()
+
+    def test_should_count_a_real_repo_path_in_tool_output(self, home):
+        assert sc._repos_aus_ausgabe("entfernt: /home/x/github/risk-hub/a") == {
+            "risk-hub"
+        }
+
+    def test_should_count_a_real_worktree_in_tool_output(self, home):
+        ausgabe = "/home/x/.repo-session/worktrees/writing-hub/2026-slug"
+        assert sc._repos_aus_ausgabe(ausgabe) == {"writing-hub"}
+
+    def test_should_keep_real_and_drop_truncated_in_one_output(self, home):
+        ausgabe = "~/github/risk-hub/x\n/home/x/.repo-session/worktrees/wri"
+        assert sc._repos_aus_ausgabe(ausgabe) == {"risk-hub"}
