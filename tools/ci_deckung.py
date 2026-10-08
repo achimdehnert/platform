@@ -216,6 +216,46 @@ SCHLEIFEN_KOERPER_RE = re.compile(r"(?:^|[;\s])do(?:\s|$)")
 # Make-Funktions-/Variablenaufruf, der nach dem Wegfall der Variablen uebrig
 # bleibt (`$(if $(K),-k "$(K)",)`) — ein Fragment, kein Werkzeug.
 MAKE_FUNKTION_PRAEFIXE = ("$(", "${")
+# Anfang eines Make-FUNKTIONSaufrufs: Name + Leerraum (`$(if `, `$(shell `).
+# Variablennamen tragen nie Leerraum — `$(TEST_PYTEST)` faellt nicht darunter.
+# Der ganze Aufruf (bis zur passenden Klammer) faellt vor dem Zerlegen weg; nur
+# das Verwerfen des Kommandos (MAKE_FUNKTION_PRAEFIXE) liess writing-hub
+# `test-smoke` (`$(TEST_PYTEST) $(if $(SMOKE_ARGS),…,-q) tests/smoke`) ganz
+# verschwinden (Regression aus platform#3857).
+MAKE_FUNKTION_ANFANG_RE = re.compile(r"\$[({][a-z][\w-]*\s")
+_KLAMMER_PAAR = {"(": ")", "{": "}"}
+
+
+def _ohne_make_funktionen(kommando: str) -> str:
+    """Entfernt Make-Funktionsaufrufe samt verschachtelter Klammern.
+
+    `$$(…)` ist Shell-Substitution im Rezept, kein Make-Aufruf — bleibt stehen.
+    Eine nicht geschlossene Klammer laesst den Rest unveraendert."""
+    out: list[str] = []
+    i, n = 0, len(kommando)
+    while i < n:
+        if kommando.startswith("$$", i):
+            out.append("$$")
+            i += 2
+            continue
+        if MAKE_FUNKTION_ANFANG_RE.match(kommando, i):
+            auf = kommando[i + 1]
+            zu = _KLAMMER_PAAR[auf]
+            tiefe, j = 0, i + 1
+            while j < n:
+                if kommando[j] == auf:
+                    tiefe += 1
+                elif kommando[j] == zu:
+                    tiefe -= 1
+                    if tiefe == 0:
+                        break
+                j += 1
+            if j < n:
+                i = j + 1
+                continue
+        out.append(kommando[i])
+        i += 1
+    return "".join(out)
 
 # Shell-Kontrollwoerter fuehren kein Werkzeug an, sie rahmen es nur ein
 # (Realfall chat-hub `lint` nach chat-hub#110: `if command -v shellcheck ...;
@@ -383,7 +423,7 @@ def _normalize_one(kommando: str) -> str:
     Gibt "" zurueck, wenn das Kommando nach dem Saeubern nur noch Ablaufsteuerung
     ist (Shell-Builtin/Fuellwort fuehrt an) — das ist kein Werkzeugaufruf.
     """
-    kommando = kommando.strip()
+    kommando = _ohne_make_funktionen(kommando).strip()
     while kommando[:1] in ("@", "-", "+"):
         kommando = kommando[1:].lstrip()
     tokens = kommando.split()

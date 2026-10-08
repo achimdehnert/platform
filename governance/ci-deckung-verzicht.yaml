@@ -58,8 +58,8 @@
 # writing-hub: acht Ziele (Owner-Wort 2026-10-08 "R1 verzicht alle", Session-Start
 # 0.7.26 meldete 14 Kommandos). Die CI ruft nie `make`, sondern pytest/ruff direkt
 # (shared-ci _ci-python.yml) bzw. `make klickdummy`; die Make-Ziele sind lokale
-# Huellen um denselben Lauf oder lesen Prod. Die 7 gemeldeten Kommandos unter
-# `test-session` sind Fragmente einer Shell-Schleife — Melder-Befund platform#3845.
+# Huellen um denselben Lauf oder lesen Prod. Seit platform#3845 liest der Melder die
+# Shell-Schleife unter `test-session` als eine Zeile (10 Kommandos statt 14).
 
 - repo: writing-hub
   ziel: test-pg
@@ -91,4 +91,4 @@
 
 - repo: writing-hub
   ziel: test-session
-  grund: "Kein Pruefziel, sondern das Hilfsziel von test-pg/test-ux fuer den Container-Lebenszyklus (docker run, pg_isready-Schleife, trap). Die 7 gemeldeten Kommandos (`break`, `sleep 1`, `for i in …`) sind Bruchstuecke der Schleife — Melder-Befund platform#3845; Verzicht bis der Melder logische Zeilen ganz liest."
+  grund: "Kein Pruefziel, sondern das Hilfsziel von test-pg/test-ux fuer den Container-Lebenszyklus (docker run, pg_isready-Schleife, trap). Gemeldet werden `docker rm`, `docker run` und das `docker exec … pg_isready` aus dem Schleifenkoerper — Container-Verwaltung, keine Pruefung; die CI stellt Postgres als Service-Container (shared-ci _ci-python.yml). Die frueheren 7 Bruchstuecke (`break`, `sleep 1`, `for i in …`) liest der Melder seit platform#3845 nicht mehr."
