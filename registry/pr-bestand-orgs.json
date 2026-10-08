@@ -1,0 +1,4 @@
+{
+  "_doc": "Orgs, deren offene PRs tools/pr_bestand.py zaehlt (#3812 K4). Ausgelagert aus dem Code per Owner-Wort 'M8 go' 2026-10-08 (Retro 3b46a0, platform#3848 §7 M8): eine neue Org kommt hierher, nicht ins Modul. --org ueberschreibt die Liste fuer einen Lauf.",
+  "orgs": ["achimdehnert", "iilgmbh", "ttz-lif", "meiki-lra"]
+}

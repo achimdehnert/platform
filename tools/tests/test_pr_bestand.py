@@ -126,3 +126,25 @@ def test_should_flag_missing_or_stale_journal_as_timer_down(tmp_path):
     _run(tmp_path, [_pr(1, "2026-09-28T00:00:00Z")], "2026-09-29T12:00:00+00:00", journal)
     res = _lesen(journal, "2026-10-08T12:00:00+00:00")
     assert res.returncode == 2 and "Timer steht" in res.stdout
+
+
+def test_should_read_orgs_from_data_file(tmp_path):
+    """Retro 3b46a0 M8: die Org-Liste steht in einer Datendatei, nicht im Modul."""
+    datei = tmp_path / "orgs.json"
+    datei.write_text(json.dumps({"orgs": ["org-a", "org-b"]}), encoding="utf-8")
+    assert pr_bestand.lade_orgs(datei) == ("org-a", "org-b")
+
+
+def test_should_ship_a_non_empty_org_list_in_the_registry():
+    orgs = pr_bestand.lade_orgs()
+    assert orgs and len(set(orgs)) == len(orgs)
+
+
+def test_should_report_unverifiable_when_org_file_is_empty(tmp_path):
+    datei = tmp_path / "orgs.json"
+    datei.write_text(json.dumps({"orgs": []}), encoding="utf-8")
+    res = subprocess.run(
+        [sys.executable, str(SCRIPT), "--orgs-datei", str(datei), "--kein-journal"],
+        capture_output=True, text=True, timeout=15,
+    )
+    assert res.returncode == 0 and res.stdout.startswith("nicht pruefbar: ValueError"), res.stdout
