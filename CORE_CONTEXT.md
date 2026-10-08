@@ -126,7 +126,7 @@ läuft separat auf dem self-hosted Runner (`megatest.yml`).
 - **`bootstrap.sh` ist Public Interface** — Breaking Changes sind ADR-pflichtig
 - **Commit- und PR-Titel (Owner-Wort 2026-10-08, „M5 type(scope)“, Retro 3b46a0):**
   `type(scope): beschreibung`, `type` aus `feat|fix|refactor|docs|test|chore` — die Form,
-  die schon 129 von 200 Commits auf main tragen. Die eckige Form `[type](scope):` gilt nicht
+  die 124 der letzten 200 Commits auf main tragen (eckig: 11, Stand 2026-10-08). Die eckige Form `[type](scope):` gilt nicht
   mehr; ältere Commits bleiben, wie sie sind.
 - **Commits in `docs/adr/`**: scope = `adr`, nicht `docs`
 - **LLM-Zugriff in platform-Tooling (Owner-Entscheidung 2026-08-05, platform#1776):**
