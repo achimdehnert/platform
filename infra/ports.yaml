@@ -516,7 +516,7 @@ services:
     container_name: learn-hub-web-1
     domain_prod: learn.iil.pet
     domain_staging: staging-learn.iil.pet
-    repo: achimdehnert/learn-hub
+    repo: iilgmbh/learn-hub
 
   ausschreibungs-hub:
     prod: 8101
