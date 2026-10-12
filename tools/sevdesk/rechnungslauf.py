@@ -197,8 +197,11 @@ def dauerkunden_erkennen(
 # --- Kunden ermitteln (API) -------------------------------------------------
 
 
-def _rechnungen_fuer_erkennung(client, monate: int = 18) -> list[dict]:
-    grenze = (date.today() - timedelta(days=monate * 31)).isoformat()
+def _rechnungen_fuer_erkennung(
+    client, monate: int = 18, heute: date | None = None
+) -> list[dict]:
+    heute = heute or date.today()
+    grenze = (heute - timedelta(days=monate * 31)).isoformat()
     ergebnis: list[dict] = []
     for rechnung in _seiten(client, "/Invoice"):
         von = (rechnung.get("deliveryDate") or "")[:10]
@@ -259,7 +262,7 @@ def kunden_ermitteln(
     bleibt über den Lauf hinweg erhalten (Owner-Override, K1-Nachtrag
     #3102) — neue/unbekannte Kontakte starten mit ``"aktiv": true``.
     """
-    roh = _rechnungen_fuer_erkennung(client, monate)
+    roh = _rechnungen_fuer_erkennung(client, monate, heute=heute)
     kunden, unregelmaessig = dauerkunden_erkennen(roh, heute=heute)
     for kontakt_id, eintrag in kunden.items():
         if not eintrag["name"]:
