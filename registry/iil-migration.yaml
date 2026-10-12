@@ -165,7 +165,7 @@ packages:
   aifw:
     dist: iil-aifw
     pypi_current: [iil-aifw]          # CANONICAL (active). `aifw` is stale (v0.5.0, 2026-03) — not a target.
-    repo_current: achimdehnert/aifw
+    repo_current: iilgmbh/aifw   # repo moved 2026-10-12 (platform#3874)
     repo_final: iilgmbh/iil-aifw
     rename: true                       # REPO rename only (aifw->iil-aifw); dist already iil-aifw
     workflow: publish-iil-aifw.yml
@@ -185,7 +185,7 @@ packages:
   promptfw:
     dist: iil-promptfw
     pypi_current: [iil-promptfw]      # CANONICAL (active). `promptfw` is stale (v0.5.1, 2026-03).
-    repo_current: achimdehnert/promptfw
+    repo_current: iilgmbh/promptfw   # repo moved 2026-10-12 (platform#3874)
     repo_final: iilgmbh/iil-promptfw
     rename: true                       # REPO rename only; dist already iil-promptfw
     workflow: publish-iil-promptfw.yml
@@ -204,7 +204,7 @@ packages:
   authoringfw:
     dist: iil-authoringfw
     pypi_current: [authoringfw, iil-authoringfw]
-    repo_current: achimdehnert/authoringfw
+    repo_current: iilgmbh/authoringfw   # repo moved 2026-10-12 (platform#3874)
     repo_final: iilgmbh/iil-authoringfw
     rename: true
     workflow: publish-iil-authoringfw.yml
@@ -221,7 +221,7 @@ packages:
   iil-reflex:
     dist: iil-reflex
     pypi_current: [iil-reflex]
-    repo_current: achimdehnert/iil-reflex
+    repo_current: iilgmbh/iil-reflex   # repo moved 2026-10-12 (platform#3874)
     repo_final: iilgmbh/iil-reflex
     rename: false
     workflow: publish-iil-reflex.yml
@@ -272,7 +272,7 @@ packages:
   iil-testkit:
     dist: iil-testkit
     pypi_current: [iil-testkit]
-    repo_current: achimdehnert/iil-testkit   # REGISTRY DRIFT: canonical repo_owner wrongly said iilgmbh
+    repo_current: iilgmbh/iil-testkit   # repo moved 2026-10-12 (platform#3874)
     repo_final: iilgmbh/iil-testkit
     rename: false
     workflow: publish-iil-testkit.yml
@@ -293,7 +293,7 @@ packages:
   iil-codeguard:
     dist: iil-codeguard
     pypi_current: [iil-codeguard]
-    repo_current: achimdehnert/iil-codeguard
+    repo_current: iilgmbh/iil-codeguard   # repo moved 2026-10-12 (platform#3874)
     repo_final: iilgmbh/iil-codeguard
     rename: false
     workflow: publish-iil-codeguard.yml
@@ -310,7 +310,7 @@ packages:
   iil-django-commons:
     dist: iil-django-commons
     pypi_current: [iil-django-commons]
-    repo_current: achimdehnert/iil-django-commons
+    repo_current: iilgmbh/iil-django-commons   # repo moved 2026-10-12 (platform#3874)
     repo_final: iilgmbh/iil-django-commons
     rename: false
     workflow: publish-iil-django-commons.yml
@@ -366,7 +366,7 @@ packages:
   learnfw:
     dist: iil-learnfw
     pypi_current: [learnfw]
-    repo_current: achimdehnert/learnfw
+    repo_current: iilgmbh/learnfw   # repo moved 2026-10-12 (platform#3874)
     repo_final: iilgmbh/iil-learnfw
     rename: true
     workflow: publish-iil-learnfw.yml
@@ -400,7 +400,7 @@ packages:
   outlinefw:
     dist: iil-outlinefw
     pypi_current: [outlinefw]
-    repo_current: achimdehnert/outlinefw
+    repo_current: iilgmbh/outlinefw   # repo moved 2026-10-12 (platform#3874)
     repo_final: iilgmbh/iil-outlinefw
     rename: true
     workflow: publish-iil-outlinefw.yml
@@ -434,7 +434,7 @@ packages:
   weltenfw:
     dist: iil-weltenfw
     pypi_current: [weltenfw]
-    repo_current: achimdehnert/weltenfw
+    repo_current: iilgmbh/weltenfw   # repo moved 2026-10-12 (platform#3874)
     repo_final: iilgmbh/iil-weltenfw
     rename: true
     workflow: publish-iil-weltenfw.yml
