@@ -27,7 +27,7 @@ achimdehnert/weltenhub iilgmbh/ausschreibungs-hub iilgmbh/tax-hub achimdehnert/d
 achimdehnert/apo-hub achimdehnert/trading-hub
 achimdehnert/billing-hub achimdehnert/mcp-hub achimdehnert/dms-hub iilgmbh/risk-hub
 meiki-lra/frist-hub achimdehnert/decks-hub meiki-lra/meiki-hub
-iilgmbh/iil-voice-agent achimdehnert/bahn-hub achimdehnert/design-hub iilgmbh/desktop-setup iilgmbh/django-lms-lite iilgmbh/iil-fieldprefill iilgmbh/illustration-fw iilgmbh/nl2iot-hub achimdehnert/lastwar-bot achimdehnert/cad-hub achimdehnert/learn-hub achimdehnert/research-hub achimdehnert/dms-hub iilgmbh/iil-testkit""".split()
+iilgmbh/iil-voice-agent achimdehnert/bahn-hub achimdehnert/design-hub iilgmbh/desktop-setup iilgmbh/django-lms-lite iilgmbh/iil-fieldprefill iilgmbh/illustration-fw iilgmbh/nl2iot-hub achimdehnert/lastwar-bot achimdehnert/cad-hub iilgmbh/learn-hub achimdehnert/research-hub achimdehnert/dms-hub iilgmbh/iil-testkit""".split()
 
 
 def gh(*a):

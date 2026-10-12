@@ -724,7 +724,7 @@ repos:
       name: learn-hub
       repo: learn-hub
       description: Lern-/Schulungsplattform
-      github: achimdehnert/learn-hub
+      github: iilgmbh/learn-hub
       deployed: false
       url: https://learn.iil.pet
       type: django
