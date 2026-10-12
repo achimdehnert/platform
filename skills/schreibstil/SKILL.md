@@ -8,7 +8,7 @@ metadata:
 
 # Schreibstil
 
-*v1.1 · Stand 2026-09-23*
+*v1.2 · Stand 2026-10-12*
 
 **Zweck.** Der Owner soll nicht jede Mail, jedes Konzept und jeden PR-Text Wort für
 Wort gegenlesen müssen. Dieser Skill hält fest, wie er schreibt — belegt an
@@ -58,6 +58,7 @@ Jede Zeile hier stammt aus einer echten Streichung.
 | Handumbrüche bei 76 Zeichen | fortlaufende Absätze, getrennt durch Leerzeilen | harte Umbrüche zerfallen beim Zitieren |
 | Was im Anhang oder in der Mail des Empfängers schon steht | nur der Satz, der es einordnet — oder nichts | Wiederholung liest sich als Misstrauen und kostet die Aufmerksamkeit, die der neue Teil braucht |
 | „X hat A gesagt, Sie sagen B, ich lege B zugrunde“ | die tragfähige Angabe verwenden, den Widerspruch im Vorgang festhalten | eine Mail ist kein Protokoll; Zeugenaussagen gegeneinanderstellen zwingt Dritte in eine Rolle, die sie nicht wollten |
+| „Drei Punkte zum Schärfen:“, „Bitte schärfe vor dem Start …“ | „Drei Punkte:“ | die Ankündigung bewertet die Arbeit, bevor der Empfänger die Punkte liest (4× gestrichen am 2026-10-12) |
 
 **Der erste Satz trägt die Entscheidung.** „Nehmen Sie Variante 2." „Die Skizze."
 „Sie können unterschreiben." Danach kommt die Begründung — nie davor.
@@ -209,6 +210,11 @@ Drei Regeln dazu:
 - 2026-09-14 · hnu · gekürzt: Kapitel-Feedback zu einer Abschlussarbeit 1.012 → 376 Wörter, aus fünf Abschnitten mit Herleitung, Zitaten und Satzreparaturen wurden fünf nummerierte nächste Schritte, Kleinkram als Seitenliste · Grund: „antwort kürzen (max 1 page) als feedback zur arbeit mit next steps“ — eine Rückmeldung zur Arbeit ist ein Arbeitsauftrag; die Begründung, warum ein Punkt zählt, kürzt sich auf einen Satz je Schritt, die Belegkette gehört ins Gespräch
 
 - 2026-09-23 · dsb · ersetzt: „Gemeint ist ein schriftlich festgelegter Weg für den Fall einer Datenpanne: wer einen Vorfall aufnimmt, wer ihn bewertet, wer innerhalb von 72 Stunden … meldet und wie das dokumentiert wird." (ein Satz mit vier Gliedern) → fünf Aufzählungspunkte, je Punkt eine Rolle oder Frist; dazu die Rückfrage des Empfängers („ob der Prozess nicht schon mit der DSGVO abgedeckt ist") wörtlich aufgegriffen, bevor die Antwort kommt · Grund: „Entwurf um die Frage des databreach ergänzen. details des proz. eher als aufzählung" — **wer nach einer Erklärung fragt, soll seine Frage im Text wiederfinden**, und ein Ablauf mit mehreren Rollen liest sich als Liste, nicht als Satzkette
+
+- 2026-10-12 · hnu · gestrichen in vier Rückmeldungen zu Study-Paper- und Masterarbeitsthemen: „Drei Punkte zum Schärfen:" / „Vier Punkte zum Schärfen:" / „Bitte schärfe vor dem Start drei Punkte:" → „Drei Punkte:" / „Vier Punkte:" / „3 Aspekte:" / „Zwei Aspekte von meiner Seite:" · Grund (Hypothese, Owner nannte keinen): „zum Schärfen" bewertet das Thema als unscharf, bevor der Empfänger die Punkte liest; die Punkte tragen das selbst
+- 2026-10-12 · hnu · umgebaut: „Lege den Schwerpunkt auf Geschäfts- und Kooperationsmodell; Auslegungstool und KI-Unterstützung beschreibst du als Konzept mit Anforderungen und Freigaberegeln, nicht als Umsetzung." → „-> Schwerpunkt auf Geschäfts- und Kooperationsmodell; -> Auslegungstool und KI-Unterstützung als Konzept, nicht als Umsetzung." und „Lege vorab fest, woran du Tragfähigkeit misst" → „Lege KPI vorab fest" · Grund (Hypothese): in Feedback-Punkten Stichwort statt Satz, Fachwort statt Umschreibung
+- 2026-10-12 · hnu · Anrede: Studentin schrieb „Guten Tag Herr Dehnert", Entwurf spiegelte „Guten Tag Frau <Nachname>" → Owner: „Guten Morgen <Vorname>", Text blieb beim Sie · Grund (Hypothese): in der Betreuung spricht der Owner mit Vornamen an; das Spiegeln gilt für Du/Sie, nicht für Vor-/Nachname
+- 2026-10-12 · hnu · gestrichen: Punkt „Vertraulichkeit: Kläre früh mit der Bank, welche internen Unterlagen und Zahlen du verwenden darfst …", ergänzt: „-> Hatten wir ja am Samstag" · Grund (Hypothese): in der Vorlesung schon besprochen; was mündlich lief, sieht der Entwurf nicht — ein Rückbezug darauf ist Owner-Sache
 
 ## 7 — Verhältnis zu anderen Regeln
 
