@@ -151,7 +151,7 @@ packages:
       workflows:
       - auth: oidc
         file: publish-iil-codeguard.yml
-        remote_repo: achimdehnert/iil-codeguard
+        remote_repo: iilgmbh/iil-codeguard
         reusable: false
     pypi:
       downloads_30d: 466
