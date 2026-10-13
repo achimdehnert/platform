@@ -1,0 +1,7 @@
+{
+  "slug": "run-result-not-anchored",
+  "decided": "2026-10-13",
+  "owner": "achim",
+  "ref": "platform#3907 (Gate-Pflicht aus Retro docs/retros/session-retro-2026-10-13-robo-lab-4ce56a.md, Befunde 10 und 19); Owner-Wort 'M8 declined' 2026-10-13",
+  "reason": "Erwogen als Gate, das einen zitierten Messwert ohne Ergebnisdatei im Repo meldet. Verworfen per Owner-Entscheid. Einordnung des Lotsen, nicht Teil des Owner-Worts: Ein Melder muesste in Freitext erkennen, welche Zahl ein Messwert ist, und waere entweder laut oder blind. Der Einzelfall ist nachgezogen (robo-lab#274 legt die 80- und 90-mm-Laeufe ab und verweist darauf), die Regel steht als Memory 'annahme-bleibt-annahme-im-folgedokument' in robo-lab und in der Policy evidence-discipline. Kehrt der Slug in einer Retro wieder, ist das Anlass, die Entscheidung zu pruefen."
+}
