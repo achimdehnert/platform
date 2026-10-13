@@ -155,10 +155,10 @@ eine Positivkontrolle mit genau dem Kommando aus Befund 1.
 
 ## 7. Maßnahmen
 
-- **[R1]** 🟢 Gate repo-datei-per-bash-statt-edit bauen · platform · Owner-Go, dann Gate-PR — https://github.com/achimdehnert/platform/issues/2666
+- **[R1]** 🟢 Gate repo-datei-per-bash-statt-edit bauen · platform · Owner-Go, dann Gate-PR — https://github.com/achimdehnert/platform/pull/3936
 - **[R2]** 🟢 Raum achim nach Merge im Zielkontext prüfen · chat-hub · nach #184-Merge, nächste Session — https://github.com/iilgmbh/chat-hub/issues/184
 - **[R3]** 🟢 Memory „Rechte-Profil im Zielkontext“ · chat-hub · Owner-Wort — https://github.com/iilgmbh/chat-hub/issues/184
-- **[R4]** 🟢 Streichkandidat Phase-0.0-Tabelle · platform · Owner-Wort — https://github.com/achimdehnert/platform/issues/3785
+- **[R4]** 🟢 Streichkandidat Phase-0.0-Tabelle · platform · Owner-Wort — https://github.com/achimdehnert/platform/pull/3936
 
 ## 8. Nicht verifiziert (Restlücken)
 
