@@ -1,7 +1,7 @@
 ---
 concept_id: KONZ-platform-059
 title: Auftragsraum „Aufträge Achim / Lotse" — Auftragseingang mit Lernschleife über dem Chat-Lotsen
-pipeline_status: idea
+pipeline_status: stale   # 2026-10-13: Owner-Wort ‚B3a ruhen' (platform#3234) — idea, review_by verstrichen; Re-open jederzeit mit neuem review_by
 tier: T2
 owner: Achim Dehnert
 spec_refs: []            # keine SoR-Spec; das Konzept beschreibt eine Konvention über bestehendem Werkzeug (chat_lotse.py), keine Oberfläche

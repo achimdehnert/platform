@@ -1,7 +1,7 @@
 ---
 concept_id: KONZ-platform-058
 title: iil-assist — ein Dienst, zwei Zugänge (App und Chat)
-pipeline_status: idea
+pipeline_status: stale   # 2026-10-13: Owner-Wort ‚B3a ruhen' (platform#3234) — idea, review_by verstrichen; Re-open jederzeit mit neuem review_by
 tier: T3
 owner: Achim Dehnert
 spec_refs: ["platform#3011"]
