@@ -14,3 +14,6 @@
 repos:
   - iilgmbh/risk-hub
   - achimdehnert/writing-hub
+  # Owner-Wort 2026-10-13 "LL go" (KONZ-070 SA, platform#3903): Owner-Wort-Pfad
+  # fuer Governance-Pfade (#3938) braucht platform in dieser Liste, sonst inert.
+  - achimdehnert/platform
