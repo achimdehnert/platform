@@ -235,3 +235,26 @@ def test_should_render_then_check_clean_on_a_copy(tmp_path):
     md = tmp_path / "reviewer.md"
     assert _cli("--render", "--reviewer-md", str(md)).returncode == 0
     assert _cli("--check", "--reviewer-md", str(md)).returncode == 0
+
+
+# ───────────────────────── Advocatus-Block (KONZ-070 WP4) ────────────────────────────
+
+
+def test_should_render_advocatus_block_with_one_row_per_rule(doc):
+    alle = rr.render_advocatus_block(doc)
+    zeilen = [z for z in alle.splitlines() if z.startswith("| `RR-")]
+    assert len(zeilen) == len(rr.regeln_fuer("advocatus", doc))
+    deployed = rr.render_advocatus_block(doc, "deployed")
+    assert len([z for z in deployed.splitlines() if z.startswith("| `RR-")]) == len(
+        rr.regeln_fuer("advocatus", doc, profil="deployed")
+    )
+    for spalte in rr.ADVOCATUS_SPALTEN:
+        assert spalte in alle.splitlines()[0]
+
+
+def test_should_print_advocatus_block_via_cli_with_and_without_profile():
+    lauf = _cli("--advocatus")
+    assert lauf.returncode == 0, lauf.stderr
+    assert "`RR-010`" in lauf.stdout
+    mit = _cli("--advocatus", "--profil", "library")
+    assert mit.returncode == 0 and mit.stdout.count("| `RR-") <= lauf.stdout.count("| `RR-")

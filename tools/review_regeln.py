@@ -11,8 +11,10 @@ CLI:
     python3 tools/review_regeln.py --check            # Drift generierter Dateien, Exit 1
     python3 tools/review_regeln.py --render           # .windsurf/rules/reviewer.md neu schreiben
     python3 tools/review_regeln.py --tabu [--profil deployed]
+    python3 tools/review_regeln.py --advocatus [--profil deployed]   # Regelblock des Advocatus
 
 `--check` ist Teil von `make test` (tools/tests/test_review_regeln.py) und damit im CI.
+Der Advocatus-Block wandert ueber tools/review_risiko.py --render in agents/advocatus/PROMPT.md.
 """
 
 from __future__ import annotations
@@ -298,6 +300,58 @@ def context_muster(pfad: str | Path | None = None) -> dict[str, Any]:
     return out
 
 
+# ───────────────────────── Konsument: Advocatus Diaboli ──────────────────────────────
+
+ADVOCATUS_SPALTEN = ("ID", "Klasse", "Pfade", "Profile", "Pruefauftrag", "Begruendung")
+
+
+def pruefauftrag(regel: dict) -> str:
+    """Was der Advocatus je Regel prueft — aus dem Detektor, nicht aus Prosa."""
+    d = regel["detektor"]
+    if d["typ"] == "llm":
+        return d["frage"].strip()
+    if d["typ"] == "regex":
+        return f"Regex ({d['ziel']}): " + " · ".join(f"`{m}`" for m in d["muster"])
+    if d["typ"] == "pfad":
+        return "Pfad geaendert: " + " · ".join(f"`{m}`" for m in d["muster"])
+    return f"Summe geaenderter Zeilen > {d['max_zeilen']}"
+
+
+def _zelle(text: str) -> str:
+    return text.replace("|", "\\|").replace("\n", " ")
+
+
+def render_advocatus_block(doc: dict | None = None, profil: str | None = None) -> str:
+    """Regelblock des Advocatus als Markdown-Tabelle (Konsument `advocatus`).
+
+    Ohne `profil` alle aktiven Regeln mit ihrer Profil-Spalte; mit `profil` nur die,
+    die im Repo-Profil gelten. Die Routine ruft `--advocatus --profil <p>` je Repo.
+    """
+    doc = doc or lade_regeln()
+    regeln = regeln_fuer("advocatus", doc, profil=profil)
+    zeilen = [
+        "| " + " | ".join(ADVOCATUS_SPALTEN) + " |",
+        "|" + "---|" * len(ADVOCATUS_SPALTEN),
+    ]
+    for r in regeln:
+        zeilen.append(
+            "| "
+            + " | ".join(
+                _zelle(z)
+                for z in (
+                    f"`{r['id']}`",
+                    r["klasse"],
+                    " · ".join(f"`{p}`" for p in r["geltung"]["pfade"]),
+                    ", ".join(r["geltung"]["profile"]),
+                    pruefauftrag(r),
+                    f"{r['begruendung']['text']} ({r['begruendung']['quelle']})",
+                )
+            )
+            + " |"
+        )
+    return "\n".join(zeilen)
+
+
 # ───────────────────────── Konsument: reviewer.md ────────────────────────────────────
 
 
@@ -384,7 +438,17 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Muster des Context-Reviewers als JSON ausgeben",
     )
-    ap.add_argument("--profil", default="default", choices=PROFILE)
+    ap.add_argument(
+        "--advocatus",
+        action="store_true",
+        help="Regelblock des Advocatus Diaboli als Markdown-Tabelle ausgeben",
+    )
+    ap.add_argument(
+        "--profil",
+        default=None,
+        choices=PROFILE,
+        help="Profil fuer --tabu (Default: default) und --advocatus (Default: alle)",
+    )
     a = ap.parse_args(argv)
 
     try:
@@ -396,8 +460,10 @@ def main(argv: list[str] | None = None) -> int:
 
     rc = 0
     if a.tabu:
-        for m in tabu_pfade(a.profil, a.regeln):
+        for m in tabu_pfade(a.profil or PROFILE[0], a.regeln):
             print(m)
+    if a.advocatus:
+        print(render_advocatus_block(doc, a.profil))
     if a.context:
         print(
             json.dumps(
@@ -417,7 +483,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             n = len(doc["regeln"])
             print(f"review-regeln: Schema gueltig, {n} Regeln, kein Drift")
-    if not (a.tabu or a.context or a.render or a.check):
+    if not (a.tabu or a.advocatus or a.context or a.render or a.check):
         ap.print_help()
         return 64
     return rc

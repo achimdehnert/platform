@@ -1,0 +1,30 @@
+# governance/merge-sa-owner-merge-pfade.yaml — Ausnahmeliste fuer den Owner-Wort-
+# Pfad von tools/pr_merge_sa.py (KONZ-070, Mandat platform#3903).
+#
+# Owner-Wort 2026-10-13: "Eigen-Approval macht aber sinn, und sollte nur im
+# ausnahmefall verboten sein" -> Kuerzel `SA go`.
+#
+# Semantik: Fehlt einem PR nur das Approval fuer einen Governance-Pfad (sa_m.
+# governance_pfade in policies/autonomy-gates.md) und ist OWNER_WORT gesetzt
+# (Repo in Liste L, governance/merge-sa-owner-wort-repos.yaml), gilt das Owner-
+# Wort als Approval (M2). AUSSER eine Datei des PR liegt auf dieser Liste: dann
+# bleibt der Owner-Merge noetig, der Waechter weist mit dem `grund` ab.
+# Diese Liste bildet die Waechter-Policy ab. Die GitHub-Pflicht aus dem Ruleset
+# (require_code_owner_review, CODEOWNERS nennt nur Menschen) gilt zusaetzlich und
+# unabhaengig — sie prueft der Waechter vorher und kann sie nicht ersetzen.
+# Fehlt die Datei, ist sie unlesbar oder leer: Unklar, kein Merge (fail closed).
+#
+# Schema: Schluessel `pfade`, Liste von Eintraegen mit `pfad` (Pfadpraefix oder
+# Glob mit * ? [) und `grund` (Pflicht). Aenderungen an dieser Datei gehen nur
+# ueber einen Owner-Merge — sie steht selbst auf der Liste.
+pfade:
+  - pfad: tools/pr_merge_sa.py
+    grund: der Waechter selbst — wer die Regel prueft, gibt sie nicht selbst frei
+  - pfad: governance/merge-sa-owner-wort-repos.yaml
+    grund: Liste L, Repo-Positivliste des Owner-Wort-Pfads (platform#3804 K7)
+  - pfad: governance/merge-sa-owner-merge-pfade.yaml
+    grund: diese Ausnahmeliste
+  - pfad: .github/CODEOWNERS
+    grund: legt fest, wer freigibt — Vier-Augen-Prinzip
+  - pfad: policies/
+    grund: Charta und Gates, selbstbetreffend (autonomy-gates.md, SA-M AUSGESCHLOSSEN)
