@@ -678,6 +678,7 @@ vorlauf rotation     timeout 60 python3 "$PLATFORM_DIR/tools/rotate.py" faellig 
 vorlauf ci-deckung   python3 "$PLATFORM_DIR/tools/ci_deckung.py" --repo "$GITHUB_DIR/$TARGET_REPO" --kurz
 vorlauf umgebung     timeout 90  python3 "$PLATFORM_DIR/tools/umgebung.py" --repo "$TARGET_REPO" --kurz
 vorlauf staging      _staging_probe
+vorlauf routine-berichte timeout 60 python3 "$PLATFORM_DIR/tools/routine_berichte.py"
 
 _vorlauf_loslegen
 # ══ Ende Vorlauf-Start ══════════════════════════════════════════════════════
@@ -1519,6 +1520,26 @@ if [ -f "$PLATFORM_DIR/tools/pr_bestand.py" ]; then
   esac
 else
   record "0.7.32 pr-bestand" "SKIP" "tools/pr_bestand.py fehlt"
+fi
+
+# ── 0.7.33 Routine-Berichte: was die Cloud-Routinen nachts gefunden haben ──────
+# platform#3887: sechs Routinen kommentierten taeglich auf #1472, #1261 & Co.,
+# gelesen hat es keine Sitzung — am 2026-10-13 standen zwei archivierte Repos im
+# Fleet-Drift-Report, die Registry fuehrte sie als aktiv. Wohin welche Routine
+# schreibt, steht in registry/routine-berichte.json. Neue Funde kommen mit Link
+# in die Zeile; ob sie fuer diese Sitzung neu sind, entscheidet das Befund-Journal.
+# Exit 1 = neue Funde oder Routine still, Exit 2 = nicht pruefbar (beides WARN).
+if [ -f "$PLATFORM_DIR/tools/routine_berichte.py" ]; then
+  warte_auf routine-berichte
+  RB_RC="$ERNTE_RC"
+  RB_OUT=$(ernte routine-berichte)
+  [ -n "$RB_OUT" ] || RB_OUT="Melder ohne Ausgabe (rc=$RB_RC)"
+  case "$RB_RC" in
+    0) record "0.7.33 routine-berichte" "PASS" "$RB_OUT" ;;
+    *) record "0.7.33 routine-berichte" "WARN" "$RB_OUT" ;;
+  esac
+else
+  record "0.7.33 routine-berichte" "SKIP" "tools/routine_berichte.py fehlt"
 fi
 
 # ── 0.7.31 Hintergrund-Wache dev-hub: Status geschrieben, aber nie gelesen ──────

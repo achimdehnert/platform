@@ -407,6 +407,12 @@ melder:
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.7.32"
+  - phase: "0.7.33 routine-berichte"
+    leser: "Session-Start-Board → Agent (verlinkten Bericht lesen, jeden Fund in ein Artefakt ueberfuehren: PR, Issue oder Kommentar mit Grund; stille Routine per RemoteTrigger list_runs pruefen) (platform#3887)"
+    wiedervorlage_tage: 7
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.33"
   - phase: "0.7.26 ci-deckung"
     leser: "Session-Start-Board → Agent (Ziel gedeckt/verzichtet nachziehen, dann `make <ziel>` in den Workflow oder Grund in governance/ci-deckung-verzicht.yaml); Owner bei Scope-Fragen ueber Repo-Grenzen"
     wiedervorlage_tage: 14
