@@ -103,6 +103,26 @@ def test_should_keep_already_merged_out_of_aborts_and_count_repeats_for_b1(tmp_p
     assert (woche["abbrueche"], woche["wiederholungen"]) == (2, 1)
 
 
+def test_should_count_positivliste_rejection_as_abort_for_b1(tmp_path):
+    """platform#3804 K7: Owner-Wort auf ein Repo ausserhalb Liste L ist ein Abbruch."""
+    journal = _journal(
+        tmp_path,
+        [
+            {
+                "ts": KW40,
+                "repo": "ttz-lif/ttz-hub",
+                "pr": 1,
+                "erlaubt": False,
+                "dry_run": False,
+                "ergebnis": "abgewiesen_positivliste",
+                "exit": 2,
+            }
+        ],
+    )
+    woche = b.b1_owner_belastung(journal)["wochen"]["2026-W40"]
+    assert (woche["merges"], woche["abbrueche"]) == (0, 1)
+
+
 def test_should_name_merge_results_like_pr_merge_sa():
     sys.path.insert(0, str(_SCRIPT.parents[1]))
     import pr_merge_sa
