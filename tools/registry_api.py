@@ -163,3 +163,11 @@ def owner(name: str, canon: dict | None = None) -> str | None:
     if known:
         return (meta.get("server") or {}).get("github_org", "achimdehnert")
     return None
+
+
+def sitzungs_klasse(name: str, canon: dict | None = None) -> str | None:
+    """`business` | `plattform` | `bibliothek` aus ``meta.sitzungs_klasse``
+    (KONZ-platform-069 B1) — None fuer ein unbekanntes Repo. Der Aufrufer
+    entscheidet, was unbekannt heisst; der Scope-Guard warnt dann nur."""
+    canon = canon if canon is not None else load_canonical()
+    return ((canon.get("meta") or {}).get("sitzungs_klasse") or {}).get(name)

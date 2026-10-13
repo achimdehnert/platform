@@ -102,6 +102,85 @@ meta:
     ttz-hub: TTZ-Hub
     sqf-hub: SQF-Hub
     pg-hub: PG-Hub
+  # Sitzungsklasse je Repo (KONZ-platform-069 B1, #3890). Startet eine Sitzung in
+  # einem `business`-Repo, braucht jedes WEITERE business-Repo vor dem ersten
+  # Schreibschritt die Owner-Zeile `scope +<repo>` (Gate 4, Owner-Wort 2026-10-13).
+  # `plattform` und `bibliothek` zaehlen dafuer nicht.
+  # Erstbefuellung abgeleitet: type library → bibliothek; Domain Developer
+  # Platform und Infra → plattform; alles andere → business. Im Zweifel business,
+  # denn das ist die strengere Klasse. `# pruefen` = Ableitung unsicher, Owner sieht nach.
+  # Vollstaendigkeit erzwingt tools/validate_registry.py: jedes Repo unter `repos:`
+  # braucht genau einen Eintrag hier.
+  sitzungs_klasse:
+    137-hub: business
+    adr-doctor: plattform  # pruefen
+    aifw: bibliothek
+    apo-hub: business
+    ausschreibungs-hub: business
+    authoringfw: bibliothek
+    bahn-hub: business
+    bfagent: business
+    billing-hub: business
+    buerger-hub: business
+    cad-hub: business
+    chat-hub: plattform  # pruefen
+    coach-hub: business
+    decks-hub: business
+    dev-hub: plattform
+    django-lms-lite: bibliothek
+    dms-hub: business
+    frist-hub: business
+    gaeb-toolkit: bibliothek
+    gpufw: bibliothek
+    ifc-mcp: business  # pruefen
+    iil-adrfw: bibliothek
+    iil-codeguard: bibliothek
+    iil-django-commons: bibliothek
+    iil-doc-templates: bibliothek
+    iil-enrichment: bibliothek
+    iil-fieldprefill: bibliothek
+    iil-ingest: bibliothek
+    iil-klickdummy: bibliothek
+    iil-reflex: bibliothek
+    iil-relaunch: business  # pruefen
+    iil-testkit: bibliothek
+    iil-voice-agent: bibliothek  # pruefen
+    illustration-fw: bibliothek
+    illustration-hub: business
+    infra-deploy: plattform
+    lastwar-bot: business  # pruefen
+    learn-hub: business
+    learnfw: bibliothek
+    mcp-hub: plattform
+    meiki-hub: business
+    music-lab: business  # pruefen
+    news-hub: business
+    nl2cad: bibliothek
+    nl2iot-hub: plattform  # pruefen
+    odoo-hub: business
+    onboarding-hub: business
+    outlinefw: bibliothek
+    platform: plattform
+    post-hub: business
+    pptx-hub: business
+    promptfw: bibliothek
+    recruiting-hub: business
+    research-hub: business
+    researchfw: bibliothek
+    risk-hub: business
+    riskfw: bibliothek
+    robo-lab: business  # pruefen
+    schreib-hub: business
+    schutztat-reporting: business  # pruefen
+    tax-hub: business
+    testkit: bibliothek  # pruefen
+    trading-hub: business
+    travel-beat: business
+    ttz-hub: business
+    wedding-hub: business
+    weltenfw: bibliothek
+    weltenhub: business
+    writing-hub: business
   _note: 'KANONISCHE SSoT (ADR-234 P0, Flip vollzogen 2026-06-01 via `registry-canonical.py
     flip`). Union aus scripts/repo-registry.yaml + registry/repos.yaml; beide Altdateien
     sind jetzt generierte, gate-erzwungene Views (verify-Gate in registry-consistency.yml).

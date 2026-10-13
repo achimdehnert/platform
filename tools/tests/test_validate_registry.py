@@ -142,3 +142,56 @@ def test_should_reject_a_non_iso_expiry_date():
 
     assert len(fehler) == 1
     assert "kein ISO-Datum" in fehler[0]
+
+
+# --- sitzungs_klasse (KONZ-platform-069 B1) ---------------------------------
+
+
+def canon_mit(klassen, repos=("a-hub", "b-fw")):
+    return {"meta": {"sitzungs_klasse": klassen}, "repos": {r: {} for r in repos}}
+
+
+def test_should_accept_a_complete_classification():
+    fehler = []
+    vr.validate_sitzungs_klasse(
+        canon_mit({"a-hub": "business", "b-fw": "bibliothek"}), fehler
+    )
+
+    assert fehler == []
+
+
+def test_should_reject_a_repo_without_class():
+    fehler = []
+    vr.validate_sitzungs_klasse(canon_mit({"a-hub": "business"}), fehler)
+
+    assert fehler == ["meta.sitzungs_klasse: Repo 'b-fw' ohne Klasse"]
+
+
+def test_should_reject_a_class_for_an_unregistered_repo():
+    fehler = []
+    vr.validate_sitzungs_klasse(
+        canon_mit({"a-hub": "business", "b-fw": "bibliothek", "geist": "business"}),
+        fehler,
+    )
+
+    assert fehler == ["meta.sitzungs_klasse: 'geist' steht nicht unter repos:"]
+
+
+def test_should_reject_an_unknown_class_value():
+    fehler = []
+    vr.validate_sitzungs_klasse(
+        canon_mit({"a-hub": "kunde", "b-fw": "bibliothek"}), fehler
+    )
+
+    assert len(fehler) == 1
+    assert "'kunde'" in fehler[0]
+
+
+def test_should_classify_every_repo_in_the_real_registry():
+    # Invariante gegen die echte Datei: ein neues Repo ohne Klasse faellt hier auf
+    import yaml
+
+    fehler = []
+    vr.validate_sitzungs_klasse(yaml.safe_load(vr.CANON_PATH.read_text()), fehler)
+
+    assert fehler == []
