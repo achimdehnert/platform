@@ -1,7 +1,7 @@
 ---
 concept_id: KONZ-platform-070
 title: Review-System org-weit — Regeln als Daten, Advocatus Diaboli je PR, Befund-Ledger als Lernschleife
-pipeline_status: idea
+pipeline_status: pilot     # 2026-10-13: Owner „RV go“ plus O1–O3 — Stufe 1 (platform, risk-hub, writing-hub), Mandat platform#3903
 tier: T3                   # Cross-Repo (shared-ci + 61 Repos in 4 Orgs), Security-Perimeter (Branch-Schutz, Bot-Token), neue Boundary (Review-Urteil ↔ Merge-Mandat)
 owner: Achim Dehnert
 spec_refs: []              # Governance-Capability, kein Klickdummy
@@ -162,7 +162,7 @@ Aussage, ohne die bestehenden Gates (Prod = Owner) anzutasten.
 
 | Stufe | Inhalt | Repos | Gate |
 |---|---|---|---|
-| 0 | KONZ akzeptiert; Mandats-Issue mit K1–K8 | platform | Owner-Wort |
+| 0 | KONZ akzeptiert; Mandats-Issue mit K1–K8 — ✅ 2026-10-13, platform#3903 | platform | Owner-Wort |
 | 1 | Z1 + Z2 (Stufe 1–2) + Z3 (JSONL) + Z4 (Melder) als Pilot | platform, risk-hub, writing-hub (Liste L, #3804) | kein ADR; Kill-Gate s. o. |
 | 2 | ADR „Review-System org-weit“; Z2 Default in shared-ci; Z3 als DB; Z6 | alle achimdehnert + iilgmbh | ADR accepted, Kill-Gate bestanden |
 | 3 | meiki-lra, ttz-lif | nur mit eigenem Owner-Wort (Autonomie-Ausschluss 2026-10-06) | Owner-Wort je Org |
@@ -188,8 +188,16 @@ wird der Fach-Reviewer eine Linse des Advocatus, fällt es, entfällt die Person
 | Branch-Schutz org-weit = 56 Owner-Klicks | Z4 liefert je Repo den fertigen Befehl; die Reihenfolge Prod-Repos zuerst (11) macht den Rest optional. |
 | Bot-Token in 4 Orgs = Reichweite | Stufe 2 ist genau deshalb ADR-pflichtig; bis dahin bleibt der Bot in Liste L. |
 
-## 8. Offene Entscheidungen (Owner)
+## 8. Entscheidungen (Owner)
 
-- O1 Ledger-Heimat: dev-hub-DB (CRUD, Platform-Agents-Policy) **oder** JSONL in platform (einfacher, aber platform ist öffentlich — Ledger enthält Locators, keine Secrets, aber Pfade). Empfehlung: dev-hub-DB, Export nach platform nur aggregiert.
-- O2 Pilot-Repos wie vorgeschlagen (Liste L) **oder** ein Business-Hub dazu (cad-hub, writing-hub ist bereits drin).
-- O3 Advocatus-Modell im Pilot: Opus (Standard) **oder** Fable für alle Pilot-PRs (teurer, bessere Kill-Gate-Messung).
+> „RV go“ plus O1–O3 — Owner, 2026-10-13 (Sitzung platform-a8); Mandat platform#3903
+
+| # | Frage | Optionen | Entschieden |
+|---|---|---|---|
+| O1 | Ledger-Heimat | dev-hub-DB (CRUD, Platform-Agents-Policy) **oder** JSONL in platform (einfacher, aber platform ist öffentlich — Ledger enthält Locators, also Pfade) | **dev-hub-DB**, Export nach platform nur aggregiert |
+| O2 | Pilot-Repos | Liste L **oder** zusätzlich ein Business-Hub (cad-hub; writing-hub ist bereits drin) | **Liste L**: platform, risk-hub, writing-hub |
+| O3 | Advocatus-Modell im Pilot | Opus **oder** Fable für alle Pilot-PRs (teurer, bessere Kill-Gate-Messung) | **Opus**; Fable nur für `needs-deep-review` |
+
+Für die Pilot-Umsetzung von Z2 Stufe 2 gilt zusätzlich: Der Advocatus läuft als Cloud-Routine (Opus) über die
+Pilot-Repos, nicht als CI-Schritt mit API-Schlüssel je Repo — so braucht kein Pilot-Repo ein neues Secret
+(Security-Config-Gate). Die CI-integrierte Variante ist Gegenstand des ADR in Stufe 2.
