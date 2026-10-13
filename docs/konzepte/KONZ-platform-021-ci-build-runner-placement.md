@@ -1,7 +1,7 @@
 ---
 concept_id: KONZ-platform-021
 title: "Cross-Repo CI/Build-Runner-Placement — GitHub-hosted Default, ci-nonprod als Opt-out (ADR-257 Rev 4)"
-pipeline_status: idea
+pipeline_status: stale   # 2026-10-13: Owner-Wort ‚F1 go' (platform#3234) — idea, review_by verstrichen; Re-open jederzeit mit neuem review_by
 tier: T3
 owner: "Achim Dehnert"
 spec_refs: []   # Infra-/CI-Konzept ohne ADR-211-Spec-Bezug — es existiert keine SoR-Spec für Runner-Topologie; SSoT ist infra/hosts.yaml (C3)
