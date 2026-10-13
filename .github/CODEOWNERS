@@ -91,8 +91,9 @@
 # Kontrolle in der Luft (KONZ-032 kill_criteria (a)).
 #
 # RA1 (Owner-Wort 2026-10-13, #3916): wirdigital ist hier kein Freigabe-Weg
-# mehr ("war fuer meiki gedacht"). Governance- und Rechte-PRs schreibt der
-# Lotse als iil-lotse, der Owner approvt als achimdehnert. Die Recovery-Rolle
+# mehr ("war fuer meiki gedacht"). Governance- und Rechte-PRs eroeffnet der
+# Lotse ueber die GitHub App lotse-autor (SE2), der Owner approvt als
+# achimdehnert. Die Recovery-Rolle
 # von wirdigital (Runbook platform-owner-recovery) bleibt unberuehrt.
 
 /.github/     @achimdehnert @iil-lotse
