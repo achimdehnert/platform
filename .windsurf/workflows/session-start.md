@@ -33,13 +33,12 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
 
 → Ende = Summary `| Phase | Status | Repo | Note |` + `LAUFZEIT:` + Befund-Journal + `RESULT: OK|FAIL`.
 → **`LAUFZEIT:`** über 150 s ist ein Befund über den Runner, kein Grund zum Warten.
-  Stellschrauben (`SESSION_CHECKS_TIMING`, `SESSION_CHECKS_PARALLEL*`,
-  `SESSION_CHECKS_VORLAUF_BEHALTEN`): → `LEHREN#laufzeit-stellschrauben`
+  Stellschrauben (`SESSION_CHECKS_*`) → `LEHREN#laufzeit-stellschrauben`
 → **Die Delta-Tabelle `| Phase | Repo | Delta | Grund |` ist die Befundliste**, nicht die
   WARN-Summe: `NEU`/`GEAENDERT`/`OHNE-ANKER` → Items; `ANKER-ABGELAUFEN`/`WIEDERVORLAGE`/
   `FIX-MESSUNG-UEBERFAELLIG` → neu verankern, schließen oder messen
   (`befund_journal.py --verankert ID URL --frist TAGE`, `--fix`, `--verzichtet`);
-  `VERANKERT` = kein Item. `SESSION_CHECKS_DELTA=nur` kürzt die Summary. → `LEHREN#delta-journal`
+  `VERANKERT` = kein Item. → `LEHREN#delta-journal`
 → **`RESULT: FAIL`** (einziger Hard-FAIL: pgvector-Tunnel 0.5) → Session NICHT fortsetzen,
   **kein** Fallback auf lokales Memory (ADR-154).
 → **Spalte `Repo`** = das Repo, um das es geht. Journal mit **Alter** spiegeln: `⏳ ALTBEFUND`
@@ -59,8 +58,8 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
 | `0.4.4 basis-abstand` | Worktree weit hinter `main` | — | **vor** dem Edit `git merge origin/main` |
 | `0.5.1 secret-zone` | Secrets in der Drop-Zone | leer | nach `~/.secrets` (KONZ-010) |
 | `0.5.2 schleuse` | Schleuse überfällig | — | `schleuse.py --aufraeumen --apply` |
-| `0.7 failure:<repos>` | Deploy rot | `bewusst abgelehnte Freigabe` | Log lesen, User informieren; grün ≠ live |
-| `0.7 waiting>24h` | Run hängt am Environment-Gate | — | Gate des alten Runs via `pending_deployments` schließen |
+| `0.7 failure:<repos>` | Deploy rot | `bewusst abgelehnte Freigabe` | Log lesen, melden; grün ≠ live |
+| `0.7 waiting>24h` | Run hängt am Env-Gate | — | altes Gate per `pending_deployments` schließen |
 | `0.7.1 deploy-script` | Host-`deploy.sh` ≠ Git | — | Freigabe: `--sync` = Prod-Eingriff |
 | `0.7.1b host-kopien` | Host-Datei ≠ Git | — | Freigabe: Prod-Eingriff |
 | `0.7.2 cron-melder` | Cron dauerrot / `ROT-IST-BEFUND` | OK | reparieren bzw. einordnen |
@@ -92,6 +91,7 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
 | `0.7.30 speicher-druck` | Druck in 24 h oder Timer steht | — | größte cgroup drosseln; oomd nur mit Owner-Go (#3607) |
 | `0.7.31 hintergrund-wache` | dev-hub-Agent ≥ 3× rot, Beat-Eintrag tot | `OK: …` | reparieren/stilllegen (dev-hub#424); `SKIP` ≠ Entwarnung |
 | `0.7.32 pr-bestand` | Bestand wächst, Timer steht | `SAMMELPHASE` | Treiber deckeln (#3823) |
+| `0.7.33 routine-berichte` | neuer Fund, Routine still | — | in Artefakt (#3887) |
 
 **`◌`/`nicht messbar`/`SAMMELPHASE` = Lücke, kein Pass — ins Board.** `ℹ️ HINWEIS` = Melder
 selbst herabgestuft, der **Melder** ist der Befund. Block „⏳ ohne Entscheidung > 14 d" = es
@@ -210,6 +210,7 @@ Arbeitsbeginn sauberziehen. Die Diskrepanz IST der Fund. → `LEHREN#handover-me
 | 2g | `0.3`: MAJOR ggü. bewertet gespiegelt | ☐ |
 | 2h | `0.7.23`: kein Melder ohne Leser; Block „⏳ > 14 d" geprüft | ☐ |
 | 2i | `0.7.4`: Prio-Referenzen **vor** dem ersten Arbeitsschritt nachgezogen | ☐ |
+| 2j | `0.7.33`: Routine-Funde in Artefakt überführt | ☐ |
 | 3 | Architecture Context geladen (ex-0.4.2) | ☐ |
 | 4 | Modell-Tier bewusst gewählt (0.8) | ☐ |
 | 5 | Repo-Kontext + Memory-Warm-Start geladen (Phase 1/2) | ☐ |

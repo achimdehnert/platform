@@ -1,0 +1,57 @@
+{
+  "_zweck": "Cloud-Routinen und wo ihre Berichte landen. Gelesen von tools/routine_berichte.py, Phase 0.7.33 des Sitzungsstarts (platform#3887). Pflege: neue Routine hier eintragen, nicht im Code.",
+  "_felder": {
+    "repo": "Repo, in dem alle Ausgangs-Issues liegen",
+    "neu_stunden": "ein Bericht juenger als das gilt als neu; Routinen laufen taeglich, 2 h Spielraum",
+    "ausgang.issue": "festes Issue, auf dem die Routine kommentiert",
+    "ausgang.label": "offene Issues mit diesem Label; die Routine kommentiert dort oder legt neue an",
+    "ausgang null": "kein Issue-Ausgang (Grund in 'grund'); die Phase liest diese Routine nicht",
+    "still_stunden": "kein Bericht in dieser Zeit = Routine still (WARN); null = die Routine schreibt nur bei Fund, Stille ist der Normalfall",
+    "befund": "false = der Bericht ist eine Lageuebersicht, kein Fund; nur Stille wird gemeldet",
+    "kopf_muster": "Regex auf die erste Zeile; nur passende Kommentare zaehlen (Routinen schreiben unter derselben Kennung wie Sitzungen)",
+    "ruhe_muster": "Regex auf den Text; passt er, meldet der Bericht nichts Neues"
+  },
+  "repo": "achimdehnert/platform",
+  "neu_stunden": 26,
+  "routinen": [
+    {
+      "name": "fleet-drift-report",
+      "ausgang": {"label": "fleet-drift"},
+      "still_stunden": 50,
+      "befund": true,
+      "kopf_muster": "^## Fleet-Drift-Report",
+      "ruhe_muster": "keine Drift-Funde"
+    },
+    {
+      "name": "handover-reconciler-platform",
+      "ausgang": {"issue": 1261},
+      "still_stunden": 50,
+      "befund": true,
+      "kopf_muster": "Handover-Reconciler",
+      "ruhe_muster": "[Kk]ein Drift"
+    },
+    {
+      "name": "deploy-health-triage",
+      "ausgang": {"label": "deploy-health"},
+      "still_stunden": null,
+      "befund": true
+    },
+    {
+      "name": "morning-briefing",
+      "ausgang": {"label": "morning-briefing"},
+      "still_stunden": 80,
+      "befund": false,
+      "kopf_muster": "^## ⚓ Briefing"
+    },
+    {
+      "name": "pr-review-prep",
+      "ausgang": null,
+      "grund": "kommentiert PRs, kein Issue"
+    },
+    {
+      "name": "deep-review",
+      "ausgang": null,
+      "grund": "kommentiert PRs, kein Issue"
+    }
+  ]
+}
