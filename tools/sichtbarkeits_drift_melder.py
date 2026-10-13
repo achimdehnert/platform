@@ -718,12 +718,13 @@ def abgelaufene_fristen(konzepte_dir: Path, heute: date) -> list[str]:
         if not m:
             continue
         fm = m.group(1)
-        status = re.search(r"^pipeline_status:\s*([\w-]+)", fm, re.M)
-        frist = re.search(r"^review_by:\s*(\d{4}-\d{2}-\d{2})", fm, re.M)
+        # Werte stehen mal gequotet, mal nicht (`review_by: "2026-09-07"`).
+        status = re.search(r"^pipeline_status:\s*[\"']?([\w-]+)", fm, re.M)
+        frist = re.search(r"^review_by:\s*[\"']?(\d{4}-\d{2}-\d{2})", fm, re.M)
         if not frist or (status and status.group(1) in INAKTIV):
             continue
         if date.fromisoformat(frist.group(1)) < heute:
-            cid = re.search(r"^concept_id:\s*(\S+)", fm, re.M)
+            cid = re.search(r"^concept_id:\s*[\"']?([^\s\"']+)", fm, re.M)
             faellig.append(cid.group(1) if cid else p.stem)
     return faellig
 
