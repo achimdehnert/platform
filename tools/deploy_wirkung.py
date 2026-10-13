@@ -115,9 +115,8 @@ DOKU_MUSTER: tuple[str, ...] = (
 # CI-/Pipeline-Pfade: steuern Bau und Pruefung, landen aber nicht im Prod-Image.
 # Ein Rueckstand nur aus diesen (und Doku-)Pfaden laesst Prod inhaltlich auf dem
 # Stand von main (Realfall 2026-10-13: pptx-hub#105, nur ci.yml + deploy.yml).
-# Bewusst NICHT hier: Dockerfile, docker/, docker-compose*, requirements*,
-# pyproject.toml, Makefile — die aendern das Image oder seinen Bau-Inhalt und
-# bleiben RUECKSTAND.
+# Image-relevant und darum ausgeschlossen: Dockerfile, docker/, docker-compose*,
+# requirements*, pyproject.toml, Makefile — ein Rueckstand darin bleibt RUECKSTAND.
 PIPELINE_MUSTER: tuple[str, ...] = (
     ".github/*",
     ".pre-commit-config.yaml",
