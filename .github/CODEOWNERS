@@ -89,36 +89,42 @@
 # einsetzen UND die Ruleset-Zahl zurueck auf 1 (governance/rulesets/
 # main-required-checks-platform.json). Beides zusammen, sonst haengt die
 # Kontrolle in der Luft (KONZ-032 kill_criteria (a)).
+#
+# RA1 (Owner-Wort 2026-10-13, #3916): wirdigital ist hier kein Freigabe-Weg
+# mehr ("war fuer meiki gedacht"). Governance- und Rechte-PRs eroeffnet der
+# Lotse ueber die GitHub App lotse-autor (SE2), der Owner approvt als
+# achimdehnert. Die Recovery-Rolle
+# von wirdigital (Runbook platform-owner-recovery) bleibt unberuehrt.
 
-/.github/     @achimdehnert @wirdigital @iil-lotse
-/registry/    @achimdehnert @wirdigital @iil-lotse
-/packages/    @achimdehnert @wirdigital @iil-lotse
-/docs/adr/    @achimdehnert @wirdigital
-/policies/    @achimdehnert @wirdigital
-/governance/  @achimdehnert @wirdigital @iil-lotse
-/docs/governance/ @achimdehnert @wirdigital @iil-lotse
-/deployment/  @achimdehnert @wirdigital @iil-lotse
-/infra/       @achimdehnert @wirdigital @iil-lotse
-/scripts/     @achimdehnert @wirdigital @iil-lotse
-/.windsurf/   @achimdehnert @wirdigital @iil-lotse
+/.github/     @achimdehnert @iil-lotse
+/registry/    @achimdehnert @iil-lotse
+/packages/    @achimdehnert @iil-lotse
+/docs/adr/    @achimdehnert
+/policies/    @achimdehnert
+/governance/  @achimdehnert @iil-lotse
+/docs/governance/ @achimdehnert @iil-lotse
+/deployment/  @achimdehnert @iil-lotse
+/infra/       @achimdehnert @iil-lotse
+/scripts/     @achimdehnert @iil-lotse
+/.windsurf/   @achimdehnert @iil-lotse
 
-/.sops.yaml            @achimdehnert @wirdigital @iil-lotse
-/.gitleaks.toml        @achimdehnert @wirdigital @iil-lotse
-/.pre-commit-config.yaml @achimdehnert @wirdigital @iil-lotse
-/bootstrap.sh          @achimdehnert @wirdigital @iil-lotse
+/.sops.yaml            @achimdehnert @iil-lotse
+/.gitleaks.toml        @achimdehnert @iil-lotse
+/.pre-commit-config.yaml @achimdehnert @iil-lotse
+/bootstrap.sh          @achimdehnert @iil-lotse
 
 # Das Merge-Werkzeug des Agenten: es entscheidet, was er ohne Klick mergen darf.
 # Ohne diese Zeile koennte er es selbst aendern und den Merge selbst fahren
 # (/tools/ ist sonst bewusst ungeschuetzt, s.o.).
-/tools/pr_merge_sa.py  @achimdehnert @wirdigital
+/tools/pr_merge_sa.py  @achimdehnert
 
 # Die Abschottung der Sandbox (ADR-308): Selbstpruefung, Budget-Waechter
 # (einzige Kostengrenze je Lauf), Spiegeln, Geheimnis-Scan, Egress-Proxy.
 # Eine Lockerung dort ist eine Schutzregel-Aenderung (ADR-308 §151), keine
 # Code-Aenderung — Realfall #3718 lief ohne Review (#3724).
-/tools/sandbox/        @achimdehnert @wirdigital
+/tools/sandbox/        @achimdehnert
 
 # Die Charta selbst. Sie steht in docs/konzepte/ zwischen 46 gewoehnlichen
 # Konzepten, die bewusst ungeschuetzt bleiben — geschuetzt wird die eine Datei,
 # die die Vollmachten des Agenten definiert, nicht das Verzeichnis.
-/docs/konzepte/KONZ-platform-025-lotsen-charta.md @achimdehnert @wirdigital @iil-lotse
+/docs/konzepte/KONZ-platform-025-lotsen-charta.md @achimdehnert @iil-lotse

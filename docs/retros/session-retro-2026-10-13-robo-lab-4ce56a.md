@@ -70,13 +70,13 @@ In dieser Sitzung hat `claim-before-cheapest-check` dreimal gefangen (Befund 2) 
 - Zwei Bewertungen der Messarbeit („1 kg ohne Positivkontrolle“, „0,5 kg als Dosenaussage“) und drei der Steuerung (#272 ohne Review, Schließen statt Mergen, Merge von #269/#271) hielten der Prüfung nicht stand, ebenso der Rollen-Widerspruch aus Phase 2.5 (Befunde 11–16). Die Messkette mit Kontrollen und Werten aus der Datendatei trägt.
 - Was bleibt, sind Lücken in der Weitergabe: Ein Annahmewert erscheint in der Recherche ohne Kennzeichen (Befund 6), ein p95-Wert als Grenze (Befund 9), der 90-mm-Wert ohne Messartefakt (Befund 10) und mit falscher Herkunftsangabe in #267 (Befund 19).
 - Zwei Verankerungen fehlen: die Liste „Nicht verifiziert“ der Recherche (Befund 7) und die Außenwirkung (Befund 8).
-- 18 der 27 echten Fehlerläufe waren Edits ohne vorheriges Lesen (Befund 1). Das Muster stand schon in 8 früheren Retros und hat kein Gate; daraus folgt Gate-Pflicht.
+- 18 der 31 Fehlerläufe waren Edits ohne vorheriges Lesen (Befund 1). Das Muster stand schon in 8 früheren Retros und hat kein Gate; daraus folgt Gate-Pflicht.
 
 ## 2. Befund-Tabelle
 
 | # | Befund | Kategorie | Severity | Verdikt | Beleg | Recurrence |
 |---|---|---|---|---|---|---|
-| 1 | 18 von 27 echten Fehlerläufen: Edit-Salven ohne vorheriges Lesen im frischen Worktree | Werkzeug | mittel | SURVIVES (kommandobelegt) | Transkript: 4× 06:19, 4× 06:27, 10× 08:31–08:32, „File has not been read yet“; 4 der 31 gezählten Läufe (07:52) sind nur die Fremdinhalt-Kennzeichnung | edit-in-worktree-without-read (8 Retros, ohne Gate) |
+| 1 | 18 von 31 Fehlerläufen: Edit-Salven ohne vorheriges Lesen im frischen Worktree | Werkzeug | mittel | SURVIVES (kommandobelegt) | Transkript: 4× 06:19, 4× 06:27, 10× 08:31–08:32, „File has not been read yet“; die 4 Läufe um 07:52 sind echte Ablehnungen (`is_error: true`, `deny`), Korrektur nach der Retro | edit-in-worktree-without-read (8 Retros, ohne Gate) |
 | 2 | Zwei Turns mit Aussagen ohne Tool-Beleg; der Stop-Hook fing sie, dazu fing der Bescheinigungs-Guard einen Kommentar | fehlende Validierung | niedrig | SURVIVES (kommandobelegt) | Stop-Hook 06:56:13 und 08:36:37, PreToolUse 08:42:22 (#267-Kommentar) | claim-before-cheapest-check (gates_caught) |
 | 3 | Direkter `gh pr merge` statt Merge-Werkzeug | Wissenslücke | niedrig | SURVIVES (kommandobelegt) | Merge-Guard 09:30:22; danach `pr_merge_sa.py` | direct-gh-pr-merge-bypasses-sa-m (gates_caught) |
 | 4 | Hausskript ohne vorheriges Lesen der Signatur aufgerufen, Traceback | Prozesslücke | niedrig | SURVIVES (kommandobelegt) | Transkript 07:57, Entwurfs-Werkzeug | — |
@@ -176,18 +176,18 @@ Ein Wert aus einer Datendatei mit `"quelle": "annahme"` behält sein Kennzeichen
 
 | # | Item | Repo | PR/Issue/ADR | Status | Next Step |
 |---|---|---|---|---|---|
-| M1 | Gate Edit ohne Read im Worktree | platform | [platform#3906](https://github.com/achimdehnert/platform/issues/3906) | 🟢 | Owner: Gate bauen oder declined |
+| M1 | Gate Edit ohne Read im Worktree | platform | [platform#3906](https://github.com/achimdehnert/platform/issues/3906) | 🟡 | Owner „M1 go“: Hinweis beim Worktree-Start und nach der Verdichtung gebaut; Hook-Verdrahtung Owner |
 | M2 | Annahme, p95, 90 mm in Recherche und Erhebungsbogen | robo-lab | #267 | 🔵 | Lotse: PR, Merge per Owner-Wort |
 | M3 | 80/90-mm-Lauf mit Repo-Werkzeug | robo-lab | #267 | 🔵 | Lotse: Lauf ablegen, #267 korrigieren |
 | M4 | Lückenliste der Recherche verankern | robo-lab | [#267 Kommentar](https://github.com/achimdehnert/robo-lab/issues/267#issuecomment-6143131972) | ✅ | erledigt nach der Retro |
 | M5 | Außenwirkung auf #270 vermerken | robo-lab | [#270 Kommentar](https://github.com/achimdehnert/robo-lab/issues/270#issuecomment-6143132322) | ✅ | erledigt nach der Retro |
 | M6 | Erledigte Remote-Branches löschen | robo-lab | #269, #271, #261, #266 | ✅ | 4 Branches gelöscht, 4 Worktrees entfernt |
-| M7 | Kennzahlen-Werkzeug zählt Fremdinhalt-Kennzeichen | platform | [platform#3908](https://github.com/achimdehnert/platform/issues/3908) | 🟢 | Owner: Fix freigeben |
-| M8 | Gate Messwert ohne Ergebnisdatei | platform | [platform#3907](https://github.com/achimdehnert/platform/issues/3907) | 🟢 | Owner: Gate bauen oder declined |
+| M7 | Kennzahlen-Werkzeug zählt Fremdinhalt-Kennzeichen | platform | [platform#3908](https://github.com/achimdehnert/platform/issues/3908) | ✅ | widerlegt nach der Retro: die 4 Läufe um 07:52 sind echte Ablehnungen (`is_error: true`, `deny`), das Werkzeug zählt richtig; Issue geschlossen |
+| M8 | Gate Messwert ohne Ergebnisdatei | platform | [platform#3907](https://github.com/achimdehnert/platform/issues/3907) | ✅ | Owner „M8 declined“, Eintrag unter `gates/declined/` |
 
 ## 8. Nicht verifiziert (Restlücken)
 
-- **getan:** 3 Finder, 2 Skeptiker (einer mit dem Konflikt aus 2.5), Widerlegungsbahn, Meta-Review; 0.0 und 5a mit `gate_wirkung.py`; Längsschnitt mit `retro_kpis.py`; Gate-Registry je Slug per `git ls-tree` auf `origin/main`; die Widerlegungsbahn bestätigte im Transkript, dass die 4 Claude-Docs-Läufe (07:52) nur Fremdinhalt-Kennzeichen sind (M7).
+- **getan:** 3 Finder, 2 Skeptiker (einer mit dem Konflikt aus 2.5), Widerlegungsbahn, Meta-Review; 0.0 und 5a mit `gate_wirkung.py`; Längsschnitt mit `retro_kpis.py`; Gate-Registry je Slug per `git ls-tree` auf `origin/main`; die Behauptung der Widerlegungsbahn, die 4 Claude-Docs-Läufe (07:52) seien nur Fremdinhalt-Kennzeichen, hielt einer Nachprüfung im Transkript nach der Retro nicht stand (`is_error: true`, `deny`); M7 ist damit widerlegt.
 - **angenommen:** dass die Retro-Zählung „Retros je Slug“ per `git grep -l` über `docs/retros/` die Gate-Pflicht richtig wiedergibt; `retro_kpis.py` zählt nur Frontmatter-Slugs (billigster Check: `retro_kpis.py | grep edit-in-worktree`).
 - **nicht verifizierbar:** Inhalt des Mail-Entwurfs und des geteilten Dokuments (außerhalb des Repos); Werte der externen Herstellerseiten (die Prüfer hatten keinen Web-Zugriff).
 - **offen geblieben:** Handover und Journal in robo-lab seit 2026-10-04 bzw. 2026-10-02 ungepflegt (sitzungsübergreifend, kein Befund dieser Sitzung); ob die Skripte `dose_griff`/`dose_traglast` in der CI laufen (Finder-Hinweis, ungeprüft; billigster Check: `ci_deckung.py`); ob die Edit-Salve um 06:27 nach dem Kontextwechsel lag (Hypothese `edit-after-compaction-without-reread`); E3, Hand am Gerät messen (#267), Lauf 20 zweiter Seed ([#248](https://github.com/achimdehnert/robo-lab/issues/248)).
@@ -198,7 +198,7 @@ Ein Subagent (Opus, frischer Kontext) mit Report-Entwurf, Footprint und Artefakt
 
 | Punkt | Urteil | Verdikt | Beleg |
 |---|---|---|---|
-| #1 Edit ohne Read | hält, Zahl korrigiert | BESTAETIGT | 18 statt 17 Fälle; 4 der 31 Läufe sind Fremdinhalt-Kennzeichen → 18 von 27 |
+| #1 Edit ohne Read | hält, Zahl korrigiert | BESTAETIGT | 18 statt 17 Fälle; der Nenner „27“ (4 Läufe als Fremdinhalt-Kennzeichen abgezogen) ist nach der Retro widerlegt, richtig ist 18 von 31 |
 | #5 Branches | hält, größer | BESTAETIGT | zusätzlich die Branches von #261/#266; 4 Worktrees lokal |
 | #6 Annahme Ø 100 | hält, Severity niedrig | BESTAETIGT | #267-Text :18 nennt die Annahme, Recherche :3 verlinkt #267 |
 | #9 ≤ 51 % | hält | BESTAETIGT | JSON speichert nur `p95_auslastung_mit_last`, kein Lastmaximum |
@@ -223,6 +223,7 @@ Abdeckung ohne Fund: Personennamen auf main (Repo privat, Namen der Partner komm
   - run-result-not-anchored bekommt M8 mit eigenem Issue.
   - M1 und M7 verlinkt.
 - Ein zweiter Edit-ohne-Read-Lauf während dieser Retro: Nach der Kontextverdichtung scheiterten 4 Edits am Report, weil der Read-Zustand zurückgesetzt war. Das stützt Befund 1 und die Hypothese `edit-after-compaction-without-reread` aus §8.
+- Korrektur nach der Retro (platform#3908): Ich hatte die Aussage der Widerlegungsbahn, die 4 Läufe um 07:52 seien nur Fremdinhalt-Kennzeichen, ungeprüft übernommen und daraus Maßnahme M7 gemacht. Eine Nachprüfung im Transkript zeigt `is_error: true` und `deny`, also echte Ablehnungen. Befund 1 heißt deshalb 18 von 31, M7 ist widerlegt. Der Fall gehört zu `claim-before-cheapest-check`: Die Aussage eines Prüfers ist auch nur eine Behauptung.
 
 ## Streichbahn
 

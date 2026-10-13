@@ -64,12 +64,17 @@ domains:
     type: other
     lifecycle: production
     tenancy_mode: none
+    github_meta:
+      visibility: private
+      archived: false
+      default_branch: main
+      pushed_at: '2026-10-12'
   - name: dev-hub
     repo: dev-hub
     description: Central Developer Portal & Platform Management Hub
     github: achimdehnert/dev-hub
     deployed: true
-    url: https://devhub.iil.pet
+    url: https://dev-hub.iil.pet
     type: django
     lifecycle: production
     tenancy_mode: none
@@ -100,6 +105,11 @@ domains:
       prod_redirect: https://devhub.iil.pet/oidc/callback/
       staging_app_slug: dev-hub-staging
       staging_redirect: https://staging-devhub.iil.pet/oidc/callback/
+    github_meta:
+      visibility: private
+      archived: false
+      default_branch: main
+      pushed_at: '2026-10-13'
   - name: mcp-hub
     repo: mcp-hub
     description: MCP server collection (deployment, orchestrator, LLM)
@@ -110,6 +120,11 @@ domains:
     lifecycle: production
     tenancy_mode: none
     coverage_threshold: 80
+    github_meta:
+      visibility: private
+      archived: false
+      default_branch: main
+      pushed_at: '2026-10-09'
   - name: nl2iot-hub
     repo: nl2iot-hub
     description: Natural-language-to-IoT — Developer Cockpit
@@ -121,6 +136,11 @@ domains:
     coverage_threshold: 60
     notes: 'Klickdummy-konform (platform:ADR-211): docs/adr/ADR-002 (Rev-11 class: spec-demo). klickdummy.class-Registry-Wert
       offen (Rev-9/11-Migration).'
+    github_meta:
+      visibility: private
+      archived: false
+      default_branch: main
+      pushed_at: '2026-08-17'
   - name: platform
     repo: platform
     description: Shared packages, ADRs, governance, platform agents
@@ -131,6 +151,11 @@ domains:
     lifecycle: production
     tenancy_mode: none
     coverage_threshold: 80
+    github_meta:
+      visibility: public
+      archived: false
+      default_branch: main
+      pushed_at: '2026-10-13'
 - name: Content & Publishing
   systems:
   - name: bfagent
@@ -154,6 +179,11 @@ domains:
       migrate_cmd: python manage.py migrate --noinput
       multi_tenant: false
       port: 8091
+    github_meta:
+      visibility: private
+      archived: true
+      default_branch: main
+      pushed_at: '2026-06-03'
   - name: decks-hub
     repo: decks-hub
     description: Web-Praesentationen (Vortraege/Lehr-Module/Webinare) mit Slidev - ADR-253 Schiene 1
@@ -172,6 +202,11 @@ domains:
     notes: Statische Slidev-Site (kein Django/DB). Theme aus design-hub iil-extern. LIVE seit 2026-07-10
       (Run 29093692166, healthz 200, Container healthy auf 8112). Onboarding legte 4 unabhaengige Luecken
       offen (Registry/permissions/Runner/Secrets) — Befund am Tombstone-/Onboarding-Thema
+    github_meta:
+      visibility: private
+      archived: false
+      default_branch: main
+      pushed_at: '2026-10-08'
   - name: dms-hub
     repo: dms-hub
     description: Dokumentenmanagement-Anwendung (nicht zu verwechseln mit dem separat laufenden Paperless-Stack
@@ -188,6 +223,11 @@ domains:
       web_container: dms_hub_web
       web_service: web
       port: 8107
+    github_meta:
+      visibility: private
+      archived: false
+      default_branch: main
+      pushed_at: '2026-10-06'
   - name: illustration-hub
     repo: illustration-hub
     description: Illustrations-/Comic-Rendering-Dienst (ADR-252 Thin-Composer-Konsument)
@@ -203,11 +243,16 @@ domains:
       web_container: illustration_web
       web_service: web
       port: 8096
+    github_meta:
+      visibility: private
+      archived: false
+      default_branch: main
+      pushed_at: '2026-10-08'
   - name: learn-hub
     repo: learn-hub
     description: Lern-/Schulungsplattform
     github: iilgmbh/learn-hub
-    deployed: false
+    deployed: true
     url: https://learn.iil.pet
     type: django
     lifecycle: production
@@ -216,11 +261,16 @@ domains:
     compose: docker-compose.prod.yml
     deploy:
       port: 8100
+    github_meta:
+      visibility: private
+      archived: false
+      default_branch: main
+      pushed_at: '2026-10-12'
   - name: news-hub
     repo: news-hub
     description: Hot-Topics-Letter — Newsletter-Postfaecher zu belegten Themen (ADR-299)
     github: achimdehnert/news-hub
-    deployed: false
+    deployed: true
     url: https://news.iil.pet
     type: django
     lifecycle: experimental
@@ -229,6 +279,11 @@ domains:
     compose: docker-compose.prod.yml
     deploy:
       port: 8113
+    github_meta:
+      visibility: private
+      archived: false
+      default_branch: main
+      pushed_at: '2026-10-12'
   - name: onboarding-hub
     repo: onboarding-hub
     description: Schulungs-/Onboarding-Plattform (schulungspass.de). Nicht weiterentwickelt (Auth via
@@ -249,6 +304,11 @@ domains:
       web_container: onboarding_hub_web
       web_service: web
       port: 8108
+    github_meta:
+      visibility: private
+      archived: true
+      default_branch: main
+      pushed_at: '2026-08-18'
   - name: pptx-hub
     repo: pptx-hub
     description: Presentation Studio — PowerPoint generation (Prezimo)
@@ -261,6 +321,11 @@ domains:
     dockerfile: docker/app/Dockerfile
     compose: docker-compose.prod.yml
     coverage_threshold: 60
+    github_meta:
+      visibility: private
+      archived: false
+      default_branch: main
+      pushed_at: '2026-10-13'
   - name: writing-hub
     repo: writing-hub
     description: Eigenständige Autorenplattform (Django 5.2, PostgreSQL 15)
@@ -274,6 +339,11 @@ domains:
     coverage_threshold: 60
     notes: 'Klickdummy-konform (platform:ADR-211): docs/adr/ADR-180 (Rev-11 class: spec-demo). klickdummy.class-Registry-Wert
       offen (Rev-9/11-Migration).'
+    github_meta:
+      visibility: private
+      archived: false
+      default_branch: main
+      pushed_at: '2026-10-12'
 - name: Story & Travel
   systems:
   - name: travel-beat
@@ -283,7 +353,7 @@ domains:
     deployed: false
     url: https://drifttales.app
     type: django
-    lifecycle: frozen
+    lifecycle: archived
     notes: 'Ruhend seit 2026-09-23 (Owner-Wort ''p3 ruhend'', #3456): App aus (travel-beat#95/#98), Runner
       offline, deployed: false. Der ADR-Drift-Detektor (dev-hub#374) überspringt frozen-Repos.'
     tenancy_mode: subdomain
@@ -303,6 +373,11 @@ domains:
         and ''migrate_schemas --tenant''. deploy-remote.sh has a known bug using ''migrate --noinput''.
 
         '
+    github_meta:
+      visibility: private
+      archived: true
+      default_branch: main
+      pushed_at: '2026-10-07'
   - name: weltenhub
     repo: weltenhub
     description: Story universe platform (Weltenforger)
@@ -318,6 +393,11 @@ domains:
     oidc:
       staging_app_slug: weltenhub-staging
       staging_redirect: https://staging-weltenhub.iil.pet/oidc/callback/
+    github_meta:
+      visibility: private
+      archived: false
+      default_branch: main
+      pushed_at: '2026-10-06'
 - name: Business & Safety
   systems:
   - name: apo-hub
@@ -338,11 +418,16 @@ domains:
     notes: 'GEFUNDEN 2026-07-10: war in KEINER der drei Registries (canonical/ports/repos.yaml) erfasst,
       obwohl seit mind. 2 Tagen live+healthy läuft (apo.iil.pet, nginx-vhost vorhanden). Erstmalig hier
       nachgetragen.'
+    github_meta:
+      visibility: private
+      archived: false
+      default_branch: main
+      pushed_at: '2026-10-12'
   - name: billing-hub
     repo: billing-hub
     description: Rechnungs-/Abrechnungsplattform
     github: achimdehnert/billing-hub
-    deployed: false
+    deployed: true
     url: https://billing.iil.pet
     type: django
     lifecycle: production
@@ -353,6 +438,11 @@ domains:
       web_container: billing-hub-web
       web_service: web
       port: 8092
+    github_meta:
+      visibility: private
+      archived: false
+      default_branch: main
+      pushed_at: '2026-10-13'
   - name: coach-hub
     repo: coach-hub
     description: Coaching-/Beratungsplattform (Risikoschutz-Themen)
@@ -375,6 +465,11 @@ domains:
       und coach-hub.iil.pet in Cloudflare entfernt - die Namen loesen nicht mehr auf. Daten gesichert
       (pgdump: 83 Tabellen, 17 auth_user). Volumes auf prod unangetastet (Reste: platform#2480). Letzter
       Login war 2026-04-17. E-Mail-Records der Domain bleiben aktiv.'
+    github_meta:
+      visibility: private
+      archived: true
+      default_branch: main
+      pushed_at: '2026-09-29'
   - name: odoo-hub
     repo: odoo-hub
     description: Odoo management and integration (Odoo 17)
@@ -384,6 +479,11 @@ domains:
     lifecycle: experimental
     tenancy_mode: none
     coverage_threshold: 0
+    github_meta:
+      visibility: public
+      archived: false
+      default_branch: main
+      pushed_at: '2026-10-12'
   - name: recruiting-hub
     repo: recruiting-hub
     description: Recruiting-/Bewerbermanagement-Plattform
@@ -402,6 +502,11 @@ domains:
     notes: 'Stillgelegt 2026-08-20 (platform#2121): Repo archiviert, Topic scheduled-deletion-2026-09-19,
       alle 5 Container gestoppt, Runner deaktiviert. DB war leer (0 Kandidaten, 0 Dokumente, 1 Admin-Konto).
       Backup inkl. pgdump in ~/backups/repo-graveyard/. DELETE fruehestens 2026-09-19, Human-Only.'
+    github_meta:
+      visibility: private
+      archived: true
+      default_branch: main
+      pushed_at: '2026-08-17'
   - name: risk-hub
     repo: risk-hub
     description: Multi-tenant occupational safety SaaS (Schutztat)
@@ -440,11 +545,16 @@ domains:
       prod_redirect: https://schutztat.com/oidc/callback/
       staging_app_slug: risk-hub-staging
       staging_redirect: https://staging.schutztat.de/oidc/callback/
+    github_meta:
+      visibility: private
+      archived: false
+      default_branch: main
+      pushed_at: '2026-10-13'
   - name: tax-hub
     repo: tax-hub
     description: Steuer-/Finanzverwaltungsplattform (django_tenants Multi-Tenancy)
     github: iilgmbh/tax-hub
-    deployed: false
+    deployed: true
     url: https://tax.iil.pet
     type: django
     lifecycle: production
@@ -476,6 +586,11 @@ domains:
       — der laufende Prod-Container nutzt aber weiterhin 8099. Fix ist committed, aber nicht deployed.
       Port hier bewusst auf 8099 (= live) belassen, nicht auf 8104 (= nur in git). Owner-Entscheidung:
       Re-Deploy nötig, bevor 8104 hier eingetragen wird.'
+    github_meta:
+      visibility: private
+      archived: false
+      default_branch: main
+      pushed_at: '2026-10-12'
   - name: trading-hub
     repo: trading-hub
     description: Trading analysis and market scanning
@@ -487,13 +602,18 @@ domains:
     dockerfile: Dockerfile
     compose: docker-compose.prod.yml
     coverage_threshold: 60
+    github_meta:
+      visibility: private
+      archived: false
+      default_branch: main
+      pushed_at: '2026-10-06'
 - name: Engineering & Construction
   systems:
   - name: ausschreibungs-hub
     repo: ausschreibungs-hub
     description: KI-gestützte Ausschreibungs- und Angebotsplattform für KMU, Bau, Ingenieurbüros
     github: iilgmbh/ausschreibungs-hub
-    deployed: false
+    deployed: true
     type: django
     lifecycle: experimental
     tenancy_mode: none
@@ -502,6 +622,11 @@ domains:
     coverage_threshold: 60
     notes: 'Klickdummy-konform (platform:ADR-211): ADR-001 (mock) + ADR-002 (spec-demo). klickdummy.class-Registry-Wert
       offen (Rev-9/11-Migration).'
+    github_meta:
+      visibility: private
+      archived: false
+      default_branch: main
+      pushed_at: '2026-10-12'
   - name: cad-hub
     repo: cad-hub
     description: BIM/IFC platform — nl2cad, DIN 277, GAEB export
@@ -522,6 +647,11 @@ domains:
       migrate_cmd: python manage.py migrate --noinput
       multi_tenant: false
       port: 8094
+    github_meta:
+      visibility: private
+      archived: false
+      default_branch: main
+      pushed_at: '2026-10-12'
   - name: gaeb-toolkit
     repo: gaeb-toolkit
     description: GAEB DA XML 3.3 toolkit — parser, validator, Preisspiegel writer
@@ -531,6 +661,11 @@ domains:
     lifecycle: active
     tenancy_mode: none
     coverage_threshold: 80
+    github_meta:
+      visibility: private
+      archived: false
+      default_branch: main
+      pushed_at: '2026-10-07'
 - name: Analytics & Data
   systems:
   - name: bahn-hub
@@ -540,7 +675,7 @@ domains:
     deployed: false
     url: https://bahn.iil.pet
     type: fastapi
-    lifecycle: active
+    lifecycle: archived
     tenancy_mode: header
     dockerfile: Dockerfile
     compose: docker-compose.prod.yml
@@ -553,6 +688,11 @@ domains:
       migrate_cmd: null
       multi_tenant: true
       port: 8110
+    github_meta:
+      visibility: private
+      archived: true
+      default_branch: main
+      pushed_at: '2026-08-28'
   - name: research-hub
     repo: research-hub
     description: Recherche-/Analyse-Plattform
@@ -568,6 +708,11 @@ domains:
       web_container: research_hub_web
       web_service: web
       port: 8098
+    github_meta:
+      visibility: private
+      archived: true
+      default_branch: main
+      pushed_at: '2026-08-09'
 - name: Events & Lifestyle
   systems:
   - name: 137-hub
@@ -591,6 +736,11 @@ domains:
       multi_tenant: false
       port: 8095
       deploy_script: /opt/137-hub/deploy.sh
+    github_meta:
+      visibility: private
+      archived: false
+      default_branch: main
+      pushed_at: '2026-10-06'
   - name: wedding-hub
     repo: wedding-hub
     description: Wedding planning platform (archiviert 2026-08-11, Tombstone platform#1924)
@@ -615,3 +765,8 @@ domains:
     oidc:
       staging_app_slug: wedding-hub-staging
       staging_redirect: https://staging-wedding-hub.iil.pet/oidc/callback/
+    github_meta:
+      visibility: private
+      archived: true
+      default_branch: main
+      pushed_at: '2026-08-11'
