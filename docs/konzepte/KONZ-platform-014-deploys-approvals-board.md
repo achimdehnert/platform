@@ -1,7 +1,7 @@
 ---
 concept_id: KONZ-platform-014
 title: Deploys & Approvals Board
-pipeline_status: idea
+pipeline_status: stale   # 2026-10-13: Owner-Wort ‚B3a ruhen' (platform#3234) — idea, review_by verstrichen; Re-open jederzeit mit neuem review_by
 tier: T3
 owner: Achim Dehnert <pg@dehnert.team>
 spec_refs: []                      # kein ADR-211-Spec-Objekt betroffen — reine Ops-UI über GitHub-API, keine Genesor-Spec

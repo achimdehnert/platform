@@ -1,7 +1,7 @@
 ---
 concept_id: KONZ-platform-046
 title: Wort, Bild und Ton aus einer Wurzel — den Box-Betrieb deklarieren statt finden
-pipeline_status: idea
+pipeline_status: stale   # 2026-10-13: Owner-Wort ‚B3a ruhen' (platform#3234) — idea, review_by verstrichen; Re-open jederzeit mit neuem review_by
 tier: T3
 owner: Achim Dehnert
 spec_refs: []          # keine Klickdummy-Spec; System of Record ist ADR-296
