@@ -142,6 +142,10 @@ berührt wird).
    Schritte — beim Vorstellen so ankuendigen.
 4. **Scope-Eskalation** — drittes Repo, Publish (PyPI/Release), neue
    Automatismen mit Schreibrecht (Scope-Checkpoint, house rule).
+   **Business-Start-Repo (Owner-Wort 2026-10-13, „R9 go", KONZ-platform-069):** Startet die
+   Sitzung in einem Business-Repo, braucht schon das **zweite** Business-Repo vor dem ersten
+   Schreibschritt die Owner-Zeile `scope +<repo>`. Repos, mit denen die Sitzung gestartet
+   wurde, sind frei. Lesen bleibt frei. Durchsetzung per Hook folgt in #3890 (R7).
 5. **Nennenswerter Spend** — Modell-Tier-Upgrade, Cloud-/Ultra-Runs, bezahlte APIs.
 
 ## Merge-Autonomie: eine Regel, zwei Achsen (SA-M)
