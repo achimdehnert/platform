@@ -14,6 +14,20 @@
     "profile": "deployed"
   },
   {
+    "repo": "ausschreibungs-hub",
+    "owner": "iilgmbh",
+    "required_check": "ci / gate",
+    "wave": 1,
+    "profile": "deployed"
+  },
+  {
+    "repo": "billing-hub",
+    "owner": "achimdehnert",
+    "required_check": "ci / gate",
+    "wave": 1,
+    "profile": "deployed"
+  },
+  {
     "repo": "cad-hub",
     "owner": "achimdehnert",
     "required_check": "ci / gate",
@@ -63,9 +77,23 @@
     "profile": "plattform"
   },
   {
+    "repo": "learn-hub",
+    "owner": "iilgmbh",
+    "required_check": "ci / gate",
+    "wave": 1,
+    "profile": "deployed"
+  },
+  {
     "repo": "mcp-hub",
     "owner": "achimdehnert",
     "required_check": "🚦 Quality Gate",
+    "wave": 1,
+    "profile": "deployed"
+  },
+  {
+    "repo": "news-hub",
+    "owner": "achimdehnert",
+    "required_check": "ci / gate",
     "wave": 1,
     "profile": "deployed"
   },
@@ -94,6 +122,13 @@
     "repo": "risk-hub",
     "owner": "iilgmbh",
     "required_check": "Deploy-Config-Lint / deploy-config-lint",
+    "wave": 1,
+    "profile": "deployed"
+  },
+  {
+    "repo": "tax-hub",
+    "owner": "iilgmbh",
+    "required_check": "ci / gate",
     "wave": 1,
     "profile": "deployed"
   },

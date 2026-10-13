@@ -10,6 +10,10 @@ archived:
     github: achimdehnert/adr-doctor
     description: Surgical healing tool for ADR supersession hygiene (archiviert)
     lifecycle: archived
+  bahn-hub:
+    github: achimdehnert/bahn-hub
+    description: Bahn SQF Analytics — FastAPI + DuckDB
+    lifecycle: archived
   bfagent:
     github: achimdehnert/bfagent
     description: Book Factory Agent — AI-assisted book creation
@@ -44,6 +48,10 @@ archived:
   testkit:
     github: achimdehnert/testkit
     description: iil-testkit — Shared Test Factory Package (ADR-100, archiviert)
+    lifecycle: archived
+  travel-beat:
+    github: achimdehnert/travel-beat
+    description: Travel story platform (DriftTales)
     lifecycle: archived
   wedding-hub:
     github: achimdehnert/wedding-hub
