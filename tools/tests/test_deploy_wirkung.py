@@ -15,6 +15,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 TOOLS = Path(__file__).resolve().parents[1]
 _spec = importlib.util.spec_from_file_location(
     "deploy_wirkung", TOOLS / "deploy_wirkung.py"
@@ -147,6 +149,52 @@ def test_should_treat_an_empty_file_list_as_not_docs_only():
 def test_should_match_markdown_in_a_subdirectory():
     """Belegt das fnmatch-Verhalten: '*.md' matcht auch 'a/b/README.md'."""
     assert dw.ist_nur_doku(["a/b/README.md"])
+
+
+# ── ist_nur_pipeline(): Rueckstand nur aus CI-/Pipeline-Pfaden ───────────────
+
+
+def test_should_recognize_the_pptx_hub_workflow_only_backlog():
+    """Realfall 2026-10-13: pptx-hub#105 aenderte nur zwei Workflow-Dateien."""
+    assert dw.ist_nur_pipeline(
+        [".github/workflows/ci.yml", ".github/workflows/deploy.yml"]
+    )
+
+
+def test_should_recognize_a_mixed_docs_and_pipeline_backlog():
+    assert dw.ist_nur_pipeline(
+        ["docs/a.md", ".github/ISSUE_TEMPLATE/bug.yml", ".pre-commit-config.yaml"]
+    )
+
+
+def test_should_leave_a_pure_docs_backlog_to_nur_doku():
+    """Die beiden Kennzeichen ueberlappen nie."""
+    assert not dw.ist_nur_pipeline(["docs/a.md", "CHANGELOG.md"])
+
+
+@pytest.mark.parametrize(
+    "image_pfad",
+    [
+        "Dockerfile",
+        "docker/app/Dockerfile",
+        "docker-compose.prod.yml",
+        "requirements.txt",
+        "pyproject.toml",
+        "apps/api/views.py",
+    ],
+)
+def test_should_keep_backlog_loud_when_an_image_path_changed(image_pfad: str):
+    """Gegenprobe: alles, was das Prod-Image aendert, bleibt RUECKSTAND."""
+    assert not dw.ist_nur_pipeline([".github/workflows/ci.yml", image_pfad])
+
+
+def test_should_treat_an_empty_file_list_as_not_pipeline_only():
+    assert not dw.ist_nur_pipeline([])
+
+
+def test_should_mark_a_pipeline_only_backlog_in_the_report_line():
+    marker = dw.befund_marker({"rueckstand": True, "nur_pipeline": True})
+    assert marker == ["RUECKSTAND", "NUR-PIPELINE"]
 
 
 # ── rueckstand_dateien(): fail-open bei jedem Werkzeugfehler ─────────────────

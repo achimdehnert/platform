@@ -1178,14 +1178,16 @@ def wartet(e):
     return (na(e, "rueckstand") and e.get("prod_gate")
             and (e.get("alter_tage") or 0) < FREIGABE_FRIST_TAGE)
 dop  = [e["repo"] for e in b if e.get("doppellauf")]
-warte= ["%s(%sd)" % (e["repo"], e.get("alter_tage", "?")) for e in b if wartet(e) and not e.get("nur_doku")]
 # Rueckstand nur aus Doku-Pfaden (writing-hub deployt Doku-Merges per
-# Cosmetic-Gate #1009 bewusst nicht): kein Befund, `nur_doku` schlaegt daher
-# `wartet` (ein Doku-Rueckstand ist auch mit Prod-Gate ein Doku-Rueckstand).
-# Faellt der Doku-Check aus (gh-Fehler, >=300 Dateien), fehlt `nur_doku` —
+# Cosmetic-Gate #1009 bewusst nicht) oder nur aus CI-/Pipeline-Pfaden (Prod-Image
+# inhaltlich gleich, Realfall pptx-hub#105): kein Befund, schlaegt daher `wartet`.
+# Faellt der Datei-Check aus (gh-Fehler, >=300 Dateien), fehlen beide Kennzeichen —
 # dann bleibt der Eintrag ganz normal in `rueck`/`warte`, also laut.
+def ohne_wirkung(e): return bool(e.get("nur_doku") or e.get("nur_pipeline"))
+warte= ["%s(%sd)" % (e["repo"], e.get("alter_tage", "?")) for e in b if wartet(e) and not ohne_wirkung(e)]
 doku = [e["repo"] for e in b if na(e, "rueckstand") and e.get("nur_doku")]
-rueck= [e["repo"] for e in b if na(e, "rueckstand") and not wartet(e) and not e.get("nur_doku")]
+pipe = [e["repo"] for e in b if na(e, "rueckstand") and e.get("nur_pipeline") and not e.get("nur_doku")]
+rueck= [e["repo"] for e in b if na(e, "rueckstand") and not wartet(e) and not ohne_wirkung(e)]
 verw = [e["repo"] for e in b if e.get("verwaiste_manifeste")]
 unk  = [e["repo"] for e in b if e.get("zuordnung_unklar") or e.get("container_unklar")]
 # main nicht lesbar (gh api, z. B. Ratenlimit): kein Urteil, keine Entwarnung —
@@ -1197,6 +1199,7 @@ if dop:   teile.append("DOPPELLAUF:" + ",".join(dop))
 if rueck: teile.append("RUECKSTAND:" + ",".join(rueck))
 if warte: teile.append("wartet auf Prod-Freigabe (kein Befund):" + ",".join(warte))
 if doku:  teile.append("nur Doku hinter main (kein Befund):" + ",".join(doku))
+if pipe:  teile.append("nur CI/Pipeline hinter main (kein Befund):" + ",".join(pipe))
 if verw:  teile.append("verwaistes Manifest:" + ",".join(verw))
 if unk:   teile.append("Zuordnung/Container unklar:" + ",".join(unk))
 status = "WARN" if (dop or rueck or unl) else "PASS"

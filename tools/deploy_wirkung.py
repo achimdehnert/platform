@@ -28,6 +28,9 @@ Befundklassen
    der alte Stand als Leiche stehen.
 3. RUECKSTAND mit `nur_doku` — Host hinkt nur um Doku-Pfade hinterher; Repos mit
    Doku-Filter deployen das bewusst nicht. Hinweis, kein Befund.
+4. RUECKSTAND mit `nur_pipeline` — Host hinkt nur um CI-/Pipeline-Pfade (ggf.
+   gemischt mit Doku) hinterher; das Prod-Image ist inhaltlich derselbe Stand.
+   Hinweis, kein Befund (Realfall pptx-hub#105, shared-ci-Bump).
 
 Deploy-Politik (#3495 Folgepunkt, illustration-hub#344)
 --------------------------------------------------------
@@ -108,6 +111,18 @@ DOKU_MUSTER: tuple[str, ...] = (
     "klickdummy/**",
     ".gitignore",
     "CHANGELOG*",
+)
+# CI-/Pipeline-Pfade: steuern Bau und Pruefung, landen aber nicht im Prod-Image.
+# Ein Rueckstand nur aus diesen (und Doku-)Pfaden laesst Prod inhaltlich auf dem
+# Stand von main (Realfall 2026-10-13: pptx-hub#105, nur ci.yml + deploy.yml).
+# Bewusst NICHT hier: Dockerfile, docker/, docker-compose*, requirements*,
+# pyproject.toml, Makefile — die aendern das Image oder seinen Bau-Inhalt und
+# bleiben RUECKSTAND.
+PIPELINE_MUSTER: tuple[str, ...] = (
+    ".github/*",
+    ".pre-commit-config.yaml",
+    "renovate.json",
+    ".gitleaksignore",
 )
 # Ab diesem Alter ist ein tag-oder-dispatch-Rueckstand nicht mehr von einem
 # vergessenen Deploy zu unterscheiden (s. Modulkopf "Deploy-Politik").
@@ -440,13 +455,28 @@ def ist_nur_doku(dateien: list[str]) -> bool:
     ``a/b/c.md``. Trotzdem zusaetzlich gegen den Basenamen geprueft, um nicht
     von diesem Detail abzuhaengen.
     """
+    return _alle_treffen(dateien, DOKU_MUSTER)
+
+
+def ist_nur_pipeline(dateien: list[str]) -> bool:
+    """True gdw. jeder Pfad Doku oder CI/Pipeline ist, aber nicht alles Doku.
+
+    Reine Doku bleibt ``nur_doku`` — so ueberlappen die beiden Kennzeichen nie.
+    """
+    return _alle_treffen(dateien, DOKU_MUSTER + PIPELINE_MUSTER) and not ist_nur_doku(
+        dateien
+    )
+
+
+def _alle_treffen(dateien: list[str], muster_liste: tuple[str, ...]) -> bool:
+    """True gdw. ``dateien`` nicht leer ist und JEDER Pfad ein Muster trifft."""
     if not dateien:
         return False
     for pfad in dateien:
         basis = pfad.rsplit("/", 1)[-1]
         if not any(
             fnmatch.fnmatch(pfad, muster) or fnmatch.fnmatch(basis, muster)
-            for muster in DOKU_MUSTER
+            for muster in muster_liste
         ):
             return False
     return True
@@ -509,6 +539,8 @@ def befund_marker(e: dict) -> list[str]:
         marker.append("RUECKSTAND")
     if e.get("nur_doku"):
         marker.append("NUR-DOKU")
+    if e.get("nur_pipeline"):
+        marker.append("NUR-PIPELINE")
     if e.get("doppellauf"):
         wo = e.get("hosts_mit_container") or e.get("hosts_mit_manifest") or []
         marker.append("DOPPELLAUF:" + ",".join(wo))
@@ -706,6 +738,7 @@ def main() -> int:
             dateien = rueckstand_dateien(repo, owner, eintrag["deployed"], sha)
             if dateien is not None:
                 eintrag["nur_doku"] = ist_nur_doku(dateien)
+                eintrag["nur_pipeline"] = ist_nur_pipeline(dateien)
                 eintrag["rueckstand_dateien"] = len(dateien)
 
         eintrag["lifecycle"] = lifecycles.get(repo)
