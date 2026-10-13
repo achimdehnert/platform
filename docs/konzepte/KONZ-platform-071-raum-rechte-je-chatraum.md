@@ -262,9 +262,12 @@ Verworfen: Token-Ablauf (deckt `0.7.25` schon ab) und 5er-Grenze (ist nach O2 ei
 - **O1** Profile nach §5.3, Telefon ohne Kalender. **Entschieden (RR1 go).**
 - **O2** Profilrechte ohne Außenwirkung (`chat`, `lesen`, `sandbox-front`) zählen nicht zur 5er-Grenze. Die Regel kommt ausdrücklich in die Registry-Meta. **Entschieden (RR2 go).** Der Registry-Eintrag selbst steht noch aus, siehe unten.
 - **O3** Ratifikation (APPROVE) gilt auch für Rechte-Dateien in chat-hub. **Entschieden (RR3 go).**
-- **O4** Ruhende Räume stilllegen statt profilieren. Betroffen sind die drei Raum-Ordner ohne Aktivität seit 2026-09-05; neu nur mit Profil. **Entschieden (RR4 go).**
+- **O4** Ruhende Räume stilllegen statt profilieren. Betroffen sind die drei Raum-Ordner ohne Aktivität seit 2026-09-05; neu nur mit Profil. **Entschieden (RR4 go).** Erweitert um den Raum-Ordner `risk-hub` (Owner-Wort „RR5 go“, 2026-10-13).
+- **Freigabe-Identität:** Rechte- und Governance-PRs eröffnet die GitHub App `lotse-autor`, der Owner approvt. Ein zweites Personenkonto ist kein Freigabe-Weg. **Entschieden (Owner-Wort „RA1 go“, 2026-10-13; [#3916](https://github.com/achimdehnert/platform/issues/3916)).**
 
 **Umsetzungsweg (2026-10-13):** Stufe 1 ist als Auftrag in iilgmbh/chat-hub#184 spezifiziert, mit den Detailbefunden. Die Lotse-Sitzung baut Rechte-Änderungen nicht selbst. Der Auto-Mode-Klassifikator hat schon das Lesen der Raum-Rechte zur Änderung als Self-Approval gesperrt, im Einklang mit Charta-Kurzform Punkt 3. Das gilt auch für den Registry-Eintrag zu O2. Beides baut eine vom Owner dafür gestartete Sitzung oder der Owner selbst. Gemergt wird mit Owner-APPROVE.
+
+**Nachtrag 2026-10-13 nachmittags:** Stufe 1 ist mit dem Owner-Mandat „scope +chat-hub · RS1 go“ und der neuen Freigabe-Identität gebaut. chat-hub#186 wurde um 12:06Z gemergt, der Code-Owner-Review für die Rechte-Dateien gilt seit 12:10Z (K8). Der Merge lief ohne Approve, der Schutzschalter kam erst danach. Der Owner hat den Inhalt nachträglich bestätigt (Owner-Wort „M1 go“, 13:12Z). Befund und Lehre stehen in [Retro e50644](../retros/session-retro-2026-10-13-platform-e50644.md). Offen bleibt die Live-Abnahme am 2026-10-14 um 05:00, der erste Briefing-Lauf mit Profil. Weiter aus steht auch der Registry-Eintrag zu O2.
 
 **30/60/90:** 30 Tage: Stufe 1 und 2 · 60 Tage: Stufe 3 und 4 · 90 Tage: Stufe 5 und erste Profilstufe für `achim`.
 
@@ -277,7 +280,10 @@ Verworfen: Token-Ablauf (deckt `0.7.25` schon ab) und 5er-Grenze (ist nach O2 ei
 
 | Kriterium | Status | Beleg |
 |---|---|---|
-| (a) Stufe 1 bis 2026-11-15 gemergt | offen | — |
+| (a) Stufe 1 bis 2026-11-15 gemergt | erfüllt | iilgmbh/chat-hub#186, gemergt 2026-10-13 12:06Z |
+| Stufe 1 live abgenommen | offen | erster Briefing-Lauf 2026-10-14 05:00, iilgmbh/chat-hub#184 |
+| Code-Owner-Review für Rechte-Dateien (K8) | erfüllt | chat-hub-Ruleset seit 2026-10-13 12:10Z |
+| Registry-Meta-Regel zu O2 | offen | [#3916](https://github.com/achimdehnert/platform/issues/3916) |
 | (b) Requalifikation ≤ 30 min je Modellwechsel | offen | — |
 | (c) Abgleich nie > 7 Tage rot | offen | — |
 | O1–O4 entschieden | erfüllt | Owner-Wort 2026-10-13 10:20 |
