@@ -90,6 +90,28 @@ def validate_overrides(entries: list, errors: list[str]) -> None:
             )
 
 
+SITZUNGS_KLASSEN = ("business", "plattform", "bibliothek")
+
+
+def validate_sitzungs_klasse(canon: dict, errors: list[str]) -> None:
+    """Jedes Repo unter `repos:` hat genau eine gueltige Klasse in
+    `meta.sitzungs_klasse` (KONZ-platform-069 B1). Ein fehlendes Repo wuerde der
+    Scope-Guard als unbekannt behandeln und nur warnen — die Luecke soll hier
+    auffallen, nicht erst in einer Sitzung."""
+    klassen = (canon.get("meta") or {}).get("sitzungs_klasse") or {}
+    repos = set(canon.get("repos") or {})
+    for name in sorted(repos - set(klassen)):
+        _err(errors, f"meta.sitzungs_klasse: Repo '{name}' ohne Klasse")
+    for name in sorted(set(klassen) - repos):
+        _err(errors, f"meta.sitzungs_klasse: '{name}' steht nicht unter repos:")
+    for name, klasse in sorted(klassen.items()):
+        if klasse not in SITZUNGS_KLASSEN:
+            _err(
+                errors,
+                f"meta.sitzungs_klasse: '{name}' hat Klasse '{klasse}', erlaubt: {', '.join(SITZUNGS_KLASSEN)}",
+            )
+
+
 def main() -> int:
     try:
         canon = yaml.safe_load(CANON_PATH.read_text())
@@ -103,6 +125,7 @@ def main() -> int:
     errors: list[str] = []
     validate_decommissioned(canon.get("decommissioned") or [], errors)
     validate_overrides(canon.get("overrides") or [], errors)
+    validate_sitzungs_klasse(canon, errors)
 
     if errors:
         print(f"🔴 registry/canonical.yaml Schema-Verstoß ({len(errors)}):")
