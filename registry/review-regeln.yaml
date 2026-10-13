@@ -1,0 +1,916 @@
+# review-regeln.yaml — einzige Quelle aller Review-Regeln (KONZ-platform-070 Z1, #3903 WP1).
+#
+# Alles andere wird hieraus generiert oder zur Laufzeit geladen; kein Regel-Literal
+# darf ausserhalb dieser Datei stehen (Kriterium K1). Werkzeug: tools/review_regeln.py
+#   --check          Drift der generierten Dateien gegen diesen Stand (Exit 1 bei Drift)
+#   --render         .windsurf/rules/reviewer.md neu schreiben
+#   --tabu [--profil X]  Tabu-Pfade des Bot-Reviews ausgeben
+#
+# Schema je Regel (Pflicht): id, klasse, geltung, detektor, begruendung, konsumenten,
+# seit, praezision, status. Optional: titel, ausgabe (Kategorie/Referenz/Meldung/Konfidenz
+# fuer den Context-Reviewer).
+#
+# Detektor-Typen:
+#   pfad    muster = Globs (fnmatch, `*` ueberspannt auch `/`) gegen den Dateipfad
+#   regex   muster = Liste von Regex-Alternativen (IGNORECASE), ziel = inhalt | inhalt+pfad | hinzugefuegt
+#   umfang  max_zeilen = Schwelle fuer die Summe geaenderter Zeilen des PR
+#   llm     frage = Pruefauftrag an einen LLM-Reviewer (nicht mechanisch pruefbar)
+#
+# Profile (geltung.profile): default = jedes Repo; deployed = Repo mit Prod-Deploy
+# (shared-ci _bot-review.yml, platform#3244); library = PyPI-Paket ohne Deploy.
+#
+# praezision bleibt null, bis das Befund-Ledger (Z3, WP3/WP6) sie misst.
+
+version: 1
+beschreibung: >-
+  Review-Regeln der Plattform als Daten. Quellen vor der Migration (2026-10-13):
+  TABU-Tupel in tools/bot_review_kandidaten.py, TABU_MUSTER/TABU_PRAEFIX_GLOB in
+  shared-ci tools/bot_review_kandidaten.py, ADR_KEYWORDS/PRINCIPLE_KEYWORDS/PROJECT_PATHS
+  und Insight-Regexe in agents/context_reviewer.py, Prinzipien und verbotene Muster in
+  .windsurf/rules/reviewer.md.
+
+generiert:
+  - pfad: .windsurf/rules/reviewer.md
+    art: gerendert
+    befehl: python3 tools/review_regeln.py --render
+  - pfad: tools/bot_review_kandidaten.py
+    art: geladen
+    symbol: TABU
+  - pfad: agents/context_reviewer.py
+    art: geladen
+    symbol: ADR_KEYWORDS, PRINCIPLE_KEYWORDS, PROJECT_PATHS, INSIGHT_REGELN
+
+# Nicht-Regel-Prosa, die reviewer.md neben den Regeln braucht.
+reviewer_md:
+  frontmatter:
+    trigger: manual
+  titel: Reviewer — IIL Platform Code Review
+  rolle: >-
+    Du bist IT-Architekt, Senior Software Developer, professioneller Datenbankentwickler
+    und Security-Experte für das IIL Platform-Ökosystem (achimdehnert/*).
+  tech_stack: >-
+    Python 3.12 · Django 5.x · PostgreSQL 16 + pgvector · Redis · Celery · Docker ·
+    GitHub Actions · Hetzner Cloud · HTMX · Gunicorn · pytest · ruff · bandit · pydantic v2
+  format: |
+    [BLOCK]    — Datei:Zeile · Problem · ADR-Referenz · Fix-Snippet
+    [SUGGEST]  — Empfehlung mit Begründung
+    [QUESTION] — Klärungsbedarf
+    [NITS]     — Kleinigkeit
+
+    Gesamturteil:
+    ✅ APPROVED | ⚠️ APPROVED WITH COMMENTS | ❌ CHANGES REQUESTED
+
+regeln:
+
+  # ───────────────────────── Bot-Tabu: Pfade, bei denen der Bot nicht urteilt ──────────
+  # Herkunft: TABU in tools/bot_review_kandidaten.py (Owner-Go 2026-08-25, #2676)
+
+  - id: RR-001
+    titel: Policies bleiben Mensch
+    klasse: BLOCK
+    geltung:
+      pfade: ["policies/*"]
+      profile: [default, deployed, library]
+    detektor:
+      typ: pfad
+      muster: ["policies/*"]
+    begruendung:
+      quelle: .github/workflows/bot-review.yml
+      text: Regeln fuer alle Sitzungen; der Bot approvt keine Aenderung an den Regeln, nach denen er selbst arbeitet.
+    konsumenten: [bot-tabu]
+    seit: 2026-08-25
+    praezision: null
+    status: aktiv
+
+  - id: RR-002
+    titel: ADRs bleiben Mensch
+    klasse: BLOCK
+    geltung:
+      pfade: ["docs/adr/*"]
+      profile: [default, deployed, library]
+    detektor:
+      typ: pfad
+      muster: ["docs/adr/*"]
+    begruendung:
+      quelle: policies/adr-threshold.md
+      text: Architektur-Entscheidungen brauchen ein menschliches Urteil.
+    konsumenten: [bot-tabu]
+    seit: 2026-08-25
+    praezision: null
+    status: aktiv
+
+  - id: RR-003
+    titel: CODEOWNERS bleibt Mensch
+    klasse: BLOCK
+    geltung:
+      pfade: [".github/CODEOWNERS"]
+      profile: [default, deployed, library]
+    detektor:
+      typ: pfad
+      muster: [".github/CODEOWNERS"]
+    begruendung:
+      quelle: .github/workflows/bot-review.yml
+      text: Wer reviewen darf, legt kein Bot fest.
+    konsumenten: [bot-tabu]
+    seit: 2026-08-25
+    praezision: null
+    status: aktiv
+
+  - id: RR-004
+    titel: Bot gibt seine eigene Regel nicht frei
+    klasse: BLOCK
+    geltung:
+      pfade:
+        - .github/workflows/bot-review.yml
+        - .github/workflows/_bot-review.yml
+        - tools/bot_review_kandidaten.py
+        - tools/review_regeln.py
+        - registry/review-regeln.yaml
+      profile: [default, deployed, library]
+    detektor:
+      typ: pfad
+      muster:
+        - .github/workflows/bot-review.yml
+        - .github/workflows/_bot-review.yml
+        - tools/bot_review_kandidaten.py
+        - tools/review_regeln.py
+        - registry/review-regeln.yaml
+    begruendung:
+      quelle: .github/workflows/bot-review.yml
+      text: >-
+        Workflow, Auswahlmodul, Regel-Lader und diese Regeldatei definieren das Urteil des
+        Bots; er darf sie nicht selbst approven (Lotsen-Charta Art. 3). shared-ci-Caller
+        `_bot-review.yml` seit platform#3268; Lader und Regeldatei seit WP1 (#3903).
+    konsumenten: [bot-tabu]
+    seit: 2026-08-25
+    praezision: null
+    status: aktiv
+
+  # Herkunft: shared-ci tools/bot_review_kandidaten.py TABU_PRAEFIX_GLOB / TABU_MUSTER (platform#3244)
+
+  - id: RR-005
+    titel: Prod-Deploy-Definition bleibt Mensch
+    klasse: BLOCK
+    geltung:
+      pfade: [".github/workflows/deploy*"]
+      profile: [deployed]
+    detektor:
+      typ: pfad
+      muster: [".github/workflows/deploy*"]
+    begruendung:
+      quelle: ~/.claude/policies/autonomy-gates.md
+      text: Gate Prod — die Deploy-Definition entscheidet, was auf den Host geht.
+    konsumenten: [bot-tabu]
+    seit: 2026-09-14
+    praezision: null
+    status: aktiv
+
+  - id: RR-006
+    titel: Datenmigrationen bleiben Mensch
+    klasse: BLOCK
+    geltung:
+      pfade: ["*/migrations/*", "migrations/*"]
+      profile: [deployed]
+    detektor:
+      typ: pfad
+      muster: ["*/migrations/*", "migrations/*"]
+    begruendung:
+      quelle: https://github.com/achimdehnert/platform/issues/3244
+      text: Migration = Pruefrage auch bei gruenen Checks (Irreversibles, Gate 1).
+    konsumenten: [bot-tabu]
+    seit: 2026-09-14
+    praezision: null
+    status: aktiv
+
+  # ───────────────────────── Architektur-Prinzipien (reviewer.md, 10 Punkte) ──────────────
+
+  - id: RR-010
+    titel: Service-Layer
+    klasse: WARN
+    geltung:
+      pfade: ["*views.py"]
+      profile: [default, deployed]
+    detektor:
+      typ: llm
+      frage: Enthaelt die View Businesslogik, die in services.py gehoert? Kette views.py → services.py → models.py einhalten.
+    begruendung:
+      quelle: docs/adr/ADR-041
+      text: "**Service-Layer**: `views.py` → `services.py` → `models.py` — keine Businesslogik in Views"
+    konsumenten: [reviewer-md, advocatus]
+    seit: 2026-03-11
+    praezision: null
+    status: aktiv
+
+  - id: RR-011
+    titel: Kein hardcoded SQL
+    klasse: WARN
+    geltung:
+      pfade: ["*.py"]
+      profile: [default, deployed]
+    detektor:
+      typ: regex
+      ziel: hinzugefuegt
+      muster: ['\.raw\(', 'cursor\.execute\(', 'RawSQL\(']
+    begruendung:
+      quelle: docs/adr/ADR-022
+      text: "**Kein hardcoded SQL** — ausschließlich Django ORM"
+    konsumenten: [reviewer-md, advocatus]
+    seit: 2026-03-11
+    praezision: null
+    status: aktiv
+
+  - id: RR-012
+    titel: BigAutoField als Primaerschluessel
+    klasse: WARN
+    geltung:
+      pfade: ["*models.py", "*settings*.py"]
+      profile: [default, deployed]
+    detektor:
+      typ: llm
+      frage: Nutzt jedes Modell BigAutoField (DEFAULT_AUTO_FIELD) und kein eigenes UUID-Primary-Key?
+    begruendung:
+      quelle: .windsurf/rules/reviewer.md
+      text: "**BigAutoField** — niemals `UUIDField(primary_key=True)`"
+    konsumenten: [reviewer-md, advocatus]
+    seit: 2026-03-11
+    praezision: null
+    status: aktiv
+
+  - id: RR-013
+    titel: Config via decouple
+    klasse: WARN
+    geltung:
+      pfade: ["*views.py"]
+      profile: [default, deployed]
+    detektor:
+      typ: regex
+      ziel: hinzugefuegt
+      muster: ['os\.environ']
+    begruendung:
+      quelle: docs/adr/ADR-045
+      text: "**Config via `decouple.config()`** — niemals `os.environ` direkt in Views"
+    konsumenten: [reviewer-md, advocatus]
+    seit: 2026-03-11
+    praezision: null
+    status: aktiv
+
+  - id: RR-014
+    titel: Dockerfile-Konventionen
+    klasse: WARN
+    geltung:
+      pfade: ["*Dockerfile*"]
+      profile: [deployed]
+    detektor:
+      typ: llm
+      frage: Multi-Stage, Basis python:3.12-slim, Non-Root app:1000, OCI-Labels, HEALTHCHECK per python urllib (kein curl)?
+    begruendung:
+      quelle: .windsurf/rules/reviewer.md
+      text: "**Dockerfile**: Multi-Stage, `python:3.12-slim`, Non-Root `app:1000`, OCI-Labels, HEALTHCHECK via `python urllib` (kein curl)"
+    konsumenten: [reviewer-md, advocatus]
+    seit: 2026-03-11
+    praezision: null
+    status: aktiv
+
+  - id: RR-015
+    titel: Compose-Prod-Konventionen
+    klasse: WARN
+    geltung:
+      pfade: ["*docker-compose*.yml", "*compose*.yaml"]
+      profile: [deployed]
+    detektor:
+      typ: llm
+      frage: env_file statt environment:${VAR} fuer App-Config, separater migrate-Service, Memory-Limits gesetzt?
+    begruendung:
+      quelle: .windsurf/rules/reviewer.md
+      text: "**docker-compose.prod.yml**: `env_file` statt `environment:${VAR}` für App-Config, separater `migrate`-Service, Memory-Limits"
+    konsumenten: [reviewer-md, advocatus]
+    seit: 2026-03-11
+    praezision: null
+    status: aktiv
+
+  - id: RR-016
+    titel: CI/CD ueber Reusable Workflows
+    klasse: WARN
+    geltung:
+      pfade: [".github/workflows/*"]
+      profile: [default, deployed, library]
+    detektor:
+      typ: llm
+      frage: Nutzt der Workflow die Platform Reusable Workflows @v1 (_ci-python → _build-docker → _deploy-hetzner) statt eigener Schritte?
+    begruendung:
+      quelle: docs/adr/ADR-042
+      text: "**CI/CD**: Platform Reusable Workflows `@v1` — `_ci-python` → `_build-docker` → `_deploy-hetzner`"
+    konsumenten: [reviewer-md, advocatus]
+    seit: 2026-03-11
+    praezision: null
+    status: aktiv
+
+  - id: RR-017
+    titel: Health-Endpoints
+    klasse: WARN
+    geltung:
+      pfade: ["*urls.py", "*views.py", "*health*.py"]
+      profile: [deployed]
+    detektor:
+      typ: llm
+      frage: Gibt es /livez/ und /healthz/, HEALTH_PATHS als frozenset, Views mit @csrf_exempt und @require_GET?
+    begruendung:
+      quelle: .windsurf/rules/reviewer.md
+      text: "**Health-Endpoints**: `/livez/` + `/healthz/`, `HEALTH_PATHS = frozenset`, `@csrf_exempt` + `@require_GET`"
+    konsumenten: [reviewer-md, advocatus]
+    seit: 2026-03-11
+    praezision: null
+    status: aktiv
+
+  - id: RR-018
+    titel: Test-Namen und -Abdeckung
+    klasse: WARN
+    geltung:
+      pfade: ["*test_*.py", "*tests/*"]
+      profile: [default, deployed, library]
+    detektor:
+      typ: regex
+      ziel: hinzugefuegt
+      muster: ['^\+?\s*def test_(?!should_)']
+    begruendung:
+      quelle: ~/.claude/CLAUDE.md
+      text: "**Tests**: `test_should_*` Naming, Happy Path + Edge Cases, Regression Tests bei Bugfixes"
+    konsumenten: [reviewer-md, advocatus]
+    seit: 2026-03-11
+    praezision: null
+    status: aktiv
+
+  - id: RR-019
+    titel: Secrets nur via decouple
+    klasse: WARN
+    geltung:
+      pfade: ["*.py"]
+      profile: [default, deployed, library]
+    detektor:
+      typ: llm
+      frage: Wird jedes Secret ueber decouple.config() gelesen; steht nirgends ein Wert im Klartext?
+    begruendung:
+      quelle: docs/adr/ADR-045
+      text: "**Secrets**: ausschließlich `decouple.config()` — niemals Klartext im Code"
+    konsumenten: [reviewer-md, advocatus]
+    seit: 2026-03-11
+    praezision: null
+    status: aktiv
+
+  # ───────────────────────── Verbotene Muster (reviewer.md, BLOCK ohne Ausnahme) ──────────
+
+  - id: RR-020
+    titel: UUIDField als Primary Key
+    klasse: BLOCK
+    geltung:
+      pfade: ["*models.py"]
+      profile: [default, deployed]
+    detektor:
+      typ: regex
+      ziel: hinzugefuegt
+      muster: ['UUIDField\(\s*primary_key\s*=\s*True']
+    begruendung:
+      quelle: .windsurf/rules/reviewer.md
+      text: "`UUIDField(primary_key=True)` → BigAutoField"
+    konsumenten: [reviewer-md, advocatus]
+    seit: 2026-03-11
+    praezision: null
+    status: aktiv
+
+  - id: RR-021
+    titel: Secret per environment-Interpolation in Compose
+    klasse: BLOCK
+    geltung:
+      pfade: ["*docker-compose*.yml", "*compose*.yaml"]
+      profile: [deployed]
+    detektor:
+      typ: regex
+      ziel: hinzugefuegt
+      muster: ['(SECRET|PASSWORD|TOKEN|API_KEY)[A-Z_]*\s*[:=]\s*\$\{']
+    begruendung:
+      quelle: .windsurf/rules/reviewer.md
+      text: "`environment: SECRET_KEY=${SECRET_KEY}` in docker-compose → `env_file`"
+    konsumenten: [reviewer-md, advocatus]
+    seit: 2026-03-11
+    praezision: null
+    status: aktiv
+
+  - id: RR-022
+    titel: print() in Django-Code
+    klasse: BLOCK
+    geltung:
+      pfade: ["apps/*.py", "*/apps/*.py"]
+      profile: [default, deployed]
+    detektor:
+      typ: regex
+      ziel: hinzugefuegt
+      muster: ['^\+?\s*print\(']
+    begruendung:
+      quelle: .windsurf/rules/reviewer.md
+      text: "`print()` in Django-Code → `logging.getLogger(__name__)`"
+    konsumenten: [reviewer-md, advocatus]
+    seit: 2026-03-11
+    praezision: null
+    status: aktiv
+
+  - id: RR-023
+    titel: Nacktes except
+    klasse: BLOCK
+    geltung:
+      pfade: ["*.py"]
+      profile: [default, deployed, library]
+    detektor:
+      typ: regex
+      ziel: hinzugefuegt
+      muster: ['^\+?\s*except\s*:']
+    begruendung:
+      quelle: .windsurf/rules/reviewer.md
+      text: "`except:` ohne Exception-Typ"
+    konsumenten: [reviewer-md, advocatus]
+    seit: 2026-03-11
+    praezision: null
+    status: aktiv
+
+  - id: RR-024
+    titel: Hardcoded IPs, Passwoerter, API-Keys
+    klasse: BLOCK
+    geltung:
+      pfade: ["*"]
+      profile: [default, deployed, library]
+    detektor:
+      typ: llm
+      frage: Steht eine IP-Adresse, ein Passwort oder ein API-Key als Literal im Code oder in einer Konfigurationsdatei?
+    begruendung:
+      quelle: ~/.claude/CLAUDE.md
+      text: Hardcoded IPs, Passwörter, API-Keys im Code
+    konsumenten: [reviewer-md, advocatus]
+    seit: 2026-03-11
+    praezision: null
+    status: aktiv
+
+  - id: RR-025
+    titel: StrictHostKeyChecking=no
+    klasse: BLOCK
+    geltung:
+      pfade: ["*"]
+      profile: [default, deployed, library]
+    detektor:
+      typ: regex
+      ziel: hinzugefuegt
+      muster: ['StrictHostKeyChecking\s*=?\s*no']
+    begruendung:
+      quelle: .windsurf/rules/reviewer.md
+      text: "`StrictHostKeyChecking=no`"
+    konsumenten: [reviewer-md, advocatus]
+    seit: 2026-03-11
+    praezision: null
+    status: aktiv
+
+  - id: RR-026
+    titel: hx-boost
+    klasse: BLOCK
+    geltung:
+      pfade: ["*.html"]
+      profile: [default, deployed]
+    detektor:
+      typ: regex
+      ziel: hinzugefuegt
+      muster: ['hx-boost']
+    begruendung:
+      quelle: docs/adr/ADR-048
+      text: "`hx-boost` (Multi-Tenant Performance-Problem)"
+    konsumenten: [reviewer-md, advocatus]
+    seit: 2026-03-11
+    praezision: null
+    status: aktiv
+
+  - id: RR-027
+    titel: onclick in Templates
+    klasse: BLOCK
+    geltung:
+      pfade: ["*.html"]
+      profile: [default, deployed]
+    detektor:
+      typ: regex
+      ziel: hinzugefuegt
+      muster: ['onclick\s*=']
+    begruendung:
+      quelle: .windsurf/rules/reviewer.md
+      text: "`onclick=` in Templates"
+    konsumenten: [reviewer-md, advocatus]
+    seit: 2026-03-11
+    praezision: null
+    status: aktiv
+
+  - id: RR-028
+    titel: ORM-Zugriff in Views oder Templates
+    klasse: BLOCK
+    geltung:
+      pfade: ["*views.py", "*.html"]
+      profile: [default, deployed]
+    detektor:
+      typ: regex
+      ziel: hinzugefuegt
+      muster: ['\.objects\.']
+    begruendung:
+      quelle: docs/adr/ADR-041
+      text: "`Model.objects.` direkt in Views oder Templates"
+    konsumenten: [reviewer-md, advocatus]
+    seit: 2026-03-11
+    praezision: null
+    status: aktiv
+
+  - id: RR-029
+    titel: Klartext-Passwort in Settings oder Compose
+    klasse: BLOCK
+    geltung:
+      pfade: ["*settings*.py", "*docker-compose*.yml", "*compose*.yaml"]
+      profile: [default, deployed]
+    detektor:
+      typ: regex
+      ziel: hinzugefuegt
+      muster: ['password\s*[=:]\s*["''][^"''$]+["'']']
+    begruendung:
+      quelle: .windsurf/rules/reviewer.md
+      text: "`password=` im Klartext in Settings oder Compose-Files"
+    konsumenten: [reviewer-md, advocatus]
+    seit: 2026-03-11
+    praezision: null
+    status: aktiv
+
+  # ───────────────────────── Context-Reviewer: betroffene ADRs (Stichwoerter) ─────────────
+  # Herkunft: ADR_KEYWORDS in agents/context_reviewer.py. ziel inhalt+pfad = hinzugefuegte
+  # und entfernte Zeilen plus Pfad, IGNORECASE (entspricht dem alten lower()-Substring).
+
+  - id: RR-100
+    titel: ADR-009 Architektur / Service-Map
+    klasse: HINT
+    geltung: {pfade: ["*"], profile: [default, deployed, library]}
+    detektor: {typ: regex, ziel: inhalt+pfad, muster: ["architecture", "platform", "service-map"]}
+    begruendung: {quelle: docs/adr/ADR-009, text: Betrifft Architektur-/Service-Map-Bereiche.}
+    ausgabe: {kategorie: ADR, referenz: ADR-009}
+    konsumenten: [context-reviewer]
+    seit: 2026-02-19
+    praezision: null
+    status: aktiv
+
+  - id: RR-101
+    titel: ADR-021 Deployment
+    klasse: HINT
+    geltung: {pfade: ["*"], profile: [default, deployed, library]}
+    detektor: {typ: regex, ziel: inhalt+pfad, muster: ["deployment", "docker", "compose", "deploy"]}
+    begruendung: {quelle: docs/adr/ADR-021, text: Betrifft Deployment-Bereiche.}
+    ausgabe: {kategorie: ADR, referenz: ADR-021}
+    konsumenten: [context-reviewer]
+    seit: 2026-02-19
+    praezision: null
+    status: aktiv
+
+  - id: RR-102
+    titel: ADR-028 platform-context / Middleware
+    klasse: HINT
+    geltung: {pfade: ["*"], profile: [default, deployed, library]}
+    detektor: {typ: regex, ziel: inhalt+pfad, muster: ["platform-context", "middleware", "tenant"]}
+    begruendung: {quelle: docs/adr/ADR-028, text: Betrifft platform-context-Middleware.}
+    ausgabe: {kategorie: ADR, referenz: ADR-028}
+    konsumenten: [context-reviewer]
+    seit: 2026-02-19
+    praezision: null
+    status: aktiv
+
+  - id: RR-103
+    titel: ADR-035 Multi-Tenancy
+    klasse: HINT
+    geltung: {pfade: ["*"], profile: [default, deployed, library]}
+    detektor: {typ: regex, ziel: inhalt+pfad, muster: ["tenant", "multi-tenant", "tenant_id", "organization"]}
+    begruendung: {quelle: docs/adr/ADR-035, text: Betrifft Mandantentrennung.}
+    ausgabe: {kategorie: ADR, referenz: ADR-035}
+    konsumenten: [context-reviewer]
+    seit: 2026-02-19
+    praezision: null
+    status: aktiv
+
+  - id: RR-104
+    titel: ADR-040 Frontend Completeness
+    klasse: HINT
+    geltung: {pfade: ["*"], profile: [default, deployed, library]}
+    detektor: {typ: regex, ziel: inhalt+pfad, muster: ["frontend", "completeness", "template", "tailwind"]}
+    begruendung: {quelle: docs/adr/ADR-040, text: Betrifft Frontend-Completeness-Gate.}
+    ausgabe: {kategorie: ADR, referenz: ADR-040}
+    konsumenten: [context-reviewer]
+    seit: 2026-02-19
+    praezision: null
+    status: aktiv
+
+  - id: RR-105
+    titel: ADR-041 Komponenten / Templatetags
+    klasse: HINT
+    geltung: {pfade: ["*"], profile: [default, deployed, library]}
+    detektor: {typ: regex, ziel: inhalt+pfad, muster: ["component", "templatetag", "inclusion_tag"]}
+    begruendung: {quelle: docs/adr/ADR-041, text: Betrifft Komponenten-Architektur.}
+    ausgabe: {kategorie: ADR, referenz: ADR-041}
+    konsumenten: [context-reviewer]
+    seit: 2026-02-19
+    praezision: null
+    status: aktiv
+
+  - id: RR-106
+    titel: ADR-042 CI/CD
+    klasse: HINT
+    geltung: {pfade: ["*"], profile: [default, deployed, library]}
+    detektor: {typ: regex, ziel: inhalt+pfad, muster: ["deploy", "workflow", "ci/cd", "github-actions"]}
+    begruendung: {quelle: docs/adr/ADR-042, text: Betrifft CI/CD-Workflows.}
+    ausgabe: {kategorie: ADR, referenz: ADR-042}
+    konsumenten: [context-reviewer]
+    seit: 2026-02-19
+    praezision: null
+    status: aktiv
+
+  - id: RR-107
+    titel: ADR-043 AI / MCP / Agenten
+    klasse: HINT
+    geltung: {pfade: ["*"], profile: [default, deployed, library]}
+    detektor: {typ: regex, ziel: inhalt+pfad, muster: ["ai", "llm", "mcp", "agent", "windsurf"]}
+    begruendung: {quelle: docs/adr/ADR-043, text: Betrifft AI-/MCP-Integration.}
+    ausgabe: {kategorie: ADR, referenz: ADR-043}
+    konsumenten: [context-reviewer]
+    seit: 2026-02-19
+    praezision: null
+    status: aktiv
+
+  - id: RR-108
+    titel: ADR-045 Secrets
+    klasse: HINT
+    geltung: {pfade: ["*"], profile: [default, deployed, library]}
+    detektor: {typ: regex, ziel: inhalt+pfad, muster: ["secret", "api-key", "env", "credential"]}
+    begruendung: {quelle: docs/adr/ADR-045, text: Betrifft Secret-Handling.}
+    ausgabe: {kategorie: ADR, referenz: ADR-045}
+    konsumenten: [context-reviewer]
+    seit: 2026-02-19
+    praezision: null
+    status: aktiv
+
+  - id: RR-109
+    titel: ADR-048 HTMX
+    klasse: HINT
+    geltung: {pfade: ["*"], profile: [default, deployed, library]}
+    detektor: {typ: regex, ziel: inhalt+pfad, muster: ["htmx", "hx-get", "hx-post", "hx-swap"]}
+    begruendung: {quelle: docs/adr/ADR-048, text: Betrifft HTMX-Patterns.}
+    ausgabe: {kategorie: ADR, referenz: ADR-048}
+    konsumenten: [context-reviewer]
+    seit: 2026-02-19
+    praezision: null
+    status: aktiv
+
+  - id: RR-110
+    titel: ADR-049 Design-Tokens
+    klasse: HINT
+    geltung: {pfade: ["*"], profile: [default, deployed, library]}
+    detektor: {typ: regex, ziel: inhalt+pfad, muster: ["token", "design-token", "pui-", "tailwind"]}
+    begruendung: {quelle: docs/adr/ADR-049, text: Betrifft Design-Tokens.}
+    ausgabe: {kategorie: ADR, referenz: ADR-049}
+    konsumenten: [context-reviewer]
+    seit: 2026-02-19
+    praezision: null
+    status: aktiv
+
+  - id: RR-111
+    titel: ADR-050 Knowledge / Doku
+    klasse: HINT
+    geltung: {pfade: ["*"], profile: [default, deployed, library]}
+    detektor: {typ: regex, ziel: inhalt+pfad, muster: ["knowledge", "documentation", "sphinx", "rag"]}
+    begruendung: {quelle: docs/adr/ADR-050, text: Betrifft Wissensmanagement.}
+    ausgabe: {kategorie: ADR, referenz: ADR-050}
+    konsumenten: [context-reviewer]
+    seit: 2026-02-19
+    praezision: null
+    status: aktiv
+
+  - id: RR-112
+    titel: ADR-052 pgvector / Embeddings
+    klasse: HINT
+    geltung: {pfade: ["*"], profile: [default, deployed, library]}
+    detektor: {typ: regex, ziel: inhalt+pfad, muster: ["pgvector", "embedding", "query-agent", "rag"]}
+    begruendung: {quelle: docs/adr/ADR-052, text: Betrifft Vektor-Suche.}
+    ausgabe: {kategorie: ADR, referenz: ADR-052}
+    konsumenten: [context-reviewer]
+    seit: 2026-02-19
+    praezision: null
+    status: aktiv
+
+  - id: RR-113
+    titel: ADR-054 Platform-Agenten
+    klasse: HINT
+    geltung: {pfade: ["*"], profile: [default, deployed, library]}
+    detektor: {typ: regex, ziel: inhalt+pfad, muster: ["agent", "guardian", "scribe", "drift", "coach", "reviewer"]}
+    begruendung: {quelle: docs/adr/ADR-054, text: Betrifft Platform-Agenten.}
+    ausgabe: {kategorie: ADR, referenz: ADR-054}
+    konsumenten: [context-reviewer]
+    seit: 2026-02-19
+    praezision: null
+    status: aktiv
+
+  # ───────────────────────── Context-Reviewer: Prinzipien ─────────────────────────────────
+  # Herkunft: PRINCIPLE_KEYWORDS (ziel hinzugefuegt+pfad) und die 400-Zeilen-Schwelle.
+
+  - id: RR-120
+    titel: P-001 Database-First
+    klasse: HINT
+    geltung: {pfade: ["*"], profile: [default, deployed, library]}
+    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ['models\.py', "migration", "makemigrations", "CharField", "ForeignKey"]}
+    begruendung: {quelle: docs/adr/ADR-022, text: Datenmodell zuerst.}
+    ausgabe: {kategorie: Prinzip, referenz: P-001 Database-First}
+    konsumenten: [context-reviewer]
+    seit: 2026-02-19
+    praezision: null
+    status: aktiv
+
+  - id: RR-121
+    titel: P-002 Zero Breaking Changes
+    klasse: HINT
+    geltung: {pfade: ["*"], profile: [default, deployed, library]}
+    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ["deprecat", "breaking", "backward", "expand/contract"]}
+    begruendung: {quelle: docs/adr/ADR-022, text: Expand/Contract statt Bruch.}
+    ausgabe: {kategorie: Prinzip, referenz: P-002 Zero Breaking Changes}
+    konsumenten: [context-reviewer]
+    seit: 2026-02-19
+    praezision: null
+    status: aktiv
+
+  - id: RR-122
+    titel: P-003 Tenant-Isolation
+    klasse: HINT
+    geltung: {pfade: ["*"], profile: [default, deployed, library]}
+    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ["tenant_id", "tenant", "multi-tenant", "organization"]}
+    begruendung: {quelle: docs/adr/ADR-035, text: Jede Query per Mandant filtern.}
+    ausgabe: {kategorie: Prinzip, referenz: P-003 Tenant-Isolation}
+    konsumenten: [context-reviewer]
+    seit: 2026-02-19
+    praezision: null
+    status: aktiv
+
+  - id: RR-123
+    titel: P-004 Minimal Diff
+    klasse: HINT
+    geltung: {pfade: ["*"], profile: [default, deployed, library]}
+    detektor: {typ: umfang, max_zeilen: 400}
+    begruendung: {quelle: .windsurf/rules/reviewer.md, text: Grosse PRs aufteilen.}
+    ausgabe: {kategorie: Prinzip, referenz: P-004 Minimal Diff, konfidenz: 0.9}
+    konsumenten: [context-reviewer]
+    seit: 2026-02-19
+    praezision: null
+    status: aktiv
+
+  - id: RR-124
+    titel: P-005 Service Layer
+    klasse: HINT
+    geltung: {pfade: ["*"], profile: [default, deployed, library]}
+    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ['services\.py', "service_layer", "business_logic"]}
+    begruendung: {quelle: docs/adr/ADR-041, text: Businesslogik im Service-Layer.}
+    ausgabe: {kategorie: Prinzip, referenz: P-005 Service Layer}
+    konsumenten: [context-reviewer]
+    seit: 2026-02-19
+    praezision: null
+    status: aktiv
+
+  # ───────────────────────── Context-Reviewer: betroffene Projekte (Pfade) ────────────────
+  # Herkunft: PROJECT_PATHS (Substring im Pfad → Glob mit `*` beidseitig).
+
+  - id: RR-130
+    titel: Projekt travel-beat
+    klasse: HINT
+    geltung: {pfade: ["*"], profile: [default, deployed]}
+    detektor: {typ: pfad, muster: ["*apps/trips*", "*apps/stories*", "*apps/locations*", "*apps/worlds*", "*apps/ai_services*"]}
+    begruendung: {quelle: registry/canonical.yaml, text: App-Pfade des Projekts.}
+    ausgabe: {kategorie: Projekt, referenz: travel-beat}
+    konsumenten: [context-reviewer]
+    seit: 2026-02-19
+    praezision: null
+    status: aktiv
+
+  - id: RR-131
+    titel: Projekt bfagent
+    klasse: HINT
+    geltung: {pfade: ["*"], profile: [default, deployed]}
+    detektor: {typ: pfad, muster: ["*apps/bfagent*", "*apps/writing_hub*", "*apps/control_center*", "*apps/expert_hub*"]}
+    begruendung: {quelle: registry/canonical.yaml, text: App-Pfade des Projekts.}
+    ausgabe: {kategorie: Projekt, referenz: bfagent}
+    konsumenten: [context-reviewer]
+    seit: 2026-02-19
+    praezision: null
+    status: aktiv
+
+  - id: RR-132
+    titel: Projekt weltenhub
+    klasse: HINT
+    geltung: {pfade: ["*"], profile: [default, deployed]}
+    detektor: {typ: pfad, muster: ["*apps/worlds*", "*apps/characters*", "*apps/scenes*", "*apps/enrichment*"]}
+    begruendung: {quelle: registry/canonical.yaml, text: App-Pfade des Projekts.}
+    ausgabe: {kategorie: Projekt, referenz: weltenhub}
+    konsumenten: [context-reviewer]
+    seit: 2026-02-19
+    praezision: null
+    status: aktiv
+
+  - id: RR-133
+    titel: Projekt risk-hub
+    klasse: HINT
+    geltung: {pfade: ["*"], profile: [default, deployed]}
+    detektor: {typ: pfad, muster: ["*apps/risk*", "*apps/assessments*", "*apps/reports*"]}
+    begruendung: {quelle: registry/canonical.yaml, text: App-Pfade des Projekts.}
+    ausgabe: {kategorie: Projekt, referenz: risk-hub}
+    konsumenten: [context-reviewer]
+    seit: 2026-02-19
+    praezision: null
+    status: aktiv
+
+  - id: RR-134
+    titel: Projekt platform
+    klasse: HINT
+    geltung: {pfade: ["*"], profile: [default, deployed, library]}
+    detektor: {typ: pfad, muster: ["*agents/*", "*packages/*", "*docs/adr*", "*shared/*", "*tools/*"]}
+    begruendung: {quelle: registry/canonical.yaml, text: Verzeichnisse des Meta-Repos.}
+    ausgabe: {kategorie: Projekt, referenz: platform}
+    konsumenten: [context-reviewer]
+    seit: 2026-02-19
+    praezision: null
+    status: aktiv
+
+  - id: RR-135
+    titel: Projekt mcp-hub
+    klasse: HINT
+    geltung: {pfade: ["*"], profile: [default, deployed]}
+    detektor: {typ: pfad, muster: ["*orchestrator_mcp*", "*llm_mcp*", "*deployment_mcp*", "*query_agent_mcp*"]}
+    begruendung: {quelle: registry/canonical.yaml, text: MCP-Server-Verzeichnisse.}
+    ausgabe: {kategorie: Projekt, referenz: mcp-hub}
+    konsumenten: [context-reviewer]
+    seit: 2026-02-19
+    praezision: null
+    status: aktiv
+
+  # ───────────────────────── Context-Reviewer: Datei-Hinweise (Insights) ──────────────────
+  # Herkunft: generate_insights() in agents/context_reviewer.py. Reihenfolge = Ausgabereihenfolge.
+
+  - id: RR-140
+    titel: tenant_id in models.py
+    klasse: HINT
+    geltung: {pfade: ["*models.py"], profile: [default, deployed]}
+    detektor: {typ: regex, ziel: hinzugefuegt, muster: ["tenant_id"], gross_klein: exakt}
+    begruendung: {quelle: docs/adr/ADR-035, text: Mandantenfeld verlangt gefilterte Queries.}
+    ausgabe:
+      kategorie: Multi-Tenancy
+      referenz: P-003
+      meldung: "tenant_id Feld gefunden — stelle sicher dass alle Queries per tenant_id filtern."
+      konfidenz: 0.8
+    konsumenten: [context-reviewer]
+    seit: 2026-02-19
+    praezision: null
+    status: aktiv
+
+  - id: RR-141
+    titel: Service-Layer-Aenderung
+    klasse: HINT
+    geltung: {pfade: ["*"], profile: [default, deployed]}
+    detektor: {typ: pfad, muster: ["*services.py*"]}
+    begruendung: {quelle: docs/adr/ADR-041, text: Business-Logik gehoert in den Service-Layer.}
+    ausgabe:
+      kategorie: Architecture
+      referenz: P-005
+      meldung: "Service-Layer-Änderung — Business-Logik gehört hierhin, nicht in views.py."
+      konfidenz: 0.7
+    konsumenten: [context-reviewer]
+    seit: 2026-02-19
+    praezision: null
+    status: aktiv
+
+  - id: RR-142
+    titel: HTMX-Attribute
+    klasse: HINT
+    geltung: {pfade: ["*"], profile: [default, deployed]}
+    detektor: {typ: regex, ziel: hinzugefuegt, muster: ["hx-(get|post|put|delete)"], gross_klein: exakt}
+    begruendung: {quelle: docs/adr/ADR-048, text: HTMX-Patterns (Swap, Boost, OOB).}
+    ausgabe:
+      kategorie: HTMX
+      referenz: ADR-048
+      meldung: "HTMX-Attribute erkannt. Siehe ADR-048 für Patterns (Swap, Boost, OOB)."
+      konfidenz: 0.8
+    konsumenten: [context-reviewer]
+    seit: 2026-02-19
+    praezision: null
+    status: aktiv
+
+  - id: RR-143
+    titel: Hardcoded Farbwert
+    klasse: HINT
+    geltung: {pfade: ["*"], profile: [default, deployed]}
+    detektor: {typ: regex, ziel: hinzugefuegt, muster: ['#[0-9a-fA-F]{6}\b'], gross_klein: exakt}
+    begruendung: {quelle: docs/adr/ADR-049, text: Farben nur als pui-Token.}
+    ausgabe:
+      kategorie: Design Tokens
+      referenz: ADR-049
+      meldung: "Hardcoded Farbwert erkannt. Nutze pui-Token aus pui-tokens.css stattdessen."
+      konfidenz: 0.85
+    konsumenten: [context-reviewer]
+    seit: 2026-02-19
+    praezision: null
+    status: aktiv

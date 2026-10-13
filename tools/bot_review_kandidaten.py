@@ -24,16 +24,14 @@ import json
 import os
 import sys
 
+from review_regeln import ist_tabu, tabu_pfade
+
 #: Pfade, bei denen der Bot ausdruecklich nicht urteilt — sie bleiben Menschen
 #: vorbehalten. `bot-review.yml` steht selbst darin: der Bot gibt seine eigene
-#: Regel nicht frei.
-TABU = (
-    "policies/",
-    "docs/adr/",
-    ".github/CODEOWNERS",
-    ".github/workflows/bot-review.yml",
-    "tools/bot_review_kandidaten.py",
-)
+#: Regel nicht frei. Seit KONZ-platform-070 WP1 (#3903) stehen die Muster in
+#: `registry/review-regeln.yaml` (Konsument `bot-tabu`, Profil `default`); dieser
+#: Name bleibt als duenner Wrapper fuer Aufrufer und Tests.
+TABU = tabu_pfade("default")
 
 #: Ergebnisse, die als "gruen" durchgehen. NEUTRAL zaehlt dazu, SKIPPED auch.
 GRUEN = ("SUCCESS", "SKIPPED", "NEUTRAL")
@@ -122,7 +120,7 @@ def waehle_kandidaten(
             skip(nr, f"mergeState {p.get('mergeStateStatus')} — nicht review-blockiert")
             continue
         pfade = [f["path"] for f in (p.get("files") or [])]
-        if any(pf.startswith(t) or pf == t for pf in pfade for t in TABU):
+        if any(ist_tabu(pf, tabu=TABU) for pf in pfade):
             skip(nr, "Tabu-Pfad — bleibt Mensch")
             continue
         checks = p.get("statusCheckRollup") or []
