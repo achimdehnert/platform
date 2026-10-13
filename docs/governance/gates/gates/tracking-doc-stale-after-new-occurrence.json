@@ -1,0 +1,35 @@
+{
+  "slug": "tracking-doc-stale-after-new-occurrence",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": "tools/tracking_doc_nachzug.py",
+  "drill": [
+    "tools/tests/test_tracking_doc_nachzug.py",
+    "tools/tests/test_session_ende_checks.py"
+  ],
+  "built": "2026-10-13",
+  "ref": "Retro docs/retros/session-retro-2026-10-13-platform-e50644.md M6 (Owner-Wort 2026-10-13 13:12Z „M6 go“)",
+  "note": "x18 ueber Retros. Bisher nur nominell gedeckt: aufschub-anker fuehrt den Slug in `covers`, prueft aber Anker in PR-Texten, nicht ob ein Tracking-Dokument nachgezogen wurde — Rueckfall e911bf-incr trotz Deckung. Haeufigste Familie: Repo-Dokument nicht nachgezogen (9 der 18; Issue-Body 7, PR-Body 1, einer ohne Befundzeile). Schnitt auf deren Teil mit maschinenlesbarem Bezug, ADR/KONZ in platform (4 Faelle: d2b425, eb9de7, e911bf, e50644; eb9de7 und e50644 am Realfall rot belegt, e911bf nicht fangbar, weil der Commit das ADR nicht nennt): ein Commit von heute nennt ein ADR oder Konzept, aendert es nicht, auch kein spaeterer Commit, und das Dokument fuehrt offene Posten. Erzwingungspunkt: Runner-Phase E.12 im Sitzungsende, also vor der Retro, die den Befund bisher fand. Nicht gedeckt: Issue-Bodies (session_abgleich.py, eigene Slugs), Handover (handover-stale-vor-merge), Vorkommen ohne platform-Commit.",
+  "faengt": [
+    {
+      "fall": "Commit nennt ein Konzept, aendert es nicht, Kill-Gate-Zeile bleibt offen",
+      "probe": "Fund aus KONZ-071"
+    },
+    {
+      "fall": "spaeterer Commit im Bereich zieht das Dokument nach — kein Befund",
+      "probe": "nachgezogen"
+    },
+    {
+      "fall": "Status-Zelle mit Symbol in Phasenstand-Tabellen",
+      "probe": "Ausstehend"
+    }
+  ],
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-10-13",
+  "expires": "2026-12-31",
+  "expires_note": "blocking oder gestrichen bis dahin. Messpunkt: Retros ab 2026-10-14, ob der Slug in der ADR/KONZ-Familie ungefangen wiederkehrt.",
+  "positivkontrolle": {
+    "ref": "Beide Realfaelle am echten Repo rot: `--commit 08c29134` (#3931, Retro e50644) meldet KONZ-071 mit den drei offenen Kill-Gate-Zeilen; `--basis 9cdec5d8^1 --kopf 9cdec5d8` (#3721, Retro eb9de7) meldet ADR-308 mit der Zeile „Noch offen vor Phase 3: Profil-Negativtests“. Gegenprobe `--commit 0f0e977c` (#3913 aendert KONZ-071) bleibt OK.",
+    "datum": "2026-10-13"
+  }
+}
