@@ -225,6 +225,24 @@ Herleitungen mit Realfällen, Zahlen und Daten.
     Register-Eintrag ohne passende Runner-Phase (Karteileiche) gehört entfernt.
     Vollbild/Reparatur: `python3 platform/tools/melder_register_check.py --kurz`.
 
+### 0.7.34 review-profil-drift
+
+  - `0.7.34 review-profil-drift` (NEU 2026-10-13, [#3903](https://github.com/achimdehnert/platform/issues/3903)
+    WP5, KONZ-platform-070 Z4): Branch-Schutz war bis dahin eine Wave-Liste
+    (`governance/rulesets/wave*-repos.json`), die neben der Registry lebte — der
+    Meter fand so eine falsche Owner-Org (risk-hub) und kannte weder Approvals
+    noch die klassische Branch-Protection. Jetzt ist der Schutz eine
+    **Deklaration**: das Profil folgt aus `registry/canonical.yaml`
+    (archiviert/frozen → `keins`, `rich.deployed` → `deployed`, Sitzungsklasse
+    plattform/bibliothek → `plattform`/`library`, sonst `static`), die Profile
+    stehen in `registry/review-profile.yaml`, die Wave-Dateien sind generierte
+    Views (`--views pruefen` im Test). Die Phase misst im Kurzmodus Pilot-Repos
+    plus alle `deployed`; Soll ist Mindestmaß, mehr Schutz ist keine Drift.
+    `nicht messbar` ist WARN, keine Entwarnung. Der Meter wendet **nie** an: der
+    Befehl je Drift-Repo (`--pilot` ohne `--kurz`) gehört in den Owner-Zug, weil
+    Branch-Schutz Security-Config ist (autonomy-gates). Weicht das Soll von der
+    Wirklichkeit ab, ändert man die Deklaration per PR, nicht den Schutz still.
+
 ### Vierte Lautstärke `ℹ️ HINWEIS`
 
   - **Vierte Lautstärke `ℹ️ HINWEIS` (NEU 2026-09-02, #2690 K3):** eine Phase, deren
@@ -527,6 +545,7 @@ Spalte „kein Befund" steht dort nur noch, wo sie eine eigene Aussage hat.
 | `0.7.31 hintergrund-wache` | dev-hub: Agent-Typ >= 3x in Folge seit letztem Erfolg rot, oder Beat-Eintrag tot/fehlt/anderer Task | `OK: keine dauerroten Agenten …` | Agent reparieren oder stilllegen, tote Beat-Zeile per Datenmigration loeschen (Muster dev-hub#424); `SKIP` = Prod nicht befragt, keine Entwarnung (#3667) |
 | `0.7.32 pr-bestand` | Offene PRs der vier Orgs wachsen je Woche, mehr als 40 sind älter als 30 Tage, oder der Timer steht (Journal älter als 8 Tage) | `SAMMELPHASE` (Trend erst ab 7 Tagen Journal) | Der Treiber in der Zeile ist der Erzeuger: dessen Zufluss deckeln (Muster #3817); alte PRs nach dem Ledger von #3812 mergen oder mit Grund schließen (#3823) |
 | `0.7.33 routine-berichte` | Eine Cloud-Routine hat in den letzten 26 h einen Fund gemeldet (Link in der Zeile), oder eine Routine, die immer schreibt, ist still; welche Routine wohin schreibt, steht in `registry/routine-berichte.json` | Bericht passt aufs `ruhe_muster` der Routine; Lageberichte wie das Morning-Briefing zählen nie als Fund | Bericht lesen und jeden Fund in ein Artefakt überführen (PR, Issue, Kommentar mit Grund); stille Routine per `RemoteTrigger list_runs` prüfen. Neu für die Sitzung ist ein Fund nur beim ersten Auftauchen (Delta `NEU`), danach trägt das Journal (#3887) |
+| `0.7.34 review-profil-drift` | Der Schutz von `main` deckt bei einem Pilot- oder `deployed`-Repo nicht das Profil, das die Registry ableitet (`registry/review-profile.yaml`: deployed/plattform = CI-Gate + 1 Approval, library = CI-Gate), oder die API war nicht erreichbar (`nicht messbar`) | — | `python3 tools/branch_protection_meter.py --pilot` zeigt je Drift-Repo den fertigen Befehl; ausführen ist Owner-Zug (Security-Config). Ist das Soll falsch, `rich.review_profile`/`rich.review_check` in `registry/canonical.yaml` per PR ändern — nie den Schutz still angleichen (KONZ-070 Z4, #3903) |
 | `0.7.23 melder-register` | Phase ohne Eintrag / `leser: UNBENANNT` / Karteileiche | — | `melder_register_check.py --kurz`, Leser benennen |
 
 **Jede `◌`/`nicht messbar`/`SAMMELPHASE`-Zeile ist eine Lücke, kein Pass — als solche ins Board.**

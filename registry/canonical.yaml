@@ -860,6 +860,9 @@ repos:
       description: MCP server collection (deployment, orchestrator, LLM)
       github: achimdehnert/mcp-hub
       deployed: true
+      # KONZ-070 Z4 (#3903 WP5): erwarteter CI-Check des Rulesets main-required-checks
+      # (ADR-242 Welle 1, Repo hat kein shared-ci-Aggregat `ci / gate`).
+      review_check: "🚦 Quality Gate"
       type: python
       lifecycle: production
       tenancy_mode: none
@@ -963,6 +966,9 @@ repos:
       description: Shared packages, ADRs, governance, platform agents
       github: achimdehnert/platform
       deployed: false
+      # KONZ-070 Z4 (#3903 WP5): Profil ergibt sich aus sitzungs_klasse plattform;
+      # erwarteter CI-Check des Rulesets main-required-checks ist `guardian` (ADR-242 Baseline).
+      review_check: guardian
       type: library
       lifecycle: production
       tenancy_mode: none
@@ -1086,6 +1092,9 @@ repos:
       description: Multi-tenant occupational safety SaaS (Schutztat)
       github: iilgmbh/risk-hub
       deployed: true
+      # KONZ-070 Z4 (#3903 WP5): erwarteter CI-Check des Rulesets main-required-checks
+      # (ADR-242 Welle 1, live-customer-product; kein shared-ci-Aggregat `ci / gate`).
+      review_check: "Deploy-Config-Lint / deploy-config-lint"
       url: https://demo.schutztat.de
       type: django
       lifecycle: production

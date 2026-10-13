@@ -65,39 +65,40 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
 | `0.7.2 cron-melder` | Cron dauerrot / `ROT-IST-BEFUND` | OK | reparieren bzw. einordnen |
 | `0.7.3 opt-platform` | `/opt/platform`-Klon weicht ab | — | Freigabe: `--sync` = Prod-Eingriff |
 | `0.7.4 prio-referenzen` | Prio zeigt auf Geschlossenes | — | **vor** Arbeitsbeginn nachziehen |
-| `0.7.5 hook-dist` | Hook-Kopie weicht ab, Heilung scheiterte | selbst geheilt | Ursache prüfen, verteilen |
-| `0.7.6 leseflaeche` | Prio zeigt auf Geschlossenes | `◌` = Lücke | nachziehen, `befund_leseflaeche.py --alle-gesehen` |
+| `0.7.5 hook-dist` | Hook-Kopie weicht ab, ungeheilt | selbst geheilt | Ursache prüfen, verteilen |
+| `0.7.6 leseflaeche` | Prio zeigt auf Geschlossenes | `◌` = Lücke | `befund_leseflaeche.py --alle-gesehen` |
 | `0.7.8 zeitplan-wache` | `schedule` still abgeschaltet | — | `gh workflow enable` |
 | `0.7.9 gate-deckung` | Slug ≥2× ungedeckt | — | Gate bauen oder declined mit Grund |
 | `0.7.10 kennzahl-verfall` | Kennzahl veraltet | — | nachrechnen, korrigieren |
-| `0.7.11 erreichbarkeit` | 5xx = Dienst tot · NXDOMAIN = Deklaration falsch | 401/403 | Ziel-Repo bzw. `ports.yaml`; Ausnahme braucht `betriebsstatus_grund:` |
+| `0.7.11 erreichbarkeit` | 5xx = Dienst tot · NXDOMAIN = Deklaration falsch | 401/403 | Ziel-Repo/`ports.yaml`; Ausnahme: `betriebsstatus_grund:` |
 | `0.7.12 prod-wirkung` | `RUECKSTAND:` live ≠ `main` | Prod-Freigabe ≤ 14 d | ins Board |
 | `0.7.13 skill-dist` | Skill-Lane driftet | — | `cc-skill-dist/doctor.py --kind <lane>` |
 | `0.7.14 policy-frische` | Policy ≠ `origin/main` | — | `refresh_pinned_policies.sh`, Diff prüfen |
 | `0.7.15 namensdeckung` | Drill berührt benannten Fall nicht | — | Drill ergänzen |
-| `0.7.16 origin-tls` | `abgelaufen`/`laeuft-ab` = Renewal kaputt · `fallback-zertifikat` = kein Cert | `cloudflare-origin-ca`, `kein-tls-am-origin` | am Host reparieren |
-| `0.7.17 backup-deckung` | Volume **UNGEDECKT** | `verzicht` mit Grund | nach Lage trennen: Nutzung/steht/verwaist |
+| `0.7.16 origin-tls` | `abgelaufen`/`laeuft-ab` = Renewal kaputt · `fallback-zertifikat` | `cloudflare-origin-ca`, `kein-tls-am-origin` | am Host reparieren |
+| `0.7.17 backup-deckung` | Volume **UNGEDECKT** | `verzicht` mit Grund | nach Lage: Nutzung/steht/verwaist |
 | `0.7.18 speicher` | < 7 d bis voll / < 10 % frei | — | ins Board, Wachstum abstellen |
 | `0.7.19 melder-praezision` | Melder unter Trefferquote | — | der **Melder** ist der Befund |
 | `0.7.20 umgebung` | Standort/App unklar | — | klären, `ports.yaml` korrigieren |
 | `0.7.21 alarmweg` | Alarmkanal erreicht niemand | belegt | Freigabe: Kanal/Secret reparieren |
 | `0.7.22 flottenbild` | Knoten unhealthy, Swap ≥ 90 % | — | Knoten prüfen, `/infra-cleanup` |
 | `0.7.23 melder-register` | Phase ohne Eintrag/Leser, Karteileiche | — | `melder_register_check.py --kurz` |
-| `0.7.25 rotation-faelligkeit` | Secret fällig/ohne Beleg/ohne Konsument | — | rotieren, Konsument benennen oder ausbauen |
+| `0.7.25 rotation-faelligkeit` | Secret fällig/ohne Beleg/ohne Konsument | — | rotieren, Konsument benennen/ausbauen |
 | `0.7.26 ci-deckung` | `NICHT PRUEFBAR` | — | auflösen; ungemessen ≠ Entwarnung |
 | `0.7.27 sichtbarkeits-drift` | Bezüge auf `achimdehnert/platform` (#3234) | `erreicht` | Laufzeit-Pfade umhängen; Flip = Owner |
-| `0.7.28 gpu-leerlauf` | ≥ 4 GB GPU, ≥ 3 d ungerufen | — | Zweck klären oder stoppen; `SKIP` ≠ Entwarnung |
-| `0.7.29 container-speicher` | OOM, anon > 70 %, Limit-Treffer, Timer steht | `SAMMELPHASE` | Ursache im Container; Limit-PR, Prod = Owner (#3400) |
-| `0.7.30 speicher-druck` | Druck in 24 h oder Timer steht | — | größte cgroup drosseln; oomd nur mit Owner-Go (#3607) |
-| `0.7.31 hintergrund-wache` | dev-hub-Agent ≥ 3× rot, Beat-Eintrag tot | `OK: …` | reparieren/stilllegen (dev-hub#424); `SKIP` ≠ Entwarnung |
+| `0.7.28 gpu-leerlauf` | ≥ 4 GB GPU, ≥ 3 d ungerufen | — | Zweck klären oder stoppen; `SKIP` ≠ ok |
+| `0.7.29 container-speicher` | OOM, anon > 70 %, Limit-Treffer, Timer steht | `SAMMELPHASE` | Ursache im Container; Prod = Owner (#3400) |
+| `0.7.30 speicher-druck` | Druck in 24 h oder Timer steht | — | größte cgroup drosseln; oomd = Owner-Go (#3607) |
+| `0.7.31 hintergrund-wache` | dev-hub-Agent ≥ 3× rot, Beat tot | `OK: …` | reparieren/stilllegen (dev-hub#424); `SKIP` ≠ Entwarnung |
 | `0.7.32 pr-bestand` | Bestand wächst, Timer steht | `SAMMELPHASE` | Treiber deckeln (#3823) |
 | `0.7.33 routine-berichte` | neuer Fund, Routine still | — | in Artefakt (#3887) |
+| `0.7.34 review-profil-drift` | main-Schutz < Profil | — | Befehl = Owner-Zug (#3903) |
 
 **`◌`/`nicht messbar`/`SAMMELPHASE` = Lücke, kein Pass — ins Board.** `ℹ️ HINWEIS` = Melder
-selbst herabgestuft, der **Melder** ist der Befund. Block „⏳ ohne Entscheidung > 14 d" = es
-fehlt die Entscheidung. → `LEHREN#warn-klassenkunde`
+selbst herabgestuft, der **Melder** ist der Befund. Block „⏳ > 14 d" = Entscheidung fehlt.
+→ `LEHREN#warn-klassenkunde`
 
-**Troubleshooting:** Runner hängt > 5 s → Shell blockiert, Session neu starten. **NIEMALS
+**Troubleshooting:** Runner hängt > 5 s → Session neu starten. **NIEMALS
 `ping`.** pgvector-Tunnel → `sudo systemctl start ssh-tunnel-postgres`. Der Runner stasht nicht.
 `0.6` rot → MCP neu starten. → `LEHREN#troubleshooting`
 
@@ -201,16 +202,17 @@ Arbeitsbeginn sauberziehen. Die Diskrepanz IST der Fund. → `LEHREN#handover-me
 | # | Check | Status |
 |---|-------|--------|
 | 1 | Runner gelaufen, Summary gezeigt (0.R) | ☐ |
-| 2 | RESULT beachtet: FAIL → Stopp; jede ⚠️ WARN als Befund gespiegelt | ☐ |
+| 2 | FAIL → Stopp; jede ⚠️ WARN als Befund gespiegelt | ☐ |
 | 2a | Journal gelesen: Altbefunde mit **Alter**, Fremd-Repo-Befunde benannt | ☐ |
 | 2c | `0.7.11`: 5xx von NXDOMAIN getrennt; Ausnahmen mit Grund | ☐ |
 | 2d | `0.7.16`: `abgelaufen`/`laeuft-ab` von `fallback-zertifikat` getrennt | ☐ |
 | 2e | `0.7.17`: rote Volumes nach Lage getrennt; Verzicht mit Grund | ☐ |
-| 2f | `0.7.18`: Platten unter 7 Tagen benannt; `SAMMELPHASE` ≠ Entwarnung | ☐ |
+| 2f | `0.7.18`: Platten unter 7 Tagen benannt; `SAMMELPHASE` ≠ ok | ☐ |
 | 2g | `0.3`: MAJOR ggü. bewertet gespiegelt | ☐ |
 | 2h | `0.7.23`: kein Melder ohne Leser; Block „⏳ > 14 d" geprüft | ☐ |
-| 2i | `0.7.4`: Prio-Referenzen **vor** dem ersten Arbeitsschritt nachgezogen | ☐ |
+| 2i | `0.7.4`: Prio-Referenzen **vor** dem ersten Schritt nachgezogen | ☐ |
 | 2j | `0.7.33`: Routine-Funde in Artefakt überführt | ☐ |
+| 2k | `0.7.34`: Drift-Befehl im Owner-Zug, nichts angewendet | ☐ |
 | 3 | Architecture Context geladen (ex-0.4.2) | ☐ |
 | 4 | Modell-Tier bewusst gewählt (0.8) | ☐ |
 | 5 | Repo-Kontext + Memory-Warm-Start geladen (Phase 1/2) | ☐ |

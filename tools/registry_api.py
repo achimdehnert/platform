@@ -28,11 +28,24 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 CANON = ROOT / "registry" / "canonical.yaml"
+REVIEW_PROFILE = ROOT / "registry" / "review-profile.yaml"
+
+#: Profil-Override je Repo (einzige erlaubte Repo-Abweichung, KONZ-070 Z4).
+REVIEW_PROFILE_FELD = "review_profile"
+#: Name des erwarteten CI-Checks je Repo (sonst defaults.ci_gate_check).
+REVIEW_CHECK_FELD = "review_check"
+#: Platzhalter in review-profile.yaml: required_checks aus dem shared-ci-Aggregat.
+AUS_CI = "aus_ci"
 
 
 def load_canonical() -> dict:
     """Lädt die kanonische Union-Registry."""
     return yaml.safe_load(CANON.read_text())
+
+
+def load_review_profile() -> dict:
+    """Lädt die Profil-Deklaration (registry/review-profile.yaml)."""
+    return yaml.safe_load(REVIEW_PROFILE.read_text())
 
 
 def gen_flat(canon: dict) -> dict:
@@ -171,3 +184,101 @@ def sitzungs_klasse(name: str, canon: dict | None = None) -> str | None:
     entscheidet, was unbekannt heisst; der Scope-Guard warnt dann nur."""
     canon = canon if canon is not None else load_canonical()
     return ((canon.get("meta") or {}).get("sitzungs_klasse") or {}).get(name)
+
+
+# ── Review-Profil (KONZ-platform-070 Z4, Mandat #3903 WP5) ─────────────────────
+
+
+def _profil_feldwert(name: str, entry: dict, canon: dict, feld: str):
+    """Wert eines Ableitungsfelds aus review-profile.yaml `zuordnung`."""
+    rich = entry.get("rich") or {}
+    flat = entry.get("flat") or {}
+    if feld == "flat.archived":
+        return flat.get("archived")
+    if feld == "lifecycle":
+        return _lifecycle(entry)
+    if feld == "rich.deployed":
+        return rich.get("deployed")
+    if feld == "sitzungs_klasse":
+        return sitzungs_klasse(name, canon)
+    raise KeyError(f"review-profile.yaml: unbekanntes Ableitungsfeld '{feld}'")
+
+
+def _regel_trifft(wenn: dict, wert) -> bool:
+    if "gleich" in wenn:
+        return wert == wenn["gleich"]
+    if "in" in wenn:
+        return wert in wenn["in"]
+    raise KeyError(f"review-profile.yaml: Regel ohne 'gleich'/'in': {wenn}")
+
+
+def review_profil(
+    name: str, canon: dict | None = None, profile: dict | None = None
+) -> str | None:
+    """Review-Profil eines Repos: `deployed` | `plattform` | `library` | `static` | `keins`.
+
+    Reihenfolge: ``rich.review_profile`` (Override) gewinnt; sonst die erste passende
+    Regel aus ``zuordnung`` in registry/review-profile.yaml; sonst deren ``sonst``.
+    None fuer ein unbekanntes Repo (ohne Registry-Eintrag gibt es kein Profil, KONZ-070 §5).
+    Ein Override auf ein nicht deklariertes Profil ist ein Datenfehler → KeyError.
+    """
+    canon = canon if canon is not None else load_canonical()
+    profile = profile if profile is not None else load_review_profile()
+    entry = (canon.get("repos") or {}).get(name)
+    if entry is None:
+        return None
+    bekannt = set(profile["profile"])
+    override = (entry.get("rich") or {}).get(REVIEW_PROFILE_FELD)
+    if override is not None:
+        if override not in bekannt:
+            raise KeyError(
+                f"{name}: rich.{REVIEW_PROFILE_FELD}='{override}' nicht in review-profile.yaml"
+            )
+        return override
+    sonst = None
+    for regel in profile["zuordnung"]:
+        if "sonst" in regel:
+            sonst = regel["sonst"]
+            continue
+        wert = _profil_feldwert(name, entry, canon, regel["wenn"]["feld"])
+        if _regel_trifft(regel["wenn"], wert):
+            return regel["profil"]
+    return sonst
+
+
+def review_soll(
+    name: str, canon: dict | None = None, profile: dict | None = None
+) -> dict | None:
+    """Soll-Schutz von `main` fuer EIN Repo — Profil aufgeloest zu konkreten Werten.
+
+    Rueckgabe: {repo, owner, profil, required_checks (Liste), approvals, bot_zaehlt,
+    linear_history, force_push, messen}; None fuer ein unbekanntes Repo.
+    ``aus_ci`` wird zu ``rich.review_check`` (je Repo) bzw. ``defaults.ci_gate_check``.
+    """
+    canon = canon if canon is not None else load_canonical()
+    profile = profile if profile is not None else load_review_profile()
+    profil = review_profil(name, canon, profile)
+    if profil is None:
+        return None
+    p = profile["profile"][profil]
+    rich = canon["repos"][name].get("rich") or {}
+    checks = p.get("required_checks") or []
+    if checks == AUS_CI:
+        checks = [rich.get(REVIEW_CHECK_FELD) or profile["defaults"]["ci_gate_check"]]
+    return {
+        "repo": name,
+        "owner": owner(name, canon),
+        "profil": profil,
+        "required_checks": list(checks),
+        "approvals": int(p.get("approvals", 0)),
+        "bot_zaehlt": bool(p.get("bot_zaehlt", False)),
+        "linear_history": bool(p.get("linear_history", False)),
+        "force_push": bool(p.get("force_push", True)),
+        "messen": bool(p.get("messen", True)),
+    }
+
+
+def review_pilot(profile: dict | None = None) -> list[str]:
+    """Pilot-Repos (Mandat #3903 O2) aus review-profile.yaml."""
+    profile = profile if profile is not None else load_review_profile()
+    return list(profile.get("pilot") or [])

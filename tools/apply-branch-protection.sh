@@ -1,19 +1,27 @@
 #!/usr/bin/env bash
 # ADR-242: Idempotentes Script zum Anlegen/Aktualisieren von GitHub Rulesets
-# für Branch-Protection auf Wave-1-Repos.
+# für Branch-Protection (required check auf `main`).
+#
+# Soll-Quelle (KONZ-platform-070 Z4, Mandat #3903 WP5): die Registry-Ableitung
+# `python3 tools/branch_protection_meter.py --soll-json` (Profile deployed +
+# plattform = frühere Wave 1), nicht mehr eine eigene Repo-Liste. Dieses Skript
+# setzt NUR den required check (Template); fordert das Profil zusätzlich
+# Approvals, nennt der Meter einen eigenen `gh api`-Befehl.
 #
 # Usage:
-#   ./tools/apply-branch-protection.sh               # alle Wave-1-Repos
+#   ./tools/apply-branch-protection.sh               # alle Repos mit Profil deployed/plattform
 #   ./tools/apply-branch-protection.sh --repo dev-hub # nur ein Repo
+#   ./tools/apply-branch-protection.sh --soll-datei soll.json --repo demo  # Soll aus Datei (Tests)
 #
-# Requirements: gh (GitHub CLI), jq, GH_TOKEN im ENV oder gh auth login
+# Requirements: gh (GitHub CLI), jq, python3, GH_TOKEN im ENV oder gh auth login
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 TEMPLATE_FILE="$REPO_ROOT/governance/rulesets/main-required-checks-template.json"
-WAVE1_FILE="$REPO_ROOT/governance/rulesets/wave1-repos.json"
+METER="$SCRIPT_DIR/branch_protection_meter.py"
+SOLL_PROFILE=(deployed plattform)
 
 # ---------------------------------------------------------------------------
 # Dependencies check
@@ -30,10 +38,6 @@ if [ ! -f "$TEMPLATE_FILE" ]; then
   exit 1
 fi
 
-if [ ! -f "$WAVE1_FILE" ]; then
-  echo "❌ Wave-1-Liste nicht gefunden: $WAVE1_FILE" >&2
-  exit 1
-fi
 
 # ---------------------------------------------------------------------------
 # GH_TOKEN Fallback
@@ -52,41 +56,66 @@ fi
 # Argument parsing
 # ---------------------------------------------------------------------------
 FILTER_REPO=""
+SOLL_DATEI=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --repo)
       FILTER_REPO="$2"
       shift 2
       ;;
+    --soll-datei)
+      SOLL_DATEI="$2"
+      shift 2
+      ;;
     *)
       echo "❌ Unbekanntes Argument: $1" >&2
-      echo "   Usage: $0 [--repo <repo-name>]" >&2
+      echo "   Usage: $0 [--repo <repo-name>] [--soll-datei <json>]" >&2
       exit 1
       ;;
   esac
 done
 
 # ---------------------------------------------------------------------------
-# Repo-Liste aus wave1-repos.json laden (optional nach --repo filtern)
+# Soll-Liste: Registry-Ableitung via Meter (--soll-json), oder Datei (Tests).
+# Eintraege: {repo, owner, required_check, profil?, approvals?, deferred?}
 # ---------------------------------------------------------------------------
-REPOS_JSON="$WAVE1_FILE"
+if [ -n "$SOLL_DATEI" ]; then
+  if [ ! -f "$SOLL_DATEI" ]; then
+    echo "❌ Soll-Datei nicht gefunden: $SOLL_DATEI" >&2
+    exit 1
+  fi
+  REPOS_JSON=$(cat "$SOLL_DATEI")
+  QUELLE="$SOLL_DATEI"
+else
+  if [ ! -f "$METER" ]; then
+    echo "❌ Meter nicht gefunden: $METER (Soll-Quelle, KONZ-070 Z4)" >&2
+    exit 1
+  fi
+  if [ -n "$FILTER_REPO" ]; then
+    REPOS_JSON=$(python3 "$METER" --soll-json --repos "$FILTER_REPO")
+  else
+    REPOS_JSON=$(python3 "$METER" --soll-json --profile "${SOLL_PROFILE[@]}")
+  fi
+  QUELLE="registry (Profile ${SOLL_PROFILE[*]})"
+fi
+
 if [ -n "$FILTER_REPO" ]; then
-  ENTRIES=$(jq --arg r "$FILTER_REPO" '[.[] | select(.repo == $r)]' "$REPOS_JSON")
+  ENTRIES=$(echo "$REPOS_JSON" | jq --arg r "$FILTER_REPO" '[.[] | select(.repo == $r)]')
   COUNT=$(echo "$ENTRIES" | jq 'length')
   if [ "$COUNT" -eq 0 ]; then
-    echo "❌ Repo '$FILTER_REPO' nicht in wave1-repos.json gefunden." >&2
+    echo "❌ Repo '$FILTER_REPO' hat kein messbares Soll ($QUELLE) — Profil static/keins oder unbekannt." >&2
     exit 1
   fi
   DEFERRED_REASON=$(echo "$ENTRIES" | jq -r '.[0].deferred // empty')
   if [ -n "$DEFERRED_REASON" ]; then
     echo "❌ Repo '$FILTER_REPO' ist deferred: $DEFERRED_REASON" >&2
-    echo "   Zum Anwenden 'deferred'-Feld in wave1-repos.json entfernen (Rollout-Gate prüfen!)." >&2
     exit 1
   fi
 else
-  jq -r '.[] | select(.deferred != null) | "⏸ \(.repo) übersprungen (deferred): \(.deferred)"' "$REPOS_JSON"
-  ENTRIES=$(jq '[.[] | select(.deferred == null)]' "$REPOS_JSON")
+  echo "$REPOS_JSON" | jq -r '.[] | select(.deferred != null) | "⏸ \(.repo) übersprungen (deferred): \(.deferred)"'
+  ENTRIES=$(echo "$REPOS_JSON" | jq '[.[] | select(.deferred == null)]')
 fi
+echo "$ENTRIES" | jq -r '.[] | select((.approvals // 0) > 0) | "ℹ \(.repo): Profil \(.profil) fordert \(.approvals) Approval — setzt dieses Skript nicht, Befehl: python3 tools/branch_protection_meter.py --repos \(.repo)"'
 
 TOTAL=$(echo "$ENTRIES" | jq 'length')
 SUCCESS=0
@@ -140,7 +169,7 @@ apply_ruleset() {
 # ---------------------------------------------------------------------------
 # Hauptschleife
 # ---------------------------------------------------------------------------
-echo "ADR-242 Branch-Protection Rollout — Wave 1 ($TOTAL Repos)"
+echo "ADR-242 Branch-Protection Rollout — Soll aus $QUELLE ($TOTAL Repos)"
 echo "============================================================"
 
 for i in $(seq 0 $((TOTAL - 1))); do

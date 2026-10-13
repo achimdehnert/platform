@@ -1,0 +1,94 @@
+# registry/review-profile.yaml — Soll-Schutz von `main` je Review-Profil
+# (KONZ-platform-070 Z4 „Branch-Schutz als Deklaration“, Mandat platform#3903 WP5).
+#
+# Welches Repo welches Profil traegt, steht NICHT hier, sondern wird aus
+# registry/canonical.yaml abgeleitet (Abschnitt `zuordnung`, Reihenfolge zaehlt).
+# Einzige erlaubte Repo-Abweichung: `rich.review_profile: <profil>` im Eintrag des
+# Repos in canonical.yaml (Override gewinnt vor jeder Regel). Der Name des
+# erwarteten CI-Checks ist je Repo `rich.review_check`, sonst `defaults.ci_gate_check`.
+#
+# Leser: tools/registry_api.py (review_profil, review_soll), tools/branch_protection_meter.py
+# (Soll/Ist-Abgleich, Views governance/rulesets/wave*-repos.json), tools/apply-branch-protection.sh.
+# Der Meter MISST nur; Anwenden bleibt Owner-Zug (Security-Config-Gate, autonomy-gates).
+#
+# Semantik der Profil-Felder (Soll = Mindestanforderung; mehr Schutz im Ist ist keine Drift):
+#   required_checks   Liste von Check-Namen, oder der String `aus_ci` = Aggregat-Check der
+#                     shared-ci (`defaults.ci_gate_check`, ADR-242 §Entscheidung 1), je Repo
+#                     ueberschreibbar durch `rich.review_check`.
+#   approvals         0 oder 1 — Mindestzahl zustimmender Reviews am PR.
+#   bot_zaehlt        true = die Zustimmung des Review-Bots (KONZ-070 Z2) erfuellt `approvals`.
+#   linear_history    true = Ruleset-Regel `required_linear_history` gefordert.
+#   force_push        true = Force-Push auf main ERLAUBT (keine `non_fast_forward`-Regel
+#                     gefordert); false = Regel gefordert.
+#   messen            false = der Meter fragt die API fuer dieses Profil nicht ab.
+
+version: 1
+quelle: "KONZ-platform-070 §3 Z4; Mandat platform#3903 WP5"
+
+defaults:
+  ci_gate_check: "ci / gate"
+
+# Pilot (Mandat #3903 O2): diese Repos misst die Session-Start-Phase 0.7.34 zusaetzlich
+# zu allen Repos mit Profil `deployed`. Stufe 2 (org-weit) braucht einen eigenen ADR.
+pilot:
+  - platform
+  - risk-hub
+  - writing-hub
+
+profile:
+  deployed:
+    beschreibung: "Prod-Repo (rich.deployed): CI-Gate + 1 Approval, Bot zaehlt (Z4)."
+    required_checks: aus_ci
+    approvals: 1
+    bot_zaehlt: true
+    linear_history: false
+    force_push: true
+    messen: true
+  plattform:
+    beschreibung: "Plattform-/Governance-Repo (sitzungs_klasse plattform): wie deployed."
+    required_checks: aus_ci
+    approvals: 1
+    bot_zaehlt: true
+    linear_history: false
+    force_push: true
+    messen: true
+  library:
+    beschreibung: "Bibliothek (sitzungs_klasse bibliothek): CI-Gate, kein Review-Zwang (ADR-242 Option C)."
+    required_checks: aus_ci
+    approvals: 0
+    bot_zaehlt: false
+    linear_history: false
+    force_push: true
+    messen: true
+  static:
+    beschreibung: "Aktives Repo ohne Deploy und ohne Paket: nichts gefordert (Z4 „statisch: nichts“)."
+    required_checks: []
+    approvals: 0
+    bot_zaehlt: false
+    linear_history: false
+    force_push: true
+    messen: false
+  keins:
+    beschreibung: "Archiviert/eingefroren: kein Soll, keine Messung."
+    required_checks: []
+    approvals: 0
+    bot_zaehlt: false
+    linear_history: false
+    force_push: true
+    messen: false
+
+# Ableitung aus Registry-Feldern, erste passende Regel gewinnt. `rich.review_profile`
+# (Override) steht implizit davor. Felder: flat.archived, lifecycle (Top-Level oder
+# rich.lifecycle, s. registry_api._lifecycle), rich.deployed, meta.sitzungs_klasse[name].
+zuordnung:
+  - wenn: { feld: flat.archived, gleich: true }
+    profil: keins
+  - wenn: { feld: lifecycle, in: [archived, frozen] }
+    profil: keins
+  - wenn: { feld: rich.deployed, gleich: true }
+    profil: deployed
+  - wenn: { feld: sitzungs_klasse, gleich: plattform }
+    profil: plattform
+  - wenn: { feld: sitzungs_klasse, gleich: bibliothek }
+    profil: library
+  - sonst: static

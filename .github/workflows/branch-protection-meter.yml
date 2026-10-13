@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   meter:
-    name: "Soll/Ist-Abgleich Rulesets (Wave 1+2)"
+    name: "Soll/Ist-Abgleich Branch-Schutz (Registry-Profile)"
     runs-on: self-hosted
     permissions:
       contents: read
@@ -36,9 +36,12 @@ jobs:
           # PROJECT_PAT = cross-repo PAT (GITHUB_TOKEN liest fremde Repo-Rulesets nicht)
           TOKEN: ${{ secrets.PROJECT_PAT || secrets.GITHUB_TOKEN }}
         run: |
+          # Soll aus registry/canonical.yaml + registry/review-profile.yaml
+          # (KONZ-070 Z4, #3903 WP5): alle Repos mit messbarem Profil
+          # (deployed, plattform, library = frühere Wave 1+2). Ist = Rulesets
+          # UND klassische Branch-Protection. Der Meter wendet nichts an.
           python3 tools/branch_protection_meter.py \
-            --expected governance/rulesets/wave1-repos.json \
-                       governance/rulesets/wave2-repos.json \
+            --aus-registry \
             --report /tmp/meter-report.md
 
       # Weichgestellt wie der Meter oben; der Absturz wird seit 2026-07-31 durch
