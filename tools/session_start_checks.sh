@@ -679,6 +679,7 @@ vorlauf ci-deckung   python3 "$PLATFORM_DIR/tools/ci_deckung.py" --repo "$GITHUB
 vorlauf umgebung     timeout 90  python3 "$PLATFORM_DIR/tools/umgebung.py" --repo "$TARGET_REPO" --kurz
 vorlauf staging      _staging_probe
 vorlauf routine-berichte timeout 60 python3 "$PLATFORM_DIR/tools/routine_berichte.py"
+vorlauf review-profil-drift timeout 90 python3 "$PLATFORM_DIR/tools/branch_protection_meter.py" --pilot --kurz
 
 _vorlauf_loslegen
 # ══ Ende Vorlauf-Start ══════════════════════════════════════════════════════
@@ -1540,6 +1541,26 @@ if [ -f "$PLATFORM_DIR/tools/routine_berichte.py" ]; then
   esac
 else
   record "0.7.33 routine-berichte" "SKIP" "tools/routine_berichte.py fehlt"
+fi
+
+# ── 0.7.34 Review-Profil-Drift: Branch-Schutz von main gegen das deklarierte Profil ──
+# KONZ-platform-070 Z4 (platform#3903 WP5): das Soll steht nicht mehr in einer
+# Wave-Liste, sondern folgt aus registry/canonical.yaml + registry/review-profile.yaml
+# (deployed/plattform: CI-Gate + 1 Approval; library: CI-Gate). Ist = Rulesets UND
+# klassische Branch-Protection. Kurzmodus: Pilot-Repos + alle `deployed`.
+# Exit 1 = Drift (WARN, Befehl je Repo per `--pilot` ohne --kurz), Exit 2 = nicht
+# messbar (WARN, keine Entwarnung). Anwenden ist Owner-Zug (Security-Config-Gate).
+if [ -f "$PLATFORM_DIR/tools/branch_protection_meter.py" ]; then
+  warte_auf review-profil-drift
+  RPD_RC="$ERNTE_RC"
+  RPD_OUT=$(ernte review-profil-drift | tail -n 1)
+  [ -n "$RPD_OUT" ] || RPD_OUT="nicht messbar: Meter ohne Ausgabe (rc=$RPD_RC)"
+  case "$RPD_RC" in
+    0) record "0.7.34 review-profil-drift" "PASS" "$RPD_OUT" ;;
+    *) record "0.7.34 review-profil-drift" "WARN" "$RPD_OUT" ;;
+  esac
+else
+  record "0.7.34 review-profil-drift" "SKIP" "tools/branch_protection_meter.py fehlt"
 fi
 
 # ── 0.7.31 Hintergrund-Wache dev-hub: Status geschrieben, aber nie gelesen ──────

@@ -1,30 +1,163 @@
 [
   {
-    "repo": "ausschreibungs-hub",
+    "repo": "aifw",
     "owner": "achimdehnert",
     "required_check": "ci / gate",
     "wave": 2,
-    "reason": "green-ci-shared-ci-converged"
+    "profile": "library"
   },
   {
-    "repo": "trading-hub",
+    "repo": "authoringfw",
     "owner": "achimdehnert",
     "required_check": "ci / gate",
     "wave": 2,
-    "reason": "green-ci-shared-ci-converged"
+    "profile": "library"
   },
   {
-    "repo": "wedding-hub",
-    "owner": "achimdehnert",
+    "repo": "django-lms-lite",
+    "owner": "iilgmbh",
     "required_check": "ci / gate",
     "wave": 2,
-    "reason": "green-ci-local-gate-job"
+    "profile": "library"
   },
   {
-    "repo": "writing-hub",
+    "repo": "gaeb-toolkit",
     "owner": "achimdehnert",
     "required_check": "ci / gate",
     "wave": 2,
-    "reason": "green-ci-shared-ci-converged"
+    "profile": "library"
+  },
+  {
+    "repo": "gpufw",
+    "owner": "iilgmbh",
+    "required_check": "ci / gate",
+    "wave": 2,
+    "profile": "library"
+  },
+  {
+    "repo": "iil-adrfw",
+    "owner": "achimdehnert",
+    "required_check": "ci / gate",
+    "wave": 2,
+    "profile": "library"
+  },
+  {
+    "repo": "iil-codeguard",
+    "owner": "achimdehnert",
+    "required_check": "ci / gate",
+    "wave": 2,
+    "profile": "library"
+  },
+  {
+    "repo": "iil-django-commons",
+    "owner": "achimdehnert",
+    "required_check": "ci / gate",
+    "wave": 2,
+    "profile": "library"
+  },
+  {
+    "repo": "iil-doc-templates",
+    "owner": "iilgmbh",
+    "required_check": "ci / gate",
+    "wave": 2,
+    "profile": "library"
+  },
+  {
+    "repo": "iil-enrichment",
+    "owner": "achimdehnert",
+    "required_check": "ci / gate",
+    "wave": 2,
+    "profile": "library"
+  },
+  {
+    "repo": "iil-fieldprefill",
+    "owner": "iilgmbh",
+    "required_check": "ci / gate",
+    "wave": 2,
+    "profile": "library"
+  },
+  {
+    "repo": "iil-ingest",
+    "owner": "achimdehnert",
+    "required_check": "ci / gate",
+    "wave": 2,
+    "profile": "library"
+  },
+  {
+    "repo": "iil-klickdummy",
+    "owner": "iilgmbh",
+    "required_check": "ci / gate",
+    "wave": 2,
+    "profile": "library"
+  },
+  {
+    "repo": "iil-reflex",
+    "owner": "achimdehnert",
+    "required_check": "ci / gate",
+    "wave": 2,
+    "profile": "library"
+  },
+  {
+    "repo": "iil-testkit",
+    "owner": "achimdehnert",
+    "required_check": "ci / gate",
+    "wave": 2,
+    "profile": "library"
+  },
+  {
+    "repo": "iil-voice-agent",
+    "owner": "iilgmbh",
+    "required_check": "ci / gate",
+    "wave": 2,
+    "profile": "library"
+  },
+  {
+    "repo": "illustration-fw",
+    "owner": "iilgmbh",
+    "required_check": "ci / gate",
+    "wave": 2,
+    "profile": "library"
+  },
+  {
+    "repo": "learnfw",
+    "owner": "achimdehnert",
+    "required_check": "ci / gate",
+    "wave": 2,
+    "profile": "library"
+  },
+  {
+    "repo": "nl2cad",
+    "owner": "achimdehnert",
+    "required_check": "ci / gate",
+    "wave": 2,
+    "profile": "library"
+  },
+  {
+    "repo": "outlinefw",
+    "owner": "achimdehnert",
+    "required_check": "ci / gate",
+    "wave": 2,
+    "profile": "library"
+  },
+  {
+    "repo": "promptfw",
+    "owner": "achimdehnert",
+    "required_check": "ci / gate",
+    "wave": 2,
+    "profile": "library"
+  },
+  {
+    "repo": "researchfw",
+    "owner": "achimdehnert",
+    "required_check": "ci / gate",
+    "wave": 2,
+    "profile": "library"
+  },
+  {
+    "repo": "weltenfw",
+    "owner": "achimdehnert",
+    "required_check": "ci / gate",
+    "wave": 2,
+    "profile": "library"
   }
 ]

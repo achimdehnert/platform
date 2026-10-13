@@ -105,6 +105,7 @@ domains:
     description: MCP server collection (deployment, orchestrator, LLM)
     github: achimdehnert/mcp-hub
     deployed: true
+    review_check: 🚦 Quality Gate
     type: python
     lifecycle: production
     tenancy_mode: none
@@ -125,6 +126,7 @@ domains:
     description: Shared packages, ADRs, governance, platform agents
     github: achimdehnert/platform
     deployed: false
+    review_check: guardian
     type: library
     lifecycle: production
     tenancy_mode: none
@@ -405,6 +407,7 @@ domains:
     description: Multi-tenant occupational safety SaaS (Schutztat)
     github: iilgmbh/risk-hub
     deployed: true
+    review_check: Deploy-Config-Lint / deploy-config-lint
     url: https://demo.schutztat.de
     type: django
     lifecycle: production

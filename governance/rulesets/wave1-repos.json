@@ -1,51 +1,121 @@
 [
   {
-    "repo": "platform",
-    "owner": "achimdehnert",
-    "required_check": "guardian",
-    "wave": 1,
-    "reason": "already-protected-baseline"
-  },
-  {
-    "repo": "risk-hub",
-    "owner": "achimdehnert",
-    "required_check": "Deploy-Config-Lint / deploy-config-lint",
-    "wave": 1,
-    "reason": "live-customer-product"
-  },
-  {
-    "repo": "mcp-hub",
-    "owner": "achimdehnert",
-    "required_check": "🚦 Quality Gate",
-    "wave": 1,
-    "reason": "mcp-infrastruktur"
-  },
-  {
-    "repo": "billing-hub",
+    "repo": "137-hub",
     "owner": "achimdehnert",
     "required_check": "ci / gate",
     "wave": 1,
-    "reason": "auto-prod-deploy"
+    "profile": "deployed"
+  },
+  {
+    "repo": "apo-hub",
+    "owner": "achimdehnert",
+    "required_check": "ci / gate",
+    "wave": 1,
+    "profile": "deployed"
   },
   {
     "repo": "cad-hub",
     "owner": "achimdehnert",
     "required_check": "ci / gate",
     "wave": 1,
-    "reason": "auto-prod-deploy"
+    "profile": "deployed"
   },
   {
-    "repo": "coach-hub",
+    "repo": "chat-hub",
+    "owner": "iilgmbh",
+    "required_check": "ci / gate",
+    "wave": 1,
+    "profile": "deployed"
+  },
+  {
+    "repo": "decks-hub",
     "owner": "achimdehnert",
     "required_check": "ci / gate",
     "wave": 1,
-    "reason": "auto-prod-deploy"
+    "profile": "deployed"
   },
   {
     "repo": "dev-hub",
     "owner": "achimdehnert",
     "required_check": "ci / gate",
     "wave": 1,
-    "reason": "auto-prod-deploy"
+    "profile": "deployed"
+  },
+  {
+    "repo": "dms-hub",
+    "owner": "achimdehnert",
+    "required_check": "ci / gate",
+    "wave": 1,
+    "profile": "deployed"
+  },
+  {
+    "repo": "illustration-hub",
+    "owner": "achimdehnert",
+    "required_check": "ci / gate",
+    "wave": 1,
+    "profile": "deployed"
+  },
+  {
+    "repo": "infra-deploy",
+    "owner": "achimdehnert",
+    "required_check": "ci / gate",
+    "wave": 1,
+    "profile": "plattform"
+  },
+  {
+    "repo": "mcp-hub",
+    "owner": "achimdehnert",
+    "required_check": "🚦 Quality Gate",
+    "wave": 1,
+    "profile": "deployed"
+  },
+  {
+    "repo": "nl2iot-hub",
+    "owner": "iilgmbh",
+    "required_check": "ci / gate",
+    "wave": 1,
+    "profile": "plattform"
+  },
+  {
+    "repo": "platform",
+    "owner": "achimdehnert",
+    "required_check": "guardian",
+    "wave": 1,
+    "profile": "plattform"
+  },
+  {
+    "repo": "pptx-hub",
+    "owner": "achimdehnert",
+    "required_check": "ci / gate",
+    "wave": 1,
+    "profile": "deployed"
+  },
+  {
+    "repo": "risk-hub",
+    "owner": "iilgmbh",
+    "required_check": "Deploy-Config-Lint / deploy-config-lint",
+    "wave": 1,
+    "profile": "deployed"
+  },
+  {
+    "repo": "trading-hub",
+    "owner": "achimdehnert",
+    "required_check": "ci / gate",
+    "wave": 1,
+    "profile": "deployed"
+  },
+  {
+    "repo": "weltenhub",
+    "owner": "achimdehnert",
+    "required_check": "ci / gate",
+    "wave": 1,
+    "profile": "deployed"
+  },
+  {
+    "repo": "writing-hub",
+    "owner": "achimdehnert",
+    "required_check": "ci / gate",
+    "wave": 1,
+    "profile": "deployed"
   }
 ]

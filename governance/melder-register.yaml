@@ -413,6 +413,12 @@ melder:
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.7.33"
+  - phase: "0.7.34 review-profil-drift"
+    leser: "Session-Start-Board → Owner-Zug (Anwenden von Branch-Schutz ist Security-Config, autonomy-gates): Agent liefert je Drift-Repo den Befehl aus `branch_protection_meter.py --pilot`, Owner fuehrt aus; falsches Soll → rich.review_profile/review_check in registry/canonical.yaml per PR (KONZ-070 Z4, platform#3903)"
+    wiedervorlage_tage: 7
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.34"
   - phase: "0.7.26 ci-deckung"
     leser: "Session-Start-Board → Agent (Ziel gedeckt/verzichtet nachziehen, dann `make <ziel>` in den Workflow oder Grund in governance/ci-deckung-verzicht.yaml); Owner bei Scope-Fragen ueber Repo-Grenzen"
     wiedervorlage_tage: 14

@@ -100,7 +100,9 @@ def _make_fixture(tmp_path: Path) -> Path:
     (
         root / "governance" / "rulesets" / "main-required-checks-template.json"
     ).write_text(_TEMPLATE_JSON)
-    (root / "governance" / "rulesets" / "wave1-repos.json").write_text(_WAVE1_JSON)
+    # Soll-Datei (KONZ-070 Z4): das Skript liest sein Soll sonst aus der Registry
+    # via branch_protection_meter.py --soll-json, die es in der Fixture nicht gibt.
+    (root / "governance" / "rulesets" / "soll.json").write_text(_WAVE1_JSON)
     return root
 
 
@@ -128,6 +130,8 @@ def _run_script(
         [
             bash_bin,
             str(root / "tools" / "apply-branch-protection.sh"),
+            "--soll-datei",
+            str(root / "governance" / "rulesets" / "soll.json"),
             "--repo",
             "demo-repo",
         ],
