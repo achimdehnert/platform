@@ -249,6 +249,11 @@ repos:
         multi_tenant: false
         port: 8095
         deploy_script: /opt/137-hub/deploy.sh
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-06'
   apo-hub:
     in_flat: true
     in_rich: true
@@ -275,6 +280,11 @@ repos:
         web_service: web
         port: 8042
       notes: "GEFUNDEN 2026-07-10: war in KEINER der drei Registries (canonical/ports/repos.yaml) erfasst, obwohl seit mind. 2 Tagen live+healthy läuft (apo.iil.pet, nginx-vhost vorhanden). Erstmalig hier nachgetragen."
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-12'
   aifw:
     in_flat: true
     in_rich: false
@@ -282,6 +292,13 @@ repos:
       type: library
       pypi: aifw
       pypi_strategy: aktiv
+    rich:
+      github: iilgmbh/aifw
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-12'
   # Archiviert (ADR-275 P0): GitHub-verifiziert isArchived=true (2026-07-14).
   # in_flat/in_rich beide false → projiziert in KEINE aktive View (gen_flat/gen_rich
   # filtern), nur in die Archiv-View. lifecycle top-level (kein rich-Block nötig).
@@ -291,6 +308,11 @@ repos:
     lifecycle: archived
     github: achimdehnert/adr-doctor
     description: "Surgical healing tool for ADR supersession hygiene (archiviert)"
+    github_meta:
+      visibility: private
+      archived: true
+      default_branch: main
+      pushed_at: '2026-05-08'
   ausschreibungs-hub:
     in_flat: true
     in_rich: true
@@ -315,6 +337,11 @@ repos:
       coverage_threshold: 60
       notes: 'Klickdummy-konform (platform:ADR-211): ADR-001 (mock) + ADR-002 (spec-demo). klickdummy.class-Registry-Wert
         offen (Rev-9/11-Migration).'
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-12'
   authoringfw:
     in_flat: true
     in_rich: false
@@ -322,6 +349,13 @@ repos:
       type: library
       pypi: authoringfw
       pypi_strategy: aktiv
+    rich:
+      github: iilgmbh/authoringfw
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-12'
   bahn-hub:
     in_flat: false
     in_rich: true
@@ -347,6 +381,11 @@ repos:
         migrate_cmd: null
         multi_tenant: true
         port: 8110
+      github_meta:
+        visibility: private
+        archived: true
+        default_branch: main
+        pushed_at: '2026-08-28'
   bfagent:
     in_flat: true
     in_rich: true
@@ -376,6 +415,11 @@ repos:
         migrate_cmd: python manage.py migrate --noinput
         multi_tenant: false
         port: 8091
+      github_meta:
+        visibility: private
+        archived: true
+        default_branch: main
+        pushed_at: '2026-06-03'
   billing-hub:
     in_flat: true
     in_rich: true
@@ -401,6 +445,11 @@ repos:
         web_container: billing-hub-web
         web_service: web
         port: 8092
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-13'
   cad-hub:
     in_flat: true
     in_rich: true
@@ -432,6 +481,11 @@ repos:
         migrate_cmd: python manage.py migrate --noinput
         multi_tenant: false
         port: 8094
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-12'
   # chat-hub (platform#3477): fehlte bisher komplett in der Registry, obwohl
   # infra/ports.yaml einen Repo-Dienst deklariert (repo: iilgmbh/chat-hub,
   # betriebsstatus: aktiv). Minimal gehalten (kein Django, kein Plattform-
@@ -458,6 +512,11 @@ repos:
       type: other
       lifecycle: production
       tenancy_mode: none
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-12'
   coach-hub:
     in_flat: true
     in_rich: true
@@ -485,6 +544,11 @@ repos:
         web_service: web
         port: 8007
       notes: 'Archiviert 2026-10-02 (platform#3677): Repo archiviert, Topic scheduled-deletion-2026-11-01, Deploy-Workflow abgeschaltet, Domains aus ports.yaml ausgetragen (#3676). Backup verifiziert. DELETE fruehestens 2026-11-01, Human-Only. Davor: Abgeschaltet 2026-08-20 (Owner-Weisung, platform#2125): alle 5 Container auf prod-b gestoppt (+362 MB RAM frei). Tunnel-CNAMEs fuer kiohnerisiko.de, www.kiohnerisiko.de und coach-hub.iil.pet in Cloudflare entfernt - die Namen loesen nicht mehr auf. Daten gesichert (pgdump: 83 Tabellen, 17 auth_user). Volumes auf prod unangetastet (Reste: platform#2480). Letzter Login war 2026-04-17. E-Mail-Records der Domain bleiben aktiv.'
+      github_meta:
+        visibility: private
+        archived: true
+        default_branch: main
+        pushed_at: '2026-09-29'
   decks-hub:
     in_flat: true
     in_rich: true
@@ -514,6 +578,11 @@ repos:
         LIVE seit 2026-07-10 (Run 29093692166, healthz 200, Container healthy auf 8112).
         Onboarding legte 4 unabhaengige Luecken offen (Registry/permissions/Runner/Secrets)
         — Befund am Tombstone-/Onboarding-Thema #1045. ADR-253 Schiene 1.
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-08'
   dev-hub:
     in_flat: true
     in_rich: true
@@ -529,7 +598,9 @@ repos:
       description: Central Developer Portal & Platform Management Hub
       github: achimdehnert/dev-hub
       deployed: true
-      url: https://devhub.iil.pet
+      # KONZ-070 WP0 (#3903): devhub.iil.pet leitet per 301 auf dev-hub.iil.pet (= flat.prod_url,
+      # nginx-vhost laut dev-hub deploy.yml). oidc.prod_redirect bleibt, bis Authentik geprüft ist.
+      url: https://dev-hub.iil.pet
       type: django
       lifecycle: production
       tenancy_mode: none
@@ -560,6 +631,11 @@ repos:
         prod_redirect: https://devhub.iil.pet/oidc/callback/
         staging_app_slug: dev-hub-staging
         staging_redirect: https://staging-devhub.iil.pet/oidc/callback/
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-13'
   django-lms-lite:
     in_flat: true
     in_rich: false
@@ -567,6 +643,13 @@ repos:
       type: library
       pypi: iil-django-lms-lite
       pypi_strategy: aktiv
+    rich:
+      github: iilgmbh/django-lms-lite
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-09-17'
   dms-hub:
     in_flat: true
     in_rich: true
@@ -593,6 +676,11 @@ repos:
         web_container: dms_hub_web
         web_service: web
         port: 8107
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-06'
   frist-hub:
     in_flat: true
     in_rich: false
@@ -600,6 +688,14 @@ repos:
       type: django
       port: 8111
       health: /livez/
+    rich:
+      github: meiki-lra/frist-hub
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-13'
+      deployed: false
   post-hub:
     in_flat: true
     in_rich: false
@@ -607,6 +703,14 @@ repos:
       type: django
       port: 11435
       health: /livez/
+    rich:
+      github: meiki-lra/post-hub
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-13'
+      deployed: false
   schreib-hub:
     in_flat: true
     in_rich: false
@@ -614,6 +718,14 @@ repos:
       type: django
       port: 11436
       health: /livez/
+    rich:
+      github: meiki-lra/schreib-hub
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-13'
+      deployed: false
   buerger-hub:
     in_flat: true
     in_rich: false
@@ -621,6 +733,14 @@ repos:
       type: django
       port: 11437
       health: /livez/
+    rich:
+      github: meiki-lra/buerger-hub
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-13'
+      deployed: false
   gaeb-toolkit:
     in_flat: true
     in_rich: true
@@ -639,6 +759,11 @@ repos:
       lifecycle: active
       tenancy_mode: none
       coverage_threshold: 80
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-07'
   gpufw:
     in_flat: true
     in_rich: false
@@ -646,12 +771,24 @@ repos:
       type: library
       pypi: iil-gpufw
       pypi_strategy: aktiv
+    rich:
+      github: iilgmbh/gpufw
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-09-17'
   ifc-mcp:
     in_flat: false
     in_rich: false
     lifecycle: archived
     github: achimdehnert/ifc-mcp
     description: IFC/BIM MCP Server — Model Context Protocol Server for IFC building models (DIN 277, fire protection, accessibility checks) (archiviert)
+    github_meta:
+      visibility: private
+      archived: true
+      default_branch: main
+      pushed_at: '2026-09-04'
   iil-adrfw:
     in_flat: true
     in_rich: false
@@ -659,6 +796,13 @@ repos:
       type: library
       pypi: iil-adrfw
       pypi_strategy: aktiv
+    rich:
+      github: achimdehnert/iil-adrfw
+      github_meta:
+        visibility: public
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-07'
   iil-codeguard:
     in_flat: true
     in_rich: false
@@ -666,6 +810,13 @@ repos:
       type: library
       pypi: iil-codeguard
       pypi_strategy: aktiv
+    rich:
+      github: iilgmbh/iil-codeguard
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-12'
   iil-django-commons:
     in_flat: true
     in_rich: false
@@ -673,6 +824,13 @@ repos:
       type: library
       pypi: iil-django-commons
       pypi_strategy: einfrieren
+    rich:
+      github: iilgmbh/iil-django-commons
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-12'
   iil-doc-templates:
     in_flat: true
     in_rich: false
@@ -680,6 +838,13 @@ repos:
       type: library
       pypi: iil-doc-templates
       pypi_strategy: aktiv
+    rich:
+      github: iilgmbh/iil-doc-templates
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-08'
   iil-enrichment:
     in_flat: true
     in_rich: false
@@ -687,6 +852,13 @@ repos:
       type: library
       pypi: iil-enrichment
       pypi_strategy: aktiv   # 2026-08-27 Owner: Konsument risk-hub geplant — Exschutz-Dokument, ADR-008 §6.2 GESTIS statisch -> GESTISProvider/PubChemProvider
+    rich:
+      github: achimdehnert/iil-enrichment
+      github_meta:
+        visibility: public
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-07'
   iil-fieldprefill:
     in_flat: true
     in_rich: false
@@ -694,6 +866,13 @@ repos:
       type: library
       pypi: iil-fieldprefill
       pypi_strategy: aktiv
+    rich:
+      github: iilgmbh/iil-fieldprefill
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-07'
   iil-ingest:
     in_flat: true
     in_rich: false
@@ -702,6 +881,13 @@ repos:
       pypi: iil-ingest
       pypi_strategy: aktiv
       note: Reusable document ingestion package — PDF/Excel/CSV/DOCX extraction + classifier (ADR-170)
+    rich:
+      github: achimdehnert/iil-ingest
+      github_meta:
+        visibility: public
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-07'
   iil-klickdummy:
     in_flat: true
     in_rich: false
@@ -709,6 +895,13 @@ repos:
       type: library
       pypi: iil-klickdummy
       pypi_strategy: aktiv
+    rich:
+      github: iilgmbh/iil-klickdummy
+      github_meta:
+        visibility: public
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-13'
   iil-reflex:
     in_flat: true
     in_rich: false
@@ -717,12 +910,26 @@ repos:
       pypi: iil-reflex
       pypi_strategy: aktiv
       note: Web/PDF provider library — HttpxWebProvider, PubChemAdapter, GESTISAdapter
+    rich:
+      github: iilgmbh/iil-reflex
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-12'
   iil-relaunch:
     in_flat: true
     in_rich: false
     flat:
       type: infra
       note: Website relaunch assets
+    rich:
+      github: iilgmbh/iil-relaunch
+      github_meta:
+        visibility: public
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-12'
   iil-testkit:
     in_flat: true
     in_rich: false
@@ -731,6 +938,13 @@ repos:
       pypi: iil-testkit
       pypi_strategy: aktiv
       note: Shared pytest utilities — fixtures, assertions, smoke testing, ADR-048/057
+    rich:
+      github: iilgmbh/iil-testkit
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-02'
   iil-voice-agent:
     in_flat: true
     in_rich: false
@@ -745,6 +959,13 @@ repos:
       type: library
       pypi: illustration-fw
       pypi_strategy: aktiv
+    rich:
+      github: iilgmbh/illustration-fw
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-07'
   illustration-hub:
     in_flat: true
     in_rich: true
@@ -770,6 +991,11 @@ repos:
         web_container: illustration_web
         web_service: web
         port: 8096
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-08'
   music-lab:
     in_flat: true
     in_rich: false
@@ -778,18 +1004,39 @@ repos:
       note: Song-/Sprach-Generierung auf der lokalen GPU-Box (ACE-Step, MOSS-TTS,
         Groq-Textvorschlag); kein Deploy - Box nur via WireGuard/SSH-Tunnel; Cluster-Nachbarn
         illustration-hub (ComfyUI) und writing-hub (Ollama)
+    rich:
+      github: achimdehnert/music-lab
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-09-14'
   infra-deploy:
     in_flat: true
     in_rich: false
     flat:
       type: infra
       note: Deployment scripts and Ansible playbooks
+    rich:
+      github: achimdehnert/infra-deploy
+      github_meta:
+        visibility: public
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-12'
   lastwar-bot:
     in_flat: true
     in_rich: false
     flat:
       type: bot
       note: Telegram/Discord bot
+    rich:
+      github: achimdehnert/lastwar-bot
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-06'
   learn-hub:
     in_flat: true
     in_rich: true
@@ -813,6 +1060,11 @@ repos:
       compose: docker-compose.prod.yml
       deploy:
         port: 8100
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-12'
   news-hub:
     in_flat: true
     in_rich: true
@@ -836,6 +1088,11 @@ repos:
       compose: docker-compose.prod.yml
       deploy:
         port: 8113
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-12'
   learnfw:
     in_flat: true
     in_rich: false
@@ -843,6 +1100,13 @@ repos:
       type: library
       pypi: learnfw
       pypi_strategy: aktiv
+    rich:
+      github: iilgmbh/learnfw
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-12'
   mcp-hub:
     in_flat: true
     in_rich: true
@@ -867,6 +1131,11 @@ repos:
       lifecycle: production
       tenancy_mode: none
       coverage_threshold: 80
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-09'
   # ADR-275 P0.5: souveräner django-Hub (meiki-lra), lokal geklont + workflow-
   # synchronisiert. Fehlte in canonical → wäre bei der sync-workflows-Migration (P1)
   # auf 'other' gefallen (Regression). Nur Metadaten (Typ/Owner), KEINE Mandantendaten.
@@ -877,6 +1146,13 @@ repos:
     in_rich: false
     flat:
       type: static
+    rich:
+      github: meiki-lra/meiki-hub
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-13'
   nl2cad:
     in_flat: true
     in_rich: false
@@ -884,6 +1160,13 @@ repos:
       type: library
       pypi: nl2cad
       pypi_strategy: aktiv
+    rich:
+      github: achimdehnert/nl2cad
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-06'
   nl2iot-hub:
     in_flat: false
     in_rich: true
@@ -900,6 +1183,11 @@ repos:
       coverage_threshold: 60
       notes: 'Klickdummy-konform (platform:ADR-211): docs/adr/ADR-002 (Rev-11 class: spec-demo). klickdummy.class-Registry-Wert
         offen (Rev-9/11-Migration).'
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-08-17'
   odoo-hub:
     in_flat: true
     in_rich: true
@@ -919,6 +1207,11 @@ repos:
       lifecycle: experimental
       tenancy_mode: none
       coverage_threshold: 0
+      github_meta:
+        visibility: public
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-12'
   onboarding-hub:
     in_flat: true
     in_rich: true
@@ -946,6 +1239,11 @@ repos:
         web_container: onboarding_hub_web
         web_service: web
         port: 8108
+      github_meta:
+        visibility: private
+        archived: true
+        default_branch: main
+        pushed_at: '2026-08-18'
   outlinefw:
     in_flat: true
     in_rich: false
@@ -953,6 +1251,13 @@ repos:
       type: library
       pypi: outlinefw
       pypi_strategy: aktiv
+    rich:
+      github: iilgmbh/outlinefw
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-12'
   platform:
     in_flat: true
     in_rich: true
@@ -973,6 +1278,11 @@ repos:
       lifecycle: production
       tenancy_mode: none
       coverage_threshold: 80
+      github_meta:
+        visibility: public
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-13'
   pptx-hub:
     in_flat: true
     in_rich: true
@@ -997,6 +1307,11 @@ repos:
       dockerfile: docker/app/Dockerfile
       compose: docker-compose.prod.yml
       coverage_threshold: 60
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-13'
   promptfw:
     in_flat: true
     in_rich: false
@@ -1004,6 +1319,13 @@ repos:
       type: library
       pypi: promptfw
       pypi_strategy: aktiv
+    rich:
+      github: iilgmbh/promptfw
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-12'
   recruiting-hub:
     in_flat: true
     in_rich: true
@@ -1030,6 +1352,11 @@ repos:
         web_service: web
         port: 8103
       notes: 'Stillgelegt 2026-08-20 (platform#2121): Repo archiviert, Topic scheduled-deletion-2026-09-19, alle 5 Container gestoppt, Runner deaktiviert. DB war leer (0 Kandidaten, 0 Dokumente, 1 Admin-Konto). Backup inkl. pgdump in ~/backups/repo-graveyard/. DELETE fruehestens 2026-09-19, Human-Only.'
+      github_meta:
+        visibility: private
+        archived: true
+        default_branch: main
+        pushed_at: '2026-08-17'
   research-hub:
     in_flat: true
     in_rich: true
@@ -1058,6 +1385,11 @@ repos:
         web_container: research_hub_web
         web_service: web
         port: 8098
+      github_meta:
+        visibility: private
+        archived: true
+        default_branch: main
+        pushed_at: '2026-08-09'
   researchfw:
     in_flat: true
     in_rich: false
@@ -1065,6 +1397,13 @@ repos:
       type: library
       pypi: researchfw
       pypi_strategy: aktiv
+    rich:
+      github: achimdehnert/researchfw
+      github_meta:
+        visibility: public
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-07'
   riskfw:
     in_flat: true
     in_rich: false
@@ -1073,6 +1412,14 @@ repos:
       archived: true   # 2026-08-27 Owner archiviert (GitHub); Kopie in iilgmbh/risk-hub src/riskfw ist kanonisch; Backup ~/backups/repo-graveyard/achimdehnert--riskfw--2026-08-27
       pypi: riskfw
       pypi_strategy: archivieren-kandidat
+    rich:
+      github: achimdehnert/riskfw
+      github_meta:
+        visibility: private
+        archived: true
+        default_branch: main
+        pushed_at: '2026-08-25'
+      lifecycle: archived
   risk-hub:
     in_flat: true
     in_rich: true
@@ -1134,6 +1481,11 @@ repos:
         prod_redirect: https://schutztat.com/oidc/callback/
         staging_app_slug: risk-hub-staging
         staging_redirect: https://staging.schutztat.de/oidc/callback/
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-13'
   # robo-lab (ADR-297 Klasse 5, angelegt 2026-08-25): Experiment Digital Twin Unitree G1.
   # Kein Deploy, kein Container, kein Prod — robot.iil.pet ist eine User-Unit auf dem
   # staging-Host und gehoert deshalb NICHT in infra/ports.yaml (Owner-Entscheid 2026-08-29,
@@ -1143,12 +1495,25 @@ repos:
     in_rich: false
     flat:
       type: python
+    rich:
+      github: achimdehnert/robo-lab
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-13'
+      deployed: false
   schutztat-reporting:
     in_flat: false
     in_rich: false
     lifecycle: archived
     github: achimdehnert/schutztat-reporting
     description: Odoo 18 management module for Schutztat risk assessments (syncs from risk-hub Django API) (archiviert)
+    github_meta:
+      visibility: private
+      archived: true
+      default_branch: main
+      pushed_at: '2026-09-04'
   tax-hub:
     in_flat: true
     in_rich: true
@@ -1201,6 +1566,11 @@ repos:
         hostnames:
         - staging-tax.iil.pet
       notes: "GEFUNDEN 2026-07-10: main-Branch-Commit 7e4642f änderte den Compose-Port auf 8104 (+ Auth-URL-Fix) — der laufende Prod-Container nutzt aber weiterhin 8099. Fix ist committed, aber nicht deployed. Port hier bewusst auf 8099 (= live) belassen, nicht auf 8104 (= nur in git). Owner-Entscheidung: Re-Deploy nötig, bevor 8104 hier eingetragen wird."
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-12'
   trading-hub:
     in_flat: true
     in_rich: true
@@ -1224,6 +1594,11 @@ repos:
       dockerfile: Dockerfile
       compose: docker-compose.prod.yml
       coverage_threshold: 60
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-06'
   # Archiviert (ADR-275 P0): GitHub-verifiziert isArchived=true (2026-07-14).
   # War fälschlich NICHT in canonical; steht auch nicht in github_repos.yaml.archive
   # (deren 68er-Liste war zu 96% Fiktion — 0 real archiviert, 65 gelöscht).
@@ -1233,6 +1608,11 @@ repos:
     lifecycle: archived
     github: achimdehnert/testkit
     description: "iil-testkit — Shared Test Factory Package (ADR-100, archiviert)"
+    github_meta:
+      visibility: private
+      archived: true
+      default_branch: main
+      pushed_at: '2026-04-29'
   # ADR-275 P0.5: souveräner django-Hub (ttz-lif), lokal geklont + workflow-
   # synchronisiert. Analog meiki-hub — s. dort. Nur Metadaten, keine Mandantendaten.
   ttz-hub:
@@ -1240,6 +1620,13 @@ repos:
     in_rich: false
     flat:
       type: django
+    rich:
+      github: ttz-lif/ttz-hub
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-08'
   travel-beat:
     in_flat: true
     in_rich: true
@@ -1277,6 +1664,11 @@ repos:
           and ''migrate_schemas --tenant''. deploy-remote.sh has a known bug using ''migrate --noinput''.
 
           '
+      github_meta:
+        visibility: private
+        archived: true
+        default_branch: main
+        pushed_at: '2026-10-07'
   wedding-hub:
     in_flat: true
     in_rich: true
@@ -1309,6 +1701,11 @@ repos:
       oidc:
         staging_app_slug: wedding-hub-staging
         staging_redirect: https://staging-wedding-hub.iil.pet/oidc/callback/
+      github_meta:
+        visibility: private
+        archived: true
+        default_branch: main
+        pushed_at: '2026-08-11'
   weltenfw:
     in_flat: true
     in_rich: false
@@ -1316,6 +1713,13 @@ repos:
       type: library
       pypi: weltenfw
       pypi_strategy: aktiv
+    rich:
+      github: iilgmbh/weltenfw
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-12'
   weltenhub:
     in_flat: true
     in_rich: true
@@ -1343,6 +1747,11 @@ repos:
       oidc:
         staging_app_slug: weltenhub-staging
         staging_redirect: https://staging-weltenhub.iil.pet/oidc/callback/
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-06'
   writing-hub:
     in_flat: true
     in_rich: true
@@ -1367,3 +1776,8 @@ repos:
       coverage_threshold: 60
       notes: 'Klickdummy-konform (platform:ADR-211): docs/adr/ADR-180 (Rev-11 class: spec-demo). klickdummy.class-Registry-Wert
         offen (Rev-9/11-Migration).'
+      github_meta:
+        visibility: private
+        archived: false
+        default_branch: main
+        pushed_at: '2026-10-12'
