@@ -1405,6 +1405,8 @@ def test_should_allow_listed_repo_with_owner_wort():
 
     assert pruefe_owner_wort_repo("iilgmbh/risk-hub", MIT_WORT) is None
     assert pruefe_owner_wort_repo("achimdehnert/writing-hub", MIT_WORT) is None
+    # Owner-Wort 2026-10-13 "LL go" (platform#3903)
+    assert pruefe_owner_wort_repo("achimdehnert/platform", MIT_WORT) is None
 
 
 @pytest.mark.parametrize("repo", ["meiki-lra/meiki-hub", "ttz-lif/ttz-hub"])
