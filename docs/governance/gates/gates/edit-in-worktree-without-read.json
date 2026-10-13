@@ -21,8 +21,9 @@
   ],
   "expires": "2027-01-13",
   "expires_note": "Drei Monate Messfenster nach E4 (platform#2606). Blocking ist hier keine Option, weil der Harness den Edit bereits blockt. Zur Frist entscheidet gate_wirkung.py: Kehrt der Slug nach dem Bau in Retros wieder, wird das Gate umgebaut, sonst bleibt es mit dem Ausgang 'still' bestehen oder wird gestrichen.",
-  "zustand": "ohne-traeger",
-  "zustand_note": "Der Hinweis in `repo-session.sh start` wirkt ab Merge. Der Hook kommt ueber die hooks-Lane nach ~/.claude/hooks/managed/, braucht aber einen SessionStart-Eintrag mit matcher `compact` in ~/.claude/settings.json; den setzt nur der Owner (Lotsen-Charta Art. 3). Bis dahin traegt nur der Start-Hinweis.",
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-10-13",
+  "zustand_note": "Beide Erzwingungspunkte tragen seit 2026-10-13: der Start-Hinweis ab Merge von #3918, der Hook ueber die hooks-Lane in ~/.claude/hooks/managed/ und den SessionStart-Eintrag mit matcher `compact`, den der Owner am 2026-10-13 gesetzt hat (Lotsen-Charta Art. 3). Offen ist nur der erste echte Anschlag nach einer Verdichtung.",
   "positivkontrolle": {
     "ref": "tools/tests/test_edit_ohne_read_hinweis.py — gegen den Stand origin/main 8 von 8 rot, mit Fix gruen (make test, 2026-10-13). Echter Fall am selben Tag in der Bau-Sitzung: nach der Verdichtung scheiterte der erste Edit an tools/repo-session.sh mit 'File has not been read yet', obwohl die Datei vor der Verdichtung gelesen war — genau der Fall, den der Hook ansagt.",
     "datum": "2026-10-13"
