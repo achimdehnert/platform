@@ -145,6 +145,57 @@ def test_should_stay_loud_when_the_docs_check_could_not_run():
     assert "writing-hub" in repos
 
 
+def test_should_treat_a_pipeline_only_backlog_as_a_hint_not_a_finding():
+    """Realfall 2026-10-13: pptx-hub#105 (nur Workflow-Dateien) stand als RUECKSTAND."""
+    status, note, repos = _auswerten(
+        [
+            {
+                "repo": "pptx-hub",
+                "rueckstand": True,
+                "nur_pipeline": True,
+                "alter_tage": 0,
+            }
+        ]
+    )
+    assert status == "PASS"
+    assert "nur CI/Pipeline hinter main (kein Befund):pptx-hub" in note
+    assert repos == ""
+
+
+def test_should_not_park_a_pipeline_only_backlog_as_waiting_for_release():
+    status, note, _ = _auswerten(
+        [
+            {
+                "repo": "tax-hub",
+                "rueckstand": True,
+                "nur_pipeline": True,
+                "prod_gate": True,
+                "alter_tage": 3,
+            }
+        ]
+    )
+    assert status == "PASS"
+    assert "wartet auf Prod-Freigabe" not in note
+    assert "nur CI/Pipeline hinter main (kein Befund):tax-hub" in note
+
+
+def test_should_still_report_a_code_backlog_next_to_a_pipeline_only_one():
+    status, note, repos = _auswerten(
+        [
+            {
+                "repo": "pptx-hub",
+                "rueckstand": True,
+                "nur_pipeline": True,
+                "alter_tage": 0,
+            },
+            {"repo": "foo-hub", "rueckstand": True, "alter_tage": 1},
+        ]
+    )
+    assert status == "WARN"
+    assert "RUECKSTAND:foo-hub" in note
+    assert repos == "foo-hub"
+
+
 @pytest.mark.parametrize("kaputt", ["", "kein json", "{"])
 def test_should_not_crash_on_unparseable_meter_output(kaputt: str):
     """Ein halb geparster Melder ist schlimmer als keiner — er darf nicht still sterben."""
