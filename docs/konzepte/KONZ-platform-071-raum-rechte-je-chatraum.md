@@ -258,11 +258,13 @@ Verworfen: Token-Ablauf (deckt `0.7.25` schon ab) und 5er-Grenze (ist nach O2 ei
 
 ## 13 Entscheidung, Kill-Gate, 30/60/90
 
-**Offene Entscheidungen (Owner):**
-- **O1** Profile nach §5.3, Telefon ohne Kalender. *Empfehlung: ja.*
-- **O2** Profilrechte ohne Außenwirkung (`chat`, `lesen`, `sandbox-front`) zählen nicht zur 5er-Grenze. Die Regel kommt ausdrücklich in die Registry-Meta. *Empfehlung: ja.*
-- **O3** Ratifikation (APPROVE) gilt auch für Rechte-Dateien in chat-hub. *Empfehlung: ja.*
-- **O4** Ruhende Räume stilllegen statt profilieren. Betroffen sind die drei Raum-Ordner ohne Aktivität seit 2026-09-05; neu nur mit Profil. *Empfehlung: ja.*
+**Entscheidungen (Owner):** Owner-Wort 2026-10-13 10:20: „scope +chat-hub · RS1 go · RR1 go · RR2 go · RR3 go · RR4 go“. Im Board hießen O1–O4 RR1–RR4, Stufe 1 hieß RS1.
+- **O1** Profile nach §5.3, Telefon ohne Kalender. **Entschieden (RR1 go).**
+- **O2** Profilrechte ohne Außenwirkung (`chat`, `lesen`, `sandbox-front`) zählen nicht zur 5er-Grenze. Die Regel kommt ausdrücklich in die Registry-Meta. **Entschieden (RR2 go).** Der Registry-Eintrag selbst steht noch aus, siehe unten.
+- **O3** Ratifikation (APPROVE) gilt auch für Rechte-Dateien in chat-hub. **Entschieden (RR3 go).**
+- **O4** Ruhende Räume stilllegen statt profilieren. Betroffen sind die drei Raum-Ordner ohne Aktivität seit 2026-09-05; neu nur mit Profil. **Entschieden (RR4 go).**
+
+**Umsetzungsweg (2026-10-13):** Stufe 1 ist als Auftrag in iilgmbh/chat-hub#184 spezifiziert, mit den Detailbefunden. Die Lotse-Sitzung baut Rechte-Änderungen nicht selbst. Der Auto-Mode-Klassifikator hat schon das Lesen der Raum-Rechte zur Änderung als Self-Approval gesperrt, im Einklang mit Charta-Kurzform Punkt 3. Das gilt auch für den Registry-Eintrag zu O2. Beides baut eine vom Owner dafür gestartete Sitzung oder der Owner selbst. Gemergt wird mit Owner-APPROVE.
 
 **30/60/90:** 30 Tage: Stufe 1 und 2 · 60 Tage: Stufe 3 und 4 · 90 Tage: Stufe 5 und erste Profilstufe für `achim`.
 
@@ -278,6 +280,7 @@ Verworfen: Token-Ablauf (deckt `0.7.25` schon ab) und 5er-Grenze (ist nach O2 ei
 | (a) Stufe 1 bis 2026-11-15 gemergt | offen | — |
 | (b) Requalifikation ≤ 30 min je Modellwechsel | offen | — |
 | (c) Abgleich nie > 7 Tage rot | offen | — |
-| O1–O4 entschieden | offen | — |
+| O1–O4 entschieden | erfüllt | Owner-Wort 2026-10-13 10:20 |
+| Stufe 1 spezifiziert | erfüllt | iilgmbh/chat-hub#184 |
 
 **Enforcement-Grenze:** `review_by` und `kill_criteria` wirken erst, wenn ein Lifecycle-Gate sie liest. Bis dahin sind sie ein Review-Gate, kein Exit-Code.
