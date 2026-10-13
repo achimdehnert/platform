@@ -328,7 +328,7 @@ repos:
       repo: ausschreibungs-hub
       description: KI-gestützte Ausschreibungs- und Angebotsplattform für KMU, Bau, Ingenieurbüros
       github: iilgmbh/ausschreibungs-hub
-      deployed: false
+      deployed: true  # Owner „RG go“ 2026-10-13 (#3917): ports.yaml domain_prod aktiv
       type: django
       lifecycle: experimental
       tenancy_mode: none
@@ -368,7 +368,7 @@ repos:
       deployed: false
       url: https://bahn.iil.pet
       type: fastapi
-      lifecycle: active
+      lifecycle: archived  # Vorschlag #3917: GitHub archived=true, letzter Push 2026-08-28
       tenancy_mode: header
       dockerfile: Dockerfile
       compose: docker-compose.prod.yml
@@ -434,7 +434,7 @@ repos:
       repo: billing-hub
       description: Rechnungs-/Abrechnungsplattform
       github: achimdehnert/billing-hub
-      deployed: false
+      deployed: true  # Owner „RG go“ 2026-10-13 (#3917): ports.yaml domain_prod aktiv
       url: https://billing.iil.pet
       type: django
       lifecycle: production
@@ -1051,7 +1051,7 @@ repos:
       repo: learn-hub
       description: Lern-/Schulungsplattform
       github: iilgmbh/learn-hub
-      deployed: false
+      deployed: true  # Owner „RG go“ 2026-10-13 (#3917): ports.yaml domain_prod aktiv
       url: https://learn.iil.pet
       type: django
       lifecycle: production
@@ -1079,7 +1079,7 @@ repos:
       repo: news-hub
       description: Hot-Topics-Letter — Newsletter-Postfaecher zu belegten Themen (ADR-299)
       github: achimdehnert/news-hub
-      deployed: false
+      deployed: true  # Owner „RG go“ 2026-10-13 (#3917): ports.yaml domain_prod aktiv
       url: https://news.iil.pet
       type: django
       lifecycle: experimental
@@ -1377,6 +1377,7 @@ repos:
       # Eingefroren per Owner-Entscheid 2026-08-09 (research-hub#55): import-only-
       # Funktionsspeicher, keine aktive Entwicklung, aus Auto-Queues aussparen.
       # deployed bleibt true — Prod laeuft weiter; Abschaltung = eigener Vorgang.
+      # GitHub-Repo ist archived=true (Widerspruch zu laufender Prod, offen in #3917).
       lifecycle: frozen
       tenancy_mode: none
       dockerfile: Dockerfile
@@ -1528,7 +1529,7 @@ repos:
       repo: tax-hub
       description: Steuer-/Finanzverwaltungsplattform (django_tenants Multi-Tenancy)
       github: iilgmbh/tax-hub
-      deployed: false
+      deployed: true  # Owner „RG go“ 2026-10-13 (#3917): ports.yaml domain_prod aktiv
       url: https://tax.iil.pet
       type: django
       lifecycle: production
@@ -1645,7 +1646,7 @@ repos:
       deployed: false
       url: https://drifttales.app
       type: django
-      lifecycle: frozen
+      lifecycle: archived  # Vorschlag #3917: GitHub archived=true
       notes: "Ruhend seit 2026-09-23 (Owner-Wort 'p3 ruhend', #3456): App aus (travel-beat#95/#98), Runner offline, deployed: false. Der ADR-Drift-Detektor (dev-hub#374) überspringt frozen-Repos."
       tenancy_mode: subdomain
       demo_fixture: false

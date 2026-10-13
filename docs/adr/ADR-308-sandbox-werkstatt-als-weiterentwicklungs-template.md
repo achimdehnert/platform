@@ -50,7 +50,7 @@ ai_sparring_by:
 
 - **Freigabe-Last**: Der Owner-Wort-Hook zählte 62 Ereignisse in KW 39 und 84 in KW 40; 295 Merge-Versuche brachen mangels Mandat ab (`~/.claude/pr-merge-sa.jsonl`, ohne Trockenläufe).
 - **Analysen und Experimente hängen an Merges**: Auch reine Untersuchungen laufen heute über PRs in Produktiv-Repos und warten damit auf den Owner (platform#3685).
-- **Autonomie ohne Wirkung ist technisch angelegt**: `tools/sandbox/` (#3686) prüft vor jedem Lauf Zugangsdaten, Remotes und Token-Reichweite und hält ein Budget. Netzwerk-Egress und Secret-Scan fehlen noch (§4.3).
+- **Autonomie ohne Wirkung ist technisch angelegt**: `tools/sandbox/` (#3686) prüft vor jedem Lauf Zugangsdaten, Remotes und Token-Reichweite und hält ein Budget. Netzwerk-Egress und Secret-Scan fehlten zum Entscheidungszeitpunkt (§4.3). *Nachtrag 2026-10-13: seit Phase 1b (2026-10-05, #3695) umgesetzt, Stand siehe Umsetzungstabelle; gefunden in KONZ-platform-071 §2.*
 - **Weiterentwicklung braucht Messung**: Ohne Benchmarks optimiert ein autonomer Agent auf „viel geändert“ statt auf „besser“; ein Übernahme-Entscheid braucht einen Beleg, den der Agent nicht selbst ausstellt.
 - **Schutzregeln dürfen sich nicht selbst lockern**: Die Lotsen-Charta (Punkt 3) verbietet dem Agenten, Charta, Permissions und Regeln selbst zu ändern; der Auto-Mode-Classifier hat am 2026-10-04 das Auswerten eines Sandbox-Laufs, der Lockerungen der eigenen Freigaberegeln erarbeitete, als Self-Modification gesperrt.
 
