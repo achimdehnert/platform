@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import os
 import pathlib
 import re
 import shutil
@@ -41,6 +42,14 @@ import sys
 
 SCHLEUSE = pathlib.Path.home() / "shared"
 ARCHIV = "_archiv"
+#: Wurzel der lokalen Klone. Ein Schleusen-Ordner, der dort als Repo existiert,
+#: ist eine Kopie — die Quelle liegt im Repo (Regel "Repo-Kopie").
+REPO_WURZEL = pathlib.Path(os.environ.get("GITHUB_DIR", pathlib.Path.home() / "github"))
+REPO_KOPIE = (
+    "Repo-Kopie",
+    30,
+    "Quelle ist das Repo — die Kopie hier ist Transport",
+)
 
 # (Name der Klasse, Erkennung, Frist in Tagen, Zielort)
 # Frist 0 = gehoert gar nicht in die Schleuse. None = kein Verfall, aber ab
@@ -162,6 +171,48 @@ REGELN = [
         30,
         "Modell-/GPU-Ergebnis gehoert auf die GPU-Box oder weg",
     ),
+    # Bestandsaufnahme 2026-10-13 (#3405): 42 unentschieden, Kriterium < 30.
+    # Die folgenden Arten kamen mehrfach vor; was danach bleibt, sind
+    # Arbeitsordner, ueber die nur der Owner entscheiden kann — die laufen
+    # bewusst ueber die 90-Tage-Regel.
+    (
+        "Buch-Export",
+        re.compile(r".*\.epub$|^manuskripte-.*\.css$", re.I),
+        30,
+        "Quelle ist das Manuskript — der Export laesst sich neu erzeugen",
+    ),
+    (
+        "Prompt-Uebergabe",
+        re.compile(r"^prompt-.*\.(md|txt)$", re.I),
+        14,
+        "Prompt ist verbraucht; was bleiben soll, gehoert in den Auftrag (Issue)",
+    ),
+    (
+        # Mehrfach im Bestand (fuenf am 2026-10-13), daher kein Einzelfall mehr.
+        "Konzept-Uebergabe",
+        re.compile(r"^(konzept|technisches konzept|vorschlag)[-_ ].*\.(md|docx|pdf)$", re.I),
+        30,
+        "gehoert als KONZ ins Ziel-Repo oder nach Outline",
+    ),
+    (
+        "Angebot",
+        re.compile(r"^angebot[-_ ].*\.(md|docx|pdf)$", re.I),
+        30,
+        "gehoert nach Paperless bzw. in den Kundenvorgang",
+    ),
+    (
+        # Steht NACH "Modell-Ausgabe": ein `lora-…zip` bleibt Modell-Ausgabe.
+        "Archiv-Paket",
+        re.compile(r".*\.(zip|tar|tgz|tar\.gz|7z)$", re.I),
+        30,
+        "im Ziel entpackt oder weg — das Paket selbst ist Transport",
+    ),
+    (
+        "Kalender-Datei",
+        re.compile(r".*\.ics$", re.I),
+        14,
+        "in den Kalender importiert, danach weg",
+    ),
     (
         "Datierte Uebergabe",
         re.compile(r".*(\d{4}-\d{2}-\d{2}|\d{8}).*"),
@@ -208,6 +259,8 @@ def klasse_von(name: str):
     for bezeichnung, muster, frist, ziel in REGELN:
         if muster.match(name):
             return bezeichnung, frist, ziel
+    if (REPO_WURZEL / name / ".git").exists():
+        return REPO_KOPIE
     return (
         "unklassifiziert",
         None,
@@ -231,9 +284,13 @@ def sammeln(heute: datetime.date):
         tage = alter_tage(p, heute)
         unentschieden = frist is None and tage >= MELDE_TAGE
         ist_secret_bereich = p.name == SECRETS_TOP
-        if frist is not None:
+        if ist_secret_bereich:
+            # Vor jeder Regel: der Schutz darf nicht davon abhaengen, dass
+            # zufaellig kein Muster (oder kein Klon gleichen Namens) greift.
+            wirksame_frist = None
+        elif frist is not None:
             wirksame_frist = frist
-        elif unentschieden and not ist_secret_bereich:
+        elif unentschieden:
             # Unentschieden verfaellt nach UNENTSCHIEDEN_FRIST_TAGE genau wie
             # jede benannte Klasse — Secrets-Ordner ausgenommen (siehe oben).
             wirksame_frist = UNENTSCHIEDEN_FRIST_TAGE

@@ -39,8 +39,15 @@ def _anlegen(schleuse_pfad: pathlib.Path, name: str, alter_tage: int, ist_datei=
     return ziel
 
 
-def _sammeln(monkeypatch, tmp_path):
+def _sammeln(monkeypatch, tmp_path, repo_wurzel=None):
     monkeypatch.setattr(schleuse, "SCHLEUSE", tmp_path)
+    # Nie die echten Klone unter ~/github befragen: ein dort zufaellig
+    # vorhandenes Repo wuerde aus einem Einzelfall eine "Repo-Kopie" machen.
+    monkeypatch.setattr(
+        schleuse,
+        "REPO_WURZEL",
+        repo_wurzel or tmp_path.parent / f"{tmp_path.name}-keine-repos",
+    )
     return schleuse.sammeln(HEUTE)
 
 
@@ -207,6 +214,16 @@ def test_should_never_touch_paths_outside_the_schleuse(monkeypatch, tmp_path):
         ("bakeoff-int8", "Modell-Ausgabe", 30),
         ("kd-sync-2026-08-03", "Datierte Uebergabe", 45),
         ("gov-redaction-originals-2026-07-08", "Datierte Uebergabe", 45),
+        # Bestandsaufnahme 2026-10-13 (#3405), Namen verallgemeinert.
+        ("beispiel-roman.epub", "Buch-Export", 30),
+        ("manuskripte-buch.css", "Buch-Export", 30),
+        ("prompt-handover-pr-automatisieren.md", "Prompt-Uebergabe", 14),
+        ("konzept-anime-pipeline.md", "Konzept-Uebergabe", 30),
+        ("Technisches Konzept_ Beispiel.md", "Konzept-Uebergabe", 30),
+        ("VORSCHLAG-docker-berechtigung.md", "Konzept-Uebergabe", 30),
+        ("Angebot_Gemeinde_KI.docx", "Angebot", 30),
+        ("SB-Neu (2).zip", "Archiv-Paket", 30),
+        ("vorlesung.ics", "Kalender-Datei", 14),
     ],
 )
 def test_should_classify_real_schleuse_entries(
@@ -226,7 +243,10 @@ def test_should_classify_real_schleuse_entries(
         "CAD",
         "Second Brain",
         "FRITZ!Box 7590.pdf",
-        "konzept-hybrid.md",
+        # Bis 2026-10-13 stand hier konzept-hybrid.md. Konzept-Dateien kamen
+        # seitdem fuenfmal vor und haben eine eigene Regel; der Einzelfall-
+        # Platz geht an einen Arbeitsordner aus demselben Bestand.
+        "konz043-impl",
         "cloudflared-risk-hub-staging-config.yml",
     ],
 )
@@ -324,7 +344,59 @@ def test_should_not_let_a_later_rule_be_shadowed_unnoticed():
         "kd-sync-2026-08-03": "Datierte Uebergabe",
         "adr-handoff-ADR-063-2026-08-26.md": "ADR-Uebergabe",
         "von-box": "Box-Lane",
+        "beispiel-roman.epub": "Buch-Export",
+        "prompt-x.md": "Prompt-Uebergabe",
+        "konzept-x.md": "Konzept-Uebergabe",
+        "Angebot_x.docx": "Angebot",
+        "SB-Neu (2).zip": "Archiv-Paket",
+        "vorlesung.ics": "Kalender-Datei",
     }
     tatsaechlich = {name: schleuse.klasse_von(name)[0] for name in erwartet}
 
     assert tatsaechlich == erwartet
+
+
+# ── Repo-Kopie: Ordner, den es unter REPO_WURZEL als Klon gibt (#3405) ──────
+
+
+def test_should_classify_folder_named_like_local_repo_as_repo_kopie(
+    monkeypatch, tmp_path
+):
+    schleuse_pfad = tmp_path / "shared"
+    schleuse_pfad.mkdir()
+    repos = tmp_path / "github"
+    (repos / "beispiel-hub" / ".git").mkdir(parents=True)
+    _anlegen(schleuse_pfad, "beispiel-hub", 40, ist_datei=False)
+
+    eintrag = _finde(_sammeln(monkeypatch, schleuse_pfad, repos), "beispiel-hub")
+
+    assert (eintrag["klasse"], eintrag["frist"]) == ("Repo-Kopie", 30)
+    assert eintrag["faellig"] is True
+
+
+def test_should_not_call_a_plain_folder_a_repo_kopie(monkeypatch, tmp_path):
+    """Positivkontrolle: ein Ordner unter REPO_WURZEL ohne .git ist kein Klon."""
+    schleuse_pfad = tmp_path / "shared"
+    schleuse_pfad.mkdir()
+    repos = tmp_path / "github"
+    (repos / "notizen").mkdir(parents=True)
+    _anlegen(schleuse_pfad, "notizen", 40, ist_datei=False)
+
+    eintrag = _finde(_sammeln(monkeypatch, schleuse_pfad, repos), "notizen")
+
+    assert eintrag["klasse"] == "unklassifiziert"
+
+
+def test_should_not_let_repo_kopie_reach_the_secrets_container(monkeypatch, tmp_path):
+    """Selbst ein Klon namens wie der Secrets-Ordner macht ihn nicht faellig."""
+    schleuse_pfad = tmp_path / "shared"
+    schleuse_pfad.mkdir()
+    repos = tmp_path / "github"
+    (repos / schleuse.SECRETS_TOP / ".git").mkdir(parents=True)
+    _anlegen(schleuse_pfad, schleuse.SECRETS_TOP, 200, ist_datei=False)
+
+    eintrag = _finde(
+        _sammeln(monkeypatch, schleuse_pfad, repos), schleuse.SECRETS_TOP
+    )
+
+    assert eintrag["faellig"] is False
