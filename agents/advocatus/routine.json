@@ -1,0 +1,43 @@
+{
+  "_managed_by": "MANAGED-BY: platform/tools/review_risiko.py · source=registry/review-risiko.yaml+registry/review-regeln.yaml+agents/advocatus/PROMPT.template.md · content_hash=sha256:7d3615a5864db44e · do_not_edit",
+  "name": "advocatus-diaboli",
+  "cron_expression": "0 7-17/2 * * 1-5",
+  "enabled": true,
+  "job_config": {
+    "ccr": {
+      "environment_id": "ENVIRONMENT_ID",
+      "session_context": {
+        "model": "claude-opus-5-5",
+        "sources": [
+          {
+            "git_repository": {
+              "url": "https://github.com/achimdehnert/platform"
+            }
+          }
+        ],
+        "allowed_tools": [
+          "Bash",
+          "Read",
+          "Write",
+          "Edit",
+          "Glob",
+          "Grep"
+        ]
+      },
+      "events": [
+        {
+          "data": {
+            "uuid": "6f1c3a9e-2b7d-4e58-9c1a-4d2f8e7b1a05",
+            "session_id": "",
+            "type": "user",
+            "parent_tool_use_id": null,
+            "message": {
+              "role": "user",
+              "content": "Du bist die Routine `advocatus-diaboli` (KONZ-platform-070 Z2 Stufe 2, Mandat achimdehnert/platform#3903 WP4). Lies im Checkout von https://github.com/achimdehnert/platform die Datei `agents/advocatus/PROMPT.md` vollstaendig und folge ihr Schritt fuer Schritt. Die Umgebungsvariable `REVIEW_LEDGER_TOKEN` wird erwartet (nur auf Vorhandensein pruefen, nie ausgeben). Du bist advisory: kein Approve, kein Request-Changes, kein Label, kein Commit, kein Push."
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,91 @@
+# registry/review-risiko.yaml — Risiko-Klassifikator und Routine-Parameter des Advocatus
+# Diaboli (KONZ-platform-070 §3 Z2 Stufe 2; Mandat platform#3903 WP4; Owner-Entscheid O3).
+#
+# Der Advocatus (LLM-Review, advisory) laeuft NUR, wenn ein Trigger dieser Datei an einem
+# offenen Nicht-Draft-PR eines Pilot-Repos anschlaegt. Werkzeug: tools/review_risiko.py
+#   --repo <owner/name> --pr <nr>   Exit 0 = Advocatus laeuft, 1 = nicht; Trigger als Ausgabe
+#   --repos                          Pilot-Repos als owner/name (aus registry_api.review_pilot)
+#   --render / --check               agents/advocatus/PROMPT.md und routine.json erzeugen / Drift
+#
+# Trigger-Arten:
+#   regel   verweist auf eine Regel in registry/review-regeln.yaml (regel_id); deren Detektor
+#           (pfad / regex / umfang) ist der Trigger — Muster werden hier NICHT wiederholt (K1).
+#           Risiko ist profilunabhaengig: die Regel zaehlt, auch wenn ihr Profil im Repo
+#           nicht gilt (eine Deploy-Datei ist in jedem Repo ein Risiko).
+#   inhalt  eigene Regex-Alternativen (IGNORECASE) gegen HINZUGEFUEGTE Diff-Zeilen, optional
+#           auf Pfade (Globs) begrenzt. Nur fuer Risiken, die keine Review-Regel sind.
+#
+# Pilot-Repos stehen NICHT hier, sondern in registry/review-profile.yaml (`pilot`, O2).
+# Der Regelblock des Advocatus kommt aus review-regeln.yaml (Konsument `advocatus`).
+
+version: 1
+quelle: "KONZ-platform-070 §3 Z2 Stufe 2; Mandat platform#3903 WP4 (O3, 2026-10-13)"
+
+routine:
+  name: advocatus-diaboli
+  # O3 (Owner, 2026-10-13, #3903): „Opus; Fable nur fuer needs-deep-review“. Die EINE
+  # Stelle fuer die Modell-ID; PROMPT.md, routine.json und der Ledger-Poster lesen sie hier.
+  modell: claude-opus-5-5
+  # Werktags alle 2 h, 07–17 UTC (K5: Kommentar ≤ 15 min nach Push ist damit NICHT erreichbar;
+  # Stufe 1 misst die Latenz, Stufe 2 entscheidet ueber Event-Trigger statt Cron).
+  cron: "0 7-17/2 * * 1-5"
+  max_prs_je_lauf: 3
+  # Kommentar-Marker `<!-- advocatus:<head-sha> -->`; derselbe PR-Stand wird nie zweimal bewertet.
+  dedup_marker: advocatus
+  ledger_url: https://dev-hub.iil.pet/api/v1/review-ledger/befunde/
+  ledger_bulk_max: 500
+  # Nur der NAME der Umgebungsvariable; der Wert lebt in der Cloud-Umgebung der Routine.
+  token_env: REVIEW_LEDGER_TOKEN
+  quelle_ledger: advocatus
+  checkout: https://github.com/achimdehnert/platform
+  # Feste v4-UUID des Bootstrap-Events in routine.json (Trigger-API verlangt eine).
+  event_uuid: 6f1c3a9e-2b7d-4e58-9c1a-4d2f8e7b1a05
+  erlaubte_werkzeuge: [Bash, Read, Write, Edit, Glob, Grep]
+
+# PR-Autoren, deren PRs nie durch das LLM laufen (KONZ-070 §3 Z2: Dependabot-Patches).
+autoren_ausschluss:
+  - app/dependabot
+  - app/renovate
+  - dependabot[bot]
+  - renovate[bot]
+
+trigger:
+  - id: RK-001
+    titel: Deploy-Definition geaendert
+    art: regel
+    regel_id: RR-005
+  - id: RK-002
+    titel: Datenmigration geaendert
+    art: regel
+    regel_id: RR-006
+  - id: RK-003
+    titel: Regelquelle des Review-Bots geaendert
+    art: regel
+    regel_id: RR-004
+  - id: RK-004
+    titel: Secret per Compose-Interpolation
+    art: regel
+    regel_id: RR-021
+  - id: RK-005
+    titel: Klartext-Passwort in Settings oder Compose
+    art: regel
+    regel_id: RR-029
+  - id: RK-006
+    titel: PR-Umfang ueber Schwelle
+    art: regel
+    regel_id: RR-123
+  - id: RK-007
+    titel: permissions-Block in Workflow oder Konfiguration
+    art: inhalt
+    pfade: ["*.yml", "*.yaml"]
+    muster: ['^\s*permissions\s*:']
+  - id: RK-008
+    titel: Secret-Muster im Diff
+    art: inhalt
+    pfade: ["*"]
+    muster:
+      - '-----BEGIN [A-Z ]*PRIVATE KEY-----'
+      - '\bgh[pousr]_[A-Za-z0-9]{20,}\b'
+      - '\bAKIA[0-9A-Z]{16}\b'
+      - '\bsk-[A-Za-z0-9_-]{20,}\b'
+      - '(SECRET|TOKEN|API_KEY|PASSWORD)[A-Z_]*\s*[:=]\s*["''][^"''$]{8,}["'']'
