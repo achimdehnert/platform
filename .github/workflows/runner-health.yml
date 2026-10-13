@@ -176,12 +176,28 @@ jobs:
                           f"{repo} run {run_id} (queued {age_minutes:.0f}min) — DRY RUN"
                       )
                   else:
-                      api("POST", f"/repos/{org}/{repo}/actions/runs/{run_id}/cancel")
+                      # force-cancel + Nachmessen (KONZ-platform-069 A4, #3890): ein
+                      # einfaches /cancel kommt bei wartenden Laeufen mit 202 zurueck,
+                      # ohne dass der Lauf endet — Realfall ausschreibungs-hub
+                      # 38282397112 am 2026-10-13. Ein Neustart auf einen Lauf, der
+                      # gar nicht beendet ist, waere selbst ein Doppellauf.
+                      api("POST", f"/repos/{org}/{repo}/actions/runs/{run_id}/force-cancel")
+                      beendet = False
+                      for _ in range(10):
+                          time.sleep(3)
+                          stand = api("GET", f"/repos/{org}/{repo}/actions/runs/{run_id}")
+                          if stand.get("status") == "completed":
+                              beendet = True
+                              break
+                      if not beendet:
+                          errors.append(
+                              f"{repo} run {run_id}: force-cancel ohne Wirkung nach 30 s — kein Neustart"
+                          )
+                          continue
                       stuck_cancelled.append(
                           f"{repo} run {run_id} (queued {age_minutes:.0f}min) cancelled"
                       )
                       if run.get("head_branch") == "main" and age_minutes < 240:
-                          time.sleep(3)
                           dispatch = api("POST",
                               f"/repos/{org}/{repo}/actions/workflows/deploy.yml/dispatches",
                               {"ref": "main"}

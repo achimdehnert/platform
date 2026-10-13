@@ -154,6 +154,29 @@ git -C ${GITHUB_DIR:-$HOME/github}/{scope} push origin main
 und pullt deshalb zuverlässig; er baut das Image für den aktuellen `main` mit, falls es
 noch nicht existiert.
 
+**Zuerst den Push-Lauf freigeben, nicht neu starten (KONZ-platform-069 A4, #3890).** Der
+Push aus Schritt 2 hat in Hubs mit push→Prod bereits einen Lauf gestartet, der am
+Environment-Gate wartet. Ein zusätzlicher Dispatch erzeugt einen zweiten Lauf für denselben
+Commit — Realfall ausschreibungs-hub 2026-10-12, Dispatch 17 s nach dem Push (#3812 K5).
+
+```bash
+SHA=$(git -C ${GITHUB_DIR:-$HOME/github}/{scope} rev-parse origin/main)
+RUN=$(gh run list -R <org>/{scope} -w {cd_workflow} --commit "$SHA" \
+      --json databaseId,status -q '[.[] | select(.status=="waiting" or .status=="queued" or .status=="in_progress")][0].databaseId')
+echo "${RUN:-kein Lauf}"
+```
+
+- **Lauf vorhanden** → dessen Gate freigeben (das Ja aus dem Gate oben ist die Freigabe),
+  **kein** Dispatch:
+  ```bash
+  ENV_ID=$(gh api repos/<org>/{scope}/actions/runs/$RUN/pending_deployments -q '.[0].environment.id')
+  gh api -X POST repos/<org>/{scope}/actions/runs/$RUN/pending_deployments \
+    -F "environment_ids[]=$ENV_ID" -f state=approved -f comment="ship: Owner-Ja"
+  ```
+  Läuft er schon (`in_progress`, kein Gate), nur Schritt 4 verfolgen.
+- **Kein Lauf** (Hub deployt bei push nur Staging, oder der Push-Lauf ist schon fertig) →
+  erst dann dispatchen:
+
 ```
 gh workflow run {cd_workflow} --ref main -f target_environment=production
 ```
