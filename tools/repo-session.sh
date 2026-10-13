@@ -442,6 +442,12 @@ JSON
     echo "  Lease  : $lease  (expires $exp, ephemeral=$ephemeral)"
     [ "${#befunde[@]}" -eq 0 ] || echo "  Befund : ${befunde[*]}  (gesperrt bis end/expires)"
     echo "  cd \"$wt\""
+    # Gate edit-in-worktree-without-read (platform#3906, Retro 4ce56a Befund 1):
+    # Der Read-Zustand des Agenten gilt je Pfad. Was im Haupt-Tree gelesen wurde,
+    # zaehlt fuer die Kopie im Worktree nicht — 18 von 31 Fehlerlaeufen einer
+    # Sitzung waren Edit-Salven auf genau solche Dateien.
+    echo "  Lesen  : neuer Pfad = ungelesen. Vor der ersten Edit-Salve alle Zieldateien"
+    echo "           unter \"$wt\" in EINEM Read-Batch lesen (Gate edit-in-worktree-without-read)"
   } >&2
 
   # Offene PRs des Tages zeigen (Retro 2026-09-10, Gate parallel-session-pr-collision):
