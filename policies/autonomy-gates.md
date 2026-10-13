@@ -293,6 +293,15 @@ setzt SA-M auf Einzelfreigabe zurück; Zählung über Signal G. Kalibrierfenster
 oder Permissions bleiben selbstbetreffend und damit beim Owner — SA-M erlaubt ihren
 **Merge nach Approval** (M2 deckt W0/W1), nie ihr Verfassen im Alleingang.
 
+**Owner-Wort als Approval (KONZ-070, Mandat #3903, Owner-Wort 2026-10-13 „SA go“):**
+Fehlt einem PR nur das Approval für einen Governance-Pfad und ist `OWNER_WORT` gesetzt
+(Repo in Liste L, `governance/merge-sa-owner-wort-repos.yaml`), zählt das Owner-Wort als
+M2; `tools/pr_merge_sa.py` schreibt es vorher als Zitat mit Zeitstempel in den PR und
+merged selbst (Journal, Ratsche, Closing-Prüfung bleiben). Es ersetzt nur die Wächter-
+eigene Pflicht, nie M3 und nie eine GitHub-Pflicht (Code-Owner-Review durch ein zweites
+Konto). Welche Pfade trotzdem beim Owner-Merge bleiben, steht als Datenliste in
+`governance/merge-sa-owner-merge-pfade.yaml`, nicht hier.
+
 **Woher SA-M kommt (Herkunft, keine dieser Freigaben ist erloschen):**
 
 | alt | Ratifiziert | geht auf in |

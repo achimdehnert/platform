@@ -1486,3 +1486,297 @@ def test_should_exit_3_with_owner_wort_when_list_file_missing(
     monkeypatch.setattr(pr_merge_sa, "regeln", lambda *_a, **_k: REGELN)
     assert pr_merge_sa.main(["1", "iilgmbh/risk-hub"]) == 3
     assert "UNKLAR" in capsys.readouterr().err
+
+
+# --- Owner-Wort ersetzt das Approval fuer Governance-Pfade (KONZ-070, #3903) ---
+# Owner-Wort 2026-10-13: "Eigen-Approval macht aber sinn, und sollte nur im
+# ausnahmefall verboten sein" -> `SA go`. Das Wort ersetzt NUR die Waechter-
+# eigene Pflicht: nie M3, nie eine GitHub-Pflicht (Code-Owner-Review durch ein
+# zweites Konto, Realfall #3911), nie die Ausnahmeliste.
+
+LISTE_L_REPO = "iilgmbh/risk-hub"
+WORT = "SA go 2026-10-13"
+AUSNAHMEN = [
+    ("tools/pr_merge_sa.py", "der Waechter selbst"),
+    ("policies/", "Charta und Gates"),
+]
+
+
+def _owner_wort_facts(**over) -> Facts:
+    basis = dict(
+        repo=LISTE_L_REPO,
+        files=["docs/adr/ADR-900-x.md"],
+        mandat="M0",
+        owner_wort=WORT,
+        ohne_bot_owner=[],
+        head_sha="abc123",
+    )
+    basis.update(over)
+    return _facts(**basis)
+
+
+def test_should_accept_governance_path_with_owner_wort_instead_of_approval():
+    import pr_merge_sa
+
+    u = classify(_owner_wort_facts(), REGELN, AUSNAHMEN)
+    assert u.erlaubt is True and u.mandat == "M2"
+    assert u.approval_quelle == pr_merge_sa.APPROVAL_OWNER_WORT
+    assert u.approval_anlass == "Governance-Pfad docs/adr/ADR-900-x.md"
+    assert "Owner-Wort gilt als Approval" in u.grund
+
+
+def test_should_keep_m1_rejection_for_governance_path_without_owner_wort():
+    u = classify(_owner_wort_facts(owner_wort=""), REGELN, AUSNAHMEN)
+    assert u.erlaubt is False
+    assert u.grund.startswith("fehlt: ein Approval (Governance-Pfad")
+    assert u.approval_quelle == ""
+
+
+def test_should_reject_exception_path_despite_owner_wort_with_reason():
+    import pr_merge_sa
+
+    u = classify(_owner_wort_facts(files=["tools/pr_merge_sa.py"]), REGELN, AUSNAHMEN)
+    assert u.erlaubt is False
+    assert u.grund.startswith(pr_merge_sa.GRUND_OWNER_MERGE)
+    assert "tools/pr_merge_sa.py steht auf der Ausnahmeliste (der Waechter selbst)" in (
+        u.grund
+    )
+    assert "gh pr merge 4 -R iilgmbh/risk-hub" in u.grund
+
+
+def test_should_match_exception_prefix_for_policies_dir():
+    u = classify(_owner_wort_facts(files=["policies/beispiel.md"]), REGELN, AUSNAHMEN)
+    assert u.erlaubt is False and "Charta und Gates" in u.grund
+
+
+def test_should_keep_m3_requirement_despite_owner_wort():
+    u = classify(
+        _owner_wort_facts(
+            wirkung="W3",
+            pruef_pflicht=["Publish-Workflow auf main (irreversibel)"],
+            checks_total=1,
+        ),
+        REGELN,
+        AUSNAHMEN,
+    )
+    assert u.erlaubt is False and u.grund.startswith("fehlt: M3")
+
+
+def test_should_reject_human_only_codeowner_file_despite_owner_wort():
+    """Ruleset verlangt require_code_owner_review ohne Bypass (Realfall #3911):
+    ein Owner-Wort kann diese GitHub-Sperre nicht ersetzen."""
+    u = classify(
+        _owner_wort_facts(ohne_bot_owner=["docs/adr/ADR-900-x.md"]),
+        REGELN,
+        AUSNAHMEN,
+    )
+    assert u.erlaubt is False
+    assert u.grund.startswith("GitHub verlangt Code-Owner-Review")
+    assert "docs/adr/ADR-900-x.md" in u.grund and "Owner-Wort reicht nicht" in u.grund
+    assert ".github/CODEOWNERS" in u.grund
+
+
+def test_should_reject_github_review_requirement_despite_owner_wort():
+    u = classify(_owner_wort_facts(review_required=True), REGELN, AUSNAHMEN)
+    assert u.erlaubt is False
+    assert "Ruleset verlangt Review" in u.grund
+    assert "Owner-Wort ersetzt sie nicht" in u.grund
+
+
+def test_should_raise_unklar_when_codeowners_unknown_with_owner_wort():
+    with pytest.raises(Unklar, match="CODEOWNERS"):
+        classify(_owner_wort_facts(ohne_bot_owner=None), REGELN, AUSNAHMEN)
+
+
+def test_should_raise_unklar_when_exception_list_missing(monkeypatch, tmp_path):
+    import pr_merge_sa
+
+    monkeypatch.setattr(pr_merge_sa, "OWNER_MERGE_PFADE", tmp_path / "fehlt.yaml")
+    with pytest.raises(Unklar, match="Ausnahmeliste"):
+        classify(_owner_wort_facts(), REGELN)
+
+
+def test_should_raise_unklar_when_exception_entry_lacks_reason(tmp_path):
+    from pr_merge_sa import owner_merge_pfade
+
+    kaputt = tmp_path / "liste.yaml"
+    kaputt.write_text("pfade:\n  - pfad: tools/x.py\n")
+    with pytest.raises(Unklar):
+        owner_merge_pfade(kaputt)
+
+
+def test_should_read_shipped_exception_list_with_the_guard_itself_on_it():
+    """Die ausgelieferte Liste nennt den Waechter, beide Regeldateien, CODEOWNERS
+    und policies/ — jeder Eintrag mit Grund."""
+    from pr_merge_sa import owner_merge_pfade, owner_merge_treffer
+
+    eintraege = owner_merge_pfade()
+    assert {
+        "tools/pr_merge_sa.py",
+        "governance/merge-sa-owner-wort-repos.yaml",
+        "governance/merge-sa-owner-merge-pfade.yaml",
+        ".github/CODEOWNERS",
+        "policies/",
+    } <= {m for m, _ in eintraege}
+    assert owner_merge_treffer(["docs/retros/x.md"], eintraege) is None
+
+
+def test_should_match_glob_entries_in_exception_list():
+    from pr_merge_sa import owner_merge_treffer
+
+    eintraege = [("governance/*.yaml", "Glob")]
+    assert owner_merge_treffer(["governance/liste.yaml"], eintraege) == (
+        "governance/liste.yaml",
+        "Glob",
+    )
+    assert owner_merge_treffer(["tools/liste.yaml"], eintraege) is None
+
+
+def test_should_reject_repo_outside_liste_l_with_owner_wort_before_classify(
+    monkeypatch, capsys
+):
+    import pr_merge_sa
+
+    monkeypatch.setenv("OWNER_WORT", WORT)
+    monkeypatch.setattr(pr_merge_sa, "regeln", lambda *_a, **_k: REGELN)
+    monkeypatch.setattr(pr_merge_sa, "journal", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        pr_merge_sa,
+        "gather",
+        lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("kein API-Zugriff")),
+    )
+    assert pr_merge_sa.main(["4", "achimdehnert/robo-lab"]) == 2
+    assert "Positivliste" in capsys.readouterr().err
+
+
+def _owner_wort_main(monkeypatch, fakten, lauf, zeilen, argv_extra=()):
+    """main() mit OWNER_WORT in einem Liste-L-Repo; gh-Aufrufe landen in `lauf`."""
+    import pr_merge_sa
+
+    monkeypatch.setenv("OWNER_WORT", WORT)
+    monkeypatch.setattr(pr_merge_sa, "regeln", lambda *_a, **_k: REGELN)
+    monkeypatch.setattr(pr_merge_sa, "gather", lambda *_a, **_k: fakten)
+    monkeypatch.setattr(pr_merge_sa, "journal", zeilen.append)
+    monkeypatch.setattr(pr_merge_sa, "_gh", lambda args: {"comments": []})
+    monkeypatch.setattr(pr_merge_sa.subprocess, "run", lauf)
+    return pr_merge_sa.main(["4", LISTE_L_REPO, *argv_extra])
+
+
+def test_should_dry_run_owner_wort_without_comment_or_merge(monkeypatch, capsys):
+    import pr_merge_sa
+
+    zeilen, befehle = [], []
+    code = _owner_wort_main(
+        monkeypatch,
+        _owner_wort_facts(),
+        lambda b, **k: befehle.append(b) or _Lauf(),
+        zeilen,
+        ["--dry-run"],
+    )
+    assert code == 0 and befehle == []
+    assert "Owner-Wort gilt als Approval" in capsys.readouterr().out
+    assert zeilen[0]["approval_quelle"] == pr_merge_sa.APPROVAL_OWNER_WORT
+    assert zeilen[0]["dry_run"] is True and zeilen[0]["ergebnis"] == "dry_run"
+
+
+def test_should_comment_owner_wort_via_body_file_before_merge(monkeypatch):
+    import pr_merge_sa
+
+    zeilen, befehle, koerper = [], [], []
+
+    def _lauf(b, **k):
+        befehle.append(b)
+        if b[:3] == ["gh", "pr", "comment"]:
+            koerper.append(Path(b[b.index("--body-file") + 1]).read_text())
+        return _Lauf()
+
+    code = _owner_wort_main(monkeypatch, _owner_wort_facts(), _lauf, zeilen)
+    assert code == 0
+    assert [b[:3] for b in befehle] == [
+        ["gh", "pr", "comment"],
+        ["gh", "pr", "merge"],
+    ]
+    assert "--body-file" in befehle[0] and "--body" not in befehle[0]
+    text = koerper[0]
+    assert pr_merge_sa.OWNER_WORT_KOMMENTAR_MARKE in text and f"„{WORT}“" in text
+    assert (
+        "gilt als Approval für Governance-Pfad docs/adr/ADR-900-x.md "
+        "(KONZ-070, Mandat #3903)"
+    ) in text
+    ts = text.split("Zeitstempel ", 1)[1].split(" ", 1)[0]
+    assert datetime.fromisoformat(ts).utcoffset().total_seconds() == 0
+    assert zeilen[0]["approval_quelle"] == pr_merge_sa.APPROVAL_OWNER_WORT
+    assert zeilen[0]["ergebnis"] == pr_merge_sa.ERGEBNIS_GEMERGT
+
+
+def test_should_not_comment_twice_for_same_owner_wort(monkeypatch):
+    import pr_merge_sa
+
+    zeilen, befehle = [], []
+    alt = pr_merge_sa.owner_wort_kommentar(WORT, "x", "2026-10-13T00:00:00+00:00")
+    monkeypatch.setenv("OWNER_WORT", WORT)
+    monkeypatch.setattr(pr_merge_sa, "regeln", lambda *_a, **_k: REGELN)
+    monkeypatch.setattr(pr_merge_sa, "gather", lambda *_a, **_k: _owner_wort_facts())
+    monkeypatch.setattr(pr_merge_sa, "journal", zeilen.append)
+    monkeypatch.setattr(pr_merge_sa, "_gh", lambda args: {"comments": [{"body": alt}]})
+    monkeypatch.setattr(
+        pr_merge_sa.subprocess, "run", lambda b, **k: befehle.append(b) or _Lauf()
+    )
+    assert pr_merge_sa.main(["4", LISTE_L_REPO]) == 0
+    assert [b[:3] for b in befehle] == [["gh", "pr", "merge"]]
+
+
+def test_should_not_merge_when_owner_wort_comment_fails(monkeypatch):
+    zeilen, befehle = [], []
+
+    def _lauf(b, **k):
+        befehle.append(b)
+        return _Abgelehnt() if b[:3] == ["gh", "pr", "comment"] else _Lauf()
+
+    code = _owner_wort_main(monkeypatch, _owner_wort_facts(), _lauf, zeilen)
+    assert code == 3
+    assert [b[:3] for b in befehle] == [["gh", "pr", "comment"]]
+    assert zeilen[0]["ergebnis"] == "unklar"
+
+
+def test_should_not_comment_or_merge_human_only_codeowner_file(monkeypatch):
+    zeilen, befehle = [], []
+    code = _owner_wort_main(
+        monkeypatch,
+        _owner_wort_facts(ohne_bot_owner=["docs/adr/ADR-900-x.md"]),
+        lambda b, **k: befehle.append(b) or _Lauf(),
+        zeilen,
+    )
+    assert code == 2 and befehle == []
+    assert zeilen[0]["grund"].startswith("GitHub verlangt Code-Owner-Review")
+    assert "approval_quelle" not in zeilen[0]
+
+
+def test_should_journal_without_approval_quelle_for_review_approval(monkeypatch):
+    zeilen = []
+    code = _owner_wort_main(
+        monkeypatch, _owner_wort_facts(mandat="M2"), lambda b, **k: _Lauf(), zeilen
+    )
+    assert code == 0 and "approval_quelle" not in zeilen[0]
+
+
+def test_should_treat_missing_codeowners_file_as_no_code_owner_requirement(
+    monkeypatch,
+):
+    import pr_merge_sa
+
+    def _404(args):
+        raise Unklar("gh api …: gh: Not Found (HTTP 404)")
+
+    monkeypatch.setattr(pr_merge_sa, "_gh", _404)
+    assert pr_merge_sa.ohne_bot_owner_live("o/r", "main", ["x.py"]) == []
+
+
+def test_should_keep_unknown_codeowners_on_other_api_errors(monkeypatch):
+    import pr_merge_sa
+
+    def _fehler(args):
+        raise Unklar("gh api …: rate limit")
+
+    monkeypatch.setattr(pr_merge_sa, "_gh", _fehler)
+    assert pr_merge_sa.ohne_bot_owner_live("o/r", "main", ["x.py"]) is None

@@ -40,6 +40,7 @@ import pathlib
 import re
 import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -60,6 +61,13 @@ OWNER_WORT_REPOS = (
     / "governance"
     / "merge-sa-owner-wort-repos.yaml"
 )
+#: Ausnahmeliste (KONZ-070, Mandat #3903): Pfade, die auch mit OWNER_WORT beim
+#: Owner-Merge bleiben — der Waechter selbst, seine Regeldateien, CODEOWNERS, Charta.
+OWNER_MERGE_PFADE = (
+    pathlib.Path(__file__).resolve().parents[1]
+    / "governance"
+    / "merge-sa-owner-merge-pfade.yaml"
+)
 
 RANG = {"M0": 0, "M1": 1, "M2": 2, "M3": 3}
 
@@ -75,6 +83,13 @@ BOT_REVIEW_WORKFLOW = "bot-review.yml"
 BOT_LOGIN = "iil-lotse"
 CODEOWNERS_PFAD = ".github/CODEOWNERS"
 GRUND_FEHLT_APPROVAL = "fehlt: ein Approval"
+GRUND_OWNER_MERGE = "Owner-Merge noetig"
+#: Journal-Feld `approval_quelle`, wenn das Owner-Wort das Approval ersetzt
+#: (KONZ-070, Mandat #3903). Review- und Bot-Approvals tragen heute kein Feld:
+#: mandat_des_prs() gibt nur die Stufe zurueck, nicht ihre Quelle.
+APPROVAL_OWNER_WORT = "owner_wort"
+#: Kopfzeile des PR-Kommentars, an der die Idempotenz-Pruefung ihn erkennt.
+OWNER_WORT_KOMMENTAR_MARKE = "Owner-Wort als Approval"
 #: Cron */20 plus Laufzeit plus Checks, die noch laufen.
 BOT_WARTEN_MINUTEN = 30
 #: Abstand zwischen zwei Abfragen und zwischen zwei Dispatches.
@@ -134,6 +149,70 @@ def pruefe_owner_wort_repo(repo: str, env=None, pfad=None) -> str | None:
         f"sind ausgeschlossen. Ohne OWNER_WORT aufrufen (normaler Pfad) oder "
         f"Owner fragen."
     )
+
+
+def owner_merge_pfade(pfad=None) -> list:
+    """Liest die Ausnahmeliste als [(muster, grund), …]. Fehlt/unlesbar/leer oder
+    ein Eintrag ohne `grund` → UNKLAR (fail closed, wie Liste L)."""
+    quelle = pathlib.Path(pfad) if pfad else OWNER_MERGE_PFADE
+    try:
+        import yaml
+
+        eintraege = yaml.safe_load(quelle.read_text())["pfade"]
+        liste = [(str(e["pfad"]).strip(), str(e["grund"]).strip()) for e in eintraege]
+    except Exception as exc:  # noqa: BLE001 — jede Lesestoerung ist UNKLAR
+        raise Unklar(f"Ausnahmeliste nicht lesbar ({quelle.name}): {exc}")
+    if not liste or any(not m or not g for m, g in liste):
+        raise Unklar(f"Ausnahmeliste leer oder Eintrag ohne pfad/grund ({quelle.name})")
+    return liste
+
+
+def owner_merge_treffer(files: list, eintraege: list) -> tuple | None:
+    """Erste Datei des PR auf der Ausnahmeliste → (pfad, grund), sonst None.
+    Muster mit Wildcard sind Globs, alle anderen Pfadpraefixe."""
+    for pfad in files:
+        for muster, grund in eintraege:
+            if any(z in muster for z in "*?["):
+                passt = fnmatch.fnmatch(pfad, muster)
+            else:
+                passt = pfad.startswith(muster)
+            if passt:
+                return pfad, grund
+    return None
+
+
+def owner_wort_abweisung(f, ausnahmen=None, hinweis: str = "") -> str | None:
+    """Darf das Owner-Wort das fehlende Approval ersetzen? → Abweisungsgrund
+    oder None. Es ersetzt nur die Waechter-eigene Pflicht (Governance-Pfad),
+    nie eine GitHub-Pflicht: das Ruleset verlangt `require_code_owner_review`
+    ohne Bypass-Akteure (Realfall #3911) — eine Datei, deren CODEOWNERS-Zeile
+    nur Menschen nennt, braucht das Review eines zweiten Code-Owners."""
+    if f.ohne_bot_owner is None:
+        raise Unklar(
+            f"{CODEOWNERS_PFAD} nicht lesbar — ob GitHub ein Code-Owner-Review "
+            "verlangt, ist unbekannt; Owner-Wort nicht anwendbar"
+        )
+    if f.ohne_bot_owner:
+        return (
+            f"GitHub verlangt Code-Owner-Review durch einen zweiten Code-Owner "
+            f"({f.ohne_bot_owner[0]}); Owner-Wort reicht nicht — Review durch das "
+            f"zweite in {CODEOWNERS_PFAD} genannte Konto"
+        )
+    if f.review_required:
+        return (
+            f"{GRUND_FEHLT_APPROVAL} (Ruleset verlangt Review) — GitHub-Pflicht, "
+            f"das Owner-Wort ersetzt sie nicht{hinweis}"
+        )
+    if ausnahmen is None:
+        ausnahmen = owner_merge_pfade()
+    treffer = owner_merge_treffer(f.files, ausnahmen)
+    if treffer:
+        pfad, grund = treffer
+        return (
+            f"{GRUND_OWNER_MERGE}: {pfad} steht auf der Ausnahmeliste ({grund}) — "
+            f"`OWNER_WORT=<id> gh pr merge {f.number} -R {f.repo} --squash --delete-branch`"
+        )
+    return None
 
 
 # `_build-docker.yml` ist der gemeinsam genutzte Ablauf, der ein Image baut und in
@@ -212,6 +291,8 @@ class Facts:
     head_sha: str = ""
     # Dateien, deren CODEOWNERS-Zeile den Review-Bot nicht nennt; None = unbekannt
     ohne_bot_owner: list | None = None
+    # OWNER_WORT der Umgebung (K7, nur Repos aus Liste L); leer = normaler Pfad
+    owner_wort: str = ""
 
 
 @dataclass
@@ -221,6 +302,10 @@ class Verdict:
     erlaubt: bool
     grund: str
     auto: bool = False  # Checks laufen noch -> GitHub merged, sobald sie gruen sind
+    # Woher das Approval kam, wenn nicht aus einem Review: APPROVAL_OWNER_WORT
+    approval_quelle: str = ""
+    # Was es ersetzte, z.B. "Governance-Pfad policies/x.md" — Text des PR-Kommentars
+    approval_anlass: str = ""
 
 
 def ist_doku(pfad: str, globs: list) -> bool:
@@ -288,9 +373,10 @@ def hinweis_bot(f: Facts) -> str:
     )
 
 
-def classify(f: Facts, r: dict) -> Verdict:
+def classify(f: Facts, r: dict, ausnahmen=None) -> Verdict:
     """Jede Ablehnung nennt ihren Grund — ein Verdict ohne Grund waere so
-    nutzlos wie ein Skip ohne Grund."""
+    nutzlos wie ein Skip ohne Grund. `ausnahmen` = Ausnahmeliste als Daten;
+    None liest sie erst, wenn ein Owner-Wort sie braucht."""
     if f.state != "OPEN":
         return Verdict(f.wirkung, f.mandat, False, f"PR ist {f.state}, nicht OPEN")
     if f.is_draft:
@@ -298,20 +384,30 @@ def classify(f: Facts, r: dict) -> Verdict:
     if not f.files:
         raise Unklar("keine Dateiliste erhalten — ohne Diff kein Urteil")
 
+    mandat, quelle, anlass = f.mandat, "", ""
     hinweis = hinweis_bot(f) if bot_kann_approven(f) else ""
     governance = [p for p in f.files if ist_governance(p, r["governance_pfade"])]
-    if governance and RANG[f.mandat] < RANG["M2"]:
-        return Verdict(
-            f.wirkung,
-            f.mandat,
-            False,
-            f"{GRUND_FEHLT_APPROVAL} (Governance-Pfad {governance[0]}){hinweis}",
-        )
+    if governance and RANG[mandat] < RANG["M2"]:
+        if not f.owner_wort:
+            return Verdict(
+                f.wirkung,
+                mandat,
+                False,
+                f"{GRUND_FEHLT_APPROVAL} (Governance-Pfad {governance[0]}){hinweis}",
+            )
+        # Owner-Wort gilt als Approval (KONZ-070, Mandat #3903, Owner „SA go“
+        # 2026-10-13) — nur fuer die Waechter-eigene Pflicht, nie gegen GitHub,
+        # nie fuer die Ausnahmeliste, nie statt M3 (Pruef-Pflicht unten bleibt).
+        abweisung = owner_wort_abweisung(f, ausnahmen, hinweis)
+        if abweisung:
+            return Verdict(f.wirkung, mandat, False, abweisung)
+        mandat, quelle = "M2", APPROVAL_OWNER_WORT
+        anlass = f"Governance-Pfad {governance[0]}"
 
-    if f.review_required and RANG[f.mandat] < RANG["M2"]:
+    if f.review_required and RANG[mandat] < RANG["M2"]:
         return Verdict(
             f.wirkung,
-            f.mandat,
+            mandat,
             False,
             f"{GRUND_FEHLT_APPROVAL} (Ruleset verlangt Review){hinweis}",
         )
@@ -319,12 +415,12 @@ def classify(f: Facts, r: dict) -> Verdict:
     if f.mergeable != "MERGEABLE":
         raise Unklar(f"mergeable={f.mergeable} — GitHub hat den Merge nicht bestaetigt")
     if f.merge_state in ("DIRTY", "BLOCKED", "BEHIND"):
-        return Verdict(f.wirkung, f.mandat, False, f"mergeStateStatus={f.merge_state}")
+        return Verdict(f.wirkung, mandat, False, f"mergeStateStatus={f.merge_state}")
 
     if f.checks_failing:
         return Verdict(
             f.wirkung,
-            f.mandat,
+            mandat,
             False,
             f"fehlt: gruenes CI ({f.checks_failing} Check(s) rot)",
         )
@@ -333,7 +429,7 @@ def classify(f: Facts, r: dict) -> Verdict:
         if nicht_doku:
             return Verdict(
                 f.wirkung,
-                f.mandat,
+                mandat,
                 False,
                 f"kein einziger Check und nicht reine Doku ({nicht_doku[0]})",
             )
@@ -350,26 +446,37 @@ def classify(f: Facts, r: dict) -> Verdict:
         ist_doku(p, r["doku_glob"]) for p in f.files
     ):
         noetig = "M0"
-    if RANG[f.mandat] < RANG[noetig]:
+    if RANG[mandat] < RANG[noetig]:
         if noetig == "M3":
-            anlass = f" ({'; '.join(f.pruef_pflicht)})" if f.pruef_pflicht else ""
+            wegen = f" ({'; '.join(f.pruef_pflicht)})" if f.pruef_pflicht else ""
             grund = (
-                f"fehlt: M3{anlass} — Approve-Review mit Deploy-Wort ODER Vermerk "
+                f"fehlt: M3{wegen} — Approve-Review mit Deploy-Wort ODER Vermerk "
                 "„Freigabe: akzeptiert durch Owner — deploy” mit dieser "
                 "PR-Nummer im verlinkten Issue (#2812)"
             )
         else:
-            grund = f"fehlt: {noetig} — {f.wirkung} verlangt es, vorliegt {f.mandat}"
-        return Verdict(f.wirkung, f.mandat, False, grund)
+            grund = f"fehlt: {noetig} — {f.wirkung} verlangt es, vorliegt {mandat}"
+        return Verdict(f.wirkung, mandat, False, grund)
+    zusatz = f" — Owner-Wort gilt als Approval ({anlass})" if quelle else ""
     if f.checks_pending:
         return Verdict(
             f.wirkung,
-            f.mandat,
+            mandat,
             True,
-            f"{f.mandat} deckt {f.wirkung}; {f.checks_pending} Check(s) laufen — Auto-Merge",
+            f"{mandat} deckt {f.wirkung}; {f.checks_pending} Check(s) laufen — "
+            f"Auto-Merge{zusatz}",
             auto=True,
+            approval_quelle=quelle,
+            approval_anlass=anlass,
         )
-    return Verdict(f.wirkung, f.mandat, True, f"{f.mandat} deckt {f.wirkung}")
+    return Verdict(
+        f.wirkung,
+        mandat,
+        True,
+        f"{mandat} deckt {f.wirkung}{zusatz}",
+        approval_quelle=quelle,
+        approval_anlass=anlass,
+    )
 
 
 def _gh(args: list):
@@ -657,7 +764,7 @@ def review_ist_pflicht(
     return False
 
 
-def gather(repo: str, nummer: int, r: dict) -> Facts:
+def gather(repo: str, nummer: int, r: dict, owner_wort: str = "") -> Facts:
     felder = (
         "state,isDraft,mergeable,mergeStateStatus,reviewDecision,latestReviews,"
         "files,baseRefName,statusCheckRollup,body,headRefOid"
@@ -704,20 +811,28 @@ def gather(repo: str, nummer: int, r: dict) -> Facts:
         checks_failing=failing,
         checks_pending=pending,
         head_sha=pr.get("headRefOid") or "",
+        # Mit Owner-Wort in jedem Repo: ob GitHub ein Code-Owner-Review durch
+        # einen Menschen verlangt, entscheidet, ob das Wort ueberhaupt greift.
         ohne_bot_owner=(
             ohne_bot_owner_live(repo, pr.get("baseRefName", "main"), dateien)
-            if repo in BOT_REVIEW_REPOS
+            if repo in BOT_REVIEW_REPOS or owner_wort
             else None
         ),
+        owner_wort=owner_wort,
     )
 
 
 def ohne_bot_owner_live(repo: str, basis: str, dateien: list) -> list | None:
-    """CODEOWNERS vom Basis-Branch lesen; nicht lesbar -> None (kein Bot-Hinweis)."""
+    """CODEOWNERS vom Basis-Branch lesen; nicht lesbar -> None (kein Bot-Hinweis).
+    Keine Datei (404) -> []: ohne CODEOWNERS verlangt GitHub kein Code-Owner-Review."""
     try:
         antwort = _gh(["api", f"repos/{repo}/contents/{CODEOWNERS_PFAD}?ref={basis}"])
         text = base64.b64decode(antwort["content"]).decode("utf-8")
-    except (Unklar, KeyError, ValueError):
+    except Unklar as exc:
+        if "404" in str(exc) or "Not Found" in str(exc):
+            return []
+        return None
+    except (KeyError, ValueError):
         return None
     return dateien_ohne_bot_owner(dateien, text)
 
@@ -876,9 +991,12 @@ def main(argv=None) -> int:
             return 2
         r, repo_id = regeln_fuer(repo, r)
 
+        wort = os.environ.get("OWNER_WORT", "").strip()
+
         def pruefen():
-            f = gather(repo, args.nummer, r)
+            f = gather(repo, args.nummer, r, wort)
             f.repo_id = repo_id
+            f.owner_wort = wort
             return f, classify(f, r)
 
         if args.warte_auf_bot:
@@ -939,9 +1057,56 @@ def main(argv=None) -> int:
                 "ergebnis": ergebnis,
                 "exit": code,
                 **({"wiederholung": True} if wiederholung else {}),
+                **(
+                    {"approval_quelle": urteil.approval_quelle}
+                    if urteil.approval_quelle
+                    else {}
+                ),
             }
         )
     return code
+
+
+def owner_wort_zitat(wort: str) -> str:
+    return f"> „{wort}“"
+
+
+def owner_wort_kommentar(wort: str, anlass: str, ts: str) -> str:
+    return (
+        f"**{OWNER_WORT_KOMMENTAR_MARKE}** — KONZ-070, Mandat #3903\n\n"
+        f"{owner_wort_zitat(wort)}\n\n"
+        f"Zeitstempel {ts} (UTC): gilt als Approval für {anlass} "
+        f"(KONZ-070, Mandat #3903).\n\n"
+        f"Geschrieben von `tools/pr_merge_sa.py` vor dem Merge. Repo-Positivliste "
+        f"`{OWNER_WORT_REPOS.name}`, Ausnahmeliste `{OWNER_MERGE_PFADE.name}`.\n"
+    )
+
+
+def kommentiere_owner_wort(nummer: int, repo: str, wort: str, anlass: str) -> None:
+    """Owner-Wort als PR-Kommentar: Zitat, Zeitstempel, Anlass. Idempotent —
+    derselbe Wortlaut steht nur einmal im PR. Jede Stoerung ist UNKLAR: ohne
+    durables Artefakt kein Merge (Charta Art. 10). Body per --body-file."""
+    vorhanden = _gh(["pr", "view", str(nummer), "-R", repo, "--json", "comments"])
+    for k in vorhanden.get("comments") or []:
+        body = k.get("body") or ""
+        if OWNER_WORT_KOMMENTAR_MARKE in body and owner_wort_zitat(wort) in body:
+            return
+    ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False) as tmp:
+        tmp.write(owner_wort_kommentar(wort, anlass, ts))
+        pfad = tmp.name
+    try:
+        p = subprocess.run(
+            ["gh", "pr", "comment", str(nummer), "-R", repo, "--body-file", pfad],
+            capture_output=True,
+            text=True,
+        )
+    finally:
+        os.unlink(pfad)
+    if p.returncode != 0:
+        raise Unklar(
+            f"Owner-Wort-Kommentar nicht geschrieben: {p.stderr.strip()[:200]}"
+        )
 
 
 def _merge(nummer, repo, repo_id, r, fakten, urteil) -> tuple[int, str]:
@@ -977,6 +1142,16 @@ def _merge(nummer, repo, repo_id, r, fakten, urteil) -> tuple[int, str]:
                 f"UNKLAR: {repo} hat seit der Pruefung Actions an — W0 gilt nicht mehr",
                 file=sys.stderr,
             )
+            return 3, "unklar"
+
+    if urteil.approval_quelle == APPROVAL_OWNER_WORT:
+        # Durables Artefakt der Freigabe VOR dem Merge, sonst kein Merge
+        try:
+            kommentiere_owner_wort(
+                nummer, repo, fakten.owner_wort, urteil.approval_anlass
+            )
+        except Unklar as exc:
+            print(f"UNKLAR: {exc}", file=sys.stderr)
             return 3, "unklar"
 
     befehl = [
