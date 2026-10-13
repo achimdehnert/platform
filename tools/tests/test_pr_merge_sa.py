@@ -1456,6 +1456,26 @@ def test_should_exit_2_for_excluded_repo_with_owner_wort_before_any_api_call(
     assert "Positivliste" in capsys.readouterr().err
 
 
+def test_should_journal_positivliste_rejection_as_abort(monkeypatch, tmp_path):
+    """platform#3804: die Abweisung lag vor dem Journal-Block und blieb unsichtbar."""
+    import pr_merge_sa
+
+    ziel = tmp_path / "journal.jsonl"
+    monkeypatch.setattr(pr_merge_sa, "JOURNAL", ziel)
+    monkeypatch.setenv("OWNER_WORT", "RA 2026-10-08 05:00Z")
+    monkeypatch.setattr(pr_merge_sa, "regeln", lambda *_a, **_k: REGELN)
+    assert pr_merge_sa.main(["5", "ttz-lif/ttz-hub"]) == 2
+
+    zeilen = [json.loads(z) for z in ziel.read_text().splitlines()]
+    assert len(zeilen) == 1
+    satz = zeilen[0]
+    assert satz["repo"] == "ttz-lif/ttz-hub" and satz["pr"] == 5
+    assert satz["erlaubt"] is False and satz["exit"] == 2
+    assert satz["ergebnis"] == pr_merge_sa.ERGEBNIS_ABGEWIESEN_POSITIVLISTE
+    assert "Positivliste" in satz["grund"]
+    assert "owner_wort" not in satz  # sonst ueberspringt der Benchmark die Zeile
+
+
 def test_should_exit_3_with_owner_wort_when_list_file_missing(
     monkeypatch, tmp_path, capsys
 ):

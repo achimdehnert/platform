@@ -744,6 +744,9 @@ ERGEBNIS_AUTO_MERGE = "auto_merge"
 #: Abbruch mangels Mandat (Rueckschau platform#3685, 49 von 353 Abbruechen).
 #: In benchmark.py gespiegelt wie die beiden oben.
 ERGEBNIS_BEREITS_GEMERGT = "bereits_gemergt"
+#: Mit OWNER_WORT auf ein Repo ausserhalb Liste L gerufen (platform#3804 K7).
+#: Zaehlt im Benchmark als Abbruch: der Versuch war da, das Mandat fehlte.
+ERGEBNIS_ABGEWIESEN_POSITIVLISTE = "abgewiesen_positivliste"
 HINWEIS_WIEDERHOLUNG = (
     "Unveraenderte Lage: der vorige Versuch auf diesen PR brach mit demselben "
     "Grund ab. Erst die Ursache beheben, dann erneut aufrufen."
@@ -854,6 +857,22 @@ def main(argv=None) -> int:
         abweisung = pruefe_owner_wort_repo(repo)
         if abweisung:
             print(f"✗ {repo}#{args.nummer}: {abweisung}", file=sys.stderr)
+            # Ohne Zeile waere eine Fehlanwendung des Owner-Worts unsichtbar —
+            # gerade sie soll die Ratsche zaehlen. Kein "owner_wort"-Feld:
+            # das markiert Hook-Zeilen, die der Benchmark ueberspringt.
+            journal(
+                {
+                    "repo": repo,
+                    "pr": args.nummer,
+                    "wirkung": None,
+                    "mandat": None,
+                    "erlaubt": False,
+                    "grund": abweisung,
+                    "dry_run": bool(args.dry_run),
+                    "ergebnis": ERGEBNIS_ABGEWIESEN_POSITIVLISTE,
+                    "exit": 2,
+                }
+            )
             return 2
         r, repo_id = regeln_fuer(repo, r)
 
