@@ -570,9 +570,9 @@ repos:
   ifc-mcp:
     in_flat: false
     in_rich: false
-    lifecycle: active
+    lifecycle: archived
     github: achimdehnert/ifc-mcp
-    description: IFC/BIM MCP Server — Model Context Protocol Server for IFC building models (DIN 277, fire protection, accessibility checks)
+    description: IFC/BIM MCP Server — Model Context Protocol Server for IFC building models (DIN 277, fire protection, accessibility checks) (archiviert)
   iil-adrfw:
     in_flat: true
     in_rich: false
@@ -1058,9 +1058,9 @@ repos:
   schutztat-reporting:
     in_flat: false
     in_rich: false
-    lifecycle: active
+    lifecycle: archived
     github: achimdehnert/schutztat-reporting
-    description: Odoo 18 management module for Schutztat risk assessments (syncs from risk-hub Django API)
+    description: Odoo 18 management module for Schutztat risk assessments (syncs from risk-hub Django API) (archiviert)
   tax-hub:
     in_flat: true
     in_rich: true
