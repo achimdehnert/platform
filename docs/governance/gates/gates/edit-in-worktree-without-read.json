@@ -1,0 +1,31 @@
+{
+  "slug": "edit-in-worktree-without-read",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": "tools/hooks/compact_read_reset_hint.sh",
+  "module_note": "Zweiter Erzwingungspunkt ist die Zeile 'Lesen' im Start-Block von tools/repo-session.sh (cmd_start). Das Skript traegt keinen eigenen GATE_HEADER fuer diesen Slug, weil es schon zu anderen Gates gehoert; derselbe Drill prueft beide Stellen.",
+  "drill": "tools/tests/test_edit_ohne_read_hinweis.py",
+  "built": "2026-10-13",
+  "ref": "platform#3906 (Owner-Wort 'M1 go' 2026-10-13); Retro docs/retros/session-retro-2026-10-13-robo-lab-4ce56a.md Befund 1 — 18 von 31 Fehlerlaeufen waren Edit-Salven auf Dateien, die der Harness als ungelesen fuehrte; Slug in 8 frueheren Retros ohne Gate",
+  "last_drill_pass": "2026-10-13",
+  "note": "Der Harness blockt einen Edit ohne Read bereits selbst; was er nicht verhindert, ist die Salve, die danach Lauf fuer Lauf scheitert. Zwei Ausloeser, zwei Erzwingungspunkte: (1) `repo-session.sh start` legt einen neuen Pfad an, Gelesenes im Haupt-Tree zaehlt dort nicht — der Start-Block nennt den Read-Batch und den Pfad; (2) nach der Kontextverdichtung ist der Read-Zustand leer — der SessionStart-Hook sagt das an, nur bei source=compact. Kein blocking: Der Harness ist schon die Schranke, das Gate setzt den Hinweis an den Zeitpunkt davor.",
+  "faengt": [
+    {
+      "fall": "frischer Worktree, Zieldateien nur im Haupt-Tree gelesen",
+      "probe": "Read-Batch"
+    },
+    {
+      "fall": "Kontextverdichtung setzt den Read-Zustand zurueck",
+      "probe": "compact"
+    }
+  ],
+  "expires": "2027-01-13",
+  "expires_note": "Drei Monate Messfenster nach E4 (platform#2606). Blocking ist hier keine Option, weil der Harness den Edit bereits blockt. Zur Frist entscheidet gate_wirkung.py: Kehrt der Slug nach dem Bau in Retros wieder, wird das Gate umgebaut, sonst bleibt es mit dem Ausgang 'still' bestehen oder wird gestrichen.",
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-10-13",
+  "zustand_note": "Beide Erzwingungspunkte tragen seit 2026-10-13: der Start-Hinweis ab Merge von #3918, der Hook ueber die hooks-Lane in ~/.claude/hooks/managed/ und den SessionStart-Eintrag mit matcher `compact`, den der Owner am 2026-10-13 gesetzt hat (Lotsen-Charta Art. 3). Offen ist nur der erste echte Anschlag nach einer Verdichtung.",
+  "positivkontrolle": {
+    "ref": "tools/tests/test_edit_ohne_read_hinweis.py — gegen den Stand origin/main 8 von 8 rot, mit Fix gruen (make test, 2026-10-13). Echter Fall am selben Tag in der Bau-Sitzung: nach der Verdichtung scheiterte der erste Edit an tools/repo-session.sh mit 'File has not been read yet', obwohl die Datei vor der Verdichtung gelesen war — genau der Fall, den der Hook ansagt.",
+    "datum": "2026-10-13"
+  }
+}

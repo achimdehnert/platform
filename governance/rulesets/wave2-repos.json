@@ -1,14 +1,14 @@
 [
   {
     "repo": "aifw",
-    "owner": "achimdehnert",
+    "owner": "iilgmbh",
     "required_check": "ci / gate",
     "wave": 2,
     "profile": "library"
   },
   {
     "repo": "authoringfw",
-    "owner": "achimdehnert",
+    "owner": "iilgmbh",
     "required_check": "ci / gate",
     "wave": 2,
     "profile": "library"
@@ -43,14 +43,14 @@
   },
   {
     "repo": "iil-codeguard",
-    "owner": "achimdehnert",
+    "owner": "iilgmbh",
     "required_check": "ci / gate",
     "wave": 2,
     "profile": "library"
   },
   {
     "repo": "iil-django-commons",
-    "owner": "achimdehnert",
+    "owner": "iilgmbh",
     "required_check": "ci / gate",
     "wave": 2,
     "profile": "library"
@@ -92,14 +92,14 @@
   },
   {
     "repo": "iil-reflex",
-    "owner": "achimdehnert",
+    "owner": "iilgmbh",
     "required_check": "ci / gate",
     "wave": 2,
     "profile": "library"
   },
   {
     "repo": "iil-testkit",
-    "owner": "achimdehnert",
+    "owner": "iilgmbh",
     "required_check": "ci / gate",
     "wave": 2,
     "profile": "library"
@@ -120,7 +120,7 @@
   },
   {
     "repo": "learnfw",
-    "owner": "achimdehnert",
+    "owner": "iilgmbh",
     "required_check": "ci / gate",
     "wave": 2,
     "profile": "library"
@@ -134,14 +134,14 @@
   },
   {
     "repo": "outlinefw",
-    "owner": "achimdehnert",
+    "owner": "iilgmbh",
     "required_check": "ci / gate",
     "wave": 2,
     "profile": "library"
   },
   {
     "repo": "promptfw",
-    "owner": "achimdehnert",
+    "owner": "iilgmbh",
     "required_check": "ci / gate",
     "wave": 2,
     "profile": "library"
@@ -155,7 +155,7 @@
   },
   {
     "repo": "weltenfw",
-    "owner": "achimdehnert",
+    "owner": "iilgmbh",
     "required_check": "ci / gate",
     "wave": 2,
     "profile": "library"

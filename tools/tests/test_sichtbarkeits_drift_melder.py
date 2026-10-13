@@ -153,6 +153,20 @@ def test_should_frist_nur_fuer_aktive_konzepte_melden(tmp_path):
     assert abgelaufene_fristen(tmp_path, date(2026, 9, 16)) == ["KONZ-platform-001"]
 
 
+def test_should_gequotete_frist_und_id_zaehlen(tmp_path):
+    # Die meisten Konzepte schreiben `review_by: "YYYY-MM-DD"`. Die alte Regex
+    # sah nur ungequotete Daten und meldete deshalb falsch „Fristen 0".
+    (tmp_path / "KONZ-platform-015-x.md").write_text(
+        '---\nconcept_id: "KONZ-platform-015"\npipeline_status: pilot   # Kommentar\n'
+        'review_by: "2026-09-07"\n---\n'
+    )
+    (tmp_path / "KONZ-platform-016-x.md").write_text(
+        "---\nconcept_id: KONZ-platform-016\npipeline_status: 'stale'\n"
+        "review_by: '2026-09-01'\n---\n"
+    )
+    assert abgelaufene_fristen(tmp_path, date(2026, 10, 13)) == ["KONZ-platform-015"]
+
+
 def test_should_pass_bei_zielwerten_und_rolle_nach_sichtbarkeit_unterscheiden():
     e = bewerte({}, kopien=["iilgmbh/shared-ci"], fristen=[], sichtbar="PUBLIC")
     assert e["status"] == "PASS"

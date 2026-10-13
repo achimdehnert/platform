@@ -47,6 +47,7 @@ from datetime import datetime, timezone
 
 from bot_review_kandidaten import TABU as BOT_TABU
 from bot_review_kandidaten import juengste_je_name
+from review_regeln import ist_tabu
 
 
 class Unklar(Exception):
@@ -361,7 +362,7 @@ def bot_kann_approven(f: Facts) -> bool:
     return (
         f.repo in BOT_REVIEW_REPOS
         and f.ohne_bot_owner == []
-        and not any(p.startswith(t) or p == t for p in f.files for t in BOT_TABU)
+        and not any(ist_tabu(p, tabu=BOT_TABU) for p in f.files)
     )
 
 

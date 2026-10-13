@@ -18,13 +18,28 @@ Gate-Integration:
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import logging
 import re
 import sys
 from dataclasses import dataclass, field
+from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Any
+
+
+def _lade_review_regeln():
+    """`tools/review_regeln.py` ohne sys.path-Eingriff laden (agents/ ist ein Paket, tools/ nicht)."""
+    pfad = Path(__file__).resolve().parents[1] / "tools" / "review_regeln.py"
+    spec = importlib.util.spec_from_file_location("review_regeln", pfad)
+    modul = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(modul)
+    return modul
+
+
+review_regeln = _lade_review_regeln()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -33,160 +48,30 @@ logging.basicConfig(
 logger = logging.getLogger("context_reviewer")
 
 
-ADR_KEYWORDS: dict[str, list[str]] = {
-    "ADR-009": [
-        "architecture",
-        "platform",
-        "service-map",
-    ],
-    "ADR-021": [
-        "deployment",
-        "docker",
-        "compose",
-        "deploy",
-    ],
-    "ADR-028": [
-        "platform-context",
-        "middleware",
-        "tenant",
-    ],
-    "ADR-035": [
-        "tenant",
-        "multi-tenant",
-        "tenant_id",
-        "organization",
-    ],
-    "ADR-040": [
-        "frontend",
-        "completeness",
-        "template",
-        "tailwind",
-    ],
-    "ADR-041": [
-        "component",
-        "templatetag",
-        "inclusion_tag",
-    ],
-    "ADR-042": [
-        "deploy",
-        "workflow",
-        "ci/cd",
-        "github-actions",
-    ],
-    "ADR-043": [
-        "ai",
-        "llm",
-        "mcp",
-        "agent",
-        "windsurf",
-    ],
-    "ADR-045": [
-        "secret",
-        "api-key",
-        "env",
-        "credential",
-    ],
-    "ADR-048": [
-        "htmx",
-        "hx-get",
-        "hx-post",
-        "hx-swap",
-    ],
-    "ADR-049": [
-        "token",
-        "design-token",
-        "pui-",
-        "tailwind",
-    ],
-    "ADR-050": [
-        "knowledge",
-        "documentation",
-        "sphinx",
-        "rag",
-    ],
-    "ADR-052": [
-        "pgvector",
-        "embedding",
-        "query-agent",
-        "rag",
-    ],
-    "ADR-054": [
-        "agent",
-        "guardian",
-        "scribe",
-        "drift",
-        "coach",
-        "reviewer",
-    ],
-}
+# Muster kommen aus registry/review-regeln.yaml (Konsument `context-reviewer`,
+# KONZ-platform-070 Z1, #3903). Die Namen bleiben fuer Aufrufer stabil; die Werte
+# sind Regex-Alternativen (IGNORECASE) bzw. Pfad-Globs statt Substrings.
+_MUSTER = review_regeln.context_muster()
 
-PRINCIPLE_KEYWORDS: dict[str, list[str]] = {
-    "P-001 Database-First": [
-        "models.py",
-        "migration",
-        "makemigrations",
-        "CharField",
-        "ForeignKey",
-    ],
-    "P-002 Zero Breaking Changes": [
-        "deprecat",
-        "breaking",
-        "backward",
-        "expand/contract",
-    ],
-    "P-003 Tenant-Isolation": [
-        "tenant_id",
-        "tenant",
-        "multi-tenant",
-        "organization",
-    ],
-    "P-004 Minimal Diff": [],
-    "P-005 Service Layer": [
-        "services.py",
-        "service_layer",
-        "business_logic",
-    ],
-}
+#: {ADR-Referenz: [Regex, ...]} — gesucht in hinzugefuegten + entfernten Zeilen + Pfad.
+ADR_KEYWORDS: dict[str, list[str]] = _MUSTER["adr"]
+#: {Prinzip: [Regex, ...]} — gesucht in hinzugefuegten Zeilen + Pfad.
+PRINCIPLE_KEYWORDS: dict[str, list[str]] = _MUSTER["prinzipien"]
+#: [{referenz, max_zeilen, konfidenz}] — Umfangs-Schwellen (P-004 Minimal Diff).
+UMFANG_REGELN: list[dict[str, Any]] = _MUSTER["umfang"]
+#: {Projekt: [Glob, ...]} — gegen den kleingeschriebenen Pfad.
+PROJECT_PATHS: dict[str, list[str]] = _MUSTER["projekte"]
+#: Datei-Hinweise mit eigener Meldung (tenant_id, services.py, HTMX, Farbwerte), in Dateireihenfolge.
+INSIGHT_REGELN: list[dict[str, Any]] = _MUSTER["insights"]
 
-PROJECT_PATHS: dict[str, list[str]] = {
-    "travel-beat": [
-        "apps/trips",
-        "apps/stories",
-        "apps/locations",
-        "apps/worlds",
-        "apps/ai_services",
-    ],
-    "bfagent": [
-        "apps/bfagent",
-        "apps/writing_hub",
-        "apps/control_center",
-        "apps/expert_hub",
-    ],
-    "weltenhub": [
-        "apps/worlds",
-        "apps/characters",
-        "apps/scenes",
-        "apps/enrichment",
-    ],
-    "risk-hub": [
-        "apps/risk",
-        "apps/assessments",
-        "apps/reports",
-    ],
-    "platform": [
-        "agents/",
-        "packages/",
-        "docs/adr",
-        "shared/",
-        "tools/",
-    ],
-    "mcp-hub": [
-        "orchestrator_mcp",
-        "llm_mcp",
-        "deployment_mcp",
-        "query_agent_mcp",
-    ],
-}
+
+def _trifft(muster: list[str], text: str, exakt: bool = False) -> bool:
+    flags = 0 if exakt else re.IGNORECASE
+    return any(re.search(m, text, flags) for m in muster)
+
+
+def _pfad_trifft(pfad: str, globs: list[str]) -> bool:
+    return any(fnmatchcase(pfad, g) for g in globs)
 
 
 @dataclass
@@ -324,8 +209,8 @@ def detect_affected_adrs(
             + f["path"]
         ).lower()
 
-        for adr, keywords in ADR_KEYWORDS.items():
-            if any(kw in all_text for kw in keywords):
+        for adr, muster in ADR_KEYWORDS.items():
+            if _trifft(muster, all_text):
                 found.add(adr)
 
     return sorted(found)
@@ -338,14 +223,15 @@ def detect_affected_principles(
     found: set[str] = set()
 
     total_changes = sum(len(f["added_lines"]) + len(f["removed_lines"]) for f in files)
-    if total_changes > 400:
-        found.add("P-004 Minimal Diff")
+    for regel in UMFANG_REGELN:
+        if total_changes > regel["max_zeilen"]:
+            found.add(regel["referenz"])
 
     for f in files:
         all_text = (" ".join(f["added_lines"]) + " " + f["path"]).lower()
 
-        for principle, keywords in PRINCIPLE_KEYWORDS.items():
-            if any(kw.lower() in all_text for kw in keywords):
+        for principle, muster in PRINCIPLE_KEYWORDS.items():
+            if _trifft(muster, all_text):
                 found.add(principle)
 
     return sorted(found)
@@ -359,8 +245,8 @@ def detect_affected_projects(
 
     for f in files:
         path = f["path"].lower()
-        for project, paths in PROJECT_PATHS.items():
-            if any(p in path for p in paths):
+        for project, globs in PROJECT_PATHS.items():
+            if _pfad_trifft(path, globs):
                 found.add(project)
 
     return sorted(found)
@@ -389,8 +275,9 @@ def generate_insights(
             )
         )
 
+    umfang = {r["referenz"]: r for r in UMFANG_REGELN}
     for principle in principles:
-        if principle == "P-004 Minimal Diff":
+        if principle in umfang:
             total = sum(len(f["added_lines"]) + len(f["removed_lines"]) for f in files)
             insights.append(
                 ContextInsight(
@@ -400,7 +287,7 @@ def generate_insights(
                         f"PR hat {total} geänderte Zeilen. "
                         f"Erwäge Aufteilen wenn möglich."
                     ),
-                    confidence=0.9,
+                    confidence=umfang[principle]["konfidenz"],
                 )
             )
         else:
@@ -416,65 +303,32 @@ def generate_insights(
         path = f["path"]
         added = "\n".join(f["added_lines"])
 
-        if path.endswith("models.py") and "tenant_id" in added:
-            insights.append(
-                ContextInsight(
-                    category="Multi-Tenancy",
-                    reference="P-003",
-                    message=(
-                        "tenant_id Feld gefunden — "
-                        "stelle sicher dass alle Queries "
-                        "per tenant_id filtern."
-                    ),
-                    file=path,
+        for regel in INSIGHT_REGELN:
+            if _insight_trifft(regel, path, added):
+                a = regel["ausgabe"]
+                insights.append(
+                    ContextInsight(
+                        category=a["kategorie"],
+                        reference=a["referenz"],
+                        message=a["meldung"],
+                        file=path,
+                        confidence=a.get("konfidenz", 0.8),
+                    )
                 )
-            )
-
-        if "services.py" in path:
-            insights.append(
-                ContextInsight(
-                    category="Architecture",
-                    reference="P-005",
-                    message=(
-                        "Service-Layer-Änderung — "
-                        "Business-Logik gehört hierhin, "
-                        "nicht in views.py."
-                    ),
-                    file=path,
-                    confidence=0.7,
-                )
-            )
-
-        if re.search(r"hx-(get|post|put|delete)", added):
-            insights.append(
-                ContextInsight(
-                    category="HTMX",
-                    reference="ADR-048",
-                    message=(
-                        "HTMX-Attribute erkannt. "
-                        "Siehe ADR-048 für Patterns "
-                        "(Swap, Boost, OOB)."
-                    ),
-                    file=path,
-                )
-            )
-
-        if re.search(r"#[0-9a-fA-F]{6}\b", added):
-            insights.append(
-                ContextInsight(
-                    category="Design Tokens",
-                    reference="ADR-049",
-                    message=(
-                        "Hardcoded Farbwert erkannt. "
-                        "Nutze pui-Token aus "
-                        "pui-tokens.css stattdessen."
-                    ),
-                    file=path,
-                    confidence=0.85,
-                )
-            )
 
     return insights
+
+
+def _insight_trifft(regel: dict[str, Any], path: str, added: str) -> bool:
+    """Geltung (Pfad-Globs) und Detektor (pfad | regex auf hinzugefuegte Zeilen) einer Insight-Regel."""
+    if not _pfad_trifft(path, regel["geltung"]["pfade"]):
+        return False
+    d = regel["detektor"]
+    if d["typ"] == "pfad":
+        return _pfad_trifft(path, d["muster"])
+    if d["typ"] == "regex":
+        return _trifft(d["muster"], added, exakt=d.get("gross_klein") == "exakt")
+    return False
 
 
 def analyze_diff(diff_text: str) -> ReviewResult:

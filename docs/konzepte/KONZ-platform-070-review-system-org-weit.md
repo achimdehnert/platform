@@ -46,7 +46,7 @@ created: 2026-10-13
 | CODEOWNERS vorhanden | 61 / 61 — ohne Approval-Pflicht wirkungslos |
 | Bot-Review aktiv | 2 (platform, risk-hub) |
 | Context-Reviewer aktiv | 1 (platform) |
-| meiki-lra, ttz-lif in `registry/canonical.yaml` | 0 Einträge — die Registry kennt zwei Orgs nicht |
+| meiki-lra, ttz-lif in `registry/canonical.yaml` | Namen vorhanden (meiki-hub, frist-hub, post-hub, schreib-hub, buerger-hub; ttz-hub), aber ohne `rich`-Daten — vor WP0 fehlte `github` bei 6/6 und registry-weit bei 34/69 (38/69 ohne `rich`-Block), nach WP0 (`tools/registry_rich_sync.py`, #3903) bei 0/6 bzw. 1/69; `lifecycle` bleibt bei 6/6 offen, `deployed` ist bei 4/6 belegt (`false`, ports.yaml blockiert) und bei meiki-hub, ttz-hub nicht belegbar |
 
 ### 1.2 Merges ohne Review, 30 Tage bis 2026-10-13 (C2)
 
