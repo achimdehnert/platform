@@ -23,25 +23,54 @@ KONFIG = {
     "repo": REPO,
     "neu_stunden": 26,
     "routinen": [
-        {"name": "drift", "ausgang": {"label": "drift"}, "still_stunden": 50, "befund": True,
-         "kopf_muster": "^## Drift-Report", "ruhe_muster": "keine Funde"},
-        {"name": "abgleich", "ausgang": {"issue": 7}, "still_stunden": 50, "befund": True,
-         "ruhe_muster": "[Kk]ein Drift"},
-        {"name": "briefing", "ausgang": {"issue": 9}, "still_stunden": 80, "befund": False},
+        {
+            "name": "drift",
+            "ausgang": {"label": "drift"},
+            "still_stunden": 50,
+            "befund": True,
+            "kopf_muster": "^## Drift-Report",
+            "ruhe_muster": "keine Funde",
+        },
+        {
+            "name": "abgleich",
+            "ausgang": {"issue": 7},
+            "still_stunden": 50,
+            "befund": True,
+            "ruhe_muster": "[Kk]ein Drift",
+        },
+        {
+            "name": "briefing",
+            "ausgang": {"issue": 9},
+            "still_stunden": 80,
+            "befund": False,
+        },
         {"name": "pr-prep", "ausgang": None, "grund": "kommentiert PRs"},
     ],
 }
 
 
 def _kommentar(issue: int, zeit: str, body: str, n: int = 1) -> dict:
-    return {"issue_url": f"https://api.github.com/repos/{REPO}/issues/{issue}", "created_at": zeit,
-            "body": body, "html_url": f"https://github.com/{REPO}/issues/{issue}#issuecomment-{n}"}
+    return {
+        "issue_url": f"https://api.github.com/repos/{REPO}/issues/{issue}",
+        "created_at": zeit,
+        "body": body,
+        "html_url": f"https://github.com/{REPO}/issues/{issue}#issuecomment-{n}",
+    }
 
 
 def _daten(kommentare: list[dict], drift_issues: list[dict] | None = None) -> dict:
-    offen = drift_issues if drift_issues is not None else [
-        {"number": 5, "created_at": "2026-08-01T00:00:00Z", "body": "## Drift-Report alt",
-         "html_url": f"https://github.com/{REPO}/issues/5"}]
+    offen = (
+        drift_issues
+        if drift_issues is not None
+        else [
+            {
+                "number": 5,
+                "created_at": "2026-08-01T00:00:00Z",
+                "body": "## Drift-Report alt",
+                "html_url": f"https://github.com/{REPO}/issues/5",
+            }
+        ]
+    )
     return {"issues": {"drift": offen}, "kommentare": kommentare}
 
 
@@ -59,7 +88,9 @@ def _bewerte(daten: dict) -> tuple[int, str]:
 
 def test_should_report_fresh_finding_with_link():
     kommentare = _ruhige_basis()
-    kommentare[0] = _kommentar(5, "2026-10-13T05:00:00Z", "## Drift-Report\n| repo | archiviert |", 11)
+    kommentare[0] = _kommentar(
+        5, "2026-10-13T05:00:00Z", "## Drift-Report\n| repo | archiviert |", 11
+    )
     rc, zeile = _bewerte(_daten(kommentare))
     assert rc == 1
     assert "drift → https://github.com/demo/repo/issues/5#issuecomment-11" in zeile
@@ -82,7 +113,9 @@ def test_should_stay_quiet_when_reports_match_rest_pattern():
 
 def test_should_ignore_old_finding_outside_window():
     kommentare = _ruhige_basis()
-    kommentare.append(_kommentar(5, "2026-10-11T05:00:00Z", "## Drift-Report\n| alt |", 12))
+    kommentare.append(
+        _kommentar(5, "2026-10-11T05:00:00Z", "## Drift-Report\n| alt |", 12)
+    )
     rc, _ = _bewerte(_daten(kommentare))
     assert rc == 0
 
@@ -96,14 +129,20 @@ def test_should_ignore_comment_without_routine_header():
 
 def test_should_not_report_briefing_content_as_finding():
     kommentare = _ruhige_basis()
-    kommentare[2] = _kommentar(9, "2026-10-13T06:00:00Z", "## Briefing\n3 PRs warten", 3)
+    kommentare[2] = _kommentar(
+        9, "2026-10-13T06:00:00Z", "## Briefing\n3 PRs warten", 3
+    )
     rc, _ = _bewerte(_daten(kommentare))
     assert rc == 0
 
 
 def test_should_count_newly_opened_label_issue_as_report():
-    neu = {"number": 20, "created_at": "2026-10-13T05:30:00Z", "body": "## Drift-Report\nneu",
-           "html_url": f"https://github.com/{REPO}/issues/20"}
+    neu = {
+        "number": 20,
+        "created_at": "2026-10-13T05:30:00Z",
+        "body": "## Drift-Report\nneu",
+        "html_url": f"https://github.com/{REPO}/issues/20",
+    }
     rc, zeile = _bewerte(_daten(_ruhige_basis(), drift_issues=[neu]))
     assert rc == 1
     assert "drift → https://github.com/demo/repo/issues/20" in zeile
@@ -122,18 +161,44 @@ def test_should_exit_with_code_and_print_one_line_via_cli(tmp_path):
     kommentare = _ruhige_basis()
     kommentare[1] = _kommentar(7, "2026-10-13T05:00:00Z", "Drift gefunden: #3812", 2)
     eingabe.write_text(json.dumps(_daten(kommentare)), encoding="utf-8")
-    res = subprocess.run([sys.executable, str(SCRIPT), "--konfig", str(konfig), "--eingabe", str(eingabe),
-                          "--jetzt", JETZT], capture_output=True, text=True, timeout=15)
+    res = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--konfig",
+            str(konfig),
+            "--eingabe",
+            str(eingabe),
+            "--jetzt",
+            JETZT,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
     assert res.returncode == 1, res.stderr
     assert len(res.stdout.strip().splitlines()) == 1
-    assert "abgleich → https://github.com/demo/repo/issues/7#issuecomment-2" in res.stdout
+    assert (
+        "abgleich → https://github.com/demo/repo/issues/7#issuecomment-2" in res.stdout
+    )
 
 
 def test_should_report_unreadable_config_as_not_checkable(tmp_path):
     kaputt = tmp_path / "k.json"
     kaputt.write_text("{}", encoding="utf-8")
-    res = subprocess.run([sys.executable, str(SCRIPT), "--konfig", str(kaputt), "--eingabe", str(kaputt)],
-                         capture_output=True, text=True, timeout=15)
+    res = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--konfig",
+            str(kaputt),
+            "--eingabe",
+            str(kaputt),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
     assert res.returncode == 2
     assert res.stdout.startswith("nicht pruefbar")
 
@@ -143,4 +208,6 @@ def test_should_keep_registry_file_well_formed():
     namen = [r["name"] for r in konfig["routinen"]]
     assert len(namen) == len(set(namen))
     for r in konfig["routinen"]:
-        assert r.get("ausgang") or r.get("grund"), f"{r['name']}: weder Ausgang noch Grund"
+        assert r.get("ausgang") or r.get("grund"), (
+            f"{r['name']}: weder Ausgang noch Grund"
+        )

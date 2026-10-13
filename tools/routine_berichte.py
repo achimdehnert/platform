@@ -40,7 +40,11 @@ DATEI = Path(__file__).resolve().parents[1] / "registry" / "routine-berichte.jso
 def lade_konfig(pfad: Path = DATEI) -> dict:
     """Liest die Routinen-Liste; leer oder kaputt ist ein Fehler, kein Default."""
     konfig = json.loads(pfad.read_text(encoding="utf-8"))
-    if not konfig.get("repo") or not konfig.get("routinen") or not konfig.get("neu_stunden"):
+    if (
+        not konfig.get("repo")
+        or not konfig.get("routinen")
+        or not konfig.get("neu_stunden")
+    ):
         raise ValueError(f"{pfad}: 'repo', 'neu_stunden' oder 'routinen' fehlt")
     return konfig
 
@@ -51,29 +55,61 @@ def _zeit(text: str) -> datetime:
 
 def fenster_stunden(konfig: dict) -> int:
     """So weit zurueck muss gelesen werden, damit neu und still beide entscheidbar sind."""
-    stunden = [konfig["neu_stunden"]] + [r.get("still_stunden") or 0 for r in konfig["routinen"]]
+    stunden = [konfig["neu_stunden"]] + [
+        r.get("still_stunden") or 0 for r in konfig["routinen"]
+    ]
     return max(stunden)
 
 
 def _gh_json(args: list[str]) -> list:
     # `--jq '.[]'` gibt je Element eine kompakte JSON-Zeile aus — auch ueber
     # Seitengrenzen von --paginate hinweg, ohne Listen aneinanderzukleben.
-    roh = subprocess.run(["gh", *args, "--jq", ".[]"], capture_output=True, text=True,
-                         timeout=60, check=True).stdout
+    roh = subprocess.run(
+        ["gh", *args, "--jq", ".[]"],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=True,
+    ).stdout
     return [json.loads(z) for z in roh.splitlines() if z.strip()]
 
 
 def lade_live(konfig: dict, jetzt: datetime) -> dict:
     repo = konfig["repo"]
-    seit = (jetzt - timedelta(hours=fenster_stunden(konfig))).strftime("%Y-%m-%dT%H:%M:%SZ")
+    seit = (jetzt - timedelta(hours=fenster_stunden(konfig))).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
     issues: dict[str, list] = {}
     for r in konfig["routinen"]:
         label = (r.get("ausgang") or {}).get("label")
         if label and label not in issues:
-            issues[label] = _gh_json(["api", "-X", "GET", f"repos/{repo}/issues",
-                                      "-f", "state=open", "-f", f"labels={label}", "-f", "per_page=100"])
-    kommentare = _gh_json(["api", "--paginate", "-X", "GET", f"repos/{repo}/issues/comments",
-                           "-f", f"since={seit}", "-f", "per_page=100"])
+            issues[label] = _gh_json(
+                [
+                    "api",
+                    "-X",
+                    "GET",
+                    f"repos/{repo}/issues",
+                    "-f",
+                    "state=open",
+                    "-f",
+                    f"labels={label}",
+                    "-f",
+                    "per_page=100",
+                ]
+            )
+    kommentare = _gh_json(
+        [
+            "api",
+            "--paginate",
+            "-X",
+            "GET",
+            f"repos/{repo}/issues/comments",
+            "-f",
+            f"since={seit}",
+            "-f",
+            "per_page=100",
+        ]
+    )
     return {"issues": issues, "kommentare": kommentare}
 
 
@@ -90,10 +126,23 @@ def berichte(routine: dict, daten: dict) -> tuple[list[int], list[dict]]:
         offen = daten["issues"].get(ausgang.get("label"), [])
         nummern, angelegt = [i["number"] for i in offen], offen
     kopf = re.compile(routine["kopf_muster"]) if routine.get("kopf_muster") else None
-    liste = [{"zeit": _zeit(i["created_at"]), "body": i.get("body") or "", "url": i["html_url"]}
-             for i in angelegt]
-    liste += [{"zeit": _zeit(k["created_at"]), "body": k.get("body") or "", "url": k["html_url"]}
-              for k in daten["kommentare"] if _issue_nummer(k) in nummern]
+    liste = [
+        {
+            "zeit": _zeit(i["created_at"]),
+            "body": i.get("body") or "",
+            "url": i["html_url"],
+        }
+        for i in angelegt
+    ]
+    liste += [
+        {
+            "zeit": _zeit(k["created_at"]),
+            "body": k.get("body") or "",
+            "url": k["html_url"],
+        }
+        for k in daten["kommentare"]
+        if _issue_nummer(k) in nummern
+    ]
     if kopf:
         liste = [b for b in liste if kopf.search(b["body"].split("\n", 1)[0])]
     return nummern, sorted(liste, key=lambda b: b["zeit"])
@@ -116,12 +165,21 @@ def bewerte(konfig: dict, daten: dict, jetzt: datetime) -> tuple[int, str]:
         if not r.get("befund"):
             continue
         ruhe = re.compile(r["ruhe_muster"]) if r.get("ruhe_muster") else None
-        frisch = [b for b in liste if b["zeit"] >= neu_grenze and not (ruhe and ruhe.search(b["body"]))]
+        frisch = [
+            b
+            for b in liste
+            if b["zeit"] >= neu_grenze and not (ruhe and ruhe.search(b["body"]))
+        ]
         if frisch:
-            funde.append(f"{r['name']} → {frisch[-1]['url']}"
-                         + (f" (+{len(frisch) - 1})" if len(frisch) > 1 else ""))
+            funde.append(
+                f"{r['name']} → {frisch[-1]['url']}"
+                + (f" (+{len(frisch) - 1})" if len(frisch) > 1 else "")
+            )
     if not funde and not still:
-        return 0, f"keine neuen Routine-Berichte ({gelesen} Routinen gelesen, Fenster {konfig['neu_stunden']} h)"
+        return (
+            0,
+            f"keine neuen Routine-Berichte ({gelesen} Routinen gelesen, Fenster {konfig['neu_stunden']} h)",
+        )
     teile = []
     if funde:
         teile.append(f"{len(funde)} neue Routine-Berichte: " + "; ".join(funde))
@@ -131,20 +189,31 @@ def bewerte(konfig: dict, daten: dict, jetzt: datetime) -> tuple[int, str]:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     p.add_argument("--konfig", type=Path, default=DATEI, help=argparse.SUPPRESS)
-    p.add_argument("--eingabe", type=Path, help="JSON {issues: {label: [...]}, kommentare: [...]} statt gh (Tests)")
+    p.add_argument(
+        "--eingabe",
+        type=Path,
+        help="JSON {issues: {label: [...]}, kommentare: [...]} statt gh (Tests)",
+    )
     p.add_argument("--jetzt", help="ISO-Zeit statt der Uhr (Tests)")
     return p
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    jetzt = datetime.fromisoformat(args.jetzt) if args.jetzt else datetime.now(timezone.utc)
+    jetzt = (
+        datetime.fromisoformat(args.jetzt) if args.jetzt else datetime.now(timezone.utc)
+    )
     try:
         konfig = lade_konfig(args.konfig)
-        daten = (json.loads(args.eingabe.read_text(encoding="utf-8")) if args.eingabe
-                 else lade_live(konfig, jetzt))
+        daten = (
+            json.loads(args.eingabe.read_text(encoding="utf-8"))
+            if args.eingabe
+            else lade_live(konfig, jetzt)
+        )
     except (OSError, subprocess.SubprocessError, ValueError) as fehler:
         print(f"nicht pruefbar: {type(fehler).__name__}: {str(fehler)[:160]}")
         return 2
