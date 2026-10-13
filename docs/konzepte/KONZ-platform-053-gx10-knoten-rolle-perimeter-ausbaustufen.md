@@ -10,7 +10,7 @@ adr_threshold: >
   unberührt, solange die beiden Geräte unabhängige Lanes sind und kein Konsument
   zwischen ihnen wählen muss. Die Amendment-Auslöser stehen in §7; tritt einer ein,
   ist es ein Amendment zu ADR-296, kein neuer Org-ADR.
-review_by: 2026-10-10
+review_by: 2026-12-01   # 2026-10-13: K1/K2 nicht gezogen (Dauerlasten seit 09-01, 4/8 arm64-Kandidaten belegt, 0 Fehlschläge); offen Rollenfrage #3440 — platform#3234 V2; vorher 2026-10-10
 kill_criteria: >
   K1: Läuft bis 2026-10-10 keine Last dauerhaft auf dem Knoten, die vorher nicht lief.
   K2: Die arm64-Bestandsaufnahme scheitert an mehr als der Hälfte der Kandidaten aus §5.

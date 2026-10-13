@@ -8,7 +8,7 @@ spec_refs: []
 spec_refs_begruendung: "Mess-Infrastruktur, keine App-/UI-Funktion — kein ADR-211-Spec-Bezug."
 adr_threshold: kein ADR
 adr_threshold_begruendung: "Addition nach Muster (Eval-Skript + YAML, analog scripts/ + baselines/). Amendment-Check nur, falls ein Recall-Check je harter CI-Step wird — das wäre eine separate, bewusste Entscheidung (Muster: Wargame-Ledger K-11)."
-review_by: 2026-10-10
+review_by: 2026-12-31   # 2026-10-13: Kill-Kriterium noch nicht messbar (erster Quartalslauf Q4/2026 fehlt; run_goldset-Regex passt nicht zum neuen Hook-Format, 0/13 statt 13/13) — platform#3234 V2; vorher 2026-10-10
 kill_criteria: "Zwei aufeinanderfolgende Quartalsläufe (erstmals Q4/2026) mit 0 neuen Befunden über alle aktiven Recall-Goldsets UND kein Schicht-Ausbau beschlossen → sunset (Goldsets archivieren, Messung einstellen). Zusatz-Kill: ein manueller Lauf > 30 Min → automatisieren oder sunsetten."
 superseded_by_spec: null
 evidence_manifest:
