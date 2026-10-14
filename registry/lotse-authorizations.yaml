@@ -34,6 +34,17 @@ meta:
     Konsequenz für LV-010 (Design, proposed): eine Aktivierung wäre die sechste
     und löst zuerst den Sechs-Artefakt-Ausbau aus (Art. 10 Kriterium 1).
 
+  zaehlregel_profilrechte:            # NEU 2026-10-14 (KONZ-071 O2, Owner-Wort "RR2 go" 2026-10-13)
+    regel: >
+      Profilrechte eines Chatraums ohne Außenwirkung zählen nicht zur 5er-Grenze.
+      Das sind `chat`, `lesen` und `sandbox-front`. Sie sind keine Vollmacht im
+      Sinn dieser Registry und bekommen keinen LV-Eintrag.
+    grenze: >
+      Sobald ein Profilrecht Außenwirkung hat, zählt es wie jede Vollmacht. Das gilt
+      für Senden, Veröffentlichen, Prod, Schreiben in fremde Repos und Geld. Ob das
+      Recht in einem Raum-Profil oder hier steht, ändert daran nichts.
+    quelle: "docs/konzepte/KONZ-platform-071-raum-rechte-je-chatraum.md §13 O2 · https://github.com/achimdehnert/platform/issues/3916"
+
   ratifikations_regel:                # NEU 2026-09-03 (Kapitaens-Entscheid "109 ja")
     regel: >
       Ein PR, der Rechte des Lotsen ERTEILT, ERWEITERT oder NIMMT, wird vom Lotsen nur
