@@ -260,7 +260,7 @@ Verworfen: Token-Ablauf (deckt `0.7.25` schon ab) und 5er-Grenze (ist nach O2 ei
 
 **Entscheidungen (Owner):** Owner-Wort 2026-10-13 10:20: „scope +chat-hub · RS1 go · RR1 go · RR2 go · RR3 go · RR4 go“. Im Board hießen O1–O4 RR1–RR4, Stufe 1 hieß RS1.
 - **O1** Profile nach §5.3, Telefon ohne Kalender. **Entschieden (RR1 go).**
-- **O2** Profilrechte ohne Außenwirkung (`chat`, `lesen`, `sandbox-front`) zählen nicht zur 5er-Grenze. Die Regel kommt ausdrücklich in die Registry-Meta. **Entschieden (RR2 go).** Der Registry-Eintrag selbst steht noch aus, siehe unten.
+- **O2** Profilrechte ohne Außenwirkung (`chat`, `lesen`, `sandbox-front`) zählen nicht zur 5er-Grenze. Die Regel kommt ausdrücklich in die Registry-Meta. **Entschieden (RR2 go).** Der Registry-Eintrag `meta.zaehlregel_profilrechte` liegt als Vorschlag in [#3953](https://github.com/achimdehnert/platform/pull/3953) und wird mit Owner-APPROVE gemergt.
 - **O3** Ratifikation (APPROVE) gilt auch für Rechte-Dateien in chat-hub. **Entschieden (RR3 go).**
 - **O4** Ruhende Räume stilllegen statt profilieren. Betroffen sind die drei Raum-Ordner ohne Aktivität seit 2026-09-05; neu nur mit Profil. **Entschieden (RR4 go).** Erweitert um den Raum-Ordner `risk-hub` (Owner-Wort „RR5 go“, 2026-10-13).
 - **Freigabe-Identität:** Rechte- und Governance-PRs eröffnet die GitHub App `lotse-autor`, der Owner approvt. Ein zweites Personenkonto ist kein Freigabe-Weg. **Entschieden (Owner-Wort „RA1 go“, 2026-10-13; [#3916](https://github.com/achimdehnert/platform/issues/3916)).**
@@ -281,9 +281,9 @@ Verworfen: Token-Ablauf (deckt `0.7.25` schon ab) und 5er-Grenze (ist nach O2 ei
 | Kriterium | Status | Beleg |
 |---|---|---|
 | (a) Stufe 1 bis 2026-11-15 gemergt | erfüllt | iilgmbh/chat-hub#186, gemergt 2026-10-13 12:06Z |
-| Stufe 1 live abgenommen | offen | erster Briefing-Lauf 2026-10-14 05:00, iilgmbh/chat-hub#184 |
+| Stufe 1 live abgenommen | erfüllt | Briefing-Lauf 2026-10-14 05:00 Exit 0, Antwort im Raum „Achim / Lotse“; iilgmbh/chat-hub#184 geschlossen |
 | Code-Owner-Review für Rechte-Dateien (K8) | erfüllt | chat-hub-Ruleset seit 2026-10-13 12:10Z |
-| Registry-Meta-Regel zu O2 | offen | [#3916](https://github.com/achimdehnert/platform/issues/3916) |
+| Registry-Meta-Regel zu O2 | in PR, Owner-APPROVE offen | [#3953](https://github.com/achimdehnert/platform/pull/3953) · [#3916](https://github.com/achimdehnert/platform/issues/3916) |
 | (b) Requalifikation ≤ 30 min je Modellwechsel | offen | — |
 | (c) Abgleich nie > 7 Tage rot | offen | — |
 | O1–O4 entschieden | erfüllt | Owner-Wort 2026-10-13 10:20 |
