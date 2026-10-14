@@ -18,6 +18,7 @@ import os
 import stat
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 HOOK = Path(__file__).resolve().parent.parent / "pr_autor_identitaet_hinweis.py"
@@ -229,6 +230,134 @@ def test_should_bei_kaputtem_json_nicht_blockieren():
     )
     assert res.returncode == 0
     assert res.stdout == ""
+
+
+# --- Ausweitung platform#3997: Approve-Pflicht aus dem Merge-Mandat ----------
+# Realfall #3992: `tools/claude-hooks/` ist weder CODEOWNERS- noch Governance-Pfad,
+# platform ist sync-only (W1 -> M1), das verlinkte Issue trug keinen Vermerk.
+
+TOOLS = HOOK.parent.parent
+#: Regelcode, den der Hook als Bibliothek laedt — echte Dateien, keine Kopie der Regel.
+#: Die Review-Regeln liest pr_merge_sa schon beim Import (bot_review_kandidaten).
+WERKZEUG_DATEIEN = (
+    "tools/pr_merge_sa.py",
+    "tools/bot_review_kandidaten.py",
+    "tools/review_regeln.py",
+    "registry/review-regeln.yaml",
+)
+POLICY_SA_M = (
+    "```yaml\nsa_m:\n"
+    "  deckung: {W0: M0, W1: M1, W2: M2, W3: M1}\n"
+    '  doku_glob: ["*.md", "docs/**"]\n'
+    "  doku_ohne_mandat: true\n"
+    f"  governance_pfade: {GOVERNANCE}\n"
+    f'  sync_only_repos: ["{ORG}/chat-hub"]\n'
+    "```\n"
+)
+VERMERK_ZEILE = "Freigabe: akzeptiert durch Owner 2026-10-14"
+
+
+def _umgebung_mit_werkzeug(
+    tmp_path: Path, issues: dict[str, str], login: str = OWNER
+) -> dict[str, str]:
+    """Wie _umgebung, dazu pr_merge_sa im Wegwerf-Platform-Baum und ein Fake-`gh`,
+    das `gh issue view <nr>` aus `issues` beantwortet."""
+    env = _umgebung(tmp_path, login)
+    platform = Path(env["PLATFORM_TOOLS_DIR"]).parent
+    (platform / "policies" / "autonomy-gates.md").write_text(
+        POLICY_SA_M, encoding="utf-8"
+    )
+    for name in WERKZEUG_DATEIEN:
+        (platform / name).parent.mkdir(parents=True, exist_ok=True)
+        (platform / name).write_text(
+            (TOOLS.parent / name).read_text(encoding="utf-8"), encoding="utf-8"
+        )
+    issue_dir = tmp_path / "issues"
+    issue_dir.mkdir()
+    for nummer, body in issues.items():
+        (issue_dir / f"{nummer}.json").write_text(
+            json.dumps({"body": body}), encoding="utf-8"
+        )
+    (tmp_path / "bin" / "gh").write_text(
+        "#!/bin/sh\n"
+        f'[ "$1" = api ] && [ "$2" = user ] && {{ echo {login}; exit 0; }}\n'
+        f'[ "$1" = issue ] && [ "$2" = view ] && [ -f "{issue_dir}/$3.json" ] '
+        f'&& {{ cat "{issue_dir}/$3.json"; exit 0; }}\n'
+        "exit 3\n",
+        encoding="utf-8",
+    )
+    env["XDG_CACHE_HOME"] = str(tmp_path / "cache")
+    return env
+
+
+def _anlegen_mit_body(tmp_path: Path, body: str) -> str:
+    datei = tmp_path / "pr.md"
+    datei.write_text(body, encoding="utf-8")
+    return f"gh pr create --title 'fix(x): y' --body-file {datei}"
+
+
+def test_should_hinweis_zeigen_beim_realfall_mandat_ohne_vermerk(tmp_path):
+    repo = _repo(tmp_path, ["tools/claude-hooks/hook.py"], CODEOWNERS_REALFALL)
+    env = _umgebung_mit_werkzeug(tmp_path, {"3977": "Auftrag ohne Vermerk"})
+    res = _lauf(repo, env, _anlegen_mit_body(tmp_path, "Refs #3977"))
+    assert res.returncode == 0, res.stderr
+    text = _kontext(res)
+    assert "Merge-Mandat (W1 verlangt M1, kein verlinktes Issue" in text
+    assert f"lotse-gh {ORG} pr create" in text
+
+
+def test_should_body_datei_aus_variable_aufloesen(tmp_path):
+    repo = _repo(tmp_path, ["tools/claude-hooks/hook.py"], CODEOWNERS_REALFALL)
+    env = _umgebung_mit_werkzeug(tmp_path, {"3977": "Auftrag ohne Vermerk"})
+    (tmp_path / "pr.md").write_text("Refs #3977", encoding="utf-8")
+    kommando = f"S={tmp_path}; gh pr create --title t --body-file $S/pr.md"
+    assert "kein verlinktes Issue" in _kontext(_lauf(repo, env, kommando))
+
+
+def test_should_ungeprueft_melden_wenn_body_datei_fehlt(tmp_path):
+    repo = _repo(tmp_path, ["tools/claude-hooks/hook.py"], CODEOWNERS_REALFALL)
+    env = _umgebung_mit_werkzeug(tmp_path, {})
+    kommando = f"gh pr create --title t --body-file {tmp_path}/fehlt.md"
+    assert "Vermerk ungeprueft" in _kontext(_lauf(repo, env, kommando))
+
+
+def test_should_keinen_mandat_hinweis_wenn_issue_vermerk_traegt(tmp_path):
+    repo = _repo(tmp_path, ["tools/claude-hooks/hook.py"], CODEOWNERS_REALFALL)
+    env = _umgebung_mit_werkzeug(tmp_path, {"3977": f"Auftrag\n{VERMERK_ZEILE}\n"})
+    res = _lauf(repo, env, _anlegen_mit_body(tmp_path, "Refs #3977"))
+    assert res.returncode == 0, res.stderr
+    assert _kontext(res) == ""
+
+
+def test_should_keinen_mandat_hinweis_bei_reiner_doku(tmp_path):
+    repo = _repo(tmp_path, ["docs/retros/r.md"], CODEOWNERS_REALFALL)
+    env = _umgebung_mit_werkzeug(tmp_path, {})
+    assert _kontext(_lauf(repo, env, _anlegen_mit_body(tmp_path, "Refs #1"))) == ""
+
+
+def test_should_workflow_texte_aus_frischem_cache_lesen(tmp_path):
+    """Nicht-sync-Repo: das Fake-`gh` kennt keine contents-API — die Wirkung W2
+    kann nur aus dem Cache kommen (sonst Unklar -> fail-open, kein Hinweis)."""
+    repo = _repo(tmp_path, ["src/app.py"], CODEOWNERS_REALFALL)
+    env = _umgebung_mit_werkzeug(tmp_path, {})
+    policy = Path(env["PLATFORM_TOOLS_DIR"]).parent / "policies" / "autonomy-gates.md"
+    policy.write_text(POLICY_SA_M.replace(f"{ORG}/chat-hub", "x/y"), encoding="utf-8")
+    deploy = "on:\n  push:\n    branches: [main]\njobs:\n  d:\n    steps:\n      - run: ssh host\n"
+    cache = tmp_path / "cache" / "claude-hooks" / "pr_autor_workflow_texte.json"
+    cache.parent.mkdir(parents=True)
+    eintrag = {"ts": time.time(), "texte": [deploy]}
+    cache.write_text(json.dumps({f"{ORG}/chat-hub": eintrag}), encoding="utf-8")
+    text = _kontext(_lauf(repo, env, _anlegen_mit_body(tmp_path, "x")))
+    assert "Merge-Mandat (W2 verlangt M2, das gibt nur ein Approve)" in text
+    eintrag["ts"] = time.time() - 7 * 3600
+    cache.write_text(json.dumps({f"{ORG}/chat-hub": eintrag}), encoding="utf-8")
+    assert _kontext(_lauf(repo, env, _anlegen_mit_body(tmp_path, "x"))) == ""
+
+
+def test_should_keinen_mandat_hinweis_wenn_konto_kein_freigeber(tmp_path):
+    repo = _repo(tmp_path, ["tools/claude-hooks/hook.py"], CODEOWNERS_REALFALL)
+    env = _umgebung_mit_werkzeug(tmp_path, {}, login=FREMD)
+    assert _kontext(_lauf(repo, env, _anlegen_mit_body(tmp_path, "x"))) == ""
 
 
 # --- CODEOWNERS-Semantik ----------------------------------------------------
