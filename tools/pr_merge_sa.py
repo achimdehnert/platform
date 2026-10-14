@@ -650,10 +650,55 @@ def pruef_pflicht_gruende(repo: str, dateien: list, r: dict) -> list:
                 continue
             if _paths_ignore_deckt_alles(kopf, dateien):
                 continue
-            if PUBLISH_MARKER.search(text):
+            if publish_marker_im_tun(text):
                 gruende.append("Publish-Workflow auf main (irreversibel)")
                 break
     return gruende
+
+
+_TUENDE_SCHLUESSEL = ("run", "uses")
+_BESCHREIBENDE_SCHLUESSEL = ("name", "description")
+_REGISTRY_MARKER = re.compile(r"ghcr\.io", re.IGNORECASE)
+
+
+def publish_marker_im_tun(text: str) -> bool:
+    """Marker nur dort suchen, wo ein Workflow etwas TUT: in `run:`/`uses:`-Werten.
+
+    Eine Registry (ghcr.io) zaehlt zusaetzlich als Eingabe (`with:`/`env:`), weil
+    ein Login dorthin ein Push vorbereitet. Step-Namen, Beschreibungen und
+    Pruef-Eingaben zaehlen nicht — Realfall shared-ci validate-workflows.yml
+    (platform#3903): Step "ADR-226 publish-gate invariant" mit `checks: publish-gate`
+    prueft nur, veroeffentlicht nichts, und loeste trotzdem M3 aus.
+    Unparsbarer Text => ganzer Text wie bisher (fail-closed).
+    """
+    try:
+        import yaml
+    except ImportError:
+        return bool(PUBLISH_MARKER.search(text))
+    try:
+        baum = yaml.safe_load(text)
+    except yaml.YAMLError:
+        return bool(PUBLISH_MARKER.search(text))
+    tun: list[str] = []
+    eingaben: list[str] = []
+
+    def _gehe(knoten, schluessel: str | None) -> None:
+        if isinstance(knoten, dict):
+            for s, w in knoten.items():
+                _gehe(w, str(s))
+        elif isinstance(knoten, list):
+            for w in knoten:
+                _gehe(w, schluessel)
+        elif isinstance(knoten, str):
+            if schluessel in _TUENDE_SCHLUESSEL:
+                tun.append(knoten)
+            elif schluessel not in _BESCHREIBENDE_SCHLUESSEL:
+                eingaben.append(knoten)
+
+    _gehe(baum, None)
+    return any(PUBLISH_MARKER.search(w) for w in tun) or any(
+        _REGISTRY_MARKER.search(w) for w in eingaben
+    )
 
 
 def mandat_des_prs(repo: str, nummer: int, pr: dict) -> str:
