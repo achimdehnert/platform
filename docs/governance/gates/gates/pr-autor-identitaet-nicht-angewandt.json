@@ -1,0 +1,33 @@
+{
+  "slug": "pr-autor-identitaet-nicht-angewandt",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": "tools/claude-hooks/pr_autor_identitaet_hinweis.py",
+  "drill": "tools/claude-hooks/tests/test_pr_autor_identitaet_hinweis.py",
+  "built": "2026-10-13",
+  "ref": "Retro e50644 Befund 8 und §6 Gate-Kandidat (platform#3939); Owner-Wort „M4 go“ 2026-10-13 13:12Z; Regel aus platform#3916",
+  "last_drill_pass": "2026-10-13",
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-10-13",
+  "expires": "2027-01-13",
+  "expires_note": "Drei Monate Messfenster ab Bau. Zur Frist entscheidet gate_wirkung.py: kehrt der Slug in Retros wieder, scharf schalten per eigenem PR nach 0-FP-Kalibrierfenster (frozen_note); bleibt er aus, Ausgang 'still' ohne Frist.",
+  "faengt": [
+    {
+      "fall": "gh pr create unter dem Owner-Konto auf eine Workflow-Datei (Governance-Pfad, Realfall chat-hub#187)",
+      "probe": "realfall_workflow_datei_unter_owner_konto"
+    },
+    {
+      "fall": "gh pr create unter einem Konto, das CODEOWNERS als Owner der geaenderten Datei nennt",
+      "probe": "konto_code_owner_der_datei"
+    },
+    {
+      "fall": "Repo ohne CODEOWNERS, aktives Konto ist Repo-Eigentuemer, Governance-Pfad im Diff",
+      "probe": "repo_eigentuemer_als_freigeber"
+    }
+  ],
+  "positivkontrolle": {
+    "ref": "tools/claude-hooks/tests/test_pr_autor_identitaet_hinweis.py::test_should_hinweis_zeigen_beim_realfall_workflow_datei_unter_owner_konto (Form von chat-hub#187: .github/workflows/ci.yml, CODEOWNERS ohne Workflow-Zeile, Owner-Konto aktiv -> Hinweis mit lotse-gh <org> pr create) sowie ::test_should_hinweis_zeigen_wenn_konto_code_owner_der_datei_ist; Gegenproben ::test_should_keinen_hinweis_zeigen_ohne_approve_pfad, ::test_should_keinen_hinweis_zeigen_wenn_konto_kein_freigeber, ::test_should_lotse_gh_kommando_nicht_pruefen",
+    "datum": "2026-10-13"
+  },
+  "note": "Retro e50644 Befund 8: chat-hub#187 ging 44 min nach der Festlegung in platform#3916 (Autor von Governance-/Rechte-PRs ist die App) unter dem Owner-Konto auf und wurde als #188 neu eroeffnet. Der Hook prueft beim `gh pr create`: aktives Konto (gh api user) ist Freigeber des Ziel-Repos (Login in CODEOWNERS der Basis oder Repo-Eigentuemer) UND der Branch beruehrt eine Datei, deren CODEOWNERS-Owner dieses Konto ist, oder einen governance_pfade-Eintrag des sa_m-Blocks (dieselbe Liste wie pr_merge_sa.py). Dann Hinweis auf `lotse-gh <konto> pr create`. Nur Hinweis, fail-open, Exit 0 immer. Grenze: Org-Repo ohne CODEOWNERS-Login des aktiven Kontos meldet nichts. Wirksam erst nach Eintrag in der aktiven Hook-Konfiguration (ausserhalb des Repos)."
+}
