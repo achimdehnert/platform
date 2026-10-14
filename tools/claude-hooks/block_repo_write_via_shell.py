@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""PreToolUse(Bash) — warnt, wenn eine Shell-Umleitung in ein Git-Arbeitsverzeichnis schreibt.
+"""PreToolUse(Bash) — blockt, wenn ein Shell-Befehl in ein Git-Arbeitsverzeichnis schreibt.
 
 GATE_HEADER (KONZ-038 D8):
   "slug": "inline-heredoc-quoting-rework"
-  "mode": "advisory"
+  "mode": "blocking"
   "owner": "achim"
-  "last_drill_pass": "2026-09-23"
+  "last_drill_pass": "2026-10-14"
   "evidence": "tools/claude-hooks/tests/test_block_repo_write_via_shell.py"
 
 Hintergrund: der Slug steht mit fünf Vorkommen über Retros in der Registry, davon
@@ -35,11 +35,17 @@ FAIL-OPEN (bewusste Grenzen, hier benannt statt im Gate behauptet):
     reale Form (`sed -i 's/a/b/' datei`); `sed -i -e ... datei1 datei2` erkennt
     nur die zweite Datei.
 
-ADVISORY: der Hook blockt nicht, er schreibt eine Zeile nach stderr und lässt den
-Befehl laufen. Grund: die Fehlalarm-Grenzen oben sind Hypothesen, bis `gate_hits`
-sie gemessen hat. Umstellen auf blocking = `MODUS`-Datei anlegen, s. `_modus()`.
-Die Frist dafür ist gesetzt und getrackt: 2026-10-21, danach blocking oder
-gestrichen — platform#3451 (`expires` im Registry-Eintrag).
+  * Ein `cd` mit Variable oder `cd -` macht das Verzeichnis unbekannt; relative
+    Pfade danach schweigen.
+
+BLOCKING seit 2026-10-14 (Retro 161b19 Befund 1, Owner-Wort „R1 go"): ein Schreibziel
+im Repo endet mit Exit 2. Die frühere „0 Treffer"-Messung, auf der die Streichung
+vom 2026-10-08 stand, kam aus einer fehlenden Verdrahtung — der Hook lag in
+`~/.claude/hooks/`, aber kein Eintrag in `settings.json` rief ihn auf. Das Replay
+über 21 Tage echter Bash-Befehle ersetzt das Kalibrierfenster (Zahlen im
+Registry-Eintrag). Der Inline-Text-Fall („…" mit ASCII-Schluss) bleibt advisory:
+dort fand dasselbe Replay Fehlalarme (Text in einfachen Anführungszeichen,
+`\\"`-Escape). Zurück auf advisory = Modus-Datei mit `advisory`, s. `_modus()`.
 """
 
 from __future__ import annotations
@@ -66,14 +72,21 @@ _AUSGENOMMEN = re.compile(r"/scratchpad/|/\.git/|/node_modules/")
 
 #: Heredoc-Körper: reiner Text, darf Umleitungszeichen enthalten, ohne dass
 #: daraus ein Schreibziel wird (`cat <<'X'` mit `> foo` im Fließtext).
-_HEREDOC = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1\s*\n.*?\n\2\b", re.S)
+#: Der Rest der Startzeile (`<<'MSG' && git push`) ist Befehl und bleibt stehen;
+#: der Körper darf leer sein und endet an der Zeile, die nur den Begrenzer trägt.
+_HEREDOC = re.compile(
+    r"<<-?[ \t]*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1([^\n]*)\n(?:.*?\n)??\t*\2(?=[ \t]*(?:\n|$))",
+    re.S,
+)
 #: Anführungszeichen-Spannen: ein `>` in einem PR-Text ist keine Umleitung.
 _GEQUOTET = re.compile(r"'[^']*'|\"[^\"]*\"", re.S)
 
 #: `> pfad` / `>> pfad` — nicht `>&`, nicht `2>&1`.
-_UMLEITUNG = re.compile(r"(?<![0-9&>])>>?\s*(?![&|])([^\s;&|<>]+)")
+#: Nur Leerzeichen/Tab bis zum Ziel: ein `\s*` lief über den Zeilenumbruch und las
+#: das erste Wort der NÄCHSTEN Zeile als Ziel (Replay 2026-10-14: `gh`, `echo`).
+_UMLEITUNG = re.compile(r"(?<![0-9&>-])>>?[ \t]*(?![&|=])([^\s;&|<>]+)")
 #: `tee [-a] pfad`
-_TEE = re.compile(r"\btee\b(?:\s+-\w+)*\s+([^\s;&|<>]+)")
+_TEE = re.compile(r"\btee\b(?:[ \t]+-\w+)*[ \t]+([^\s;&|<>]+)")
 #: `sed -i` / `perl -i` — Ziel ist das letzte Token des Abschnitts.
 _INPLACE = re.compile(r"\b(?:sed|perl|ruby)\s+(?:-\w*i\w*|--in-place)\b")
 
@@ -92,6 +105,12 @@ _SKRIPT_SCHREIBT = re.compile(
 )
 #: Ein Pfad im Skripttext, der auf eine Repo-Datei zeigt.
 _PFAD_IM_TEXT = re.compile(r"['\"]([A-Za-z0-9_./-]+/[A-Za-z0-9_.-]+\.[a-z]{1,5})['\"]")
+#: Das Literal direkt im schreibenden Aufruf — fängt auch Dateien auf oberster
+#: Ebene (`open('CHANGELOG.md', 'a')`), die `_PFAD_IM_TEXT` ohne `/` nicht sieht.
+_SCHREIB_LITERAL = re.compile(
+    r"open\(\s*['\"]([^'\"\n]+)['\"]\s*,\s*['\"][wa]"
+    r"|Path\(\s*['\"]([^'\"\n]+)['\"]\s*\)\.write_(?:text|bytes)\("
+)
 
 #: Ausweitung 2026-09-24 (Retro 02b7f5, platform#3545 §5a): dieselbe Fehlerklasse ohne
 #: Schreibziel. Ein Inline-Text an `gh … --body "…"` oder `git commit -m "…"` mit einem
@@ -104,16 +123,16 @@ _ASCII_SCHLUSS = re.compile(r"„[^“\"\n]*\"")
 
 def inline_quote_bricht(kommando: str) -> bool:
     """Inline-Text mit „…" (ASCII-Schluss) — Heredoc-Körper zählen nicht."""
-    ohne_heredoc = _HEREDOC.sub(" ", kommando)
+    ohne_heredoc = _ohne_heredoc(kommando)
     return bool(
         _INLINE_TEXT.search(ohne_heredoc) and _ASCII_SCHLUSS.search(ohne_heredoc)
     )
 
 
 def _modus() -> str:
-    """advisory (Default) | blocking. Anders herum als beim Evidenz-Scanner:
-    dieses Gate startet bewusst advisory, weil seine Fehlalarm-Grenzen ungemessen
-    sind. Eine fehlende Datei heisst hier advisory, nicht blocking."""
+    """blocking (Default) | advisory. Bis 2026-10-14 umgekehrt — damals waren die
+    Fehlalarm-Grenzen ungemessen. Die Datei mit `advisory` ist der Rückweg ohne
+    Code-Änderung, falls im Betrieb doch ein Fehlalarm auftaucht."""
     verzeichnis = Path(
         os.environ.get(
             "REPO_WRITE_HOOK_STATE_DIR", str(Path.home() / ".claude/hooks/state")
@@ -124,14 +143,67 @@ def _modus() -> str:
             (verzeichnis / "repo_write_hook_mode").read_text(encoding="utf-8").strip()
         )
     except OSError:
-        return "advisory"
-    return "blocking" if wert == "blocking" else "advisory"
+        return "blocking"
+    return "advisory" if wert == "advisory" else "blocking"
+
+
+#: Platzhalter für ausgeblendeten Text — kommt in keinem echten Pfad vor.
+_AUSGEBLENDET = "\x00"
+
+
+def _ohne_heredoc(kommando: str) -> str:
+    return _HEREDOC.sub(lambda m: " " + m.group(3), kommando)
 
 
 def _ohne_text(kommando: str) -> str:
-    """Heredoc-Körper und gequotete Spannen entfernen — dort steht Text, kein Befehl."""
-    ohne = _HEREDOC.sub(" ", kommando)
-    return _GEQUOTET.sub(" ", ohne)
+    """Heredoc-Körper und gequotete Spannen entfernen — dort steht Text, kein Befehl.
+
+    Gequotete Spannen werden LÄNGENTREU durch `_AUSGEBLENDET` ersetzt: eine Position
+    in diesem Text ist dieselbe wie in `_ohne_heredoc`, aus dem `_cwd_bei` das
+    `cd`-Ziel samt Anführungszeichen liest. Und ein gequotetes Ziel
+    (`> "$S/x.md"`) bleibt ein Wort, das `_im_repo` als unbekannt verwirft — statt
+    dass die Umleitung das nächste Wort als Ziel greift.
+    """
+    return _GEQUOTET.sub(
+        lambda m: _AUSGEBLENDET * len(m.group()), _ohne_heredoc(kommando)
+    )
+
+
+#: `cd` am Anfang eines Teilbefehls (gesucht im bereinigten Text, damit ein „cd" in
+#: einem PR-Text nicht zählt) und sein Argument (gelesen im Text MIT Quotes).
+_CD = re.compile(r"(?:^|&&|\|\||[;\n(|&])\s*cd\b")
+_CD_ZIEL = re.compile(r"[ \t]+('[^']*'|\"[^\"]*\"|[^\s;&|)]+)")
+#: Erster Interpreter-Aufruf: ab hier gilt das Verzeichnis für Pfade im Skripttext.
+_INTERPRETER = re.compile(r"\b(?:python3?|perl|ruby|node)\b")
+
+
+def _cwd_bei(kommando: str, cwd: str, bis: int) -> str:
+    """Wirksames Verzeichnis an Position `bis`: Ziel des letzten `cd` davor, sonst cwd.
+
+    Realfall Retro 161b19 Befund 1: `cd <worktree> && python3 - <<'EOF'` mit
+    relativem Pfad im Skript — gegen das Payload-`cwd` aufgelöst zeigte die Meldung
+    auf den falschen Klon, und aus einem cwd außerhalb der Repo-Wurzeln (Scratchpad)
+    wäre derselbe Befehl gar nicht gefallen. "" = nicht bestimmbar (fail-open).
+    """
+    sauber = _ohne_text(kommando)
+    roh = _ohne_heredoc(kommando)
+    aktuell = cwd
+    for treffer in _CD.finditer(sauber):
+        if treffer.end() > bis:
+            break
+        arg = _CD_ZIEL.match(roh, treffer.end())
+        ziel = arg.group(1).strip("'\"") if arg else ""
+        if not ziel or ziel == "--":
+            aktuell = str(Path.home())
+        elif ziel == "-" or "$" in ziel or "`" in ziel:
+            aktuell = ""
+        else:
+            ziel = os.path.expanduser(ziel)
+            if os.path.isabs(ziel):
+                aktuell = ziel
+            else:
+                aktuell = os.path.join(aktuell, ziel) if aktuell else ""
+    return aktuell
 
 
 def _abschnitt(kommando: str, start: int) -> str:
@@ -140,26 +212,53 @@ def _abschnitt(kommando: str, start: int) -> str:
     return rest[: ende.start()] if ende else rest
 
 
-def _ziele(kommando: str) -> list[str]:
-    """Alle Pfade, in die dieser Befehl schreiben würde."""
+def _ziele(kommando: str) -> list[tuple[str, int]]:
+    """Alle Pfade, in die dieser Befehl schreiben würde, je mit ihrer Position."""
     sauber = _ohne_text(kommando)
-    ziele = [m.group(1) for m in _UMLEITUNG.finditer(sauber)]
-    ziele += [m.group(1) for m in _TEE.finditer(sauber)]
+    ziele = [(m.group(1), m.start()) for m in _UMLEITUNG.finditer(sauber)]
+    ziele += [(m.group(1), m.start()) for m in _TEE.finditer(sauber)]
     for treffer in _INPLACE.finditer(sauber):
         teile = _abschnitt(sauber, treffer.start()).split()
-        if len(teile) > 1:
-            ziele.append(teile[-1])
+        # Ein gequotetes `"$R"` ist hier schon ausgeblendet; dann bliebe die
+        # Option selbst als letztes Token stehen und würde als Pfad gelesen.
+        if len(teile) > 2 and not teile[-1].startswith("-"):
+            ziele.append((teile[-1], treffer.start()))
     # Skript-Heredoc: der Interpreter schreibt, nicht die Shell. Hier wird der
     # ROHE Befehl gelesen (nicht `sauber`) — der Pfad steht ja gerade im
     # Skripttext, den `_ohne_text` entfernt haette.
     if _SKRIPT_HEREDOC.search(kommando) and _SKRIPT_SCHREIBT.search(kommando):
-        ziele += _PFAD_IM_TEXT.findall(kommando)
+        aufruf = _INTERPRETER.search(sauber)
+        stelle = aufruf.start() if aufruf else len(sauber)
+        ziele += [(p, stelle) for p in _pfade_im_skript(kommando)]
     return ziele
+
+
+def _pfade_im_skript(kommando: str) -> list[str]:
+    """Pfad-Literale im Skripttext — ohne angehängte Segmente.
+
+    `Path.home() / ".claude/x.md"` nennt einen relativen String, der aber an eine
+    unbekannte Basis gehängt wird. Gegen das cwd aufgelöst landete er im Repo —
+    der erste Fehlalarm des Replays vom 2026-10-14.
+    """
+    pfade = []
+    for treffer in _PFAD_IM_TEXT.finditer(kommando):
+        davor = kommando[: treffer.start()].rstrip()
+        if davor.endswith("/"):
+            continue
+        pfade.append(treffer.group(1))
+    pfade += [a or b for a, b in _SCHREIB_LITERAL.findall(kommando)]
+    return pfade
+
+
+#: Zeichen, die ein zur Prüfzeit bekannter Dateipfad nicht trägt: Variable,
+#: Substitution, ausgeblendeter Text, Glob, Regex-Rest aus einem ungleich
+#: gequoteten Befehl (Replay 2026-10-14: `]{0,60}(invoice`, `6}s`, `[^`).
+_KEIN_PFAD = re.compile("[$`\"'\\\\*?{}\\[\\]()<>^" + _AUSGEBLENDET + "]")
 
 
 def _im_repo(pfad: str, cwd: str) -> Path | None:
     """Aufgelöster Pfad, wenn er in einem Repo-Arbeitsverzeichnis liegt — sonst None."""
-    if "$" in pfad or "`" in pfad or pfad.startswith("/dev/"):
+    if _KEIN_PFAD.search(pfad) or pfad.startswith("/dev/"):
         return None  # zur Pruefzeit unbekannt: fail-open
     p = Path(pfad).expanduser()
     if not p.is_absolute():
@@ -183,13 +282,13 @@ def _im_repo(pfad: str, cwd: str) -> Path | None:
 
 def entscheide(kommando: str, cwd: str) -> str | None:
     """Grund für die Meldung oder None (durchlassen)."""
-    for ziel in _ziele(kommando):
-        p = _im_repo(ziel, cwd)
+    for ziel, stelle in _ziele(kommando):
+        p = _im_repo(ziel, _cwd_bei(kommando, cwd, stelle))
         if p is None:
             continue
         return (
-            f"Shell-Umleitung schreibt nach `{p}` — das liegt in einem "
-            "Git-Arbeitsverzeichnis. Dafür ist das Edit/Write-Werkzeug da: ein "
+            f"Repo-Dateien nur per Edit/Write: dieser Shell-Befehl schreibt nach `{p}`, "
+            "und das liegt in einem Git-Arbeitsverzeichnis. Ein "
             "Anführungszeichen im Text oder ein verschobener Anker kippt einen "
             "Shell-Patch still, während Edit laut scheitert. Heredocs an die "
             "Standardeingabe (`git commit -F -`) und Wegwerf-Skripte im Scratchpad "
@@ -216,15 +315,14 @@ def main() -> int:
     grund = entscheide(kommando, str(daten.get("cwd") or ""))
     if grund is None:
         return 0
-    modus = _modus()
+    inline = grund.startswith("Inline")
+    modus = "advisory" if inline else _modus()
     try:
         import gate_hits
 
         gate_hits.notiere(
             SLUG,
-            "Inline-Text mit ASCII-Schluss"
-            if grund.startswith("Inline")
-            else "Shell-Schreibziel im Repo",
+            "Inline-Text mit ASCII-Schluss" if inline else "Shell-Schreibziel im Repo",
             beleg=kommando[:200],
             session=daten.get("session_id", ""),
             modus=modus,
@@ -232,7 +330,11 @@ def main() -> int:
     except Exception:  # noqa: BLE001 — Protokoll darf den Hook nie stören
         pass
     if modus == "blocking":
-        print(f"⛔ {grund}", file=sys.stderr)
+        print(
+            f"⛔ {grund} (Hook-Rückmeldung, keine Ablehnung durch den Nutzer — "
+            "derselbe Schritt per Edit/Write geht durch.)",
+            file=sys.stderr,
+        )
         return 2
     print(f"⚠️  {grund}", file=sys.stderr)
     return 0
