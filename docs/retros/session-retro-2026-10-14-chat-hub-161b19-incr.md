@@ -275,6 +275,7 @@ Bestätigt: Befunde 2, 6, 9, 10, 12, 13.
 - In `~/shared/` liegen 3 Briefings (`session-retro-extern-2026-09-24-meiki-hub-2a5c44`, `…-2026-09-28-meiki-hub-eff9b5`, `…-2026-10-05-platform-8a0235`). Es gibt 0 Antworten (`-extern*.md`), und keine Retro auf main hat eine `## Extern-Auswertung`.
 - Die Liegezeiten betragen 20, 16 und 9 Tage, der Median liegt bei 16 d, also über 14 d.
 - Das ist bewusst **nicht** die Belegart „kein Leser“; der Skill schließt sie für fehlende Antworten aus.
+- **Nachtrag nach dem Owner-Entscheid (eigener Fehler):** Die Vorlage hat [LEHREN#v2b-phase-6](../governance/session-skills-lehren/retro.md#v2b-phase-6) nicht genannt. Dort steht, dass der Owner schon zweimal korrigiert hat, die Antworten kämen „per Copy-and-paste“, ohne Datei. Die Liegezeit misst nur Dateien und kann diesen Weg nicht ausschließen. Die Umsetzung von M9 wartet deshalb auf eine Bestätigung mit diesem Wissen.
 
 Vorschlag: Phase 6 streichen oder auf Owner-Anforderung umstellen. Owner-Entscheid über M9.
 
