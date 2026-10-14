@@ -18,6 +18,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import session_abgleich as sa  # noqa: E402
 
+FIXTURES = Path(__file__).resolve().parent / "fixtures" / "session_abgleich"
+
 
 # ─────────────────────────── Kopf & Zuordnung ───────────────────────────────
 
@@ -209,6 +211,48 @@ class TestBefundeIssues:
         issues = [{"number": 34, "repo": "meiki-lra/schreib-hub", "state": "OPEN", "body": "1. K1"}]
         befunde = sa.befunde_issues(prs, issues)
         assert not any("Ausstehendes" in b["text"] for b in befunde)
+
+    def test_should_flag_closes_when_pr_text_lists_steps_after_merge(self):
+        """POSITIVKONTROLLE news-hub#92/#93 (2026-10-14, Retro 161b19-incr
+        Befund 14): `Closes #92`, im Text „Ein Merge deployt nichts" und
+        „2. **Danach** …" — #92 schloss beim Merge, das Abnahmekriterium
+        (echter Tageslauf auf Prod) war erst eine Stunde spaeter erfuellt.
+        Keines der Woerter aus `_AUSSTEHEND_RE` kam vor."""
+        body = (FIXTURES / "news-hub-93-body.md").read_text(encoding="utf-8")
+        assert not any(sa._AUSSTEHEND_RE.search(z) for z in body.splitlines())
+        prs = [{"number": 93, "repo": "achimdehnert/news-hub", "state": "MERGED", "body": body}]
+        issues = [
+            {
+                "number": 92,
+                "repo": "achimdehnert/news-hub",
+                "state": "CLOSED",
+                "body": "Ziel: ein echter Tageslauf auf Prod zeigt den Abschnitt",
+            }
+        ]
+        befunde = sa.befunde_issues(prs, issues)
+        assert len(befunde) == 1
+        assert befunde[0]["ref"] == "achimdehnert/news-hub#92"
+        assert "deployt nichts" in befunde[0]["text"]
+
+    def test_should_read_each_after_merge_form_as_pending(self):
+        for zeile in (
+            "Ein Merge deployt nichts.",
+            "2. **Danach** `tageslauf.sh` neu installieren",
+            "1) Nach dem Merge den Timer starten",
+            "Nach dem Merge:",
+        ):
+            assert sa.ausstehende_zeilen(zeile) == [zeile], zeile
+
+    def test_should_ignore_danach_and_nach_dem_merge_in_prose(self):
+        """GEGENPROBE schreib-hub#63: Fliesstext mit „danach" und „nach dem
+        Merge" beschreibt Vorgeschichte, keinen Folgeschritt."""
+        body = (
+            "- Migration `0007`, sie wurde nach dem Merge von #62 neu nummeriert.\n"
+            "Für die Probe der Proben wurde die Regel abgeschaltet, danach wurde "
+            "zurückgesetzt:\n"
+            "1. Tests laufen danach grün\n"
+        )
+        assert sa.ausstehende_zeilen(body) == []
 
     def test_should_stay_green_when_closes_without_pending_work(self):
         """GEGENPROBE: `Closes` ohne ausstehende Arbeit im Text."""

@@ -137,6 +137,17 @@ _AUSSTEHEND_RE = re.compile(
     r"\b(steht aus|stehen aus|noch offen|folgt nach dem merge|ausstehend)\b",
     re.IGNORECASE,
 )
+# Folgeschritte nach dem Merge, ohne eines der Woerter oben (news-hub#93,
+# Retro 161b19-incr Befund 14): „Ein Merge deployt nichts.", ein nummerierter
+# Schritt „2. **Danach** …" oder eine Einleitung „Nach dem Merge:". Nur diese
+# Formen — „danach"/„nach dem Merge" im Fliesstext bleibt aussen vor
+# (schreib-hub#63: „danach wurde zurueckgesetzt", „nach dem Merge von #62").
+_FOLGESCHRITT_RE = re.compile(
+    r"\b(?:deployt|aktiviert|startet|installiert)\s+nichts\b"
+    r"|^\s*\d+[.)]\s+(?:\*\*)?(?:danach|nach dem merge)\b"
+    r"|\bnach dem merge\b[^.\n]*:\s*$",
+    re.IGNORECASE,
+)
 # Unified-Diff-Kopfzeilen.
 _DATEI_RE = re.compile(r"^\+\+\+ b/(.+)$")
 _HUNK_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
@@ -244,10 +255,14 @@ def hat_offene_kaestchen(body: str) -> bool:
 
 
 def ausstehende_zeilen(body: str) -> list[str]:
-    """Zeilen des PR-Texts, die Ausstehendes nennen (rein, regex-only)."""
+    """Zeilen des PR-Texts, die Ausstehendes oder Folgeschritte nennen (rein)."""
     if not body:
         return []
-    return [z.strip() for z in body.splitlines() if _AUSSTEHEND_RE.search(z)]
+    return [
+        z.strip()
+        for z in body.splitlines()
+        if _AUSSTEHEND_RE.search(z) or _FOLGESCHRITT_RE.search(z)
+    ]
 
 
 def beleg_referenzen(body: str, eigene_nummer: int | None = None) -> list[dict]:
@@ -334,8 +349,10 @@ def befunde_issues(prs: list[dict], issues: list[dict]) -> list[dict]:
     Befund B: ein durch die PR geschlossenes Issue traegt im Body noch
               unangehakte Kaestchen `- [ ]` (DoD nur im PR-Text umgedeutet).
     Befund C: die PR schliesst das Issue (`Closes`), ihr Text nennt aber
-              Ausstehendes („steht aus", „noch offen", „nach dem Merge") —
-              geschlossen vor der Zielerreichung (schreib-hub#82/#85). Mit
+              Ausstehendes („steht aus", „noch offen", „nach dem Merge") oder
+              Folgeschritte („Ein Merge deployt nichts", „2. Danach …") —
+              geschlossen vor der Zielerreichung (schreib-hub#82/#85,
+              news-hub#93). Mit
               `Refs` ist derselbe Text richtig und kein Befund.
     Unbekannter Issue-Zustand → HINWEIS, nie Entwarnung.
     """
