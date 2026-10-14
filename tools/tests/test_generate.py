@@ -482,22 +482,39 @@ def test_should_ship_rule_json_unchanged_without_footer(tmp_path):
     assert "regeln.json" in [e["name"] for e in eintrag], "Herkunft bleibt im Manifest"
 
 
-def test_should_refuse_to_ship_a_hook_file_that_would_be_unreadable(tmp_path):
-    """Der Generator prüft seine Ausgabe vor dem Schreiben: ein unlesbares Regelfile
-    bricht ab, und das Ziel behält den letzten lesbaren Stand (platform#4010)."""
+def test_should_skip_only_the_unreadable_hook_file_and_ship_the_rest(tmp_path):
+    """Der Generator prüft seine Ausgabe vor dem Schreiben. Ein unlesbares Regelfile
+    behält im Ziel seinen letzten Stand, ein Fix im Nachbar-Hook desselben Refs kommt
+    trotzdem an, und der Lauf endet laut mit Exit != 0 (platform#4010)."""
     repo = _make_repo(tmp_path / "repo")
-    (repo / "tools" / "claude-hooks" / "regeln.json").write_text('{"a": 1}\n')
+    hooks = repo / "tools" / "claude-hooks"
+    (hooks / "regeln.json").write_text('{"a": 1}\n')
     _git(repo, "add", "-A")
     _git(repo, "commit", "-q", "-m", "regeln")
     out = tmp_path / "out"
     args = ["--platform", str(repo), "--ref", "HEAD", "--kind", "claude-hooks"]
     assert _run([*args, "--target", str(out)]).returncode == 0
-    (repo / "tools" / "claude-hooks" / "regeln.json").write_text('{"a": 1}\n{"b": 2}\n')
-    _git(repo, "commit", "-q", "-am", "kaputt")
+    (hooks / "regeln.json").write_text('{"a": 1}\n{"b": 2}\n')
+    (hooks / "scanner.py").write_text("#!/usr/bin/env python3\nprint('fix')\n")
+    _git(repo, "commit", "-q", "-am", "kaputt plus fix")
     r = _run([*args, "--target", str(out)])
     assert r.returncode != 0
-    assert "regeln.json wäre nach dem Verteilen unlesbar" in r.stderr, r.stderr
-    assert (out / "regeln.json").read_text() == '{"a": 1}\n', "Ziel unverändert"
+    assert "TEILWEISE" in r.stderr and "regeln.json" in r.stderr, r.stderr
+    assert (out / "regeln.json").read_text() == '{"a": 1}\n', "letzter lesbarer Stand"
+    assert "print('fix')" in (out / "scanner.py").read_text(), "Nachbar-Fix verteilt"
+
+
+def test_should_abort_the_swap_lane_before_an_unreadable_hook_file(tmp_path):
+    """Die Swap-Lane tauscht das ganze Verzeichnis, dort ist der Abbruch richtig."""
+    repo = _make_repo(tmp_path / "repo")
+    (repo / "tools" / "hooks" / "reap_worktrees.sh").write_text("if then\n")
+    _git(repo, "commit", "-q", "-am", "kaputt")
+    out = tmp_path / "out"
+    args = ["--platform", str(repo), "--ref", "HEAD", "--kind", "hooks"]
+    r = _run([*args, "--target", str(out)])
+    assert r.returncode != 0
+    assert "ABBRUCH: reap_worktrees.sh wäre" in r.stderr, r.stderr
+    assert not out.exists(), "Ziel nicht angelegt"
 
 
 def test_should_keep_every_real_hook_file_readable_in_its_format(tmp_path):

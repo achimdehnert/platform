@@ -386,6 +386,7 @@ def main():
         "skill_count": 0,
         "files": [],
     }
+    uebersprungen = []
     for name, (bsha, path) in sorted(blobs.items()):
         src = git(["cat-file", "blob", bsha], args.platform)
         if args.kind == "commands" and DISTRIBUTE_FALSE.search(src):
@@ -406,12 +407,20 @@ def main():
             content = src.rstrip("\n") + f"\n\n<!-- {meta} -->\n"
         if args.kind in ("hooks", "claude-hooks"):
             grund = format_befund(name, content)
-            if grund:
+            if grund and lane_mode(args.kind) == "swap":
+                # Der Swap tauscht das ganze Verzeichnis: Abbruch lässt den alten
+                # Stand vollständig stehen.
                 shutil.rmtree(staging)
                 sys.exit(
                     f"ABBRUCH: {name} wäre nach dem Verteilen unlesbar ({grund}) — "
                     f"Ziel {target} bleibt unverändert."
                 )
+            if grund:
+                # Merge-Lane: nur diese Datei behält im Ziel ihren letzten Stand. Ein
+                # Abbruch hielte auch jeden lesbaren Schutz-Fix derselben Lane zurück
+                # (Widerlegung Retro 766e8c-incr2).
+                uebersprungen.append(f"{name} ({grund})")
+                continue
         if args.kind == "skills":  # verschachtelt: <name>/SKILL.md
             os.makedirs(os.path.join(staging, name), exist_ok=True)
             out = os.path.join(staging, name, "SKILL.md")
@@ -447,6 +456,13 @@ def main():
         print(f"  Ziel: {target}  (Modus: merge — kein Verzeichnis-Swap)")
         print(f"  geschrieben: {len(manifest['files'])} Datei(en) + {MERGE_MANIFEST}")
         print(f"  Backup ersetzter Dateien: {backup or '— (nichts ersetzt)'}")
+        if uebersprungen:
+            # Laut und als letzte Zeile: die Session-Start-Heilung zeigt nur `tail -2`.
+            sys.stdout.flush()
+            sys.exit(
+                f"TEILWEISE: {len(uebersprungen)} Datei(en) wären unlesbar und bleiben "
+                f"im Ziel auf dem letzten Stand: {'; '.join(uebersprungen)}"
+            )
         return
 
     # Atomarer Swap
