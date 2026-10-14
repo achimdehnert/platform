@@ -932,6 +932,39 @@ def test_should_not_read_freigabe_vermerk_from_lookalikes(body):
     assert not FREIGABE_VERMERK.search(body)
 
 
+# --- M1-Vermerk nur als eigene Zeile, nie als Zitat im Fliesstext (#4000) ----
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Kontext\n> **Freigabe:** akzeptiert durch Owner 2026-09-01",
+        "- Freigabe: akzeptiert durch Owner 2026-09-24",
+        "1. Freigabe: akzeptiert durch Owner",
+        "*Freigabe: akzeptiert durch Owner",
+        '- „40 go ; S2 go" — Freigabe: akzeptiert durch Owner 2026-09-24',
+        "Einleitung\n\n  **Freigabe:** akzeptiert durch Owner, Kapitäns-Kanal",
+    ],
+)
+def test_should_read_freigabe_vermerk_as_own_line(body):
+    assert FREIGABE_VERMERK.search(body)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        # Realfall #3997 (Erklaerung der Regel, gab #3999 ein falsches M1)
+        "M1 entsteht durch einen Freigabe-Vermerk des Owners im verlinkten "
+        "Issue („Freigabe: akzeptiert durch Owner“). #3977 hatte keinen.",
+        "pr_merge_sa liest M1 aus einem `Freigabe: akzeptiert durch Owner`-Vermerk.",
+        "- **K2:** im Issue-Body steht die Zeile `Freigabe: akzeptiert durch Owner`",
+        "„Freigabe: akzeptiert durch Owner“ als Beispiel",
+    ],
+)
+def test_should_not_read_freigabe_vermerk_quoted_in_prose(body):
+    assert not FREIGABE_VERMERK.search(body)
+
+
 # --- #2784: gather() wertet nur den juengsten Lauf je Check-Name -------------
 #
 # Realfall #2781 (2026-09-03): ein Zwilling aus altem rotem und neuem gruenem
