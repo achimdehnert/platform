@@ -7,10 +7,10 @@
 # laeuft die Engine direkt — gleiche Aufrufzeile, gleiches Artefakt
 # `review-befunde` (Ledger-Felder, O1), kein zweiter Weg.
 #
-# Profil: registry/review-profile.yaml fuehrt platform als `plattform`
-# („wie deployed"); die Regel-Engine kennt nur default|deployed|library
-# (tools/review_regeln.py PROFILE). Bis die Zuordnung in der Registry steht,
-# gilt hier `deployed`.
+# Profil: registry/review-profile.yaml fuehrt platform als `plattform` und
+# nennt je Profil das Engine-Profil (`engine_profil`); die Engine kennt nur
+# default|deployed|library (tools/review_regeln.py PROFILE). Der Job liest die
+# Zuordnung ueber `registry_api.py engine-profil <repo>` — kein Literal hier.
 #
 # Nicht blockierend (Stufe 1 = Hinweise und Messung, Kill-Gate 2026-12-15).
 # Kein Netz ausser Checkout, kein Secret, kein Prod-Zugriff.
@@ -41,11 +41,13 @@ jobs:
         env:
           BASIS: ${{ github.event.pull_request.base.sha }}
           KOPF: ${{ github.event.pull_request.head.sha }}
-          PROFIL: deployed
+          REPO_NAME: ${{ github.event.repository.name }}
         run: |
           set -euo pipefail
           python3 -m pip install --quiet pyyaml
           git fetch --quiet origin "$BASIS" "$KOPF"
+          PROFIL=$(python3 tools/registry_api.py engine-profil "$REPO_NAME")
+          echo "Engine-Profil fuer $REPO_NAME: $PROFIL"
           python3 tools/review_engine.py --repo-pfad . \
             --basis "$BASIS" --kopf "$KOPF" --profil "$PROFIL" \
             --github --json review-befunde.json

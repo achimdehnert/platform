@@ -35,6 +35,11 @@ pilot:
   - risk-hub
   - writing-hub
 
+#   engine_profil     Regelprofil der Review-Engine (tools/review_regeln.py PROFILE:
+#                     default | deployed | library), mit dem die Regeln dieses Repos laufen
+#                     (`geltung.profile` in registry/review-regeln.yaml). null = kein Lauf.
+#                     Leser: registry_api.review_engine_profil, .github/workflows/review-check.yml.
+
 profile:
   deployed:
     beschreibung: "Prod-Repo (rich.deployed): CI-Gate + 1 Approval, Bot zaehlt (Z4)."
@@ -44,6 +49,7 @@ profile:
     linear_history: false
     force_push: true
     messen: true
+    engine_profil: deployed
   plattform:
     beschreibung: "Plattform-/Governance-Repo (sitzungs_klasse plattform): wie deployed."
     required_checks: aus_ci
@@ -52,6 +58,7 @@ profile:
     linear_history: false
     force_push: true
     messen: true
+    engine_profil: deployed
   library:
     beschreibung: "Bibliothek (sitzungs_klasse bibliothek): CI-Gate, kein Review-Zwang (ADR-242 Option C)."
     required_checks: aus_ci
@@ -60,6 +67,7 @@ profile:
     linear_history: false
     force_push: true
     messen: true
+    engine_profil: library
   static:
     beschreibung: "Aktives Repo ohne Deploy und ohne Paket: nichts gefordert (Z4 „statisch: nichts“)."
     required_checks: []
@@ -68,6 +76,7 @@ profile:
     linear_history: false
     force_push: true
     messen: false
+    engine_profil: default
   keins:
     beschreibung: "Archiviert/eingefroren: kein Soll, keine Messung."
     required_checks: []
@@ -75,6 +84,7 @@ profile:
     bot_zaehlt: false
     linear_history: false
     force_push: true
+    engine_profil: null
     messen: false
 
 # Ableitung aus Registry-Feldern, erste passende Regel gewinnt. `rich.review_profile`

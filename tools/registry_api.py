@@ -278,7 +278,37 @@ def review_soll(
     }
 
 
+def review_engine_profil(
+    name: str, canon: dict | None = None, profile: dict | None = None
+) -> str | None:
+    """Regelprofil der Review-Engine fuer EIN Repo (KONZ-070 WP2, #3903 Ledger L1).
+
+    Registry-Profile (`plattform`, `static`, …) sind Schutz-Profile; die Engine kennt
+    nur ihre eigenen (review_regeln.PROFILE). Die Bruecke ist `engine_profil` je
+    Profil in review-profile.yaml. None = unbekanntes Repo oder Profil ohne Lauf.
+    """
+    profile = profile if profile is not None else load_review_profile()
+    profil = review_profil(name, canon, profile)
+    if profil is None:
+        return None
+    return profile["profile"][profil].get("engine_profil")
+
+
 def review_pilot(profile: dict | None = None) -> list[str]:
     """Pilot-Repos (Mandat #3903 O2) aus review-profile.yaml."""
     profile = profile if profile is not None else load_review_profile()
     return list(profile.get("pilot") or [])
+
+
+if __name__ == "__main__":
+    # `python3 tools/registry_api.py engine-profil <repo>` — fuer Workflows, die das
+    # Engine-Profil eines Repos brauchen (review-check.yml); Exit 3 = kein Profil.
+    if len(sys.argv) == 3 and sys.argv[1] == "engine-profil":
+        ergebnis = review_engine_profil(sys.argv[2])
+        if ergebnis is None:
+            print(f"{sys.argv[2]}: kein Engine-Profil", file=sys.stderr)
+            sys.exit(3)
+        print(ergebnis)
+        sys.exit(0)
+    print("usage: registry_api.py engine-profil <repo>", file=sys.stderr)
+    sys.exit(2)
