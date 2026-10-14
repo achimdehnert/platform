@@ -1,5 +1,5 @@
 {
-  "_managed_by": "MANAGED-BY: platform/tools/review_risiko.py · source=registry/review-risiko.yaml+registry/review-regeln.yaml+agents/advocatus/PROMPT.template.md · content_hash=sha256:18f8388775cf5bfc · do_not_edit",
+  "_managed_by": "MANAGED-BY: platform/tools/review_risiko.py · source=registry/review-risiko.yaml+registry/review-regeln.yaml+agents/advocatus/PROMPT.template.md · content_hash=sha256:c37106df330bc5b3 · do_not_edit",
   "name": "advocatus-diaboli",
   "cron_expression": "0 7-17/2 * * 1-5",
   "enabled": true,
@@ -12,6 +12,16 @@
           {
             "git_repository": {
               "url": "https://github.com/achimdehnert/platform"
+            }
+          },
+          {
+            "git_repository": {
+              "url": "https://github.com/iilgmbh/risk-hub"
+            }
+          },
+          {
+            "git_repository": {
+              "url": "https://github.com/achimdehnert/writing-hub"
             }
           }
         ],

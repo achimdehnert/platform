@@ -13,7 +13,9 @@ CLI:
     python3 tools/review_risiko.py --check                              # Schema + Drift, Exit 1 bei Befund
 
 `--check` laeuft ueber `make test` (tools/tests/test_review_risiko.py) und damit im CI.
-PR-Daten holt `gh` (view + diff); der Klassifikator selbst ist eine reine Funktion.
+PR-Daten holt `gh api` (REST: pulls, files, issue-comments, Diff); der Klassifikator selbst ist
+eine reine Funktion. Kein `gh pr …`: der GitHub-Proxy der Cloud-Routinen laesst nur REST durch,
+GraphQL bekommt dort 403 — unabhaengig vom Token (Doku cloud-environments, 2026-10-14).
 """
 
 from __future__ import annotations
@@ -62,8 +64,8 @@ ROUTINE_PFLICHT = (
 REGEL_PROFIL = {"deployed": "deployed", "library": "library"}
 #: Platzhalter fuer die Umgebung der Cloud-Routine; Wert kennt nur der Owner (Trigger-API).
 ENVIRONMENT_PLATZHALTER = "ENVIRONMENT_ID"
-#: Felder, die `gh pr view --json` liefern muss.
-GH_PR_FELDER = "number,isDraft,author,headRefOid,additions,deletions,files,comments"
+#: Accept-Header, mit dem `GET /repos/{r}/pulls/{n}` den Diff statt JSON liefert.
+GH_DIFF_ACCEPT = "Accept: application/vnd.github.v3.diff"
 
 
 class SchemaFehler(ValueError):
@@ -240,8 +242,8 @@ def klassifiziere(
 ) -> dict:
     """Entscheid fuer EINEN PR. Rueckgabe: laeuft, gruende (gegen), trigger (fuer), head_sha.
 
-    `pr` ist die `gh pr view --json`-Form (number, isDraft, author.login, headRefOid,
-    additions, deletions, files[].path, comments[].body).
+    `pr` ist die Klassifikator-Form (number, isDraft, author.login, headRefOid, additions,
+    deletions, files[].path, comments[].body) — aus REST per `pr_aus_rest`.
     """
     head_sha = pr.get("headRefOid", "")
     gruende: list[str] = []
@@ -297,11 +299,49 @@ def _gh(*args: str) -> str:
     return lauf.stdout
 
 
+def json_dokumente(text: str) -> list[Any]:
+    """Alle JSON-Dokumente eines `gh api --paginate`-Ausgabestroms, Listen flach zusammengefuegt.
+
+    `--paginate` haengt die Seiten ohne Trenner aneinander (`[…][…]`); das ist kein gueltiges
+    JSON-Dokument, aber eine Folge davon.
+    """
+    dec = json.JSONDecoder()
+    aus: list[Any] = []
+    pos = 0
+    while True:
+        while pos < len(text) and text[pos].isspace():
+            pos += 1
+        if pos >= len(text):
+            return aus
+        dok, pos = dec.raw_decode(text, pos)
+        if isinstance(dok, list):
+            aus.extend(dok)
+        else:
+            aus.append(dok)
+
+
+def pr_aus_rest(meta: dict, dateien: list[dict], kommentare: list[dict]) -> dict:
+    """REST-Antworten (pulls/N, pulls/N/files, issues/N/comments) → Klassifikator-Form."""
+    return {
+        "number": meta.get("number"),
+        "isDraft": bool(meta.get("draft")),
+        "author": {"login": (meta.get("user") or {}).get("login", "")},
+        "headRefOid": (meta.get("head") or {}).get("sha", ""),
+        "additions": meta.get("additions") or 0,
+        "deletions": meta.get("deletions") or 0,
+        "files": [{"path": d["filename"]} for d in dateien],
+        "comments": [{"body": k.get("body") or ""} for k in kommentare],
+    }
+
+
 def pr_laden(repo: str, nr: int) -> tuple[dict, str]:
-    """PR-Metadaten und Diff ueber `gh`."""
-    pr = json.loads(_gh("pr", "view", str(nr), "--repo", repo, "--json", GH_PR_FELDER))
-    diff = _gh("pr", "diff", str(nr), "--repo", repo)
-    return pr, diff
+    """PR-Metadaten und Diff ueber `gh api` (REST; GraphQL blockt der Cloud-Proxy)."""
+    basis = f"repos/{repo}/pulls/{nr}"
+    meta = json.loads(_gh("api", basis))
+    dateien = json_dokumente(_gh("api", "--paginate", f"{basis}/files"))
+    kommentare = json_dokumente(_gh("api", "--paginate", f"repos/{repo}/issues/{nr}/comments"))
+    diff = _gh("api", "-H", GH_DIFF_ACCEPT, basis)
+    return pr_aus_rest(meta, dateien, kommentare), diff
 
 
 # ───────────────────────── Routine-Artefakte ─────────────────────────────────────────
@@ -374,9 +414,14 @@ def render_routine(konfig: dict | None = None) -> str:
     enabled, job_config.ccr{environment_id, session_context{model, sources, allowed_tools},
     events[{data{uuid, session_id, type, parent_tool_use_id, message{role, content}}}]}.
     `environment_id` bleibt Platzhalter; den Wert setzt der Owner beim Anlegen.
+    `sources` = Checkout + alle Pilot-Repos: der GitHub-Proxy der Cloud-Sitzung bedient nur
+    Repos, die der Sitzung angehaengt sind (sonst 403), und `pr_laden` liest jedes Pilot-Repo.
     """
     konfig = konfig or lade_risiko()
     r = konfig["routine"]
+    quellen = [r["checkout"]] + [
+        u for u in (f"https://github.com/{p}" for p in pilot_repos()) if u != r["checkout"]
+    ]
     prompt_rel = PROMPT_MD.relative_to(REPO_ROOT)
     bootstrap = (
         f"Du bist die Routine `{r['name']}` (KONZ-platform-070 Z2 Stufe 2, Mandat "
@@ -395,7 +440,7 @@ def render_routine(konfig: dict | None = None) -> str:
                 "environment_id": ENVIRONMENT_PLATZHALTER,
                 "session_context": {
                     "model": r["modell"],
-                    "sources": [{"git_repository": {"url": r["checkout"]}}],
+                    "sources": [{"git_repository": {"url": u}} for u in quellen],
                     "allowed_tools": list(r["erlaubte_werkzeuge"]),
                 },
                 "events": [
