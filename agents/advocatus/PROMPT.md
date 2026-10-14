@@ -175,4 +175,4 @@ Eine Tabelle: Repo · PR · head_sha · Entscheid des Klassifikators · Befunde 
 Ledger (gebucht / nicht beschrieben / Fehler rc). Danach die Zeile `Nicht geprueft:` mit allen
 PRs, die wegen `max_prs_je_lauf` liegen blieben.
 
-<!-- MANAGED-BY: platform/tools/review_risiko.py · source=registry/review-risiko.yaml+registry/review-regeln.yaml+agents/advocatus/PROMPT.template.md · content_hash=sha256:59c89a2fc9d671a9 · do_not_edit -->
+<!-- MANAGED-BY: platform/tools/review_risiko.py · source=registry/review-risiko.yaml+registry/review-regeln.yaml+agents/advocatus/PROMPT.template.md · content_hash=sha256:18f8388775cf5bfc · do_not_edit -->

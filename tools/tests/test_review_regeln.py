@@ -61,6 +61,36 @@ def test_should_scope_hint_marker_rules_to_added_lines(doc):
             assert d["ziel"].startswith("hinzugefuegt"), r["id"]
 
 
+@pytest.mark.parametrize(
+    ("zeile", "treffer_erwartet"),
+    [
+        # Realfaelle platform#3957/#3958/#3961 (Ledger L2 in #3903): Ein-Wort-Marker
+        # trafen Teilwoerter — "ai" in pipefail, "rag" in Traeger, "platform" in jedem
+        # MANAGED-BY-Marker, "deploy" in jeder CI-Datei (RR-101 und RR-106 zugleich).
+        ("set -euo pipefail", set()),
+        ("Traeger seit 2026-10-14: PreToolUse-Eintrag", set()),
+        ("MANAGED-BY: platform/tools/review_risiko.py", set()),
+        ("GITHUB_TOKEN und Ledger-Token pruefen", set()),
+        # Positivkontrollen: ganze Woerter treffen weiter.
+        ("Der AI-Agent ruft den MCP-Server", {"RR-107", "RR-113"}),
+        ("deploy.yml startet den Deployment-Lauf", {"RR-101", "RR-106"}),
+        ("design-tokens.css und tailwind.config.js", {"RR-104", "RR-110"}),
+        ("RAG ueber pgvector-Embeddings", {"RR-111", "RR-112"}),
+    ],
+)
+def test_should_match_theme_markers_only_as_whole_words(doc, zeile, treffer_erwartet):
+    import re
+
+    marker = [r for r in doc["regeln"] if "RR-100" <= r["id"] <= "RR-113"]
+    assert len(marker) == 14
+    getroffen = {
+        r["id"]
+        for r in marker
+        if any(re.search(m, zeile, re.IGNORECASE) for m in r["detektor"]["muster"])
+    }
+    assert getroffen == treffer_erwartet, zeile
+
+
 def test_should_have_unique_ids_and_report_a_duplicate(doc):
     ids = [r["id"] for r in doc["regeln"]]
     assert len(ids) == len(set(ids))

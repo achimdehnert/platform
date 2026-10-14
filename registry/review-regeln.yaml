@@ -546,7 +546,7 @@ regeln:
     titel: ADR-009 Architektur / Service-Map
     klasse: HINT
     geltung: {pfade: ["*"], profile: [default, deployed, library]}
-    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ["architecture", "platform", "service-map"]}
+    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ['\barchitecture\b', '\bservice-map\b', '\bplatform-architektur\b']}
     begruendung: {quelle: docs/adr/ADR-009, text: Betrifft Architektur-/Service-Map-Bereiche.}
     ausgabe: {kategorie: ADR, referenz: ADR-009}
     konsumenten: [context-reviewer]
@@ -558,7 +558,7 @@ regeln:
     titel: ADR-021 Deployment
     klasse: HINT
     geltung: {pfade: ["*"], profile: [default, deployed, library]}
-    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ["deployment", "docker", "compose", "deploy"]}
+    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ['\bdeployments?\b', '\bdocker\b', '\bcompose\b']}
     begruendung: {quelle: docs/adr/ADR-021, text: Betrifft Deployment-Bereiche.}
     ausgabe: {kategorie: ADR, referenz: ADR-021}
     konsumenten: [context-reviewer]
@@ -570,7 +570,7 @@ regeln:
     titel: ADR-028 platform-context / Middleware
     klasse: HINT
     geltung: {pfade: ["*"], profile: [default, deployed, library]}
-    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ["platform-context", "middleware", "tenant"]}
+    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ['\bplatform[-_]context\b', '\bmiddlewares?\b', '\btenants?\b']}
     begruendung: {quelle: docs/adr/ADR-028, text: Betrifft platform-context-Middleware.}
     ausgabe: {kategorie: ADR, referenz: ADR-028}
     konsumenten: [context-reviewer]
@@ -582,7 +582,7 @@ regeln:
     titel: ADR-035 Multi-Tenancy
     klasse: HINT
     geltung: {pfade: ["*"], profile: [default, deployed, library]}
-    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ["tenant", "multi-tenant", "tenant_id", "organization"]}
+    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ['\btenants?\b', '\bmulti-tenant\b', '\btenant_id\b', '\borganizations?\b']}
     begruendung: {quelle: docs/adr/ADR-035, text: Betrifft Mandantentrennung.}
     ausgabe: {kategorie: ADR, referenz: ADR-035}
     konsumenten: [context-reviewer]
@@ -594,7 +594,7 @@ regeln:
     titel: ADR-040 Frontend Completeness
     klasse: HINT
     geltung: {pfade: ["*"], profile: [default, deployed, library]}
-    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ["frontend", "completeness", "template", "tailwind"]}
+    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ['\bfrontend\b', '\bcompleteness\b', '\btemplates?\b', '\btailwind\b']}
     begruendung: {quelle: docs/adr/ADR-040, text: Betrifft Frontend-Completeness-Gate.}
     ausgabe: {kategorie: ADR, referenz: ADR-040}
     konsumenten: [context-reviewer]
@@ -606,7 +606,7 @@ regeln:
     titel: ADR-041 Komponenten / Templatetags
     klasse: HINT
     geltung: {pfade: ["*"], profile: [default, deployed, library]}
-    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ["component", "templatetag", "inclusion_tag"]}
+    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ['\bcomponents?\b', '\btemplatetags?\b', '\binclusion_tag\b']}
     begruendung: {quelle: docs/adr/ADR-041, text: Betrifft Komponenten-Architektur.}
     ausgabe: {kategorie: ADR, referenz: ADR-041}
     konsumenten: [context-reviewer]
@@ -618,7 +618,7 @@ regeln:
     titel: ADR-042 CI/CD
     klasse: HINT
     geltung: {pfade: ["*"], profile: [default, deployed, library]}
-    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ["deploy", "workflow", "ci/cd", "github-actions"]}
+    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ['\bdeploy\w*', '\bworkflows?\b', '\bci/cd\b', '\bgithub-actions\b']}
     begruendung: {quelle: docs/adr/ADR-042, text: Betrifft CI/CD-Workflows.}
     ausgabe: {kategorie: ADR, referenz: ADR-042}
     konsumenten: [context-reviewer]
@@ -630,7 +630,7 @@ regeln:
     titel: ADR-043 AI / MCP / Agenten
     klasse: HINT
     geltung: {pfade: ["*"], profile: [default, deployed, library]}
-    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ["ai", "llm", "mcp", "agent", "windsurf"]}
+    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ['\bai\b', '\bllms?\b', '\bmcp\b', '\bagents?\b', '\bwindsurf\b']}
     begruendung: {quelle: docs/adr/ADR-043, text: Betrifft AI-/MCP-Integration.}
     ausgabe: {kategorie: ADR, referenz: ADR-043}
     konsumenten: [context-reviewer]
@@ -642,7 +642,7 @@ regeln:
     titel: ADR-045 Secrets
     klasse: HINT
     geltung: {pfade: ["*"], profile: [default, deployed, library]}
-    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ["secret", "api-key", "env", "credential"]}
+    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ['\bsecrets?\b', '\bapi[-_]key\b', '\.env\b', '\benv_file\b', '\bcredentials?\b']}
     begruendung: {quelle: docs/adr/ADR-045, text: Betrifft Secret-Handling.}
     ausgabe: {kategorie: ADR, referenz: ADR-045}
     konsumenten: [context-reviewer]
@@ -654,7 +654,7 @@ regeln:
     titel: ADR-048 HTMX
     klasse: HINT
     geltung: {pfade: ["*"], profile: [default, deployed, library]}
-    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ["htmx", "hx-get", "hx-post", "hx-swap"]}
+    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ['\bhtmx\b', '\bhx-get\b', '\bhx-post\b', '\bhx-swap\b']}
     begruendung: {quelle: docs/adr/ADR-048, text: Betrifft HTMX-Patterns.}
     ausgabe: {kategorie: ADR, referenz: ADR-048}
     konsumenten: [context-reviewer]
@@ -666,7 +666,7 @@ regeln:
     titel: ADR-049 Design-Tokens
     klasse: HINT
     geltung: {pfade: ["*"], profile: [default, deployed, library]}
-    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ["token", "design-token", "pui-", "tailwind"]}
+    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ['\bdesign-tokens?\b', '\btokens\.(css|json)\b', '\bpui-', '\btailwind\b']}
     begruendung: {quelle: docs/adr/ADR-049, text: Betrifft Design-Tokens.}
     ausgabe: {kategorie: ADR, referenz: ADR-049}
     konsumenten: [context-reviewer]
@@ -678,7 +678,7 @@ regeln:
     titel: ADR-050 Knowledge / Doku
     klasse: HINT
     geltung: {pfade: ["*"], profile: [default, deployed, library]}
-    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ["knowledge", "documentation", "sphinx", "rag"]}
+    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ['\bknowledge\b', '\bdocumentation\b', '\bsphinx\b', '\brag\b']}
     begruendung: {quelle: docs/adr/ADR-050, text: Betrifft Wissensmanagement.}
     ausgabe: {kategorie: ADR, referenz: ADR-050}
     konsumenten: [context-reviewer]
@@ -690,7 +690,7 @@ regeln:
     titel: ADR-052 pgvector / Embeddings
     klasse: HINT
     geltung: {pfade: ["*"], profile: [default, deployed, library]}
-    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ["pgvector", "embedding", "query-agent", "rag"]}
+    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ['\bpgvector\b', '\bembeddings?\b', '\bquery-agent\b', '\brag\b']}
     begruendung: {quelle: docs/adr/ADR-052, text: Betrifft Vektor-Suche.}
     ausgabe: {kategorie: ADR, referenz: ADR-052}
     konsumenten: [context-reviewer]
@@ -702,7 +702,7 @@ regeln:
     titel: ADR-054 Platform-Agenten
     klasse: HINT
     geltung: {pfade: ["*"], profile: [default, deployed, library]}
-    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ["agent", "guardian", "scribe", "drift", "coach", "reviewer"]}
+    detektor: {typ: regex, ziel: hinzugefuegt+pfad, muster: ['\bagents?\b', '\bguardian\b', '\bscribe\b', '\bdrift\b', '\bcoach\b', '\breviewer\b']}
     begruendung: {quelle: docs/adr/ADR-054, text: Betrifft Platform-Agenten.}
     ausgabe: {kategorie: ADR, referenz: ADR-054}
     konsumenten: [context-reviewer]
