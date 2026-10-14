@@ -18,6 +18,10 @@ nie der Antwort-Body.
 jeder HTTP-Statuscode (auch 401/403/405) heisst erreichbar (Exit 0), ein Verbindungsfehler
 heisst nicht erreichbar (Exit 1). Grund: aus der Cloud-Umgebung blockte die Netzwerk-Policy
 den Ledger-Host (AD5, #3903, 2026-10-14), und ohne Kandidaten beweist kein Lauf den Weg.
+
+Jede Anfrage traegt `USER_AGENT`: Cloudflare vor dem Ledger beantwortet die Standard-Kennung
+`Python-urllib/3.x` mit 403 ohne DRF-Header, mit eigener Kennung antwortet DRF (gemessen
+2026-10-14, #3903: GET mit gueltigem Token 403 → 200 allein durch den User-Agent).
 """
 
 from __future__ import annotations
@@ -46,6 +50,15 @@ PFLICHT = ("repo", "pr_nummer", "head_sha", "klasse", "locator", "konfidenz", "b
 OPTIONAL = ("regel_id", "kosten_usd", "quelle", "modell")
 TIMEOUT_S = 30
 PROBE_PRAEFIX = "LEDGER-PROBE:"
+#: Eigene Kennung — die urllib-Standardkennung blockt Cloudflare mit 403 (siehe Modul-Doku).
+USER_AGENT = "advocatus-ledger-post/1.0 (+https://github.com/achimdehnert/platform)"
+
+
+def _headers(token: str) -> dict[str, str]:
+    h = {"Accept": "application/json", "User-Agent": USER_AGENT}
+    if token:
+        h["Authorization"] = f"Token {token}"
+    return h
 
 
 class BefundFehler(ValueError):
@@ -138,11 +151,7 @@ def poste(befunde: list[dict], konfig: dict, token: str) -> list[int]:
             r["ledger_url"],
             data=json.dumps(chunk).encode("utf-8"),
             method="POST",
-            headers={
-                "Content-Type": "application/json",
-                "Accept": "application/json",
-                "Authorization": f"Token {token}",
-            },
+            headers={"Content-Type": "application/json", **_headers(token)},
         )
         with urllib.request.urlopen(req, timeout=TIMEOUT_S) as antwort:
             codes.append(antwort.status)
@@ -157,10 +166,7 @@ def probe(konfig: dict, token: str) -> int:
     der Token-Wert erscheint in keiner Ausgabe.
     """
     r = konfig["routine"]
-    headers = {"Accept": "application/json"}
-    if token:
-        headers["Authorization"] = f"Token {token}"
-    req = urllib.request.Request(r["ledger_url"], method="GET", headers=headers)
+    req = urllib.request.Request(r["ledger_url"], method="GET", headers=_headers(token))
     auth = "mit Token" if token else f"ohne Token ({r['token_env']} leer)"
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT_S) as antwort:
