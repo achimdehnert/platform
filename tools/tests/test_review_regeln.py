@@ -51,6 +51,16 @@ def test_should_require_a_detector_on_every_rule(doc):
             assert d["frage"].strip(), r["id"]
 
 
+def test_should_scope_hint_marker_rules_to_added_lines(doc):
+    """Realfall risk-hub#836 (platform#3903 WP5): RR-102/103 meldeten Zeile 216, die
+    nicht im Diff lag — `ziel: inhalt` las die ganze Datei. Themen-Marker (HINT)
+    gelten nur fuer hinzugefuegte Zeilen, sonst zaehlt jeder PR den Altbestand."""
+    for r in doc["regeln"]:
+        d = r["detektor"]
+        if r["klasse"] == "HINT" and d["typ"] == "regex":
+            assert d["ziel"].startswith("hinzugefuegt"), r["id"]
+
+
 def test_should_have_unique_ids_and_report_a_duplicate(doc):
     ids = [r["id"] for r in doc["regeln"]]
     assert len(ids) == len(set(ids))
