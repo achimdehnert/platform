@@ -61,8 +61,9 @@ Anbieter aus dieser Policy. Damit steht hier **kein** EU-gehosteter Anbieter meh
 die Entscheidung als Repo-Override fest, statt sich auf eine Zeile zu verlassen,
 deren Schlüssel niemand geprüft hat.
 
-Für `ttz-lif` / `meiki-lra` gilt weiterhin der lokale Weg (Ollama) laut den
-Repo-Overrides unten — der ist von dieser Streichung nicht berührt.
+Für `meiki-lra` gilt weiterhin der lokale Weg (Ollama) laut den Repo-Overrides
+unten — der ist von dieser Streichung nicht berührt. `ttz-lif` hat am 2026-10-13
+per ADR-104 (ttz-hub) Groq als Anbieter entschieden, siehe Override unten.
 
 ## Preise — Herkunft und zwei Fallen
 
@@ -142,8 +143,11 @@ Cerebras quickstart reference: https://inference-docs.cerebras.ai/quickstart
 
 ## Per-repo override examples
 
-- **ttz-hub** (ttz-lif org): compliance requires no external LLM — only Ollama
-  local. Override in `ttz-hub/CLAUDE.md` `## Policy Overrides`.
+- **ttz-hub** (ttz-lif org): Schulungskontext mit Demodaten, keine personenbezogenen
+  Daten. NL2SQL lokal und Prod auf Groq `qwen/qwen3.8-27b` ohne Rückfall, Ollama auf der
+  gx10 nur als zweiter Anbieter per Routing-Datei (ADR-104 in `ttz-hub/docs/adr/`,
+  Owner-Entscheid 2026-10-13, ttz-lif/ttz-hub#49). Festgehalten in `ttz-hub/CLAUDE.md`
+  unter „Invarianten"; einen Abschnitt `## Policy Overrides` gibt es dort nicht.
 - **meiki-hub** (meiki-lra): citizen-data — same applies if PII touched.
 
 ## Changelog
