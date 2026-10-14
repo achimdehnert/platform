@@ -5,8 +5,8 @@ repo_scope: [platform]
 session_id: 766e8c-incr
 footprint: lean
 footprint_reduction_reason: "Inkrement mit 1 Repo und 2 neuen PRs (#3992 geschlossen, #3994 offen). Kein Prod-Schritt, keine Migration, kein ADR. Die Hook-Verteilung nach ~/.claude hat der Owner per eigenem Skript ausgeführt."
-findings_total: 6
-findings_survived: 6
+findings_total: 7
+findings_survived: 7
 refuted_rate: 0.0
 phase3_refuted: 0
 pre_refuted: 0
@@ -18,7 +18,7 @@ scores:
   prozess_effizienz: 2
   entscheidungsqualitaet: 3
 gate_candidates: [merge-vermerk-durch-zitat]
-recurring_findings: [pr-autor-identitaet-nicht-angewandt, hook-drill-ohne-fehlalarm-gegenprobe, hook-zweck-speichert-befehlstext, formatter-auf-verzeichnis-statt-eigene-dateien, owner-skript-prueft-vorbedingung-nicht, merge-vermerk-durch-zitat]
+recurring_findings: [pr-autor-identitaet-nicht-angewandt, hook-drill-ohne-fehlalarm-gegenprobe, hook-zweck-speichert-befehlstext, formatter-auf-verzeichnis-statt-eigene-dateien, owner-skript-prueft-vorbedingung-nicht, merge-vermerk-durch-zitat, closing-keyword-im-beschreibenden-text]
 gates_caught: []
 gates_verwandt: [pr-autor-identitaet-nicht-angewandt]
 over_ask_klassen: []
@@ -63,6 +63,7 @@ Artefakte dieses Inkrements:
 | 3 | Lease und Journal speicherten als „Zweck“ die ersten 120 Zeichen des Befehls. Ein Token in Argumenten oder in `VAR=wert` wäre dort im Klartext gelandet. Aufgefallen erst an der ersten echten Lease; die Altzeilen enthalten Mandanten- und Beleg-Präfixe, kein Token. | fehlende Validierung | mittel | SURVIVES (kommandobelegt) | #3994 Commit „Lease-Zweck ohne Befehlsargumente“, Test `test_should_keep_command_arguments_out_of_lease_and_journal` | hook-zweck-speichert-befehlstext ×1 |
 | 4 | `ruff format tools/claude-hooks/` formatierte 10 fremde Dateien um. Das fiel im Diff vor dem Commit auf und wurde zurückgenommen. | Werkzeug | niedrig | SURVIVES (kommandobelegt) | #3994 Diff enthält nur 2 Dateien; Rücknahme per `git checkout` im Transkript | formatter-auf-verzeichnis-statt-eigene-dateien ×1 |
 | 6 | Nachtrag nach dem Merge dieser Retro: Ich habe die Vermerk-Formel aus pr_merge_sa in #3997 als Erklärung wörtlich zitiert. Die Regex `FREIGABE_VERMERK` traf das Zitat, der Retro-PR #3999 lief mit „M1 deckt W1“ durch. Beim Anlegen von #4000 passierte derselbe Fehler noch einmal. Beide Bodies sind korrigiert, Nachprüfung 0 Treffer. Ohne Folgen blieb das nur, weil #3999 auch mit M0 durchgegangen wäre (wie #3983). Ein Verweis von #3994 auf #3997 hätte den Owner-Approve umgangen. | Werkzeug | hoch | SURVIVES (kommandobelegt) | pr_merge_sa-Ausgabe #3999 „W1/M1 — M1 deckt W1“; #3983 „W1/M0 — M0 deckt W1“ (Transkript 14:47:11Z); Regex-Probe auf #3997 und #4000 vorher 1, danach 0 Treffer; `tools/pr_merge_sa.py:241` | merge-vermerk-durch-zitat ×1, Gate-Kandidat [#4000](https://github.com/achimdehnert/platform/issues/4000) |
+| 7 | Zweiter Nachtrag: In der Commit-Nachricht des Retro-PRs #3999 stand beschreibend „Fix #3994“. GitHub hat das als Schließwort gelesen und #3994 beim Merge ungemergt geschlossen. Um ~15:58Z habe ich den PR wieder geöffnet, der Head ist unverändert. Verwandt mit der 🌀-Memory zum deutschen Schließwort, aber die umgekehrte Richtung: ein englisches Wort schließt ungewollt. | Kommunikation | mittel | SURVIVES (kommandobelegt) | #3994 Timeline: closed 15:51:47Z durch den Merge von #3999 (pr-merge-sa-Journal 15:51:47); Kommentar 6172503708 | closing-keyword-im-beschreibenden-text ×1 |
 | 5 | Der Owner führte `sl.sh` vor dem Merge von #3994 aus, also mit der alten Hook-Fassung. Die Reihenfolge stand in der Antwort. Das Skript prüft aber nur „Hook auf main“, nicht „Fix auf main“. | Kommunikation | niedrig | SURVIVES (inline, kein Skeptiker) | #3994 weiterhin OPEN; Owner-Ausgabe „Eintrag schon vorhanden“ im Transkript; #3977 Kommentar 6172076851 | owner-skript-prueft-vorbedingung-nicht ×1 |
 
 ## 3. Scorecard
@@ -86,6 +87,7 @@ Artefakte dieses Inkrements:
 | `ruff format <verzeichnis>` | `ruff format` nur auf die Dateien aus `git diff --name-only` | #4 |
 | Verteilskript ohne Vorbedingung | `sl.sh` nimmt den erwarteten PR als Parameter und bricht ab, solange der nicht auf `origin/main` liegt | #5 |
 | Vermerk-Formel trifft auch Zitate im Fließtext | Der Freigabe-Vermerk zählt nur als eigene Zeile, mit Test für die Erklär-Zeile als Gegenprobe. Bis dahin steht die Formel in Issue-Texten nie wörtlich, nur als Verweis auf `FREIGABE_VERMERK` | #6 |
+| „Fix #N“ beschreibend in der Commit-Nachricht | PR-Verweise in Commit- und PR-Texten nur als nacktes `#N` oder mit „PR #N“, nie hinter fix/fixes/close/resolve. Ein Hinweis-Check auf Schließwörter mit PR-Nummer gehört vor den Merge | #7 |
 
 ## 5. Längsschnitt
 
@@ -107,6 +109,7 @@ Abgleich mit `MEMORY.md` per grep: Es gibt 1 Eintrag zu `lotse-autor`, die 🌀-
 
 - **memory_candidate (feedback, Ergänzung der 🌀-Memory zum Code-Owner-Review):** „In platform braucht jeder Merge mit Wirkung ≥ W1 das Mandat M1. Das gibt es nur per Approve oder per Vermerk ‚Freigabe: akzeptiert durch Owner‘ im verlinkten Issue. Ohne Vermerk den PR immer per `lotse-gh` eröffnen, auch außerhalb von CODEOWNERS (etwa `tools/claude-hooks/`). **Why:** #3980 und #3992 am 2026-10-14, beide geschlossen. **How to apply:** vor `gh pr create` in platform den Pfad gegen `docs/retros/` (W0) prüfen; alles andere über die App.“
 - **memory_candidate (feedback):** „Sperr-Hooks: vor dem Merge eine Gegenprobe mit dem eigenen Lesebefehl auf den gesperrten Pfad, mit Umleitung und Pipe. **Why:** #3994, Fehlalarm beim ersten Echtlauf.“
+- **memory_candidate (feedback, Ergänzung der 🌀-Memory zum Schließwort):** „Englische Schließwörter (fix, fixes, close, resolve) vor `#N` schließen auch dann, wenn sie nur beschreiben, und zwar auch PRs. In Commit-Texten deshalb ‚PR #N‘ oder ‚Fix in #N‘ schreiben. **Why:** #3994 am 2026-10-14 durch den Merge von #3999 geschlossen.“
 - **adr_candidates:** keine.
 
 ## 7. Maßnahmen
@@ -129,7 +132,7 @@ Abgleich mit `MEMORY.md` per grep: Es gibt 1 Eintrag zu `lotse-autor`, die 🌀-
 - **K5 ungeprüft:** Ob ein `!`-Befehl am Hook vorbeiläuft, ist weiter Hypothese. Der eingereihte Befehl kam als Text an.
 - **Preis der Ausweitung #3997** ist geschätzt (API-Aufrufe je `gh pr create`), nicht gemessen.
 
-getan: Merge #3981, Fehlalarm-Meldung in #3977, Fix #3994 mit Tests und shlex-Nachtrag, K4-Nachweis, Journal-Scan, Issues #3997 und #4000, Entschärfung beider Bodies, diese Retro mit Nachtrag #6 · angenommen: dass Token nur in den gescannten Formen auftreten · nicht verifizierbar: #5 ohne Skeptiker, Wirksamkeit des Lease-Gates (zu-frueh, 0/0) · offen geblieben: Owner-Approve #3994, Neuverteilung, K5-Probe, Entscheide PA und SV.
+getan: Merge #3981, Fehlalarm-Meldung in #3977, Fix #3994 mit Tests und shlex-Nachtrag, K4-Nachweis, Journal-Scan, Issues #3997 und #4000, Entschärfung beider Bodies, Wiederöffnung PR 3994, diese Retro mit Nachträgen #6 und #7 · angenommen: dass Token nur in den gescannten Formen auftreten · nicht verifizierbar: #5 ohne Skeptiker, Wirksamkeit des Lease-Gates (zu-frueh, 0/0) · offen geblieben: Owner-Approve #3994, Neuverteilung, K5-Probe, Entscheide PA und SV.
 
 ## Widerlegung
 
