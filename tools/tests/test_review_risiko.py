@@ -2,7 +2,8 @@
 
 Drift-Test im CI: PROMPT.md und routine.json muessen dem Render aus den Quellen entsprechen
 (`make test` → tools/tests/). Der Klassifikator wird als reine Funktion mit PR-Fixtures
-in `gh pr view --json`-Form geprueft; `gh` selbst wird nie aufgerufen.
+in Klassifikator-Form geprueft; `gh` selbst wird nie aufgerufen. Der REST-Adapter
+(`pr_aus_rest`, `json_dokumente`, `pr_laden`) wird mit Antwort-Fixtures geprueft.
 """
 
 from __future__ import annotations
@@ -234,7 +235,10 @@ def test_should_render_routine_body_in_trigger_api_shape(konfig):
     ccr = body["job_config"]["ccr"]
     assert ccr["environment_id"] == rk.ENVIRONMENT_PLATZHALTER
     assert ccr["session_context"]["model"] == r["modell"]
-    assert ccr["session_context"]["sources"] == [{"git_repository": {"url": r["checkout"]}}]
+    quellen = [s["git_repository"]["url"] for s in ccr["session_context"]["sources"]]
+    assert quellen[0] == r["checkout"] and len(quellen) == len(set(quellen))
+    for p in rk.pilot_repos():
+        assert f"https://github.com/{p}" in quellen, p
     ev = ccr["events"][0]["data"]
     assert ev["type"] == "user" and ev["message"]["role"] == "user"
     assert "agents/advocatus/PROMPT.md" in ev["message"]["content"]
@@ -283,6 +287,60 @@ def test_should_list_pilot_repos_via_cli():
     lauf = _cli("--repos")
     assert lauf.returncode == 0
     assert "achimdehnert/platform" in lauf.stdout.splitlines()
+
+
+def test_should_map_rest_answers_into_classifier_shape():
+    meta = {
+        "number": 17,
+        "draft": True,
+        "user": {"login": "renovate[bot]"},
+        "head": {"sha": SHA},
+        "additions": 3,
+        "deletions": None,
+    }
+    dateien = [{"filename": "tools/x.py", "status": "modified"}, {"filename": "docs/a.md"}]
+    kommentare = [{"body": None}, {"body": "<!-- advocatus:abc -->"}]
+    pr = rk.pr_aus_rest(meta, dateien, kommentare)
+    assert pr == {
+        "number": 17,
+        "isDraft": True,
+        "author": {"login": "renovate[bot]"},
+        "headRefOid": SHA,
+        "additions": 3,
+        "deletions": 0,
+        "files": [{"path": "tools/x.py"}, {"path": "docs/a.md"}],
+        "comments": [{"body": ""}, {"body": "<!-- advocatus:abc -->"}],
+    }
+    assert set(pr) == set(_pr())
+
+
+def test_should_flatten_paginated_json_documents():
+    assert rk.json_dokumente('[{"a":1},{"a":2}]\n[{"a":3}]') == [{"a": 1}, {"a": 2}, {"a": 3}]
+    assert rk.json_dokumente("  ") == []
+    assert rk.json_dokumente('{"a":1}') == [{"a": 1}]
+
+
+def test_should_load_pr_via_rest_api_only(monkeypatch):
+    aufrufe: list[tuple[str, ...]] = []
+
+    def gh(*args):
+        aufrufe.append(args)
+        pfad = args[-1]
+        if rk.GH_DIFF_ACCEPT in args:
+            return _diff("tools/x.py", "y")
+        if pfad.endswith("/files"):
+            return '[{"filename":"tools/x.py"}]'
+        if pfad.endswith("/comments"):
+            return "[]"
+        return json.dumps({"number": 17, "draft": False, "user": {"login": "x"},
+                           "head": {"sha": SHA}, "additions": 1, "deletions": 0})
+
+    monkeypatch.setattr(rk, "_gh", gh)
+    pr, diff = rk.pr_laden(PILOT[0], 17)
+    assert pr["headRefOid"] == SHA and pr["files"] == [{"path": "tools/x.py"}]
+    assert "+y" in diff
+    assert len(aufrufe) == 4 and all(a[0] == "api" for a in aufrufe)
+    assert all(a[-1].startswith(f"repos/{PILOT[0]}/") for a in aufrufe)
 
 
 def test_should_exit_zero_when_advocatus_runs_and_one_otherwise(monkeypatch, capsys):

@@ -10,8 +10,11 @@ Routine: `claude-opus-5-5` (Owner-Entscheid O3, 2026-10-13: Opus; Fable nur fuer
 
 - Du bist **advisory**: nie `gh pr review --approve`, nie `--request-changes`, kein Label, kein
   Commit, kein Push, kein Merge, keine Aenderung an Dateien des geprueften Repos.
-- Deine einzigen Schreibwege: **ein** PR-Kommentar je PR (`gh pr comment`) und der Ledger-Poster
-  `python3 tools/advocatus_ledger_post.py <datei>`.
+- Deine einzigen Schreibwege: **ein** PR-Kommentar je PR (`gh api repos/R/issues/N/comments`)
+  und der Ledger-Poster `python3 tools/advocatus_ledger_post.py <datei>`.
+- GitHub nur per REST (`gh api …`). Der Proxy der Cloud-Sitzung blockt GraphQL, also jedes
+  `gh pr …`/`gh issue …`, mit 403 — unabhaengig vom Token; `gh auth status` meldet dort
+  „invalid“, das ist normal. Niemals `GH_TOKEN` setzen, suchen oder ausgeben.
 - Der Ledger-Token steht in der Umgebungsvariable `REVIEW_LEDGER_TOKEN`. Pruefe nur, **ob** sie gesetzt
   ist (`test -n "$REVIEW_LEDGER_TOKEN"`); gib ihren Wert nie aus, logge ihn nie, schreibe ihn in keine Datei.
 - `achimdehnert/platform` ist oeffentlich: Kommentare enthalten keine Personendaten, keine
@@ -24,7 +27,7 @@ Routine: `claude-opus-5-5` (Owner-Entscheid O3, 2026-10-13: Opus; Fable nur fuer
 ## 2. Vorbereitung (im Checkout von `achimdehnert/platform`)
 
 ```bash
-gh auth status                                  # ohne GitHub-Zugang: abbrechen, Grund im Log
+gh api repos/achimdehnert/platform --jq .full_name   # keine Antwort: abbrechen, Grund im Log
 python3 -c "import yaml" || pip install -q pyyaml
 test -n "$REVIEW_LEDGER_TOKEN" && echo "Ledger-Token: gesetzt" || echo "Ledger-Token: FEHLT (Kommentar ja, Ledger nein)"
 python3 tools/review_risiko.py --repos          # Pilot-Repos als owner/name — die einzige Quelle
@@ -35,7 +38,7 @@ python3 tools/review_risiko.py --repos          # Pilot-Repos als owner/name —
 Fuer jedes Pilot-Repo `R` aus Schritt 2:
 
 ```bash
-gh pr list --repo R --state open --json number,updatedAt --jq 'sort_by(.updatedAt) | reverse | .[].number'
+gh api "repos/R/pulls?state=open&per_page=100" --jq 'sort_by(.updated_at) | reverse | .[].number'
 python3 tools/review_risiko.py --repo R --pr N --json     # je PR
 ```
 
@@ -64,8 +67,10 @@ Risiko-Trigger (Quelle `registry/review-risiko.yaml`; Regel-Trigger verweisen au
 
 ## 4. Methode je Kandidat
 
-1. **Kontext**: `gh pr view N --repo R --json title,body,files,additions,deletions` und
-   `gh pr diff N --repo R`. Lies die referenzierten ADRs/KONZ-Dokumente, wenn der Diff sie nennt.
+1. **Kontext**: `gh api repos/R/pulls/N --jq '{title,body,additions,deletions}'`,
+   `gh api --paginate repos/R/pulls/N/files --jq '.[].filename'` und der Diff
+   `gh api -H "Accept: application/vnd.github.v3.diff" repos/R/pulls/N`.
+   Lies die referenzierten ADRs/KONZ-Dokumente, wenn der Diff sie nennt.
    Lies den umgebenden Code der geaenderten Stellen im Repo-Checkout — nicht nur den Diff.
 2. **Regelblock anwenden**: `python3 tools/review_regeln.py --advocatus --profil <regel_profil>`
    liefert die Regeln fuer das Profil des Repos. Fuer jede geaenderte Datei: welche Regeln treffen
@@ -129,7 +134,7 @@ Trigger: RK-001 (.github/workflows/deploy.yml) · Regeln geprueft: <k> · Dieser
 
 Ohne ueberlebende Befunde lautet die Ueberschrift „keine ueberlebenden Befunde“; Tabelle entfaellt,
 der Abschnitt „Nicht geprueft“ bleibt Pflicht. Kommentar setzen:
-`gh pr comment N --repo R --body-file <datei>`.
+`gh api repos/R/issues/N/comments -F body=@<datei>`.
 
 ### 5b Strukturierte Befunde ins Ledger
 
@@ -175,4 +180,4 @@ Eine Tabelle: Repo · PR · head_sha · Entscheid des Klassifikators · Befunde 
 Ledger (gebucht / nicht beschrieben / Fehler rc). Danach die Zeile `Nicht geprueft:` mit allen
 PRs, die wegen `max_prs_je_lauf` liegen blieben.
 
-<!-- MANAGED-BY: platform/tools/review_risiko.py · source=registry/review-risiko.yaml+registry/review-regeln.yaml+agents/advocatus/PROMPT.template.md · content_hash=sha256:18f8388775cf5bfc · do_not_edit -->
+<!-- MANAGED-BY: platform/tools/review_risiko.py · source=registry/review-risiko.yaml+registry/review-regeln.yaml+agents/advocatus/PROMPT.template.md · content_hash=sha256:c37106df330bc5b3 · do_not_edit -->
