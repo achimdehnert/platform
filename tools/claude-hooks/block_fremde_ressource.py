@@ -62,6 +62,9 @@ _LEASE_PFAD = re.compile(r"\.claude/leases/ressourcen")
 _LEASE_SCHREIBEN = re.compile(
     r"\b(?:rm|mv|cp|truncate|tee|chmod|ln)\b|>|\bsed\s+-[a-zA-Z]*i"
 )
+#: Umleitungen, die nichts schreiben (`2>/dev/null`, `&>/dev/null`, `2>&1`) —
+#: vor der Pruefung entfernt; Realfall-Fehlalarm 2026-10-14 (#3977).
+_HARMLOSE_UMLEITUNG = re.compile(r"&?\d*>>?\s*/dev/null\b|\d*>&\d+")
 _ERZWINGEN = re.compile(r"ressourcen_lease(?:\.py)?\b[^|;&\n]*--erzwingen")
 MAX_SKRIPT = 512 * 1024
 
@@ -161,7 +164,9 @@ def umgehung(werkzeug: str, eingabe: dict) -> str | None:
             "`--erzwingen` nimmt einer LAUFENDEN Sitzung ihr Ziel weg — das entscheidet "
             "der Owner mit einem eigenen `!`-Befehl, nicht eine Sitzung."
         )
-    if _LEASE_PFAD.search(befehl) and _LEASE_SCHREIBEN.search(befehl):
+    if _LEASE_PFAD.search(befehl) and _LEASE_SCHREIBEN.search(
+        _HARMLOSE_UMLEITUNG.sub(" ", befehl)
+    ):
         return "Lease-Dateien schreibt nur `ressourcen_lease.py`, nie rm/mv/Umleitung."
     return None
 
