@@ -112,6 +112,31 @@ schliessen — das ist der Eingriff in eine Dienst-Konfiguration auf prod, der a
 2026-09-08 nach vier Anlaeufen gescheitert und vollstaendig zurueckgebaut wurde, und
 bleibt Owner-Sache.
 
+## Die vierte Messung: sind alle Seiten angekommen (doc-hub#24)
+
+Am 2026-10-13 zerlegte der Stapel-Zerleger einen fuenfseitigen Vertrag zweimal in
+vier Dokumente. Jede Datei kam an, keine der drei Messungen oben schlug an — und
+trotzdem stimmte in Paperless nichts. Owner-Wort 2026-10-14: es muss IMMER
+sichergestellt sein, dass die korrekte Anzahl gescannter Seiten in Paperless ist.
+
+Der Zerleger schreibt seit doc-hub#25 je Stapel in sein Ledger, welche Teile er
+abgelegt hat: SHA-256 und Seitenzahl je Teil, dazu die bedruckten Seiten gesamt.
+Paperless 3 fuehrt dieselbe SHA-256 als `checksum` (gemessen an Dokument 2622).
+Fuer jeden Stapel, der aelter als die Schwelle ist, fragt der Melder deshalb:
+gibt es zu jedem Teil ein Dokument mit dieser Pruefsumme, hat es genau so viele
+Seiten, und ergeben die Teile zusammen die bedruckten Seiten? Fehlt ein Teil oder
+weicht eine Zahl ab, ist das ein Verlust von Seiten und laeuft als Exit 4.
+
+Gezaehlt wird gegen `Document.global_objects`, also mit Papierkorb: ein Dokument,
+das jemand absichtlich geloescht hat, ist angekommen und kein Befund.
+
+Jeder Stapel wird genau einmal geprueft; welche schon dran waren, steht in
+`SEITEN_STAND` (ein Ereignis wie der Verlust, kein Zustand). Geschrieben wird nur,
+wenn Paperless geantwortet hat — sonst kaeme der Stapel nie mehr an die Reihe.
+Grenze: dass die Grenzen zwischen den Teilen richtig sitzen, belegt diese Messung
+nicht; sie belegt, dass keine Seite fehlt. Stapel ohne `teile` (aelter als
+doc-hub#25) bleiben ungeprueft.
+
 Exit-Codes
 ----------
 Rangfolge, wenn mehrere Befunde gleichzeitig zutreffen (hoechster Exit-Code gewinnt —
@@ -119,7 +144,8 @@ Reihenfolge bewusst so: ein Messfehler geht vor jedem Inhalt, ein endgueltiger V
 vor einem noch korrigierbaren Fehlschlag, der wiederum vor dem traegsten Signal steht,
 einer bloss lange liegenden Datei):
     2 = blind: eine Wurzel ist nicht lesbar, der Lauf misst nichts Verlaessliches
-    4 = Verlust: etwas ist aus dem Inventar verschwunden, ohne ein Dokument zu werden
+    4 = Verlust: etwas ist aus dem Inventar verschwunden, ohne ein Dokument zu werden,
+        oder einem zerlegten Stapel fehlen in Paperless Seiten (vierte Messung)
     5 = Aufnahme fehlgeschlagen: der Consumer-Log zeigt einen Fehlschlag im Fenster
         (eine Dublette zaehlt NICHT dazu — kein Verlust, siehe aufnahmen())
     1 = haengt: mindestens eine Datei liegt laenger als die Schwelle
@@ -132,6 +158,7 @@ Usage
     python3 tools/scan_melder.py --ssh hetzner-prod   # von der Dev-Maschine
     python3 tools/scan_melder.py --neu-seit 60        # nur frisch haengende melden
     python3 tools/scan_melder.py --log-fenster 0      # Aufnahme-Fehlschlaege nicht messen
+    python3 tools/scan_melder.py --seitenkontrolle '' # Seitenkontrolle nicht messen
 """
 
 from __future__ import annotations
@@ -143,6 +170,7 @@ import shlex
 import subprocess
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 WURZEL = "/opt/paperless-consume"
@@ -154,6 +182,10 @@ LOG_FENSTER_MIN = 90
 # Liegt auf dem Host, auf dem gemessen wird (prod). Der Actions-Runner checkt je
 # Lauf frisch aus; ein Inventar im Arbeitsverzeichnis waere nach jedem Lauf weg.
 INVENTAR = "/var/lib/scan-melder/inventar.json"
+# Ledger des Stapel-Zerlegers (doc-hub, Unit doc-hub-splitter) und welche seiner
+# Stapel die Seitenkontrolle schon geprueft hat - siehe "Die vierte Messung".
+LEDGER = "/var/lib/doc-hub/zerlegt.jsonl"
+SEITEN_STAND = "/var/lib/scan-melder/seitenkontrolle.json"
 
 # Nur Rueckfallposition, wenn der Container nicht antwortet — die Wahrheit steht
 # in der Container-Env (siehe Modul-Docstring).
@@ -408,6 +440,7 @@ def kurzzeile(
     fehlgeschlagene: list[dict] | None = None,
     dubletten: list[dict] | None = None,
     log_gemessen: bool | None = None,
+    seiten: list[dict] | None = None,
 ) -> str:
     """Eine Zeile ohne Ordner- und Dateinamen (Repo und Actions-Log sind oeffentlich).
 
@@ -421,6 +454,8 @@ def kurzzeile(
     vorspann = ""
     if verluste:
         vorspann += f"{len(verluste)} Datei(en) VERLOREN (verschwunden ohne Dokument), "
+    if seiten:
+        vorspann += f"{len(seiten)} Stapel mit FEHLENDEN SEITEN in Paperless, "
     if fehlgeschlagene:
         vorspann += f"{len(fehlgeschlagene)} Aufnahme(n) FEHLGESCHLAGEN, "
     if dubletten:
@@ -447,6 +482,7 @@ def bericht(
     fehlgeschlagene: list[dict] | None = None,
     dubletten: list[dict] | None = None,
     log_gemessen: bool | None = None,
+    seiten: list[dict] | None = None,
 ) -> str:
     zeilen = [
         kurzzeile(
@@ -457,10 +493,14 @@ def bericht(
             fehlgeschlagene=fehlgeschlagene,
             dubletten=dubletten,
             log_gemessen=log_gemessen,
+            seiten=seiten,
         )
     ]
     for v in verluste or []:
         zeilen.append(f"  VERLOREN         {v['groesse']:>10} B  {v['pfad']}")
+    for s in seiten or []:
+        zeilen.append(f"  SEITEN FEHLEN    {s['stapel']}")
+        zeilen.extend(f"                   {b}" for b in s["befunde"])
     for f in fehlgeschlagene or []:
         zeilen.append(
             f"  FEHLGESCHLAGEN   {f.get('fehlerklasse', 'unbekannt'):>10}    "
@@ -475,7 +515,7 @@ def bericht(
         zeilen.append(
             f"  {_stunden(t['alter_s']):>8}  {t['groesse']:>10} B  {t['pfad']}"
         )
-    if treffer or verluste or fehlgeschlagene or dubletten:
+    if treffer or verluste or fehlgeschlagene or dubletten or seiten:
         zeilen.append("")
         zeilen.append(
             f'  Ursache je Datei: ssh hetzner-prod "docker logs {CONTAINER} --since 48h'
@@ -575,6 +615,16 @@ def aufgenommene(namen: list[str], ssh: str | None) -> tuple[set[str], bool]:
         ".values_list('original_filename', flat=True):\n"
         "    print('TREFFER', n)\n"
     )
+    rc, out = _paperless_shell(skript, ssh)
+    if rc != 0:
+        return set(), False
+    return {
+        z.split(" ", 1)[1] for z in out.splitlines() if z.startswith("TREFFER ")
+    }, True
+
+
+def _paperless_shell(skript: str, ssh: str | None) -> tuple[int, str]:
+    """Ein Skript in der Django-Shell von Paperless ausfuehren. Gibt (rc, stdout) zurueck."""
     argv = ["docker", "exec", "-i", CONTAINER, "python3", "manage.py", "shell"]
     if ssh:
         argv = [
@@ -585,11 +635,99 @@ def aufgenommene(namen: list[str], ssh: str | None) -> tuple[set[str], bool]:
             " ".join(shlex.quote(a) for a in argv),
         ]
     p = subprocess.run(argv, input=skript, capture_output=True, text=True, timeout=120)
-    if p.returncode != 0:
-        return set(), False
-    return {
-        z.split(" ", 1)[1] for z in p.stdout.splitlines() if z.startswith("TREFFER ")
-    }, True
+    return p.returncode, p.stdout
+
+
+def paperless_seiten(summen: list[str], ssh: str | None) -> tuple[dict, bool]:
+    """Seitenzahl je Pruefsumme, mit Papierkorb. Zweiter Wert: beantwortet?
+
+    Fehlt eine Pruefsumme im Ergebnis, kennt Paperless das Teil nicht. Ein
+    stummer Container ist davon zu trennen - er wuerde sonst jedes Teil als
+    fehlend melden (dieselbe Falle wie bei `aufgenommene`).
+    """
+    if not summen:
+        return {}, True
+    skript = (
+        "from documents.models import Document\n"
+        f"summen = {summen!r}\n"
+        "for c, n in Document.global_objects.filter(checksum__in=summen)"
+        ".values_list('checksum', 'page_count'):\n"
+        "    print('SEITEN', c, n)\n"
+    )
+    rc, out = _paperless_shell(skript, ssh)
+    if rc != 0:
+        return {}, False
+    seiten: dict[str, int | None] = {}
+    for zeile in out.splitlines():
+        felder = zeile.split()
+        if len(felder) == 3 and felder[0] == "SEITEN":
+            seiten[felder[1]] = int(felder[2]) if felder[2].isdigit() else None
+    return seiten, True
+
+
+def faellige_stapel(
+    ledger_text: str, *, geprueft: set[str], jetzt: float, schwelle_min: int
+) -> list[dict]:
+    """Zerlegte Stapel mit Teil-Belegen, alt genug fuer Paperless und noch nicht geprueft.
+
+    Die Schwelle ist dieselbe wie fuer haengende Dateien: was danach nicht
+    aufgenommen ist, ist ohnehin ein Befund.
+    """
+    faellig = []
+    for zeile in ledger_text.splitlines():
+        try:
+            e = json.loads(zeile)
+            zeit = datetime.fromisoformat(e["zeit"]).timestamp()
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+            continue
+        if e.get("urteil") != "zerlegt" or "teile" not in e:
+            continue
+        if e["sha256"] in geprueft or jetzt - zeit < schwelle_min * 60:
+            continue
+        faellig.append(e)
+    return faellig
+
+
+def seitenabweichungen(stapel: list[dict], seiten: dict) -> list[dict]:
+    """Je Stapel, was in Paperless fehlt oder nicht stimmt. Leer = alle Seiten da."""
+    befundliste = []
+    for e in stapel:
+        befunde = []
+        for teil in e["teile"]:
+            name = Path(teil["datei"]).name
+            if teil["sha256"] not in seiten:
+                befunde.append(
+                    f"{name}: in Paperless nicht gefunden ({teil['seiten']} S.)"
+                )
+            elif seiten[teil["sha256"]] != teil["seiten"]:
+                befunde.append(
+                    f"{name}: {seiten[teil['sha256']]} statt {teil['seiten']} Seiten"
+                )
+        summe = sum(t["seiten"] for t in e["teile"])
+        if summe != e.get("seiten_bedruckt", summe):
+            befunde.append(f"Teile {summe} Seiten, bedruckt {e['seiten_bedruckt']}")
+        if befunde:
+            befundliste.append({"stapel": e["stapel"], "befunde": befunde})
+    return befundliste
+
+
+def lade_stand(pfad: Path) -> set[str]:
+    try:
+        return set(json.loads(pfad.read_text(encoding="utf-8"))["geprueft"])
+    except (OSError, json.JSONDecodeError, KeyError, TypeError):
+        return set()
+
+
+def schreibe_stand(pfad: Path, geprueft: set[str]) -> bool:
+    """Wie `schreibe_inventar`: nicht beschreibbar ist ein Hinweis, kein Absturz."""
+    try:
+        pfad.parent.mkdir(parents=True, exist_ok=True)
+        pfad.write_text(
+            json.dumps({"geprueft": sorted(geprueft)}, indent=2), encoding="utf-8"
+        )
+    except OSError:
+        return False
+    return True
 
 
 def lade_inventar(pfad: Path) -> list[dict]:
@@ -621,6 +759,46 @@ def schreibe_inventar(pfad: Path, dateien: list[dict]) -> bool:
     except OSError:
         return False
     return True
+
+
+def seitenkontrolle(
+    ledger: str, stand: str, schwelle_min: int, ssh: str | None
+) -> list[dict]:
+    """Die vierte Messung (Modul-Docstring). Leerer `stand` schaltet sie ab.
+
+    Kein Urteil, wenn Ledger oder Paperless nicht antworten - das steht auf
+    stderr, und der Stand bleibt, damit der naechste Lauf die Stapel nachholt.
+    """
+    if not stand:
+        return []
+    rc, ledger_text = _lauf(["cat", ledger], ssh)
+    if rc != 0:
+        print(
+            "scan-melder: Ledger des Zerlegers nicht lesbar — Seitenkontrolle ohne Urteil",
+            file=sys.stderr,
+        )
+        return []
+    pfad = Path(stand)
+    geprueft = lade_stand(pfad)
+    faellig = faellige_stapel(
+        ledger_text, geprueft=geprueft, jetzt=time.time(), schwelle_min=schwelle_min
+    )
+    summen = sorted({t["sha256"] for e in faellig for t in e["teile"]})
+    seiten, beantwortet = paperless_seiten(summen, ssh)
+    if not beantwortet:
+        print(
+            "scan-melder: Paperless antwortet nicht — Seitenkontrolle ohne Urteil",
+            file=sys.stderr,
+        )
+        return []
+    befunde = seitenabweichungen(faellig, seiten)
+    if faellig and not schreibe_stand(pfad, geprueft | {e["sha256"] for e in faellig}):
+        print(
+            f"scan-melder: Stand {pfad} nicht beschreibbar — dieselben Stapel "
+            "kommen im naechsten Lauf erneut",
+            file=sys.stderr,
+        )
+    return befunde
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -674,6 +852,13 @@ def main(argv: list[str] | None = None) -> int:
             f"(Default {LOG_FENSTER_MIN}, ueberlappt den stuendlichen Takt); "
             "0 schaltet die Messung ab"
         ),
+    )
+    p.add_argument("--ledger", default=LEDGER, help="Ledger des Stapel-Zerlegers")
+    p.add_argument(
+        "--seitenkontrolle",
+        default=SEITEN_STAND,
+        metavar="PFAD",
+        help="Stand der Seitenkontrolle; leer ('') schaltet sie ab",
     )
     p.add_argument("--kurz", action="store_true")
     a = p.parse_args(argv)
@@ -738,6 +923,8 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
 
+    seiten = seitenkontrolle(a.ledger, a.seitenkontrolle, a.schwelle, a.ssh)
+
     fehlgeschlagene: list[dict] = []
     dubletten: list[dict] = []
     log_gemessen: bool | None = None
@@ -767,6 +954,7 @@ def main(argv: list[str] | None = None) -> int:
                 fehlgeschlagene=fehlgeschlagene,
                 dubletten=dubletten,
                 log_gemessen=log_gemessen,
+                seiten=seiten,
             )
         )
     else:
@@ -779,11 +967,12 @@ def main(argv: list[str] | None = None) -> int:
                 fehlgeschlagene=fehlgeschlagene,
                 dubletten=dubletten,
                 log_gemessen=log_gemessen,
+                seiten=seiten,
             )
         )
     # Rangfolge siehe Modul-Docstring: 2 (frueher return) > 4 > 5 > 1 > 0.
     # Eine Dublette zaehlt NICHT als Fehlschlag (kein Exit 5) — siehe aufnahmen().
-    if verluste:
+    if verluste or seiten:
         return 4
     if fehlgeschlagene:
         return 5

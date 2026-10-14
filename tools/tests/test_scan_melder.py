@@ -13,7 +13,9 @@ Tag eins denselben Fehlalarm und waere in einer Woche tot.
 
 from __future__ import annotations
 
+import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -431,3 +433,112 @@ def test_should_confirm_a_writable_inventory_path():
 
     with tempfile.TemporaryDirectory() as d:
         assert sm.schreibe_inventar(Path(d) / "tief" / "inventar.json", []) is True
+
+
+# --- Vierte Messung: Seitenkontrolle gegen Paperless (doc-hub#24) -----------
+
+LEDGER_JETZT = 1_800_000_000.0  # fester Zeitpunkt, damit die Schwelle reproduzierbar ist
+
+
+def _ledger_zeile(stapel: str, teile: list[tuple[str, int]], *, alter_min: int, **extra) -> str:
+    zeit = datetime.fromtimestamp(LEDGER_JETZT - alter_min * MIN, tz=timezone.utc).isoformat()
+    eintrag = {
+        "sha256": f"stapel-{stapel}",
+        "stapel": stapel,
+        "urteil": "zerlegt",
+        "zeit": zeit,
+        "seiten_bedruckt": sum(s for _, s in teile),
+        "teile": [
+            {"datei": f"/opt/paperless-consume/person/2026/{summe}.pdf", "sha256": summe, "seiten": s}
+            for summe, s in teile
+        ],
+    }
+    eintrag.update(extra)
+    return json.dumps(eintrag)
+
+
+def _faellig(*zeilen: str, geprueft: set[str] | None = None) -> list[dict]:
+    return sm.faellige_stapel(
+        "\n".join(zeilen), geprueft=geprueft or set(), jetzt=LEDGER_JETZT, schwelle_min=30
+    )
+
+
+def test_should_pass_a_stack_whose_parts_all_arrived_with_their_pages():
+    stapel = _faellig(_ledger_zeile("A.pdf", [("t1", 5)], alter_min=60))
+    assert sm.seitenabweichungen(stapel, {"t1": 5}) == []
+
+
+def test_should_flag_a_part_that_never_became_a_document():
+    """Paperless uebersieht ein Teil (doc-hub#23) - bisher fiel das keinem Melder auf."""
+    stapel = _faellig(_ledger_zeile("A.pdf", [("t1", 2), ("t2", 3)], alter_min=60))
+    befund = sm.seitenabweichungen(stapel, {"t1": 2})
+    assert befund == [
+        {"stapel": "A.pdf", "befunde": ["t2.pdf: in Paperless nicht gefunden (3 S.)"]}
+    ]
+
+
+def test_should_flag_a_document_with_fewer_pages_than_the_part():
+    stapel = _faellig(_ledger_zeile("A.pdf", [("t1", 5)], alter_min=60))
+    befund = sm.seitenabweichungen(stapel, {"t1": 4})
+    assert befund[0]["befunde"] == ["t1.pdf: 4 statt 5 Seiten"]
+
+
+def test_should_flag_parts_that_do_not_add_up_to_the_printed_pages():
+    zeile = _ledger_zeile("A.pdf", [("t1", 4)], alter_min=60, seiten_bedruckt=5)
+    befund = sm.seitenabweichungen(_faellig(zeile), {"t1": 4})
+    assert befund[0]["befunde"] == ["Teile 4 Seiten, bedruckt 5"]
+
+
+def test_should_wait_for_paperless_before_checking_a_fresh_stack():
+    assert _faellig(_ledger_zeile("A.pdf", [("t1", 5)], alter_min=5)) == []
+
+
+def test_should_check_each_stack_only_once():
+    zeile = _ledger_zeile("A.pdf", [("t1", 5)], alter_min=60)
+    assert _faellig(zeile, geprueft={"stapel-A.pdf"}) == []
+
+
+def test_should_skip_stacks_from_before_the_part_record_and_unclear_ones():
+    """Aeltere Ledger-Zeilen haben keine `teile`; unklare Stapel wurden nicht zerlegt."""
+    alt = json.dumps({"sha256": "x", "stapel": "B.pdf", "urteil": "zerlegt",
+                      "zeit": "2026-10-13T09:46:00+00:00", "dateien": []})
+    unklar = _ledger_zeile("C.pdf", [], alter_min=60, urteil="unklar")
+    assert _faellig(alt, unklar, "kein json") == []
+
+
+def test_should_not_judge_and_not_mark_checked_when_paperless_is_silent(tmp_path, monkeypatch):
+    """Ein stummer Container ist kein "alle Teile fehlen" - und der Stapel kommt wieder."""
+    ledger = tmp_path / "zerlegt.jsonl"
+    ledger.write_text(_ledger_zeile("A.pdf", [("t1", 5)], alter_min=60), encoding="utf-8")
+    stand = tmp_path / "stand.json"
+    monkeypatch.setattr(sm.time, "time", lambda: LEDGER_JETZT)
+    monkeypatch.setattr(sm, "_paperless_shell", lambda skript, ssh: (1, ""))
+    assert sm.seitenkontrolle(str(ledger), str(stand), 30, None) == []
+    assert not stand.exists()
+
+
+def test_should_report_once_and_remember_the_checked_stack(tmp_path, monkeypatch):
+    ledger = tmp_path / "zerlegt.jsonl"
+    ledger.write_text(_ledger_zeile("A.pdf", [("t1", 5)], alter_min=60), encoding="utf-8")
+    stand = tmp_path / "stand.json"
+    monkeypatch.setattr(sm.time, "time", lambda: LEDGER_JETZT)
+    monkeypatch.setattr(sm, "_paperless_shell", lambda skript, ssh: (0, "SEITEN t1 4\n"))
+    assert len(sm.seitenkontrolle(str(ledger), str(stand), 30, None)) == 1
+    assert sm.lade_stand(stand) == {"stapel-A.pdf"}
+    assert sm.seitenkontrolle(str(ledger), str(stand), 30, None) == []
+
+
+def test_should_read_page_counts_including_unknown_from_the_shell(monkeypatch):
+    monkeypatch.setattr(
+        sm, "_paperless_shell", lambda skript, ssh: (0, "5 objects imported\nSEITEN t1 5\nSEITEN t2 None\n")
+    )
+    assert sm.paperless_seiten(["t1", "t2", "t3"], None) == ({"t1": 5, "t2": None}, True)
+
+
+def test_should_keep_stack_names_out_of_short_line_for_missing_pages():
+    seiten = [{"stapel": "13102026120215.pdf", "befunde": ["t1.pdf: 4 statt 5 Seiten"]}]
+    zeile = sm.kurzzeile([], geprueft=0, gemessene_ignoranz=True, seiten=seiten)
+    assert "1 Stapel mit FEHLENDEN SEITEN" in zeile
+    assert "13102026120215" not in zeile and "t1.pdf" not in zeile
+    voll = sm.bericht([], geprueft=0, gemessene_ignoranz=True, seiten=seiten)
+    assert "13102026120215.pdf" in voll and "4 statt 5 Seiten" in voll
