@@ -65,6 +65,7 @@ _LEASE_SCHREIBEN = re.compile(
 #: Umleitungen, die nichts schreiben (`2>/dev/null`, `&>/dev/null`, `2>&1`) —
 #: vor der Pruefung entfernt; Realfall-Fehlalarm 2026-10-14 (#3977).
 _HARMLOSE_UMLEITUNG = re.compile(r"&?\d*>>?\s*/dev/null\b|\d*>&\d+")
+_ZUWEISUNG = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 _ERZWINGEN = re.compile(r"ressourcen_lease(?:\.py)?\b[^|;&\n]*--erzwingen")
 MAX_SKRIPT = 512 * 1024
 
@@ -175,6 +176,22 @@ def _owner_befehl(ressource: str) -> str:
     return f"! python3 ~/.claude/hooks/ressourcen_lease.py freigeben {ressource} --erzwingen"
 
 
+def _zweck(werkzeug: str, eingabe: dict) -> str:
+    """Zweck fuer Lease und Journal — nie Befehlsargumente, die koennen Tokens tragen.
+
+    Bash: nur Programmname und erkannte Skriptnamen; Datei-Werkzeuge: der Pfad.
+    """
+    if werkzeug != "Bash":
+        pfad = str(eingabe.get("file_path") or eingabe.get("notebook_path") or "")
+        return f"auto: {werkzeug} {pfad}".strip()
+    befehl = str(eingabe.get("command") or "")
+    # fuehrende `VAR=wert`-Zuweisungen ueberspringen — dort stehen gern Tokens
+    teile = [t for t in befehl.split() if not _ZUWEISUNG.match(t)]
+    programm = os.path.basename(teile[0]) if teile else ""
+    skripte = [os.path.basename(d) for _, d in _SKRIPT.findall(befehl)]
+    return " ".join(["auto: Bash", programm, *dict.fromkeys(skripte)]).strip()
+
+
 def entscheide(daten: dict, regeln: list[dict]) -> tuple[str | None, str | None]:
     """(deny-Grund, Hinweis) — beides None heisst: nichts zu sagen."""
     werkzeug = str(daten.get("tool_name") or "")
@@ -201,7 +218,7 @@ def entscheide(daten: dict, regeln: list[dict]) -> tuple[str | None, str | None]
             "(keine session_id) — ohne Inhaber keine Zuordnung."
         ), None
     hinweise = []
-    zweck = f"auto: {werkzeug} {str(eingabe.get('command') or eingabe.get('file_path') or '')[:120]}"
+    zweck = _zweck(werkzeug, eingabe)
     for ressource in ressourcen:
         erg = rl.beanspruchen(ressource, session, zweck)
         if not erg.erlaubt:

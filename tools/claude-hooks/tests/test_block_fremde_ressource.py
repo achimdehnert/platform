@@ -140,6 +140,17 @@ def test_should_block_bypass_via_force_and_lease_files(umgebung):
     assert _grund(_write("/home/u/.claude/leases/ressourcen/sevdesk.json", A))
 
 
+def test_should_keep_command_arguments_out_of_lease_and_journal(umgebung):
+    """Realfall 2026-10-14: der Zweck trug 120 Zeichen Befehl — ein Token waere mitgekommen."""
+    _sitzung(umgebung, A, "a")
+    geheim = "tok_" + "x" * 20
+    befehl = f"SEVDESK_TOKEN={geheim} python3 tools/sevdesk/mandant.py --key {geheim}"
+    assert _grund(_bash(befehl, A)) is None
+    assert geheim not in json.dumps(rl.lesen("sevdesk"))
+    assert geheim not in (rl.lease_dir() / "journal.jsonl").read_text(encoding="utf-8")
+    assert "mandant.py" in rl.lesen("sevdesk")["zweck"]
+
+
 def test_should_fail_closed_without_session_id(umgebung):
     grund = _grund(_bash("python3 tools/sevdesk/mandant.py", ""))
     assert grund and "Sitzung ist unbekannt" in grund
