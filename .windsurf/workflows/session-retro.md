@@ -281,7 +281,7 @@ Ein **separater Meta-Agent** prüft AUSSCHLIESSLICH den **Report-Entwurf gegen d
 **Agenten-Budget:** `full` mit 3b und Meta = ≤6 (`≤5` in 0.1 = reine Find/Verify-Pipeline).
 `deep` zzgl. Phase-6-Extern. → LEHREN § Phase 5
 
-## Phase 6 — Extern-Handoff (optional, nur `deep`)
+## Phase 6 — Extern-Handoff (nur `deep`, nur auf Anforderung, sonst `n/a`)
 Anbieter-**fremde** Zweitmeinung, Muster wie [`adr-handoff-extern`]. Briefing nach
 `~/shared/session-retro-extern-<datum>-<repo>-<sid>.md`: (1) Report, (2) die 5 Eisernen Regeln
 + Output-Schema, (3) Auftrag Advocatus Diabolus **ohne Repo-Zugriff** — nur Methode/Struktur/
@@ -361,7 +361,7 @@ Gegenprobe eines Reports: → LEHREN#v2b-anti-patterns.
 | 15 | **Streichbahn: ≥1 Kandidat mit Beleg ODER „keiner, weil …" (Phase 7)** | ☐ |
 | 16 | Report unter `docs/retros/…-<repo>-<id>.md` committet, Pfad nicht überschrieben | ☐ |
 | 17 | Self-Review durch separaten Meta-Agenten auf den Report; `lean` begründet n/a (Phase 5) | ☐ |
-| 18 | Extern-Handoff geschrieben oder begründet n/a (Phase 6) | ☐ |
+| 18 | Extern-Handoff nur auf Anforderung, sonst `n/a` (Phase 6) | ☐ |
 | 19 | **Vierklang vorhanden: getan · angenommen · nicht verifizierbar · offen geblieben (Regel 5)** | ☐ |
 | 20 | `retro_report_check.py` über den Report gelaufen, Exit 0 (Phase 8) | ☐ |
 | 21 | **Finder (2) und Skeptiker (3) je in EINER Nachricht gestartet, Collect-Befehle gebündelt (Phase 1/2/3)** | ☐ |
@@ -375,7 +375,7 @@ Gegenprobe eines Reports: → LEHREN#v2b-anti-patterns.
 
 Letzte drei Einträge; Wortlaut und Historie: LEHREN § Changelog-Historie.
 
+- 2026-10-14: **Phase 6 nur auf Anforderung** (platform#3990), Zeile 18.
 - 2026-10-06: **Kontext-Diät V2b** (platform#3785): Herleitungen wörtlich nach LEHREN, keine
   Phase, Pflicht, Checklisten-Zeile oder Frontmatter-Feld gestrichen.
 - 2026-10-05: **Phase 9 Abschluss-Maßnahmen (PFLICHT) + Checklisten-Zeile 22** (platform#3716).
-- 2026-09-22: **Nebenläufig starten statt nacheinander warten** (platform#3373), Zeile 21.

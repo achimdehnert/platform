@@ -444,6 +444,12 @@ Gegenprobe beim Lesen eines Reports.
 
 Die letzten drei Einträge stehen im Skill selbst; alles Ältere steht hier — wörtlich.
 
+- 2026-10-14: **Phase 6 nur auf Owner-Anforderung** (Owner-Wort „M9b-go", Retro 161b19-incr,
+  platform#3990). Die Streichbahn führte Phase 6 mit Belegart Liegezeit (3 Briefings, Median 16 d,
+  keine `## Extern-Auswertung`). Die Liegezeit misst nur Dateien und schließt den
+  Copy-and-paste-Weg aus der Owner-Korrektur vom 2026-09-07 nicht aus. Deshalb wurde Phase 6
+  nicht gestrichen, sondern auf Anforderung umgestellt. Ohne Anforderung steht im Report
+  `n/a — nicht angefordert`.
 - 2026-10-05: **Phase 9 Abschluss-Maßnahmen (PFLICHT) + Checklisten-Zeile 22** (Owner-Wort
   „dieses Vorgehen sollten wir etablieren", platform#3716). Die Übergabe nennt, was zu
   entscheiden ist, mit Empfehlung und Link, statt den Report nachzuerzählen.
