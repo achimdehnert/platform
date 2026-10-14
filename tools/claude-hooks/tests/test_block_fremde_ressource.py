@@ -134,7 +134,26 @@ def test_should_block_bypass_via_force_and_lease_files(umgebung):
     )
     assert _grund(_bash("rm ~/.claude/leases/ressourcen/sevdesk.json", A))
     assert _grund(_bash("echo {} > ~/.claude/leases/ressourcen/sevdesk.json", A))
+    assert _grund(
+        _bash("echo {} > ~/.claude/leases/ressourcen/sevdesk.json 2>/dev/null", A)
+    )
+    assert _grund(_bash("echo {} >> ~/.claude/leases/ressourcen/journal.jsonl", A))
+    assert _grund(_bash("cd ~/.claude/leases/ressourcen && echo {}>sevdesk.json", A))
+    assert _grund(_bash("echo '{}' &> ~/.claude/leases/ressourcen/sevdesk.json", A))
+    # nicht zerlegbar (offenes Anfuehrungszeichen) => fail-closed
+    assert _grund(_bash('echo "{ > ~/.claude/leases/ressourcen/sevdesk.json', A))
     assert _grund(_write("/home/u/.claude/leases/ressourcen/sevdesk.json", A))
+
+
+def test_should_keep_command_arguments_out_of_lease_and_journal(umgebung):
+    """Realfall 2026-10-14: der Zweck trug 120 Zeichen Befehl — ein Token waere mitgekommen."""
+    _sitzung(umgebung, A, "a")
+    geheim = "tok_" + "x" * 20
+    befehl = f"SEVDESK_TOKEN={geheim} python3 tools/sevdesk/mandant.py --key {geheim}"
+    assert _grund(_bash(befehl, A)) is None
+    assert geheim not in json.dumps(rl.lesen("sevdesk"))
+    assert geheim not in (rl.lease_dir() / "journal.jsonl").read_text(encoding="utf-8")
+    assert "mandant.py" in rl.lesen("sevdesk")["zweck"]
 
 
 def test_should_fail_closed_without_session_id(umgebung):
@@ -218,6 +237,13 @@ def test_should_grant_a_free_lease_to_exactly_one_of_racing_sessions(umgebung):
         "make test",
         "echo x > /tmp/y 2>&1",
         "ls ~/.claude/leases/ressourcen",
+        # Realfall-Fehlalarm 2026-10-14: Lesen mit Fehlerumleitung
+        "ls -la ~/.claude/leases/ressourcen/ 2>&1 | head; "
+        "tail -3 ~/.claude/leases/ressourcen/journal.jsonl 2>/dev/null | cut -c1-200",
+        "cat ~/.claude/leases/ressourcen/journal.jsonl &>/dev/null",
+        # zweiter Realfall-Fehlalarm 2026-10-14: `>` nur im String eines Skripts
+        "grep -n sk- ~/.claude/leases/ressourcen/journal.jsonl | "
+        "python3 -c \"import sys; print(sys.stdin.read().replace('x','<LANG>'))\"",
         "python3 ~/.claude/hooks/ressourcen_lease.py status",
         "python3 tools/pr_merge_sa.py 12 achimdehnert/platform",
     ],
