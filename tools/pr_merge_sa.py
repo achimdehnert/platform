@@ -380,6 +380,23 @@ def hinweis_bot(f: Facts) -> str:
     )
 
 
+def hinweis_tabu(f: Facts) -> str:
+    """Repo mit Bot, aber Tabu-Pfad im Diff: der Bot approvt nicht, der Owner kann
+    seinen eigenen PR nicht approven — der Weg ist ein App-PR (Realfall #3955/#3958,
+    Ledger L3 in #3903). Leer, wenn kein Tabu-Pfad traegt oder das Repo keinen Bot hat."""
+    if f.repo not in BOT_REVIEW_REPOS:
+        return ""
+    tabu = [p for p in f.files if ist_tabu(p, tabu=BOT_TABU)]
+    if not tabu:
+        return ""
+    return (
+        f" — Tabu-Pfad {tabu[0]}: der Review-Bot approvt hier nicht "
+        f"(`review_regeln.py --tabu`). Owner-eigener PR → Branch als App-PR neu "
+        f"oeffnen (`lotse-gh achimdehnert pr create`), Merge bleibt Owner-Schritt; "
+        f"fremder Autor → Owner-Approve"
+    )
+
+
 def classify(f: Facts, r: dict, ausnahmen=None) -> Verdict:
     """Jede Ablehnung nennt ihren Grund — ein Verdict ohne Grund waere so
     nutzlos wie ein Skip ohne Grund. `ausnahmen` = Ausnahmeliste als Daten;
@@ -392,7 +409,7 @@ def classify(f: Facts, r: dict, ausnahmen=None) -> Verdict:
         raise Unklar("keine Dateiliste erhalten — ohne Diff kein Urteil")
 
     mandat, quelle, anlass = f.mandat, "", ""
-    hinweis = hinweis_bot(f) if bot_kann_approven(f) else ""
+    hinweis = hinweis_bot(f) if bot_kann_approven(f) else hinweis_tabu(f)
     governance = [p for p in f.files if ist_governance(p, r["governance_pfade"])]
     if governance and RANG[mandat] < RANG["M2"]:
         if not f.owner_wort:
