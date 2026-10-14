@@ -1,0 +1,40 @@
+{
+  "_zweck": "Externe Schreibziele, die je genau EINER Claude-Sitzung gehoeren. Gelesen von block_fremde_ressource.py (Gate fremde-sitzung-schreibt-externe-ressource, platform#3549). Neue Ressource = neuer Eintrag hier, kein Code.",
+  "_felder": {
+    "id": "Ressourcen-Name; {name} wird aus der benannten Gruppe des treffenden Musters gefuellt",
+    "befehl_muster": "Regex auf den ganzen Bash-Befehl",
+    "skript_muster": "Regex auf den INHALT eines Python-Skripts, das der Bash-Befehl startet (python <datei>.py)",
+    "datei_muster": "Regex auf den absoluten Pfad bei Write/Edit/MultiEdit/NotebookEdit"
+  },
+  "ressourcen": [
+    {
+      "id": "sevdesk",
+      "titel": "Buchhaltung sevdesk, alle Mandanten",
+      "befehl_muster": [
+        "\\bpython[0-9.]*\\b[\\s\\S]*?\\btools[./]sevdesk\\b",
+        "\\.secrets/sevdesk",
+        "sevdesk\\.de/api",
+        "\\bSEVDESK_MANDANT="
+      ],
+      "skript_muster": [
+        "\\btools[./]sevdesk\\b",
+        "\\.secrets/sevdesk",
+        "sevdesk\\.de/api",
+        "\\bsevdesk_[a-z_]*api_token\\b"
+      ],
+      "datei_muster": []
+    },
+    {
+      "id": "board:{name}",
+      "titel": "Action-Board-Datei",
+      "befehl_muster": [
+        "(?:>>?|\\btee\\s+(?:-a\\s+)?)\\s*[\"']?[^\\s\"']*\\.claude/boards/(?P<name>[A-Za-z0-9._-]+)\\.md",
+        "\\bsed\\s+(?:-[a-zA-Z]*i[a-zA-Z]*|--in-place)\\b[^|;&]*\\.claude/boards/(?P<name>[A-Za-z0-9._-]+)\\.md"
+      ],
+      "skript_muster": [],
+      "datei_muster": [
+        "/\\.claude/boards/(?P<name>[A-Za-z0-9._-]+)\\.md$"
+      ]
+    }
+  ]
+}

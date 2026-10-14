@@ -428,6 +428,31 @@ def test_should_refuse_managed_by_without_manifest(tmp_path):
 # vor allem, was NICHT passiert.
 
 
+def test_should_distribute_rule_json_next_to_its_hook(tmp_path):
+    """Ein Hook, dessen Regeldatei nicht mitreist, laeuft im aktiven Pfad ohne Regeln."""
+    repo = _make_repo(tmp_path / "repo")
+    (repo / "tools" / "claude-hooks" / "regeln.json").write_text(
+        "{}\n", encoding="utf-8"
+    )
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "regeln")
+    out = tmp_path / "out"
+    r = _run(
+        [
+            "--platform",
+            str(repo),
+            "--ref",
+            "HEAD",
+            "--kind",
+            "claude-hooks",
+            "--target",
+            str(out),
+        ]
+    )
+    assert r.returncode == 0, r.stderr
+    assert (out / "regeln.json").is_file()
+
+
 def test_should_distribute_py_and_sh_but_not_other_suffixes(tmp_path):
     repo = _make_repo(tmp_path / "repo")
     out = tmp_path / "out"

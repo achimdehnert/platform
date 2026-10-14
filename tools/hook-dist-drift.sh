@@ -99,7 +99,7 @@ if [[ ! -d "$DST_DIR" ]]; then
 fi
 
 # Nur die oberste Ebene: tests/ und __pycache__/ gehoeren nie in den aktiven Pfad.
-mapfile -t SRC_FILES < <(find "$SRC_DIR" -maxdepth 1 -type f \( -name '*.py' -o -name '*.sh' \) -printf '%f\n' | sort)
+mapfile -t SRC_FILES < <(find "$SRC_DIR" -maxdepth 1 -type f \( -name '*.py' -o -name '*.sh' -o -name '*.json' \) -printf '%f\n' | sort)
 
 DRIFTED=""
 SYNCED=0
