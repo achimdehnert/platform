@@ -8,7 +8,7 @@ metadata:
 
 # Schreibstil
 
-*v1.2 · Stand 2026-10-12*
+*v1.2 · Stand 2026-10-14*
 
 **Zweck.** Der Owner soll nicht jede Mail, jedes Konzept und jeden PR-Text Wort für
 Wort gegenlesen müssen. Dieser Skill hält fest, wie er schreibt — belegt an
@@ -216,6 +216,7 @@ Drei Regeln dazu:
 - 2026-10-12 · hnu · Anrede: Studentin schrieb „Guten Tag Herr Dehnert", Entwurf spiegelte „Guten Tag Frau <Nachname>" → Owner: „Guten Morgen <Vorname>", Text blieb beim Sie · Grund (Hypothese): in der Betreuung spricht der Owner mit Vornamen an; das Spiegeln gilt für Du/Sie, nicht für Vor-/Nachname
 - 2026-10-12 · hnu · gestrichen: Punkt „Vertraulichkeit: Kläre früh mit der Bank, welche internen Unterlagen und Zahlen du verwenden darfst …", ergänzt: „-> Hatten wir ja am Samstag" · Grund (Hypothese): in der Vorlesung schon besprochen; was mündlich lief, sieht der Entwurf nicht — ein Rückbezug darauf ist Owner-Sache
 - 2026-10-12 · dsb · ersetzt in einer Löschempfehlung an einen Mandanten: „Dem Kunden die Löschung schriftlich bestätigen, spätestens einen Monat nach Eingang seines Antrags (Art. 12 Abs. 3 DSGVO), mit dem Hinweis auf die gesperrten Buchungsdaten." → „… und mir bitte nach der Löschung Bescheid geben, ich informiere dann den Kunden" · Grund (Hypothese): die Mitteilung an die betroffene Person übernimmt der DSB selbst; der Mandant meldet nur den Vollzug — eine Empfehlung delegiert nicht, was der DSB behalten will
+- 2026-10-14 · dsb · gekürzt: Rückmeldung zur zweiten Fassung von Datenschutztexten eines Mandanten, ca. 750 → 211 Wörter · gestrichen: Redaktionsreste, Detailpunkte zur Website-Erklärung, Vertragsklausel-Kleinkram, die eigenen offenen Prüfpunkte · behalten: was vor der Veröffentlichung weg muss, was der Mandant mit seinem Anbieter klären muss, die Rollenfrage als Telefonat · Grund: „reduziere die antwort mail auf das wesentliche … nur wirklich wichtiges" — eine Zwischenrunde braucht die Blocker, nicht die Vollständigkeitsliste (Hypothese zur Abgrenzung)
 
 ## 7 — Verhältnis zu anderen Regeln
 
