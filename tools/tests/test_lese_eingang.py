@@ -80,6 +80,44 @@ def test_should_reject_invalid_payloads(tmp_path, roh):
         le.ablegen(roh, tmp_path)
 
 
+_FIXTURES = Path(__file__).resolve().parent / "fixtures"
+
+
+def _vertrag() -> dict:
+    return json.loads((_FIXTURES / "links_vertrag.json").read_text(encoding="utf-8"))
+
+
+def test_should_build_the_links_block_shared_with_chat_hub():
+    # Dieselbe Fixture-Datei liegt in chat-hub tests/fixtures/ (chat-hub#191).
+    v = _vertrag()
+    links = le.links_normalisieren(v["roh"], v["seite_url"])
+    assert le.links_block(links) == v["block"]
+
+
+def test_should_append_the_links_block_to_the_ablage(tmp_path):
+    v = _vertrag()
+    roh = json.dumps(
+        {"url": v["seite_url"], "titel": "T", "text": "Inhalt", "links": v["roh"]}
+    )
+    inhalt = le.ablegen(roh.encode(), tmp_path).read_text(encoding="utf-8")
+    assert inhalt.endswith("\nInhalt" + v["block"])
+
+
+@pytest.mark.parametrize("links", [None, "kein Array", [], [["javascript:x", "y"]]])
+def test_should_store_plain_text_without_usable_links(tmp_path, links):
+    roh = json.dumps({"url": ARTIKEL, "text": "Inhalt", "links": links})
+    inhalt = le.ablegen(roh.encode(), tmp_path).read_text(encoding="utf-8")
+    assert inhalt.endswith("\nInhalt\n")
+    assert le.LINKS_MARKE not in inhalt
+
+
+def test_should_cap_links_and_anchor_text():
+    roh = [[f"https://x.example/{i}", "a" * 500] for i in range(le.MAX_LINKS_ROH)]
+    links = le.links_normalisieren(roh)
+    assert len(links) == le.MAX_LINKS
+    assert all(len(t) == le.MAX_LINKTEXT for _, t in links)
+
+
 def test_should_embed_the_matching_base_in_the_bookmarklet():
     assert le.basis_aus_host("mail.iil.pet") == "https://mail.iil.pet"
     assert le.basis_aus_host("evil.example") == le.STANDARD_BASIS
@@ -179,7 +217,12 @@ def browser_seite(server, monkeypatch):
                     "Content-Type": "text/html; charset=utf-8",
                     "Cross-Origin-Opener-Policy": "same-origin",
                 },
-                body="<title>Probe 151</title><article><p>Volltext der Probe</p></article>",
+                body=(
+                    "<title>Probe 151</title>"
+                    "<nav><a href='https://navi.example/'>Navigation</a></nav>"
+                    "<article><p>Volltext der Probe, siehe "
+                    "<a href='https://quelle.example/paper'>Quelle</a>.</p></article>"
+                ),
             ),
         )
         yield basis, kontext
@@ -206,7 +249,13 @@ def test_should_store_the_article_although_the_page_cuts_the_opener(
     assert _ergebnis(lesen).startswith("ok: ✓ Abgelegt: Probe 151")
     assert lesen.url == f"{basis}/lesen"  # Fragment aus Adresszeile entfernt
     ablage = tmp_path / "lesen" / f"{le.ablage_schluessel(ARTIKEL_COOP)}.md"
-    assert "Volltext der Probe" in ablage.read_text(encoding="utf-8")
+    inhalt = ablage.read_text(encoding="utf-8")
+    assert "Volltext der Probe" in inhalt
+    # chat-hub#191: Links aus dem Inhalt reisen mit, die Navigation nicht.
+    assert inhalt.endswith(
+        f"\n{le.LINKS_MARKE}\n- https://quelle.example/paper — Quelle\n"
+    )
+    assert "navi.example" not in inhalt
 
 
 def test_should_report_a_knopf_call_that_lost_its_article(browser_seite, tmp_path):
