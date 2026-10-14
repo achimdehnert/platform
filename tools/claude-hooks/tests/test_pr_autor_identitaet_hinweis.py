@@ -131,6 +131,39 @@ def test_should_hinweis_zeigen_beim_realfall_workflow_datei_unter_owner_konto(tm
     assert OWNER in text
 
 
+def test_should_hinweis_zeigen_wenn_cd_nach_zuweisungen_in_variable_steht(tmp_path):
+    """Realfall platform#3956 (Retro ec3416 §5a): das Kommando begann mit Zuweisungen,
+    `cd "$wt"` kam erst danach; der Hook las das Haupt-Tree (cwd) und schwieg."""
+    repo = _repo(tmp_path, [".github/workflows/ci.yml"], CODEOWNERS_REALFALL)
+    haupt_tree = tmp_path / "haupt"
+    haupt_tree.mkdir()
+    kommando = (
+        f'd={tmp_path}/scratch; wt={repo}; cd "$wt" && git branch --show-current && '
+        f"gh pr create --title 'fix(x): y' --body-file \"$d/pr.md\""
+    )
+    res = subprocess.run(
+        [sys.executable, str(HOOK)],
+        input=json.dumps({"tool_input": {"command": kommando}, "cwd": str(haupt_tree)}),
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=_umgebung(tmp_path, OWNER),
+    )
+    assert res.returncode == 0, res.stderr
+    assert ".github/workflows/ci.yml (Governance-Pfad)" in _kontext(res)
+
+
+def test_should_bei_unaufgeloester_variable_das_cwd_behalten():
+    m = _modul()
+    assert m._arbeitsverzeichnis('cd "$anderswo" && gh pr create', "/basis") == "/basis"
+    assert (
+        m._arbeitsverzeichnis("x=1; cd /abs/pfad; gh pr create", "/basis")
+        == "/abs/pfad"
+    )
+    assert m._arbeitsverzeichnis("cd rel && gh pr create", "/basis") == "/basis/rel"
+    assert m._arbeitsverzeichnis("gh pr create && cd /spaeter", "/basis") == "/basis"
+
+
 def test_should_hinweis_zeigen_wenn_konto_code_owner_der_datei_ist(tmp_path):
     repo = _repo(tmp_path, ["deploy/raum_grenze.py"], CODEOWNERS_REALFALL)
     res = _lauf(repo, _umgebung(tmp_path, OWNER))

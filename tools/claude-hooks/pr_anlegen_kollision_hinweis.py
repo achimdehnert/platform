@@ -60,7 +60,14 @@ AUSGENOMMENE_DATEIEN = frozenset(
 )
 
 _PR_CREATE = re.compile(r"(?:^|[;&|\n]|&&)\s*gh\s+pr\s+create\b")
-_CD = re.compile(r"^\s*cd\s+(\"[^\"]+\"|'[^']+'|\S+)\s*&&")
+#: `cd <ziel>` als eigenes Segment — am Anfang ODER nach `;`, `&&`, `|`, Zeilenumbruch.
+#: Realfall platform#3956 (Retro ec3416 §5a): `d=…; wt=…; cd "$wt" && … gh pr create` —
+#: der alte Ausdruck sah nur ein `cd` am Kommandoanfang, der Hook las darum das Haupt-Tree
+#: auf `main`, fand keinen Diff und schwieg.
+_CD = re.compile(r"(?:^|[;&|\n])\s*cd\s+(\"[^\"]+\"|'[^']+'|[^\s;&|]+)\s*(?=&&|;|\n|$)")
+#: Einfache Zuweisungen `NAME=wert` am Segmentanfang, fuer `$NAME`/`${NAME}` im cd-Ziel.
+_ZUWEISUNG = re.compile(r"(?:^|[;&|\n])\s*([A-Za-z_]\w*)=(\"[^\"]*\"|'[^']*'|[^\s;&|]*)")
+_VARIABLE = re.compile(r"\$\{?([A-Za-z_]\w*)\}?")
 _NUMMER = re.compile(r"(?<![\w/])#(\d{1,6})\b")
 
 
@@ -104,11 +111,34 @@ def _argumente(kommando: str) -> dict[str, str]:
     return aus
 
 
+def _expandiere(text: str, variablen: dict[str, str]) -> str:
+    """`$NAME`/`${NAME}` aus `variablen` einsetzen; Unbekanntes bleibt stehen."""
+    return _VARIABLE.sub(lambda m: variablen.get(m.group(1), m.group(0)), text)
+
+
+def _zuweisungen(kommando: str) -> dict[str, str]:
+    """Einfache Shell-Zuweisungen des Kommandos in Reihenfolge (best effort, kein Subshell/Quoting-Ersatz)."""
+    aus: dict[str, str] = {}
+    for m in _ZUWEISUNG.finditer(kommando):
+        aus[m.group(1)] = _expandiere(m.group(2).strip("\"'"), aus)
+    return aus
+
+
 def _arbeitsverzeichnis(kommando: str, cwd: str) -> str:
-    m = _CD.match(kommando)
-    if not m:
+    """Verzeichnis, in dem `gh pr create` laeuft: letztes `cd`-Segment vor dem Aufruf,
+    Variablen aus Zuweisungen desselben Kommandos aufgeloest. Bleibt eine Variable offen,
+    gilt `cwd` — lieber kein Hinweis als ein Phantompfad."""
+    vor_pr = kommando
+    treffer_pr = _PR_CREATE.search(kommando)
+    if treffer_pr:
+        vor_pr = kommando[: treffer_pr.start()]
+    treffer = list(_CD.finditer(vor_pr))
+    if not treffer:
         return cwd
-    ziel = os.path.expanduser(m.group(1).strip("\"'"))
+    ziel = _expandiere(treffer[-1].group(1).strip("\"'"), _zuweisungen(vor_pr))
+    if "$" in ziel:
+        return cwd
+    ziel = os.path.expanduser(ziel)
     return ziel if os.path.isabs(ziel) else os.path.join(cwd, ziel)
 
 
