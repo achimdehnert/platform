@@ -1234,6 +1234,26 @@ def test_should_treat_the_shared_image_build_as_publish(monkeypatch):
     )
 
 
+def test_should_ignore_publish_words_in_step_names_and_check_inputs(monkeypatch):
+    """Realfall shared-ci validate-workflows.yml (platform#3903): der Step heisst
+    "ADR-226 publish-gate invariant", seine Eingabe `checks: publish-gate` — der
+    Workflow prueft nur und veroeffentlicht nichts. M3 war ein Fehlalarm."""
+    pruefer = _PUSH_MAIN + (
+        "    steps:\n"
+        "      - name: ADR-226 publish-gate invariant + API-free guard\n"
+        "        uses: ./.github/actions/workflow-guards\n"
+        "        with:\n          checks: publish-gate\n"
+    )
+    assert _urteil(monkeypatch, pruefer)[1] == []
+    login = _PUSH_MAIN + (
+        "    steps:\n      - uses: docker/login-action@v3\n"
+        "        with:\n          registry: ghcr.io\n"
+    )
+    assert _urteil(monkeypatch, login)[1] == ["Publish-Workflow auf main (irreversibel)"]
+    unparsbar = _PUSH_MAIN + "    run: echo 'publish\n  - [kaputt\n"
+    assert _urteil(monkeypatch, unparsbar)[1] == ["Publish-Workflow auf main (irreversibel)"]
+
+
 def test_should_read_the_auftrag_from_a_cross_repo_issue_reference(monkeypatch):
     """Realfall dev-hub#357: der Auftrag liegt in platform#3234, der PR in dev-hub."""
     import pr_merge_sa
