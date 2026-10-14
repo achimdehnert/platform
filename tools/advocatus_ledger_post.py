@@ -7,11 +7,17 @@ und postet als Bulk (`POST <ledger_url>`, Liste ≤ ledger_bulk_max, ignore_conf
 serverseitig per UniqueConstraint).
 
     python3 tools/advocatus_ledger_post.py befunde.json [--dry-run]
+    python3 tools/advocatus_ledger_post.py --probe
 
 Exit 0 = gebucht (oder --dry-run / leere Liste) · 1 = Schema- oder HTTP-Fehler
 · 2 = Token fehlt. Der Token kommt NUR aus der Umgebungsvariable `routine.token_env`
 und erscheint in keiner Ausgabe. Bei HTTP-Fehlern wird nur der Statuscode genannt,
 nie der Antwort-Body.
+
+`--probe` sendet ein GET ohne Daten an `ledger_url` und meldet nur, ob der Host antwortet:
+jeder HTTP-Statuscode (auch 401/403/405) heisst erreichbar (Exit 0), ein Verbindungsfehler
+heisst nicht erreichbar (Exit 1). Grund: aus der Cloud-Umgebung blockte die Netzwerk-Policy
+den Ledger-Host (AD5, #3903, 2026-10-14), und ohne Kandidaten beweist kein Lauf den Weg.
 """
 
 from __future__ import annotations
@@ -39,6 +45,7 @@ MAX_LAENGE = {"repo": 200, "head_sha": 40, "regel_id": 64, "locator": 512, "mode
 PFLICHT = ("repo", "pr_nummer", "head_sha", "klasse", "locator", "konfidenz", "begruendung")
 OPTIONAL = ("regel_id", "kosten_usd", "quelle", "modell")
 TIMEOUT_S = 30
+PROBE_PRAEFIX = "LEDGER-PROBE:"
 
 
 class BefundFehler(ValueError):
@@ -142,15 +149,45 @@ def poste(befunde: list[dict], konfig: dict, token: str) -> list[int]:
     return codes
 
 
+def probe(konfig: dict, token: str) -> int:
+    """GET ohne Daten an ledger_url; eine Zeile `LEDGER-PROBE: …` auf stdout.
+
+    Erreichbar = irgendein HTTP-Status (Exit 0); Verbindungsfehler = Exit 1. Mit Token
+    wird der Authorization-Header gesetzt, damit der Status auch die Auth-Lage zeigt;
+    der Token-Wert erscheint in keiner Ausgabe.
+    """
+    r = konfig["routine"]
+    headers = {"Accept": "application/json"}
+    if token:
+        headers["Authorization"] = f"Token {token}"
+    req = urllib.request.Request(r["ledger_url"], method="GET", headers=headers)
+    auth = "mit Token" if token else f"ohne Token ({r['token_env']} leer)"
+    try:
+        with urllib.request.urlopen(req, timeout=TIMEOUT_S) as antwort:
+            status = antwort.status
+    except urllib.error.HTTPError as exc:
+        status = exc.code
+    except urllib.error.URLError as exc:
+        print(f"{PROBE_PRAEFIX} nicht erreichbar ({exc.reason}), {auth}")
+        return RC_FEHLER
+    print(f"{PROBE_PRAEFIX} erreichbar, HTTP {status}, {auth}")
+    return RC_OK
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    ap.add_argument("datei", help="JSON-Liste der Befunde")
+    ap.add_argument("datei", nargs="?", help="JSON-Liste der Befunde")
     ap.add_argument(
         "--dry-run", action="store_true", help="Payload zeigen, nichts senden, kein Token noetig"
     )
+    ap.add_argument(
+        "--probe", action="store_true", help="nur Erreichbarkeit von ledger_url melden, nichts buchen"
+    )
     a = ap.parse_args(argv)
+    if bool(a.datei) == a.probe:
+        ap.error("entweder <datei> oder --probe")
 
     try:
         konfig = rk.lade_risiko()
@@ -158,6 +195,8 @@ def main(argv: list[str] | None = None) -> int:
         for f in exc.fehler:
             print(f"SCHEMA: {f}", file=sys.stderr)
         return RC_FEHLER
+    if a.probe:
+        return probe(konfig, os.environ.get(konfig["routine"]["token_env"], "").strip())
     try:
         roh = json.loads(Path(a.datei).read_text(encoding="utf-8"))
         befunde = validiere(roh, konfig)
