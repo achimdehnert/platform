@@ -1296,6 +1296,23 @@ def test_should_not_name_bot_review_for_bot_tabu_path():
     assert u.erlaubt is False and "--warte-auf-bot" not in u.grund
 
 
+def test_should_name_app_pr_way_for_bot_tabu_path():
+    """Ledger L3 (#3903): „fehlt: ein Approval“ allein liess den Owner raten, warum der
+    Bot schweigt — der Grund nennt jetzt den Tabu-Pfad und den Weg (App-PR, Owner-Merge)."""
+    u = classify(
+        _facts(**BOT, files=["tools/x.py", "policies/x.md"], mandat="M0"), REGELN
+    )
+    assert u.erlaubt is False
+    assert u.grund.startswith("fehlt: ein Approval")
+    assert "Tabu-Pfad policies/x.md" in u.grund
+    assert "lotse-gh" in u.grund and "Owner-Schritt" in u.grund
+
+
+def test_should_not_name_tabu_way_in_repo_without_bot():
+    u = classify(_facts(files=["policies/x.md"], mandat="M0"), REGELN)
+    assert u.erlaubt is False and "Tabu-Pfad" not in u.grund
+
+
 def test_should_not_name_bot_review_in_repo_without_bot():
     u = classify(_facts(files=[".github/workflows/x.yml"], mandat="M0"), REGELN)
     assert u.erlaubt is False and "--warte-auf-bot" not in u.grund
