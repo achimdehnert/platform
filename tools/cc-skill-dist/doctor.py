@@ -131,9 +131,12 @@ def format_befund(name, text):
         except SyntaxError as exc:
             return f"kein gültiges Python (Zeile {exc.lineno})"
     elif name.endswith(".sh"):
-        lauf = subprocess.run(
-            ["bash", "-n"], input=text, capture_output=True, text=True
-        )
+        try:
+            lauf = subprocess.run(
+                ["bash", "-n"], input=text, capture_output=True, text=True, timeout=10
+            )
+        except subprocess.TimeoutExpired:
+            return "bash -n ohne Ergebnis nach 10 s"
         if lauf.returncode:
             return "bash -n schlägt fehl"
     return None
@@ -439,7 +442,14 @@ def main():
         except Exception as e:
             issues.append(("unlesbar", name, str(e)[:40]))
             continue
-        grund = format_befund(name, disk) if format_pruefen else None
+        grund = None
+        if format_pruefen:
+            # Streng lesen wie der Hook: `errors="ignore"` oben ließe kaputte Bytes
+            # verschwinden, und die Datei gälte als lesbar.
+            try:
+                grund = format_befund(name, open(path, encoding="utf-8").read())
+            except UnicodeDecodeError:
+                grund = "kein gültiges UTF-8"
         if grund:
             kaputt += 1
             issues.append(("format-kaputt", name, grund))

@@ -107,6 +107,12 @@ MERGE_MANIFEST = ".cc-skill-dist-manifest.json"
 #: (platform#4010). Die Herkunft steht weiter im Merge-Manifest.
 OHNE_FOOTER = (".json",)
 
+# Die Formatprüfung hat genau eine Quelle: der Doctor prüft damit das Ziel, der
+# Generator die Ausgabe VOR dem Schreiben. Eine Endung, die ihren Footer nicht
+# verträgt, bricht so am Generator ab statt erst im aktiven Pfad (platform#4010).
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from doctor import format_befund  # noqa: E402
+
 
 def lane_mode(kind):
     return LANES[kind].get("mode", "swap")
@@ -398,6 +404,14 @@ def main():
             content = src.rstrip("\n") + f"\n\n# {meta}\n"
         else:
             content = src.rstrip("\n") + f"\n\n<!-- {meta} -->\n"
+        if args.kind in ("hooks", "claude-hooks"):
+            grund = format_befund(name, content)
+            if grund:
+                shutil.rmtree(staging)
+                sys.exit(
+                    f"ABBRUCH: {name} wäre nach dem Verteilen unlesbar ({grund}) — "
+                    f"Ziel {target} bleibt unverändert."
+                )
         if args.kind == "skills":  # verschachtelt: <name>/SKILL.md
             os.makedirs(os.path.join(staging, name), exist_ok=True)
             out = os.path.join(staging, name, "SKILL.md")

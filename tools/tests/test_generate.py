@@ -482,6 +482,24 @@ def test_should_ship_rule_json_unchanged_without_footer(tmp_path):
     assert "regeln.json" in [e["name"] for e in eintrag], "Herkunft bleibt im Manifest"
 
 
+def test_should_refuse_to_ship_a_hook_file_that_would_be_unreadable(tmp_path):
+    """Der Generator prüft seine Ausgabe vor dem Schreiben: ein unlesbares Regelfile
+    bricht ab, und das Ziel behält den letzten lesbaren Stand (platform#4010)."""
+    repo = _make_repo(tmp_path / "repo")
+    (repo / "tools" / "claude-hooks" / "regeln.json").write_text('{"a": 1}\n')
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "regeln")
+    out = tmp_path / "out"
+    args = ["--platform", str(repo), "--ref", "HEAD", "--kind", "claude-hooks"]
+    assert _run([*args, "--target", str(out)]).returncode == 0
+    (repo / "tools" / "claude-hooks" / "regeln.json").write_text('{"a": 1}\n{"b": 2}\n')
+    _git(repo, "commit", "-q", "-am", "kaputt")
+    r = _run([*args, "--target", str(out)])
+    assert r.returncode != 0
+    assert "regeln.json wäre nach dem Verteilen unlesbar" in r.stderr, r.stderr
+    assert (out / "regeln.json").read_text() == '{"a": 1}\n', "Ziel unverändert"
+
+
 def test_should_keep_every_real_hook_file_readable_in_its_format(tmp_path):
     """Invariante über den echten Bestand: jede Datei aus tools/claude-hooks/ ist nach
     dem Verteilen in ihrem Format lesbar — so, wie der Hook sie liest, mit Footer."""
