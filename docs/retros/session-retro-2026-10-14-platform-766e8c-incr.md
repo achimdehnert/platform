@@ -5,8 +5,8 @@ repo_scope: [platform]
 session_id: 766e8c-incr
 footprint: lean
 footprint_reduction_reason: "Inkrement mit 1 Repo und 2 neuen PRs (#3992 geschlossen, #3994 offen). Kein Prod-Schritt, keine Migration, kein ADR. Die Hook-Verteilung nach ~/.claude hat der Owner per eigenem Skript ausgeführt."
-findings_total: 5
-findings_survived: 5
+findings_total: 6
+findings_survived: 6
 refuted_rate: 0.0
 phase3_refuted: 0
 pre_refuted: 0
@@ -14,11 +14,11 @@ scores:
   zielerreichung: 3
   architektur_design: 4
   code_konventionstreue: 3
-  risiko_debt: 3
+  risiko_debt: 2
   prozess_effizienz: 2
   entscheidungsqualitaet: 3
-gate_candidates: []
-recurring_findings: [pr-autor-identitaet-nicht-angewandt, hook-drill-ohne-fehlalarm-gegenprobe, hook-zweck-speichert-befehlstext, formatter-auf-verzeichnis-statt-eigene-dateien, owner-skript-prueft-vorbedingung-nicht]
+gate_candidates: [merge-vermerk-durch-zitat]
+recurring_findings: [pr-autor-identitaet-nicht-angewandt, hook-drill-ohne-fehlalarm-gegenprobe, hook-zweck-speichert-befehlstext, formatter-auf-verzeichnis-statt-eigene-dateien, owner-skript-prueft-vorbedingung-nicht, merge-vermerk-durch-zitat]
 gates_caught: []
 gates_verwandt: [pr-autor-identitaet-nicht-angewandt]
 over_ask_klassen: []
@@ -62,6 +62,7 @@ Artefakte dieses Inkrements:
 | 2 | Der neue Lease-Hook sperrte beim ersten Echtlauf einen reinen Lesebefehl (`ls … 2>&1`, `tail … 2>/dev/null`), weil die Umgehungsprüfung jedes `>` als Schreiben wertete. Der Drill hatte keine Gegenprobe in Realform, also keinen Lesebefehl mit harmloser Umleitung auf dem Lease-Pfad. Der erste Fix in #3994 war selbst noch zu schmal: Während dieser Retro sperrte der Hook einen Lesebefehl mit `>` in einem `python3 -c`-String. Diese Form deckte die `/dev/null`-Ausnahme nicht ab. | fehlende Validierung | mittel | SURVIVES (kommandobelegt) | Fehllauf 14:50:34Z im Transkript (`scratchpad/kennzahlen_incr.txt`); zweiter Fehllauf in der Retro-Sammlung (~15:40Z); Fix #3994 Commits f1e5f887 und 315684be (shlex-Zerlegung), `make test` 7252 passed | hook-drill-ohne-fehlalarm-gegenprobe ×1 |
 | 3 | Lease und Journal speicherten als „Zweck“ die ersten 120 Zeichen des Befehls. Ein Token in Argumenten oder in `VAR=wert` wäre dort im Klartext gelandet. Aufgefallen erst an der ersten echten Lease; die Altzeilen enthalten Mandanten- und Beleg-Präfixe, kein Token. | fehlende Validierung | mittel | SURVIVES (kommandobelegt) | #3994 Commit „Lease-Zweck ohne Befehlsargumente“, Test `test_should_keep_command_arguments_out_of_lease_and_journal` | hook-zweck-speichert-befehlstext ×1 |
 | 4 | `ruff format tools/claude-hooks/` formatierte 10 fremde Dateien um. Das fiel im Diff vor dem Commit auf und wurde zurückgenommen. | Werkzeug | niedrig | SURVIVES (kommandobelegt) | #3994 Diff enthält nur 2 Dateien; Rücknahme per `git checkout` im Transkript | formatter-auf-verzeichnis-statt-eigene-dateien ×1 |
+| 6 | Nachtrag nach dem Merge dieser Retro: Ich habe die Vermerk-Formel aus pr_merge_sa in #3997 als Erklärung wörtlich zitiert. Die Regex `FREIGABE_VERMERK` traf das Zitat, der Retro-PR #3999 lief mit „M1 deckt W1“ durch. Beim Anlegen von #4000 passierte derselbe Fehler noch einmal. Beide Bodies sind korrigiert, Nachprüfung 0 Treffer. Ohne Folgen blieb das nur, weil #3999 auch mit M0 durchgegangen wäre (wie #3983). Ein Verweis von #3994 auf #3997 hätte den Owner-Approve umgangen. | Werkzeug | hoch | SURVIVES (kommandobelegt) | pr_merge_sa-Ausgabe #3999 „W1/M1 — M1 deckt W1“; #3983 „W1/M0 — M0 deckt W1“ (Transkript 14:47:11Z); Regex-Probe auf #3997 und #4000 vorher 1, danach 0 Treffer; `tools/pr_merge_sa.py:241` | merge-vermerk-durch-zitat ×1, Gate-Kandidat [#4000](https://github.com/achimdehnert/platform/issues/4000) |
 | 5 | Der Owner führte `sl.sh` vor dem Merge von #3994 aus, also mit der alten Hook-Fassung. Die Reihenfolge stand in der Antwort. Das Skript prüft aber nur „Hook auf main“, nicht „Fix auf main“. | Kommunikation | niedrig | SURVIVES (inline, kein Skeptiker) | #3994 weiterhin OPEN; Owner-Ausgabe „Eintrag schon vorhanden“ im Transkript; #3977 Kommentar 6172076851 | owner-skript-prueft-vorbedingung-nicht ×1 |
 
 ## 3. Scorecard
@@ -71,7 +72,7 @@ Artefakte dieses Inkrements:
 | zielerreichung | 3 | Lease in Betrieb, K4 erfüllt; der Fix #3994 ist ungemergt, K5 offen (#2, #5) |
 | architektur_design | 4 | Der Fix hält die Sperre für echte Schreibwege und lässt Lesen durch, der Zweck ist datensparsam (#2, #3) |
 | code_konventionstreue | 3 | Formatter auf das Verzeichnis (#4), PR-Autor falsch (#1) |
-| risiko_debt | 3 | Leck-Risiko im Zweck erkannt und behoben, Altzeilen bleiben lokal liegen (#3) |
+| risiko_debt | 2 | Leck-Risiko im Zweck behoben (#3); dafür offene Mandats-Lücke in pr_merge_sa, nur per Textkorrektur entschärft (#6) |
 | prozess_effizienz | 2 | Wiederholter Konto-Fehler mit Rework und Owner-Klick (#1) |
 | entscheidungsqualitaet | 3 | Fehlalarm sofort gemeldet und behoben; der Drill war vorher zu schmal (#2) |
 
@@ -84,6 +85,7 @@ Artefakte dieses Inkrements:
 | Zweck als Befehlsausschnitt | Dauerhaft gespeicherte Felder in Hooks enthalten nie freien Befehlstext, nur Programmname, Skriptname oder Pfad. Ein Test mit Token in Argumenten belegt das | #3 |
 | `ruff format <verzeichnis>` | `ruff format` nur auf die Dateien aus `git diff --name-only` | #4 |
 | Verteilskript ohne Vorbedingung | `sl.sh` nimmt den erwarteten PR als Parameter und bricht ab, solange der nicht auf `origin/main` liegt | #5 |
+| Vermerk-Formel trifft auch Zitate im Fließtext | Der Freigabe-Vermerk zählt nur als eigene Zeile, mit Test für die Erklär-Zeile als Gegenprobe. Bis dahin steht die Formel in Issue-Texten nie wörtlich, nur als Verweis auf `FREIGABE_VERMERK` | #6 |
 
 ## 5. Längsschnitt
 
@@ -117,15 +119,17 @@ Abgleich mit `MEMORY.md` per grep: Es gibt 1 Eintrag zu `lotse-autor`, die 🌀-
 | 4 | Autor-Gate ausweiten | platform | [#3997](https://github.com/achimdehnert/platform/issues/3997) | 🟢 | Owner: „PA go“ |
 | 5 | sl.sh Vorbedingung | platform | [#3977](https://github.com/achimdehnert/platform/issues/3977#issuecomment-6172076851) | 🟢 | Owner: „SV go“ |
 | 6 | Memory-Ergänzungen | — | Abschnitt 6 | 🟢 | Owner verankert oder verwirft |
+| 7 | Vermerk nur als Zeile | platform | [#4000](https://github.com/achimdehnert/platform/issues/4000) | 🟢 | Owner: „VZ go“, PR über lotse-gh |
 
 ## 8. Nicht verifiziert (Restlücken)
 
+- **Weitere Vermerk-Quellen ungeprüft (#6):** Ich habe nur die Bodies von #3977, #3997, #3999 und #4000 gescannt. Andere Issues mit zitierter Formel, etwa Doku-Issues zu pr_merge_sa, könnten genauso ein falsches M1 liefern. Die Suche nach der Formel in offenen platform-Issues liefert mindestens 30 Treffer, meist echte Mandats-Issues. Echte Zeilen-Vermerke und Zitate habe ich dabei nicht unterschieden. Billigster Check: die Trefferliste gegen die Zeilenform aus #4000 laufen lassen.
 - **Kein Skeptiker für #5** (lean). Die Wertung „Skript statt Antworttext“ ist ein Selbsturteil. Ein Steelman: Die Reihenfolge stand klar da, und ein Skript-Parameter macht den Owner-Zug länger. Billigster Check: ein Sonnet-Skeptiker, etwa 55k Tokens.
 - **Altzeilen im lokalen Journal** enthalten Zweck-Ausschnitte mit Mandanten- und Beleg-Präfixen. Ein Muster-Scan nach Token-Formen (`ghp_`, `github_pat_`, `sk-`, `Bearer`, `token`, `secret`, `passw`) fand 2 Treffer. Beide sind `sk-` im Board-Namen „sevdesk-…“, also kein Token. Nicht abgedeckt sind Token-Formen außerhalb dieser Muster.
 - **K5 ungeprüft:** Ob ein `!`-Befehl am Hook vorbeiläuft, ist weiter Hypothese. Der eingereihte Befehl kam als Text an.
 - **Preis der Ausweitung #3997** ist geschätzt (API-Aufrufe je `gh pr create`), nicht gemessen.
 
-getan: Merge #3981, Fehlalarm-Meldung in #3977, Fix #3994 mit Tests und shlex-Nachtrag, K4-Nachweis, Journal-Scan, Issue #3997, diese Retro · angenommen: dass Token nur in den gescannten Formen auftreten · nicht verifizierbar: #5 ohne Skeptiker, Wirksamkeit des Lease-Gates (zu-frueh, 0/0) · offen geblieben: Owner-Approve #3994, Neuverteilung, K5-Probe, Entscheide PA und SV.
+getan: Merge #3981, Fehlalarm-Meldung in #3977, Fix #3994 mit Tests und shlex-Nachtrag, K4-Nachweis, Journal-Scan, Issues #3997 und #4000, Entschärfung beider Bodies, diese Retro mit Nachtrag #6 · angenommen: dass Token nur in den gescannten Formen auftreten · nicht verifizierbar: #5 ohne Skeptiker, Wirksamkeit des Lease-Gates (zu-frueh, 0/0) · offen geblieben: Owner-Approve #3994, Neuverteilung, K5-Probe, Entscheide PA und SV.
 
 ## Widerlegung
 
