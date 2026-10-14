@@ -1059,6 +1059,14 @@ Alle Einträge im Wortlaut. Im Skill stehen seit der Kürzung vom 2026-10-06 (V2
 drei als je eine Zeile (Policy seit platform#2696). Die folgenden Einträge standen bis dahin
 wörtlich im Skill:
 
+- 2026-10-13: **Runner-Phase E.12 tracking-doc-nachzug** (Retro e50644 M6, Gate
+  `tracking-doc-stale-after-new-occurrence`, ×18). Ein Commit von heute auf platform-main
+  nennt ein ADR oder Konzept, ändert es nicht, kein späterer Commit zieht es nach, und das
+  Dokument führt offene Posten (`offen`, `steht aus`, `- [ ]`, „noch offen"). Realfälle:
+  #3931 „Fund aus KONZ-071", §13 blieb „offen"; #3721 lieferte die Profil-Negativtests,
+  ADR-308 nannte sie weiter „noch offen". Advisory, nur git. Zug: Doc nachziehen (Status,
+  Beleg) oder Fehlalarm notieren. Wegen des Startlast-Deckels steht der E.11-Eintrag seither
+  nur noch hier.
 - 2026-10-05: **Runner-Phase E.11 main-status** (Retro 8a0235 R14). Anlass: main war nach einem
   eigenen Merge 30 Minuten rot, eine fremde Sitzung mergte darauf, und ein zweiter Workflow blieb
   stundenlang unbemerkt rot. E.11 meldet je berührtem Repo die Workflows, deren jüngster

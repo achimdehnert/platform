@@ -22,6 +22,7 @@ from retro_kpis import (  # noqa: E402
     parse_frontmatter,
     registry_coverage,
     registry_declined,
+    slug_marke,
     tool_sha256,
 )
 
@@ -632,6 +633,47 @@ class TestRegistryDeclined:
         reg = gate_registry.laden(GATE_REGISTRY)
         revoked = {d["slug"] for d in reg.get("widerrufen", [])}
         assert "issue-not-reconciled-after-cross-repo-fix" in revoked
+
+
+class TestSlugMarke:
+    """Retro e50644 M7: die Marke je Slug folgt der Registry, nicht nur der Zahl."""
+
+    def test_should_mark_open_slug_as_gate_pflicht(self):
+        assert slug_marke("offen", 3, set(), set()) == "🚨 GATE-PFLICHT"
+
+    def test_should_mark_declined_slug_as_declined(self):
+        assert slug_marke("x", 3, set(), {"x"}) == "○ declined"
+
+    def test_should_mark_covered_slug_as_gedeckt(self):
+        assert slug_marke("x", 3, {"x"}, set()) == "✓ gedeckt"
+
+    def test_should_show_both_when_covered_and_declined(self):
+        assert slug_marke("x", 3, {"x"}, {"x"}) == "✓ gedeckt · ○ declined"
+
+    def test_should_stay_gate_pflicht_when_registry_unreadable(self):
+        assert slug_marke("x", 3, None, {"x"}) == "🚨 GATE-PFLICHT"
+        assert slug_marke("x", 3, {"x"}, None) == "🚨 GATE-PFLICHT"
+
+    def test_should_mark_single_occurrence_with_dot(self):
+        assert slug_marke("x", 1, set(), set()) == "·"
+
+    def test_should_not_list_deferred_item_as_gate_pflicht_in_real_output(self):
+        """Positivkontrolle am Realfall: vorher `🚨 GATE-PFLICHT  deferred-item-…`."""
+        echte_retros = _TOOL.resolve().parents[1] / "docs" / "retros"
+        out = subprocess.run(
+            [sys.executable, str(_TOOL), "--dir", str(echte_retros)],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert out.returncode == 0, out.stderr
+        zeile = next(
+            z
+            for z in out.stdout.splitlines()
+            if "  deferred-item-no-tracking-issue  ×" in z
+        )
+        assert "GATE-PFLICHT" not in zeile
+        assert "○ declined" in zeile
 
 
 # --- Block-Form-Regression (platform#2163, gefunden 2026-08-20) ---------------

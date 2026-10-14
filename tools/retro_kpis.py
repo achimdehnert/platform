@@ -256,6 +256,28 @@ def registry_declined(path: str = GATE_REGISTRY) -> set[str] | None:
     }
 
 
+def slug_marke(
+    slug: str, anzahl: int, covered: set[str] | None, declined: set[str] | None
+) -> str:
+    """Marke je Slug in der Zähler-Liste, nach Registry-Stand.
+
+    Retro e50644 M7: `deferred-item-no-tracking-issue` trägt eine declined-Datei
+    und ist über `aufschub-anker` gedeckt, stand in der Liste aber weiter als
+    GATE-PFLICHT. Die Marke las nur die Zahl, der Registry-Abgleich darunter las
+    die Registry — zwei Aussagen über denselben Slug. Jetzt gilt eine.
+    Registry nicht lesbar ⇒ GATE-PFLICHT (fail-closed, nie still „gedeckt").
+    """
+    if anzahl < 2:
+        return "·"
+    if covered is None or declined is None:
+        return "🚨 GATE-PFLICHT"
+    if slug in covered:
+        return "✓ gedeckt · ○ declined" if slug in declined else "✓ gedeckt"
+    if slug in declined:
+        return "○ declined"
+    return "🚨 GATE-PFLICHT"
+
+
 def _gate_issue_title(slug: str) -> str:
     return f"Gate: {slug}"
 
@@ -787,12 +809,16 @@ def main() -> int:
         for slug in r.get("recurring_findings", []):
             slug_reports[slug].append(r.get("session_id", r["_path"]))
     gated = {s: v for s, v in slug_reports.items() if len(v) >= 2}
+    # Registry VOR der Zähler-Liste lesen: die Marke je Slug folgt dem
+    # Registry-Stand, nicht nur der Zahl (Retro e50644 M7).
+    covered = registry_coverage()
+    declined = registry_declined()
 
     print("## recurring_findings (Zähler über Retros)")
     if not slug_reports:
         print("(keine recurring_findings deklariert)")
     for slug, where in sorted(slug_reports.items(), key=lambda kv: -len(kv[1])):
-        mark = "🚨 GATE-PFLICHT" if len(where) >= 2 else "·"
+        mark = slug_marke(slug, len(where), covered, declined)
         print(f"  {mark}  {slug}  ×{len(where)}  [{', '.join(where)}]")
     if gated:
         print(
@@ -804,8 +830,6 @@ def main() -> int:
         # gedeckt ist nur, was in der Gate-Registry steht (und damit gedrillt wird).
         # Kriterium 1: ein Slug darf stattdessen eine dokumentierte Nicht-Gate-
         # Entscheidung tragen (declined) — gesondert ausgewiesen, nie verschwiegen.
-        covered = registry_coverage()
-        declined = registry_declined()
         if covered is None or declined is None:
             print(
                 "  ⚠ Gate-Registry nicht lesbar — Gate-Deckung NICHT bewertbar "

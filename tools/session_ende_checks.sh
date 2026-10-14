@@ -838,6 +838,29 @@ EOF
   fi
 fi
 
+# ── E.12 Tracking-Doc-Nachzug (Gate tracking-doc-stale-after-new-occurrence) ─
+# ×18 über Retros, Mandat Retro e50644 M6. Ein Commit von heute auf platform-main
+# beruft sich auf ein ADR/KONZ, ändert es nicht, und das Dokument führt weiter
+# offene Posten. Realfall: #3931 „Fund aus KONZ-071", §13 blieb „offen". Nur git,
+# kein gh; der Stand ist der lokale origin/main-Ref, die Note nennt ihn.
+TDN="$PLATFORM_DIR/tools/tracking_doc_nachzug.py"
+if [ ! -f "$TDN" ]; then
+  record "E.12 tracking-doc-nachzug" "SKIP" "Werkzeug fehlt: tools/tracking_doc_nachzug.py"
+else
+  TDN_OUT=$(timeout 60 python3 "$TDN" --repo "$PLATFORM_DIR" --seit "$HEUTE" 2>&1); TDN_RC=$?
+  TDN_RES=$(printf '%s' "$TDN_OUT" | grep -m1 '^RESULT:' || true)
+  case "$TDN_RES" in
+    *"RESULT: BEFUND"*)
+      record "E.12 tracking-doc-nachzug" "WARN" \
+        "$(printf '%s' "$TDN_OUT" | sed -n 's/^KURZ: //p' | head -1 | cut -c1-200) — erwähnt, nicht nachgezogen, offene Posten; Doc nachziehen ODER Fehlalarm notieren (advisory)" ;;
+    *"RESULT: OK"*)
+      record "E.12 tracking-doc-nachzug" "PASS" "$(printf '%s' "$TDN_RES" | sed 's/^RESULT: //')" ;;
+    *)
+      record "E.12 tracking-doc-nachzug" "SKIP" \
+        "◌ $(printf '%s' "${TDN_RES:-ohne RESULT-Zeile (rc=$TDN_RC)}" | cut -c1-120) — keine Entwarnung" ;;
+  esac
+fi
+
 # ── Summary (maschinenlesbar, gleiche Form wie der Start-Runner) ────────────
 echo ""
 echo "| Phase | Status | Repo | Note |"
