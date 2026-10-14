@@ -1,0 +1,60 @@
+# review-check.yml — Review-Check Stufe 1 (Regel-Engine, KONZ-platform-070 WP2).
+#
+# platform ist drittes Pilot-Repo der Liste L (Mandat platform#3903, Owner
+# „RV go" 2026-10-13). writing-hub und risk-hub rufen dafuer shared-ci
+# `_review.yml` auf, das Engine, Lader und Regeln per Sparse-Checkout aus
+# diesem Repo holt. Hier liegen die drei Dateien schon im Arbeitsbaum, also
+# laeuft die Engine direkt — gleiche Aufrufzeile, gleiches Artefakt
+# `review-befunde` (Ledger-Felder, O1), kein zweiter Weg.
+#
+# Profil: registry/review-profile.yaml fuehrt platform als `plattform`
+# („wie deployed"); die Regel-Engine kennt nur default|deployed|library
+# (tools/review_regeln.py PROFILE). Bis die Zuordnung in der Registry steht,
+# gilt hier `deployed`.
+#
+# Nicht blockierend (Stufe 1 = Hinweise und Messung, Kill-Gate 2026-12-15).
+# Kein Netz ausser Checkout, kein Secret, kein Prod-Zugriff.
+name: review-check
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    name: Review-Check (Regel-Engine)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: PR auschecken (voller Verlauf fuer den Diff)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
+
+      - name: Engine ausfuehren
+        env:
+          BASIS: ${{ github.event.pull_request.base.sha }}
+          KOPF: ${{ github.event.pull_request.head.sha }}
+          PROFIL: deployed
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet pyyaml
+          git fetch --quiet origin "$BASIS" "$KOPF"
+          python3 tools/review_engine.py --repo-pfad . \
+            --basis "$BASIS" --kopf "$KOPF" --profil "$PROFIL" \
+            --github --json review-befunde.json
+
+      - name: Befunde als Artefakt (Ledger-Felder)
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: review-befunde
+          path: review-befunde.json
+          if-no-files-found: ignore
+          retention-days: 30
