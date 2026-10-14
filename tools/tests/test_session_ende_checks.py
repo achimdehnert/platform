@@ -162,12 +162,12 @@ def test_should_be_executable():
 ENTFALLENE_PHASEN = {"E.5"}  # Zusagen-Pruefer, V2b (platform#3785)
 
 
-def test_should_report_every_phase_from_e0_to_e11(umgebung):
+def test_should_report_every_phase_from_e0_to_e12(umgebung):
     ergebnis = _lauf(umgebung)
     phasen = _summary_zeilen(ergebnis.stdout)
     fehlend = [
         f"E.{i}"
-        for i in range(12)
+        for i in range(13)
         if f"E.{i}" not in phasen and f"E.{i}" not in ENTFALLENE_PHASEN
     ]
     assert not fehlend, f"Phasen fehlen in der Summary: {fehlend}\n{ergebnis.stdout}"

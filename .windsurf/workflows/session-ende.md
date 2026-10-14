@@ -41,6 +41,7 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_ende_checks.sh" "$TARGE
 | `E.9 dist-drift` | verteilte Skills weichen von `.windsurf/workflows/` ab | Lanes synchron | `cc-skill-dist/generate.py` laufen lassen, Diff committen |
 | `E.10 session-abgleich` | ⚠️ `N Befund(e) dieser Sitzung: <refs>` (mit `--session-id` nur PRs der eigenen Branches; ohne: `kontoweit`) · ◌ Sitzung nicht zuordenbar | Exit 0 | je Ref Issue nachziehen oder Fehlalarm notieren (Zeile 25) |
 | `E.11 main-status` | ⚠️ `rot auf main: <repo>: <Workflow> (<Run-ID>)` (jüngster Push-Lauf heute) · ◌ `nicht messbar` | kein Workflow zuletzt rot | **nicht auf rotes main mergen**; eigene Ursache fixen/`gh run rerun <id> --failed`, sonst Issue-Link ins Board |
+| `E.12 tracking-doc-nachzug` | ⚠️ Doc erwähnt, nicht nachgezogen | — | nachziehen |
 
 **Läuft der Runner nicht** (Shell blockiert, keine Ausgabe nach 5 s): Session neu starten;
 bis dahin nur `Read`/`Write`/`Edit` + `mcp__github__*`, und **auf einem Branch, nie auf
@@ -355,8 +356,7 @@ Nummern bleiben stabil (Zeile 20 entfiel). → `LEHREN#abschluss-selbstcheck`
 
 ## Changelog
 
+- 2026-10-13: **Runner-Phase E.12** (Retro e50644 M6).
 - 2026-10-06: **Kürzung, Zusagen-Prüfer entfernt** (V2b, platform#3785).
-- 2026-10-05: **Runner-Phase E.11 main-status** (Retro 8a0235 R14).
-- 2026-10-05: **Phase 3.4 Abschluss-Maßnahmen + Checklisten-Zeile 26** (platform#3716).
 
-> Nur die letzten drei Einträge (Policy seit platform#2696). Wortlaut: `LEHREN#changelog-historie`.
+> Höchstens drei Einträge (Policy seit platform#2696). Wortlaut: `LEHREN#changelog-historie`.
