@@ -17,3 +17,7 @@ repos:
   # Owner-Wort 2026-10-13 "LL go" (KONZ-070 SA, platform#3903): Owner-Wort-Pfad
   # fuer Governance-Pfade (#3938) braucht platform in dieser Liste, sonst inert.
   - achimdehnert/platform
+  # Owner-Wort 2026-10-14 "robo-lab soll auf Liste der Repos steht, die dafür
+  # freigegeben sind" (robo-lab#277: ci.yml als Governance-Pfad, Autor = Owner,
+  # kein Selbst-Approve möglich, Review-Bot nur in platform).
+  - achimdehnert/robo-lab
