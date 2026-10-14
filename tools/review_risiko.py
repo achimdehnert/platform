@@ -45,6 +45,8 @@ ROUTINE_JSON = ADVOCATUS_DIR / "routine.json"
 MARK = "MANAGED-BY: platform/tools/review_risiko.py"
 TRIGGER_ARTEN = ("regel", "inhalt")
 ID_MUSTER = re.compile(r"^RK-\d{3}$")
+#: Optionales Trigger-Feld: trifft der Trigger, zaehlt `autoren_ausschluss` nicht (AD4, #3903).
+AUSNAHME_FELD = "trotz_autoren_ausschluss"
 ROUTINE_PFLICHT = (
     "name",
     "modell",
@@ -121,6 +123,8 @@ def pruefe_schema(doc: Any, regeln_doc: dict | None = None) -> list[str]:
             gesehen.add(tid)
         if not t.get("titel"):
             fehler.append(f"{wo}: titel fehlt")
+        if AUSNAHME_FELD in t and not isinstance(t[AUSNAHME_FELD], bool):
+            fehler.append(f"{wo}: {AUSNAHME_FELD} muss true/false sein")
         art = t.get("art")
         if art not in TRIGGER_ARTEN:
             fehler.append(f"{wo}: art {art!r} nicht in {TRIGGER_ARTEN}")
@@ -244,6 +248,9 @@ def klassifiziere(
 
     `pr` ist die Klassifikator-Form (number, isDraft, author.login, headRefOid, additions,
     deletions, files[].path, comments[].body) — aus REST per `pr_aus_rest`.
+    Ein ausgeschlossener Autor zaehlt nicht, wenn ein getroffener Trigger `trotz_autoren_ausschluss`
+    traegt (AD4: Bot-PRs mit Deploy-Aenderung); die aufhebenden Trigger stehen in
+    `autor_ausschluss_aufgehoben`.
     """
     head_sha = pr.get("headRefOid", "")
     gruende: list[str] = []
@@ -251,9 +258,6 @@ def klassifiziere(
         gruende.append(f"Repo {repo} nicht im Pilot ({', '.join(pilot)})")
     if pr.get("isDraft"):
         gruende.append("Draft")
-    autor = (pr.get("author") or {}).get("login", "")
-    if autor in konfig["autoren_ausschluss"]:
-        gruende.append(f"Autor ausgeschlossen: {autor}")
     marker = _marker(konfig, head_sha)
     if any(marker in (c.get("body") or "") for c in pr.get("comments") or []):
         gruende.append(f"Marker vorhanden: {marker}")
@@ -279,6 +283,17 @@ def klassifiziere(
             )
     if not trigger:
         gruende.append("kein Risiko-Trigger")
+    aufhebend = [
+        t["id"] for t in konfig["trigger"]
+        if t.get(AUSNAHME_FELD) and any(x["id"] == t["id"] for x in trigger)
+    ]
+    autor = (pr.get("author") or {}).get("login", "")
+    aufgehoben: list[str] = []
+    if autor in konfig["autoren_ausschluss"]:
+        if aufhebend:
+            aufgehoben = aufhebend
+        else:
+            gruende.append(f"Autor ausgeschlossen: {autor}")
     return {
         "repo": repo,
         "pr": pr.get("number"),
@@ -286,6 +301,7 @@ def klassifiziere(
         "laeuft": not gruende,
         "gruende": gruende,
         "trigger": trigger,
+        "autor_ausschluss_aufgehoben": aufgehoben,
     }
 
 
@@ -362,10 +378,16 @@ def _trigger_tabelle(konfig: dict, regeln_doc: dict) -> str:
                 + ": "
                 + " · ".join(f"`{m}`" for m in t["muster"])
             )
+        titel = t["titel"] + (" (auch bei ausgeschlossenem Autor)" if t.get(AUSNAHME_FELD) else "")
         zeilen.append(
-            f"| `{t['id']}` | {t['titel']} | {quelle} | {prueft.replace('|', chr(92) + '|')} |"
+            f"| `{t['id']}` | {titel} | {quelle} | {prueft.replace('|', chr(92) + '|')} |"
         )
     return "\n".join(zeilen)
+
+
+def _ausnahme_trigger(konfig: dict) -> str:
+    ids = [t["id"] for t in konfig["trigger"] if t.get(AUSNAHME_FELD)]
+    return ", ".join(f"`{i}`" for i in ids) if ids else "keiner"
 
 
 def _quellen() -> tuple[Path, ...]:
@@ -396,6 +418,7 @@ def render_prompt(konfig: dict | None = None, regeln_doc: dict | None = None) ->
         "{{MAX_PRS}}": str(r["max_prs_je_lauf"]),
         "{{DEDUP_MARKER}}": r["dedup_marker"],
         "{{AUTOREN_AUSSCHLUSS}}": ", ".join(f"`{a}`" for a in konfig["autoren_ausschluss"]),
+        "{{AUTOREN_AUSNAHME}}": _ausnahme_trigger(konfig),
         "{{TRIGGER_TABELLE}}": _trigger_tabelle(konfig, regeln_doc),
         "{{REGELBLOCK}}": rr.render_advocatus_block(regeln_doc),
     }

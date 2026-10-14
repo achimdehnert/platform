@@ -42,7 +42,8 @@ routine:
   event_uuid: 6f1c3a9e-2b7d-4e58-9c1a-4d2f8e7b1a05
   erlaubte_werkzeuge: [Bash, Read, Write, Edit, Glob, Grep]
 
-# PR-Autoren, deren PRs nie durch das LLM laufen (KONZ-070 §3 Z2: Dependabot-Patches).
+# PR-Autoren, deren PRs nicht durch das LLM laufen (KONZ-070 §3 Z2: Dependabot-Patches) —
+# ausser ein getroffener Trigger traegt `trotz_autoren_ausschluss: true`.
 autoren_ausschluss:
   - app/dependabot
   - app/renovate
@@ -54,6 +55,9 @@ trigger:
     titel: Deploy-Definition geaendert
     art: regel
     regel_id: RR-005
+    # AD4 (Owner „AD4 go“, 2026-10-14, #3903): Bot-PRs, die die Deploy-Definition aendern,
+    # sieht der Advocatus trotz autoren_ausschluss (Realfall risk-hub#828, writing-hub#1353).
+    trotz_autoren_ausschluss: true
   - id: RK-002
     titel: Datenmigration geaendert
     art: regel

@@ -191,13 +191,36 @@ def test_should_run_on_large_diff_via_umfang_rule(konfig, regeln):
 
 
 def test_should_not_run_for_draft_excluded_author_or_foreign_repo(konfig, regeln):
-    diff = _diff(".github/workflows/deploy.yml", "x")
-    pr = _pr(files=[{"path": ".github/workflows/deploy.yml"}])
+    pfad = "apps/x/migrations/0002_auto.py"  # RK-002 traegt keine Autoren-Ausnahme
+    diff = _diff(pfad, "x")
+    pr = _pr(files=[{"path": pfad}])
     assert "Draft" in _lauf(konfig, regeln, {**pr, "isDraft": True}, diff)["gruende"]
     bot = _lauf(konfig, regeln, {**pr, "author": {"login": "app/dependabot"}}, diff)
     assert any("Autor ausgeschlossen" in g for g in bot["gruende"])
+    assert bot["autor_ausschluss_aufgehoben"] == []
     fremd = _lauf(konfig, regeln, pr, diff, repo="achimdehnert/nicht-pilot")
     assert fremd["laeuft"] is False and any("nicht im Pilot" in g for g in fremd["gruende"])
+
+
+def test_should_run_for_excluded_author_when_trigger_lifts_exclusion(konfig, regeln):
+    """AD4 (Owner 2026-10-14, #3903): Bot-PR mit Deploy-Aenderung laeuft trotz Ausschluss."""
+    pfad = ".github/workflows/deploy.yml"
+    assert next(t for t in konfig["trigger"] if t["id"] == "RK-001")[rk.AUSNAHME_FELD] is True
+    bot = _pr(files=[{"path": pfad}], author={"login": "renovate[bot]"})
+    e = _lauf(konfig, regeln, bot, _diff(pfad, "x"))
+    assert e["laeuft"] is True
+    assert e["gruende"] == [] and e["autor_ausschluss_aufgehoben"] == ["RK-001"]
+    # Draft bleibt Draft, Marker bleibt Marker: nur der Autoren-Grund faellt.
+    assert "Draft" in _lauf(konfig, regeln, {**bot, "isDraft": True}, _diff(pfad, "x"))["gruende"]
+    ohne = copy.deepcopy(konfig)
+    next(t for t in ohne["trigger"] if t["id"] == "RK-001").pop(rk.AUSNAHME_FELD)
+    assert _lauf(ohne, regeln, bot, _diff(pfad, "x"))["laeuft"] is False
+
+
+def test_should_reject_non_boolean_author_exception_flag(konfig, regeln):
+    kaputt = copy.deepcopy(konfig)
+    kaputt["trigger"][0][rk.AUSNAHME_FELD] = "ja"
+    assert any(rk.AUSNAHME_FELD in f for f in rk.pruefe_schema(kaputt, regeln))
 
 
 def test_should_not_run_twice_on_same_head_sha(konfig, regeln):
@@ -226,6 +249,7 @@ def test_should_render_prompt_without_open_placeholders_and_with_footer(konfig, 
         assert f"`{r['id']}`" in text
     for t in konfig["trigger"]:
         assert f"`{t['id']}`" in text
+    assert "(auch bei ausgeschlossenem Autor)" in text and "{{AUTOREN_AUSNAHME}}" not in text
 
 
 def test_should_render_routine_body_in_trigger_api_shape(konfig):

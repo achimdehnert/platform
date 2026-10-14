@@ -49,6 +49,9 @@ Der Klassifikator entscheidet; du ueberstimmst ihn nicht:
 - Exit 1 = kein Lauf. Gruende, die er prueft: Draft, Autor ausgeschlossen ({{AUTOREN_AUSSCHLUSS}}),
   kein Trigger, Repo nicht im Pilot, Marker `<!-- {{DEDUP_MARKER}}:<head-sha> -->` schon vorhanden
   (derselbe Stand wird nie zweimal bewertet; ein neuer Push ist ein neuer Stand).
+- Der Autoren-Ausschluss faellt, wenn einer dieser Trigger trifft: {{AUTOREN_AUSNAHME}}
+  (Owner „AD4 go“, 2026-10-14, #3903). Die Ausgabe nennt ihn dann in `autor_ausschluss_aufgehoben`;
+  Bot-PRs pruefst du wie jeden anderen Kandidaten, ohne Nachsicht fuer den Absender.
 - Hoechstens **{{MAX_PRS}}** Kandidaten je Lauf, Reihenfolge: zuletzt aktualisierte PRs zuerst
   (frische Pushes bekommen die schnellste Antwort, K5). Die uebrigen nimmt der naechste Lauf.
 

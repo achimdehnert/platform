@@ -49,6 +49,9 @@ Der Klassifikator entscheidet; du ueberstimmst ihn nicht:
 - Exit 1 = kein Lauf. Gruende, die er prueft: Draft, Autor ausgeschlossen (`app/dependabot`, `app/renovate`, `dependabot[bot]`, `renovate[bot]`),
   kein Trigger, Repo nicht im Pilot, Marker `<!-- advocatus:<head-sha> -->` schon vorhanden
   (derselbe Stand wird nie zweimal bewertet; ein neuer Push ist ein neuer Stand).
+- Der Autoren-Ausschluss faellt, wenn einer dieser Trigger trifft: `RK-001`
+  (Owner „AD4 go“, 2026-10-14, #3903). Die Ausgabe nennt ihn dann in `autor_ausschluss_aufgehoben`;
+  Bot-PRs pruefst du wie jeden anderen Kandidaten, ohne Nachsicht fuer den Absender.
 - Hoechstens **3** Kandidaten je Lauf, Reihenfolge: zuletzt aktualisierte PRs zuerst
   (frische Pushes bekommen die schnellste Antwort, K5). Die uebrigen nimmt der naechste Lauf.
 
@@ -56,7 +59,7 @@ Risiko-Trigger (Quelle `registry/review-risiko.yaml`; Regel-Trigger verweisen au
 
 | Trigger | Titel | Quelle | Prueft |
 |---|---|---|---|
-| `RK-001` | Deploy-Definition geaendert | `RR-005` | Pfad geaendert: `.github/workflows/deploy*` |
+| `RK-001` | Deploy-Definition geaendert (auch bei ausgeschlossenem Autor) | `RR-005` | Pfad geaendert: `.github/workflows/deploy*` |
 | `RK-002` | Datenmigration geaendert | `RR-006` | Pfad geaendert: `*/migrations/*` · `migrations/*` |
 | `RK-003` | Regelquelle des Review-Bots geaendert | `RR-004` | Pfad geaendert: `.github/workflows/bot-review.yml` · `.github/workflows/_bot-review.yml` · `tools/bot_review_kandidaten.py` · `tools/review_regeln.py` · `registry/review-regeln.yaml` |
 | `RK-004` | Secret per Compose-Interpolation | `RR-021` | Regex (hinzugefuegt): `(SECRET\|PASSWORD\|TOKEN\|API_KEY)[A-Z_]*\s*[:=]\s*\$\{` |
@@ -180,4 +183,4 @@ Eine Tabelle: Repo · PR · head_sha · Entscheid des Klassifikators · Befunde 
 Ledger (gebucht / nicht beschrieben / Fehler rc). Danach die Zeile `Nicht geprueft:` mit allen
 PRs, die wegen `max_prs_je_lauf` liegen blieben.
 
-<!-- MANAGED-BY: platform/tools/review_risiko.py · source=registry/review-risiko.yaml+registry/review-regeln.yaml+agents/advocatus/PROMPT.template.md · content_hash=sha256:c37106df330bc5b3 · do_not_edit -->
+<!-- MANAGED-BY: platform/tools/review_risiko.py · source=registry/review-risiko.yaml+registry/review-regeln.yaml+agents/advocatus/PROMPT.template.md · content_hash=sha256:78e30cf004a219c2 · do_not_edit -->
