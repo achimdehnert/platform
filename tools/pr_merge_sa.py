@@ -324,20 +324,26 @@ def ist_governance(pfad: str, pfade: list) -> bool:
 def codeowner_der_datei(pfad: str, codeowners: str) -> list | None:
     """Owner der letzten passenden CODEOWNERS-Zeile ([] = keine Zeile passt).
 
-    Versteht nur die Muster, die platform nutzt: `/datei` und `/verzeichnis/`.
-    Ein Muster mit Wildcard ergibt None (unbekannt) — lieber kein Bot-Hinweis
-    als ein falscher."""
+    Versteht die Muster der Hub-Repos: `/datei`, `/verzeichnis/` und ein
+    Dateinamen-Muster ohne Schraegstrich wie `*.view.md` (GitHub: passt auf den
+    Dateinamen in jedem Verzeichnis; Realfall writing-hub#1362). Jede andere
+    Wildcard ergibt None (unbekannt) — lieber kein Bot-Hinweis als ein falscher."""
     owner: list = []
     for zeile in codeowners.splitlines():
         teile = zeile.split("#", 1)[0].split()
         if not teile:
             continue
         muster, *namen = teile
+        namen = [n.lstrip("@").lower() for n in namen]
         if any(z in muster for z in "*?["):
-            return None
+            if "/" in muster:
+                return None
+            if fnmatch.fnmatchcase(pathlib.PurePosixPath(pfad).name, muster):
+                owner = namen
+            continue
         muster = muster.lstrip("/")
         if pfad == muster or (muster.endswith("/") and pfad.startswith(muster)):
-            owner = [n.lstrip("@").lower() for n in namen]
+            owner = namen
     return owner
 
 

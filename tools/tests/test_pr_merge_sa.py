@@ -1367,10 +1367,23 @@ def test_should_use_last_matching_codeowners_line():
     assert "iil-lotse" in codeowner_der_datei(".github/ci.yml", text)
 
 
-def test_should_treat_wildcard_codeowners_as_unknown():
+def test_should_treat_wildcard_with_directory_as_unknown():
     from pr_merge_sa import dateien_ohne_bot_owner
 
-    assert dateien_ohne_bot_owner(["docs/x.md"], "*.md @achimdehnert\n") is None
+    assert dateien_ohne_bot_owner(["docs/x.md"], "/docs/*.md @achimdehnert\n") is None
+
+
+def test_should_match_filename_wildcard_like_github():
+    # Realfall writing-hub#1362: `*.view.md @achimdehnert` liess den Waechter
+    # fail-closed ("CODEOWNERS nicht lesbar"), obwohl keine Workflow-Datei betroffen war.
+    from pr_merge_sa import codeowner_der_datei, dateien_ohne_bot_owner
+
+    text = "*.view.md @achimdehnert\n/docs/uxspec/ @achimdehnert\n"
+    assert codeowner_der_datei("apps/a/b.view.md", text) == ["achimdehnert"]
+    assert codeowner_der_datei(".github/workflows/ci.yml", text) == []
+    assert dateien_ohne_bot_owner(
+        [".github/workflows/ci.yml", "apps/a/b.view.md"], text
+    ) == ["apps/a/b.view.md"]
 
 
 def test_should_not_name_bot_review_when_codeowner_lacks_bot():
