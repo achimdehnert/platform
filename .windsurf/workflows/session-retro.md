@@ -46,6 +46,11 @@ Phase 4 (5a) umgesetzt; ein verbuchter Rückfall wird nicht ein zweites Mal als 
 aufgemacht. **Ehrlichkeits-Sperre:** `zu-frueh`/`unerprobt` heißt ungeprüft, nicht wirksam —
 kein berichtbarer Erfolg. → LEHREN § Phase 0.0
 
+**Schon entschieden ⇒ Verweis statt Tabelle (NEU 2026-10-14, Owner „R4 go“, Retro 161b19):** Hat
+eine Retro **desselben Tages** über das Gate schon entschieden und hat diese Sitzung **keinen eigenen
+Fall** davon, genügt ein Satz mit Link auf deren §0.0. Eine eigene Zeile braucht es nur bei einem
+eigenen Fall — die Kopie ist eine Dublette, keine Entscheidung.
+
 ### 0.1 Footprint + Befund-Dichte
 Footprint messen (PRs / Repos / Prod-Schritte / Migrationen / ADRs) **und** Befund-Dichte
 schätzen: Session **reversibel + transparent + freigegeben** ⇒ harte Survivors selten → kleiner
