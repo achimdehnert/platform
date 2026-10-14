@@ -749,15 +749,17 @@ def test_should_stay_silent_on_form_d_when_checkpoint_spoken_in_same_answer(
     assert "Fehlerform D" not in _kontext(antwort)
 
 
-def test_should_stay_silent_on_form_d_when_checkpoint_fell_earlier_in_session(
+def test_should_fire_form_d_when_checkpoint_fell_only_before_the_question(
     tmp_path, monkeypatch, capsys
 ):
+    # Rev 11 kehrt den Rev-9-Drill „frueher in der Sitzung → stumm" um: ein
+    # frueherer Checkpoint deckt eine spaetere Prod-Frage nicht (platform#3978).
     frueher = _zeile_text(
         "Scope-Checkpoint: Scope ist gewachsen, ist das noch gewollt?"
     )
     path = _transcript(tmp_path, [frueher, _OWNER, _zeile_text(_PROD_BITTE)])
     _, antwort = _run(monkeypatch, capsys, path)
-    assert "Fehlerform D" not in _kontext(antwort)
+    assert "Fehlerform D" in _kontext(antwort)
 
 
 def test_should_stay_silent_on_form_d_for_plain_merge_request(
@@ -778,8 +780,92 @@ def test_should_stay_silent_on_form_d_when_signals_sit_in_different_lines(
     assert antwort == {}
 
 
-def test_should_report_form_d_only_once_per_session(tmp_path, monkeypatch, capsys):
+def test_should_report_form_d_only_once_per_checkpoint(tmp_path, monkeypatch, capsys):
     path = _transcript(tmp_path, [_OWNER, _zeile_text(_PROD_BITTE)])
     _run(monkeypatch, capsys, path)
     _, zweite = _run(monkeypatch, capsys, path)
     assert "Fehlerform D" not in _kontext(zweite)
+
+
+# --- Fehlerform D (Rev 11): seit dem letzten Checkpoint ---------------------
+# Realfall Retro 161b19-incr Befund 1 (2026-10-14, platform#3978): Nachtrag 5
+# um 12:51:38Z, Bitte um „deploy 7ba713f" 12:58:31Z ohne Checkpoint, Dispatch
+# 13:38:06Z, Nachtrag 6 erst 13:38:46Z — der Nachtrag schluckte den Schritt.
+
+_CHECKPOINT = _zeile_text("Scope-Checkpoint, Nachtrag 5: Merge baut das Image.")
+_DEPLOY_BITTE = _zeile_text(
+    "- **[MZD]** 🟢 Deployment, dann Server-Skript · news-hub · dein Wort "
+    "„deploy 7ba713f“"
+)
+_DEPLOY_WORT = {"type": "user", "message": {"content": "deploy 7ba713f"}}
+_DISPATCH = _zeile_bash(
+    "gh workflow run deploy.yml --repo achimdehnert/news-hub --ref main "
+    "-f image_tag=7ba713f"
+)
+_NACHTRAG = _zeile_text("Ich habe Nachtrag 6 zum Scope-Checkpoint gepostet.")
+
+
+def test_should_fire_form_d_when_prod_step_ran_before_the_late_checkpoint(
+    tmp_path, monkeypatch, capsys
+):
+    """Positivkontrolle Rev 11: rot auf Rev 10 (sitzungsweiter Checkpoint)."""
+    path = _transcript(
+        tmp_path,
+        [_CHECKPOINT, _OWNER, _DEPLOY_BITTE, _DEPLOY_WORT, _DISPATCH, _NACHTRAG],
+    )
+    _, antwort = _run(monkeypatch, capsys, path)
+    assert "Fehlerform D" in _kontext(antwort)
+    assert "image_tag=7ba713f" in _kontext(antwort)
+
+
+def test_should_stay_silent_on_form_d_when_checkpoint_fell_before_the_prod_step(
+    tmp_path, monkeypatch, capsys
+):
+    nachgezogen = _zeile_text("Scope-Checkpoint, Nachtrag 6: jetzt auch der Deploy.")
+    path = _transcript(
+        tmp_path,
+        [_CHECKPOINT, _OWNER, _DEPLOY_BITTE, nachgezogen, _DEPLOY_WORT, _DISPATCH],
+    )
+    _, antwort = _run(monkeypatch, capsys, path)
+    assert "Fehlerform D" not in _kontext(antwort)
+
+
+def test_should_stay_silent_on_form_d_when_question_and_checkpoint_share_an_answer(
+    tmp_path, monkeypatch, capsys
+):
+    mit_checkpoint = _zeile_text(
+        "Scope-Checkpoint, Nachtrag 6: jetzt auch der Deploy.\n"
+        "- **[MZD]** 🟢 Deployment · news-hub · dein Wort „deploy 7ba713f“"
+    )
+    path = _transcript(
+        tmp_path, [_CHECKPOINT, _OWNER, mit_checkpoint, _DEPLOY_WORT, _DISPATCH]
+    )
+    _, antwort = _run(monkeypatch, capsys, path)
+    assert "Fehlerform D" not in _kontext(antwort)
+
+
+def test_should_not_report_the_prod_step_again_after_the_question_was_reported(
+    tmp_path, monkeypatch, capsys
+):
+    # Echter Ablauf: der Stop nach der Frage meldet schon (vorher), der Stop
+    # nach dem Dispatch gehoert zur selben Epoche und bleibt still.
+    vorher = _transcript(tmp_path, [_CHECKPOINT, _OWNER, _DEPLOY_BITTE])
+    _, erste = _run(monkeypatch, capsys, vorher)
+    nachher = _transcript(
+        tmp_path,
+        [_CHECKPOINT, _OWNER, _DEPLOY_BITTE, _DEPLOY_WORT, _DISPATCH, _NACHTRAG],
+    )
+    _, zweite = _run(monkeypatch, capsys, nachher)
+    assert "Fehlerform D" in _kontext(erste)
+    assert "Fehlerform D" not in _kontext(zweite)
+
+
+def test_should_rearm_form_d_after_a_new_checkpoint(tmp_path, monkeypatch, capsys):
+    erste_epoche = _transcript(tmp_path, [_OWNER, _zeile_text(_PROD_BITTE)])
+    _run(monkeypatch, capsys, erste_epoche)
+    zweite_epoche = _transcript(
+        tmp_path,
+        [_OWNER, _zeile_text(_PROD_BITTE), _CHECKPOINT, _OWNER, _DEPLOY_BITTE],
+    )
+    _, antwort = _run(monkeypatch, capsys, zweite_epoche)
+    assert "Fehlerform D" in _kontext(antwort)

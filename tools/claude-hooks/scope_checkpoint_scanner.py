@@ -21,10 +21,11 @@ als ERFUELLUNG, nicht als Ausloeser.
 
 VIER FEHLERFORMEN, GETRENNT GEMELDET
 ------------------------------------
-D ``prod-frage-ohne-checkpoint`` (Rev 9, 2026-09-25) — die Antwort BITTET um ein
-                        Prod-Wort (Zeile mit Freigabe-Bitte UND Deploy/Prod/
-                        Publish/Release/Rollout), und in der Sitzung ist noch
-                        kein Checkpoint gefallen. A–C messen Tool-Evidenz und
+D ``prod-frage-ohne-checkpoint`` (Rev 9, 2026-09-25; Rev 11) — die Antwort BITTET
+                        um ein Prod-Wort (Zeile mit Freigabe-Bitte UND Deploy/
+                        Prod/Publish/Release/Rollout), und seit dem LETZTEN
+                        Checkpoint ist keiner gefallen (Rev 9: „in der Sitzung
+                        noch keiner", s. „WARUM REV 11"). A–C messen Tool-Evidenz und
                         kommen deshalb erst NACH dem Schritt. Rueckfall aus Retro
                         02b7f5 (platform#3545 §5a, Owner „12 go"): der Owner gab
                         „25 go" fuer einen Merge mit Prod-Deploy und klickte selbst
@@ -82,6 +83,27 @@ Die alte Begruendung fuer die Schwelle 2 („Zielrepo plus platform ist Alltag")
 traegt unter Mengen nicht mehr: beide sind beim Checkpoint bereits beschrieben
 und damit gedeckt.
 
+WARUM REV 11 (Gate rueckfaellig, Retro 2026-10-14 161b19-incr Befund 1)
+-----------------------------------------------------------------------
+Rev 9 liess Fehlerform D nur feuern, solange in der SITZUNG noch kein
+Checkpoint gefallen war. Im Realfall (platform#3978) bat die Antwort um
+12:58:31Z um „deploy 7ba713f"; der letzte Checkpoint (Nachtrag 5, 12:51:38Z)
+deckte Merge und Image-Bau, nicht den Deploy. D schwieg, weil Nachtraege 3–5
+schon existierten. Der Dispatch lief 13:38:06Z, Nachtrag 6 kam 13:38:46Z — und
+schluckte den Schritt in seinen Stand, sodass auch Fehlerform C stumm blieb.
+
+Rev 11 misst D „seit dem letzten Checkpoint", in zwei Zeitpunkten:
+  * vorher — die Antwort bittet um ein Prod-Wort und spricht selbst keinen
+    Checkpoint; ein frueherer Checkpoint deckt die Frage nicht mehr,
+  * nachher — ein Prod-Schritt lief, waehrend eine solche Frage offen war
+    (kein Checkpoint zwischen Frage und Schritt). Ein Checkpoint NACH dem
+    Schritt deckt ihn nicht; er ist ein Nachtrag, kein Innehalten.
+Die Entprellung haengt an der Checkpoint-Epoche der Frage (Zahl der Checkpoints
+davor): je Epoche eine Meldung, und erst ein neuer Checkpoint schaltet D wieder
+scharf. Benannte Grenzen: ein Owner-Wort ohne vorherige Frage der Sitzung
+erzeugt keine offene Frage (dafuer bleibt C); Prosa, die ein Prod-Wort nur
+zitiert, trifft wie in Rev 9 — jetzt einmal je Epoche statt je Sitzung.
+
 MESSGROESSE FUER "DRITTES REPO"
 -------------------------------
 Rev 3 (2026-08-23) zaehlt zusaetzlich die Repos, die ein schreibendes Kommando
@@ -130,7 +152,7 @@ GATE_HEADER = {
     "slug": "scope-checkpoint-not-durably-recorded",
     "mode": "advisory",
     "owner": "achim",
-    "last_drill_pass": "2026-09-25",
+    "last_drill_pass": "2026-10-14",
     "evidence": "tools/claude-hooks/tests/test_scope_checkpoint_scanner.py",
 }
 
@@ -385,6 +407,11 @@ def sammle_evidenz(transcript_path: Path) -> dict:
         # Rev 8: voller Text jedes Checkpoint-Blocks — die darin genannten Repos
         # gelten als gedeckt, auch wenn die Sitzung sie selbst nie beschrieb.
         "checkpoint_texte": [],
+        # Rev 11: Zahl der Checkpoints = Epoche fuer Fehlerform D, und der
+        # juengste Prod-Schritt, der lief, waehrend eine Prod-Frage ohne
+        # Checkpoint offen war — als (Epoche der Frage, Kommando) oder None.
+        "checkpoint_anzahl": 0,
+        "ungedeckter_prod_schritt": None,
     }
     # Reihenfolge zaehlt: ein durables Artefakt BELEGT den Checkpoint nur,
     # wenn es nach ihm entstand. Ohne diese Kopplung genuegte irgendein
@@ -395,6 +422,8 @@ def sammle_evidenz(transcript_path: Path) -> dict:
     schreib_ids: set[str] = set()
     checkpoint_bei = None
     durable_bei: list[int] = []
+    #: Epoche der juengsten Prod-Frage, nach der noch kein Checkpoint fiel.
+    offene_frage: int | None = None
     try:
         fh = transcript_path.open(encoding="utf-8", errors="replace")
     except OSError:
@@ -436,6 +465,10 @@ def sammle_evidenz(transcript_path: Path) -> dict:
                             "prod_schritte"
                         ]
                         ergebnis["checkpoint_texte"].append(text)
+                        ergebnis["checkpoint_anzahl"] += 1
+                        offene_frage = None
+                    elif prod_frage(text):
+                        offene_frage = ergebnis["checkpoint_anzahl"]
                     continue
 
                 if typ == "tool_result":
@@ -470,6 +503,8 @@ def sammle_evidenz(transcript_path: Path) -> dict:
                 if _PROD.search(cmd):
                     ergebnis["prod"] = True
                     ergebnis["prod_schritte"] += 1
+                    if offene_frage is not None:
+                        ergebnis["ungedeckter_prod_schritt"] = (offene_frage, cmd)
                 # Rev 4: fremde laufende Ressource beendet — eigener Ausloeser,
                 # unabhaengig von Repo-Zahl und Prod. Der erste Treffer traegt
                 # den Beleg; spaetere ueberschreiben ihn nicht.
@@ -543,28 +578,49 @@ def main() -> int:
     session = event.get("session_id", "")
 
     # Fehlerform D (Rev 9) VOR allem anderen: sie braucht keine Tool-Evidenz, weil
-    # sie genau den Moment fassen soll, bevor es welche gibt.
+    # sie genau den Moment fassen soll, bevor es welche gibt. Rev 11: „seit dem
+    # letzten Checkpoint", entprellt je Checkpoint-Epoche (s. „WARUM REV 11").
     letzter_text, _, _ = _last_turn_blocks(transcript_path)
     frage = prod_frage(letzter_text)
+    form_d = f"prod-frage-ohne-checkpoint:{ev['checkpoint_anzahl']}"
     if (
         frage
-        and not ev["checkpoint_text"]
         and not CHECKPOINT_PATTERNS.search(letzter_text)
-        and not _schon_gemeldet(session, "prod-frage-ohne-checkpoint")
+        and not _schon_gemeldet(session, form_d)
     ):
-        _merken(session, "prod-frage-ohne-checkpoint")
+        _merken(session, form_d)
         gate_hits.notiere(
             GATE_HEADER["slug"], frage[:200], turn="prod-frage", session=session,
             modus="advisory",
         )  # fmt: skip
         _melde(
             "🧭 scope-checkpoint: diese Antwort bittet um ein Prod-Wort ("
-            f"„{frage[:120]}“) — in der Sitzung ist aber noch kein Scope-Checkpoint "
-            "gefallen. Den gewachsenen Scope JETZT mitspiegeln, im selben Board, "
-            "bevor der Owner antwortet; danach ist die Wirkung schon da. (Gate "
-            "scope-checkpoint-not-durably-recorded Rev 9, Fehlerform D, advisory.)"
+            f"„{frage[:120]}“) — seit dem letzten Scope-Checkpoint ist aber keiner "
+            "gefallen; ein frueherer deckt diesen Schritt nicht. Den gewachsenen "
+            "Scope JETZT mitspiegeln, im selben Board, bevor der Owner antwortet; "
+            "danach ist die Wirkung schon da. (Gate "
+            "scope-checkpoint-not-durably-recorded Rev 11, Fehlerform D, advisory.)"
         )
         return 0
+    if ungedeckt := ev["ungedeckter_prod_schritt"]:
+        epoche, kommando = ungedeckt
+        form_d = f"prod-frage-ohne-checkpoint:{epoche}"
+        if not _schon_gemeldet(session, form_d):
+            _merken(session, form_d)
+            gate_hits.notiere(
+                GATE_HEADER["slug"], kommando[:200], turn="prod-schritt",
+                session=session, modus="advisory",
+            )  # fmt: skip
+            _melde(
+                "🧭 scope-checkpoint: der Prod-Schritt "
+                f"`{kommando[:120]}` lief nach einer Bitte um ein Prod-Wort, ohne "
+                "dass zwischen Frage und Schritt ein Scope-Checkpoint fiel. Ein "
+                "Checkpoint danach ist ein Nachtrag, kein Innehalten. Beim naechsten "
+                "Prod-Wort den Scope in DERSELBEN Antwort spiegeln, die darum bittet. "
+                "(Gate scope-checkpoint-not-durably-recorded Rev 11, Fehlerform D, "
+                "advisory.)"
+            )
+            return 0
     repos = sorted(ev["repos_beschrieben"])
     ausloeser = []
     if len(repos) >= REPO_SCHWELLE:
