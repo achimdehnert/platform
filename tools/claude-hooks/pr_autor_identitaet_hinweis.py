@@ -23,7 +23,14 @@ Dieser Hook fragt sie dort ab. Er meldet, wenn BEIDES gilt:
      eine CODEOWNERS-Zeile nennt das aktive Konto als Owner der Datei, ODER die Datei
      liegt in `governance_pfade` des `sa_m`-Blocks (policies/autonomy-gates.md) —
      derselben Liste, an der tools/pr_merge_sa.py „fehlt: ein Approval
-     (Governance-Pfad)" festmacht. Der Realfall #187 lag nur in dieser Liste.
+     (Governance-Pfad)" festmacht. Der Realfall #187 lag nur in dieser Liste,
+     ODER (Ausweitung platform#3997) das Merge-Mandat aus tools/pr_merge_sa.py
+     verlangt ein Approve: die Wirkung des Merges braucht M2, oder sie braucht M1 und
+     kein im Body verlinktes Issue traegt einen Freigabe-Vermerk. Realfall #3992
+     (`tools/claude-hooks/`, weder CODEOWNERS noch Governance-Pfad, platform ist
+     sync-only = W1) ging unter dem Owner-Konto auf und war nicht freizugeben.
+     Regel, Wirkung und Vermerk kommen aus pr_merge_sa selbst, nicht aus einer Kopie;
+     die Workflow-Texte fuer die Wirkung liegen WORKFLOW_CACHE_TTL lang im Cache.
 
 CODEOWNERS wird vom Basis-Ref gelesen (origin/main), weil GitHub die Datei der
 Basis anwendet. `lotse-gh … pr create` und `GH_TOKEN=… gh pr create` matchen nicht:
@@ -39,12 +46,15 @@ Approve-Pfad beruehrt ist, kommt eine Zeile "nicht pruefbar", nie ein deny.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
+from types import ModuleType
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -53,7 +63,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from pr_anlegen_kollision_hinweis import (  # noqa: E402
     _argumente,
     _arbeitsverzeichnis,
+    _expandiere,
     _git,
+    _zuweisungen,
     eigene_dateien,
     ist_pr_create,
 )
@@ -67,6 +79,10 @@ CODEOWNERS_ORTE = (".github/CODEOWNERS", "CODEOWNERS", "docs/CODEOWNERS")
 POLICY_RELATIV = Path("policies") / "autonomy-gates.md"
 APP_WERKZEUG = "lotse-gh"
 REFERENZ = "platform#3916, Retro e50644 Befund 8"
+MANDAT_GRUND = "Merge-Mandat"
+#: Workflow-Texte je Repo (Grundlage der Wirkung) — sonst je `gh pr create` ein
+#: API-Aufruf pro Workflow-Datei (platform#3997, Preis im Vorschlag).
+WORKFLOW_CACHE_TTL = 6 * 3600
 
 _GOVERNANCE = re.compile(r"^\s*governance_pfade:\s*(\[[^\]]*\])", re.M)
 _REMOTE = re.compile(r"[:/]([^/:\s]+)/([^/\s]+?)(?:\.git)?/?$")
@@ -209,6 +225,111 @@ def approve_pfade(
     return aus
 
 
+def _merge_werkzeug() -> tuple[ModuleType, Path] | None:
+    """tools/pr_merge_sa.py als Bibliothek, aus derselben Wurzel wie die Policy —
+    nie Policy aus der einen, Regelcode aus einer anderen Wurzel. None, wenn nicht ladbar."""
+    for wurzel in _platform_wurzeln():
+        if not (wurzel / POLICY_RELATIV).is_file():
+            continue
+        tools = wurzel / "tools"
+        if not (tools / "pr_merge_sa.py").is_file():
+            return None
+        sys.path.insert(0, str(tools))
+        spec = importlib.util.spec_from_file_location(
+            "pr_merge_sa_hinweis", tools / "pr_merge_sa.py"
+        )
+        modul = importlib.util.module_from_spec(spec)
+        # Dataclasses in pr_merge_sa schlagen ihr Modul in sys.modules nach.
+        sys.modules[spec.name] = modul
+        spec.loader.exec_module(modul)
+        return modul, wurzel
+    return None
+
+
+def _cache_datei() -> Path:
+    basis = os.environ.get("XDG_CACHE_HOME") or str(Path.home() / ".cache")
+    return Path(basis) / "claude-hooks" / "pr_autor_workflow_texte.json"
+
+
+def _workflow_texte_mit_cache(psa: ModuleType, repo: str) -> None:
+    """Frische Cache-Eintraege in den Prozess-Cache von pr_merge_sa legen; nach dem
+    Lesen wird der Eintrag des Repos zurueckgeschrieben."""
+    try:
+        alt = json.loads(_cache_datei().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        alt = {}
+    eintrag = alt.get(repo) or {}
+    if time.time() - eintrag.get("ts", 0) < WORKFLOW_CACHE_TTL:
+        psa._WORKFLOW_CACHE[repo] = eintrag.get("texte", [])
+        return
+    texte = psa.workflow_texte(repo)
+    alt[repo] = {"ts": time.time(), "texte": texte}
+    try:
+        _cache_datei().parent.mkdir(parents=True, exist_ok=True)
+        _cache_datei().write_text(json.dumps(alt), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def body_text(kommando: str, argumente: dict[str, str], cwd: str) -> str | None:
+    """PR-Body aus `--body` oder `--body-file`; None, wenn eine Body-Datei genannt,
+    aber nicht lesbar ist (dann ist der Vermerk nicht pruefbar)."""
+    body = argumente.get("body", "")
+    datei = argumente.get("body_file")
+    if not datei:
+        return body
+    datei = os.path.expanduser(_expandiere(datei, _zuweisungen(kommando)))
+    try:
+        return body + Path(cwd, datei).read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+
+def mandat_luecke(dateien: list[str], repo: str, body: str | None) -> str | None:
+    """Grund, wenn pr_merge_sa fuer diesen PR ein Approve verlangen wird — mit
+    dessen eigener Deckungstabelle, Wirkung und Vermerk-Regel. Fail-open: jede
+    Stoerung (Modul, Policy, gh) ergibt None."""
+    try:
+        geladen = _merge_werkzeug()
+        if geladen is None:
+            return None
+        psa, wurzel = geladen
+        # Reihenfolge wie pruefe() in pr_merge_sa: Org-Profil, Wirkung, W3 mit
+        # Pruef-Pflicht = M3 (vor der Doku-Ausnahme), dann Doku ohne Mandat.
+        r, _ = psa.regeln_fuer(repo, psa.regeln(wurzel / POLICY_RELATIV))
+        if r.get("actions_aus"):
+            wirkung, pruef = "W0", []
+        else:
+            if repo not in r.get("sync_only_repos", []):
+                _workflow_texte_mit_cache(psa, repo)
+            wirkung = psa.wirkung_des_merges(repo, dateien, r)
+            pruef = psa.pruef_pflicht_gruende(repo, dateien, r)
+        noetig = r["deckung"].get(wirkung)
+        if wirkung == "W3" and pruef:
+            noetig = "M3"
+        elif r.get("doku_ohne_mandat") and all(
+            psa.ist_doku(p, r["doku_glob"]) for p in dateien
+        ):
+            return None
+        if noetig is None or psa.RANG[noetig] < psa.RANG["M1"]:
+            return None
+        if psa.RANG[noetig] >= psa.RANG["M2"]:
+            return f"{wirkung} verlangt {noetig}, das gibt nur ein Approve"
+        if body is None:
+            return f"{wirkung} verlangt M1, Body-Datei nicht lesbar, Vermerk ungeprueft"
+        for verweis_repo, nummer in psa.ISSUE_VERWEIS.findall(body):
+            ziel = verweis_repo or repo
+            try:
+                issue = psa._gh(["issue", "view", nummer, "-R", ziel, "--json", "body"])
+            except psa.Unklar:
+                continue
+            if psa.FREIGABE_VERMERK.search(issue.get("body") or ""):
+                return None
+        return f"{wirkung} verlangt M1, kein verlinktes Issue traegt einen Freigabe-Vermerk"
+    except Exception:  # noqa: BLE001 — Hinweis-Hook, fail-open
+        return None
+
+
 def hinweis(daten: dict) -> str | None:
     kommando = (daten.get("tool_input") or {}).get("command") or ""
     if not ist_pr_create(kommando):
@@ -217,7 +338,8 @@ def hinweis(daten: dict) -> str | None:
     dateien = eigene_dateien(cwd)
     if not dateien:
         return None
-    repo = ziel_repo(_argumente(kommando), cwd)
+    argumente = _argumente(kommando)
+    repo = ziel_repo(argumente, cwd)
     codeowners = codeowners_der_basis(cwd)
     governance = governance_pfade()
     konto = aktives_konto(cwd)
@@ -232,6 +354,12 @@ def hinweis(daten: dict) -> str | None:
     if konto not in freigeber(codeowners, repo[0] if repo else None):
         return None
     treffer = approve_pfade(dateien, konto, codeowners, governance)
+    if not treffer and repo:
+        luecke = mandat_luecke(
+            dateien, f"{repo[0]}/{repo[1]}", body_text(kommando, argumente, cwd)
+        )
+        if luecke:
+            treffer = [(MANDAT_GRUND, luecke)]
     if not treffer:
         return None
     konto_app = repo[0] if repo else "<konto>"
@@ -241,7 +369,7 @@ def hinweis(daten: dict) -> str | None:
     return "\n".join(
         [
             f"Hinweis ({SLUG}): aktives gh-Konto `{konto}` ist Freigeber dieses Repos, "
-            f"und der Branch beruehrt Pfade, die ein Approve brauchen:",
+            f"und der Branch braucht zum Merge ein Approve:",
             *zeilen,
             f"Unter diesem Konto kann der PR nicht freigegeben werden (kein Selbst-Approve). "
             f"Autor ist die App: `{APP_WERKZEUG} {konto_app} pr create …` "
