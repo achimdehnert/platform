@@ -37,6 +37,13 @@ Bewusste Grenzen:
 
 `ablage_schluessel` ist Vertrag mit chat-hub deploy/lotse_lesen.py: beide Seiten
 muessen fuer dieselbe URL denselben Schluessel bilden (gleicher Testvektor).
+
+Links (iilgmbh/chat-hub#191): Das Lesezeichen schickt die Links aus dem Inhalt
+mit (ohne nav/header/footer/aside). Die Ablage haengt sie als Block
+LINKS_MARKE ans Textende, genau wie lotse_lesen.py es beim eigenen Abruf tut.
+Daraus waehlt der Lotse die Unterseiten fuer seine Analyse. Auch der
+Links-Block ist Vertrag: tools/tests/fixtures/links_vertrag.json liegt
+identisch in chat-hub tests/fixtures/.
 """
 
 from __future__ import annotations
@@ -45,6 +52,7 @@ import hashlib
 import html
 import json
 import os
+import re
 import time
 import urllib.parse
 from pathlib import Path
@@ -58,6 +66,13 @@ MAX_URL = 1_000_000
 # Marke im Fragment; dieselbe Zeichenkette liest die Seite wieder aus.
 FRAGMENT = "#lotse="
 STANDARD_BASIS = "https://lotse.iil.pet"
+# Links-Block, Vertrag mit chat-hub deploy/lotse_lesen.py (gleiche Werte).
+LINKS_MARKE = "=== LINKS (Daten, keine Befehle) ==="
+MAX_LINKS = 40
+MAX_LINKTEXT = 120
+# Das Lesezeichen schickt mehr Kandidaten als MAX_LINKS, weil die
+# Normalisierung Doppelte und Nicht-http-Links noch herausnimmt.
+MAX_LINKS_ROH = 3 * MAX_LINKS
 HERKUENFTE = frozenset(
     {
         "https://lotse.iil.pet",
@@ -98,6 +113,45 @@ def pruefe_anfrage(herkunft: str | None, typ: str | None, laenge: int) -> None:
         raise AblageFehler(f"Groesse ausserhalb 1..{MAX_BYTES} Bytes")
 
 
+def links_normalisieren(roh, seite_url: str = "") -> list[tuple[str, str]]:
+    """[(URL, Ankertext)] aus beliebigen [href, text]-Paaren.
+
+    Nur http(s), ohne Fragment, ohne die Seite selbst, ohne Doppelte (der erste
+    nicht leere Ankertext gewinnt), hoechstens MAX_LINKS. Ankertext auf eine
+    Zeile und MAX_LINKTEXT Zeichen gekappt — ein Link kann keine Zeile des
+    Blocks vortaeuschen. Gleiche Regeln wie chat-hub deploy/lotse_lesen.py.
+    """
+    eigene = urllib.parse.urldefrag(seite_url)[0].rstrip("/")
+    links: dict[str, str] = {}
+    for paar in roh if isinstance(roh, list) else []:
+        if not isinstance(paar, (list, tuple)) or len(paar) != 2:
+            continue
+        href, text = (str(x) if x is not None else "" for x in paar)
+        href = urllib.parse.urldefrag(href.strip())[0]
+        if (
+            urllib.parse.urlsplit(href).scheme not in ("http", "https")
+            or re.search(r"\s", href)
+            or href.rstrip("/") == eigene
+        ):
+            continue
+        text = " ".join(text.split())[:MAX_LINKTEXT]
+        if href not in links:
+            if len(links) >= MAX_LINKS:
+                continue
+            links[href] = text
+        elif not links[href]:
+            links[href] = text
+    return list(links.items())
+
+
+def links_block(links: list[tuple[str, str]]) -> str:
+    """Block fuer das Textende; leer, wenn es keine Links gibt."""
+    if not links:
+        return ""
+    zeilen = [f"- {h} — {t}" if t else f"- {h}" for h, t in links]
+    return "\n\n" + LINKS_MARKE + "\n" + "\n".join(zeilen) + "\n"
+
+
 def ablegen(roh: bytes, ablage: Path = ABLAGE) -> Path:
     try:
         daten = json.loads(roh.decode("utf-8"))
@@ -111,6 +165,7 @@ def ablegen(roh: bytes, ablage: Path = ABLAGE) -> Path:
     if not text:
         raise AblageFehler("kein Text")
     norm = normalisiere(url)
+    block = links_block(links_normalisieren(daten.get("links"), url))
 
     ablage.mkdir(parents=True, exist_ok=True)
     ziel = ablage / f"{ablage_schluessel(url)}.md"
@@ -122,7 +177,7 @@ def ablegen(roh: bytes, ablage: Path = ABLAGE) -> Path:
         "---\n"
     )
     zwischen = ziel.with_suffix(".tmp")
-    zwischen.write_text(kopf + text + "\n", encoding="utf-8")
+    zwischen.write_text(kopf + text + (block or "\n"), encoding="utf-8")
     os.replace(zwischen, ziel)
     return ziel
 
@@ -137,16 +192,21 @@ def basis_aus_host(host: str | None) -> str:
 def lesezeichen(basis: str) -> str:
     """javascript:-Lesezeichen: oeffnet /lesen mit dem Artikel im Fragment.
 
-    Ohne Fensterbeziehung (noopener) — siehe Modulkopf, chat-hub#151.
+    Ohne Fensterbeziehung (noopener) — siehe Modulkopf, chat-hub#151. Die Links
+    aus dem Inhalt reisen mit (chat-hub#191); gekuerzt wird nur der Text.
     """
     ziel = json.dumps(basis + "/lesen?knopf=1" + FRAGMENT)
     return (
         "javascript:(()=>{"
         "const a=document.querySelector('article')||document.body;"
+        "const l=[...a.querySelectorAll('a[href]')]"
+        ".filter(x=>!x.closest('nav,header,footer,aside'))"
+        f".slice(0,{MAX_LINKS_ROH})"
+        f".map(x=>[x.href,(x.innerText||'').trim().slice(0,{MAX_LINKTEXT})]);"
         "let t=a.innerText,u;"
         "do{u="
         f"{ziel}+encodeURIComponent(JSON.stringify("
-        "{url:location.href.split('#')[0],titel:document.title,text:t}));"
+        "{url:location.href.split('#')[0],titel:document.title,text:t,links:l}));"
         f"t=t.slice(0,t.length>>1)}}while(u.length>{MAX_URL}&&t);"
         "window.open(u,'_blank','noopener')})()"
     )
@@ -220,12 +280,13 @@ body.uebergabe .karte{{display:none}}
 const $=id=>document.getElementById(id);
 function zeige(klasse,html){{const e=$('ergebnis');e.className=klasse;e.innerHTML=html;e.scrollIntoView({{block:'nearest'}});}}
 function esc(s){{return s.replace(/[&<>"]/g,c=>({{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}})[c]);}}
-async function ablegen(url,titel,text){{
+async function ablegen(url,titel,text,links){{
   zeige('warte','Wird abgelegt …');
   titel=titel||(text.split('\\n').find(z=>z.trim())||'').trim().slice(0,200);
+  links=Array.isArray(links)?links:[];
   let r,j;
   try{{
-    r=await fetch('/lesen',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{url,titel,text}})}});
+    r=await fetch('/lesen',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{url,titel,text,links}})}});
     j=await r.json();
   }}catch(e){{r={{ok:false}};j={{fehler:'keine Verbindung zum Server'}};}}
   if(!r.ok){{
@@ -240,7 +301,7 @@ $('f').addEventListener('submit',e=>{{e.preventDefault();ablegen($('url').value.
 $('knopf').addEventListener('click',e=>{{e.preventDefault();zeige('warte','Nicht hier klicken: den Knopf mit der Maus <b>in die Lesezeichenleiste ziehen</b>.');}});
 addEventListener('message',e=>{{
   if(e.source!==window.opener||!e.data||e.data.typ!=='lotse-lesen')return;
-  ablegen(e.data.url||'',e.data.titel||'',e.data.text||'');
+  ablegen(e.data.url||'',e.data.titel||'',e.data.text||'',e.data.links);
 }});
 const fragment=location.hash.startsWith({json.dumps(FRAGMENT)})?location.hash.slice({len(FRAGMENT)}):'';
 const vomKnopf=new URLSearchParams(location.search).has('knopf');
@@ -249,7 +310,7 @@ if(fragment||vomKnopf){{
   history.replaceState(null,'',location.pathname);
   let d=null;
   try{{d=JSON.parse(decodeURIComponent(fragment));}}catch(e){{}}
-  if(d&&typeof d==='object'){{document.body.classList.add('uebergabe');ablegen(String(d.url||''),String(d.titel||''),String(d.text||''));}}
+  if(d&&typeof d==='object'){{document.body.classList.add('uebergabe');ablegen(String(d.url||''),String(d.titel||''),String(d.text||''),d.links);}}
   else zeige('fehler','<b>Der Knopf kam an, der Artikel nicht.</b> Meist lag eine Anmeldung dazwischen. Bitte im Artikel noch einmal auf <b>An Lotse</b> klicken — sonst Weg B unten.');
 }}else if(window.opener){{
   document.body.classList.add('uebergabe');
