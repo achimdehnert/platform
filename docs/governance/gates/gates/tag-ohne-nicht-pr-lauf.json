@@ -1,0 +1,37 @@
+{
+  "slug": "tag-ohne-nicht-pr-lauf",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": "tools/claude-hooks/tag_ohne_nicht_pr_lauf_hinweis.py",
+  "drill": "tools/claude-hooks/tests/test_tag_ohne_nicht_pr_lauf_hinweis.py",
+  "built": "2026-10-14",
+  "ref": "Retro ec3416 Befunde 1 und 24 und §6 Gate-Kandidat (docs/retros/session-retro-2026-10-14-platform-ec3416.md, platform#4006); Owner-Wort „R6 go“ 2026-10-14 21:01Z; Ursache offen in iilgmbh/shared-ci#112",
+  "last_drill_pass": "2026-10-14",
+  "zustand": "schranke",
+  "erzwungen_seit": "2026-10-14",
+  "expires": "2027-01-14",
+  "expires_note": "Drei Monate Messfenster ab Bau. Zur Frist entscheidet gate_wirkung.py: kehrt der Slug in Retros wieder, scharf schalten per eigenem PR nach 0-FP-Kalibrierfenster; bleibt er aus, Ausgang 'still' ohne Frist. Vorher pruefen, ob shared-ci v1.1.28 den Nicht-PR-Lauf als CI-Pflicht traegt (dann ist dieser Hook Dublette).",
+  "faengt": [
+    {
+      "fall": "git tag + git push eines Tags in einem Repo mit workflow_call-Workflows, wenn zum Zielcommit nur pull_request-Laeufe gruen sind (Realfall iilgmbh/shared-ci v1.1.27)",
+      "probe": "realfall_tag_nach_pr_laeufen"
+    },
+    {
+      "fall": "gh release create auf ein Provider-Repo ohne gruenen Nicht-PR-Lauf",
+      "probe": "gh_release_create"
+    },
+    {
+      "fall": "git push --tags ohne jeden Lauf zum Commit",
+      "probe": "push_tags_ohne_laeufe"
+    },
+    {
+      "fall": "Tag existiert schon und zeigt auf einen aelteren Commit als HEAD — dessen Laeufe zaehlen",
+      "probe": "commit_des_bestehenden_tags"
+    }
+  ],
+  "positivkontrolle": {
+    "ref": "tools/claude-hooks/tests/test_tag_ohne_nicht_pr_lauf_hinweis.py::test_should_hinweis_zeigen_beim_realfall_tag_nach_pr_laeufen (Form von shared-ci v1.1.27: Repo mit _ci-python.yml unter workflow_call, Laufliste pull_request/success x2 + push/failure x1 -> Hinweis mit Tag, Verteilung und dispatch-Empfehlung; gh run list --commit <HEAD> belegt im gh-Protokoll), ::test_should_hinweis_zeigen_bei_gh_release_create, ::test_should_hinweis_zeigen_bei_push_tags_ohne_laeufe, ::test_should_commit_des_bestehenden_tags_pruefen; Gegenproben ::test_should_schweigen_bei_gruenem_push_lauf, ::test_should_schweigen_bei_gruenem_dispatch_lauf, ::test_should_schweigen_ohne_workflow_call_im_repo, ::test_should_tag_listen_und_loeschen_ignorieren, ::test_should_fail_open_bei_gh_fehler, ::test_should_fail_open_ohne_json",
+    "datum": "2026-10-14"
+  },
+  "note": "Retro ec3416 Befunde 1/24: shared-ci v1.1.27 wurde nach gruenen PR-Laeufen getaggt; danach scheiterte jeder push- und workflow_dispatch-Lauf seiner Aufrufer mit 0 Jobs (13/13; writing-hub Lauf 38532968320, meiki-hub#630, risk-hub). PR-CI kann diesen Fehler nicht zeigen, weil er nur ausserhalb des pull_request-Kontexts auftritt. Der Hook feuert bei `git tag <name>`, `git push --tags`/refs/tags/v*, `gh release create`, wenn .github/workflows/ einen workflow_call-Workflow enthaelt; er liest `gh run list --commit <sha>` (Tag-Commit, sonst HEAD) und schweigt, sobald ein Lauf mit Event ausserhalb pull_request* erfolgreich war. Nur Hinweis, fail-open, Exit 0 immer. Grenze: ein gruener Nicht-PR-Lauf des Provider-Repos selbst belegt die Aufrufer nicht vollstaendig; der Hinweis nennt darum den dispatch eines Aufrufers als Beleg. Wirksam erst nach Eintrag in der aktiven Hook-Konfiguration (ausserhalb des Repos)."
+}
