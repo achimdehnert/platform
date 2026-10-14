@@ -277,8 +277,9 @@ SCRATCHPAD = "/tmp/claude-1000/sitzung/scratchpad"
 
 #: Wortlaut des Befehls vom 2026-10-13 11:01 UTC (Sitzung 161b19, cwd chat-hub):
 #: Briefing-Text eines Raum-Profils per Python-Heredoc im Worktree geändert.
+#: Der Pfad hängt am Home wie der Hook selbst, sonst ist der Test nur auf diesem Host grün.
 BEFUND1 = (
-    "cd /home/devuser/github/chat-hub-184 && python3 - <<'EOF'\n"
+    f"cd {CHAT_HUB_184} && python3 - <<'EOF'\n"
     "from pathlib import Path\n"
     'p = Path("deploy/raum-sessions/briefing/brief.md")\n'
     't = p.read_text(encoding="utf-8")\n'
