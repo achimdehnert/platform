@@ -238,8 +238,15 @@ _PRUEF_AUFRUF = re.compile(
 )
 # Markdown-tolerant: `Freigabe:`, `**Freigabe:**`, `**Freigabe**:` — der Vermerk aus
 # /prompt (Auftrag-Modus) kam fett, der Regex las nur plain (#2603, Realfall #2602).
+# Der Vermerk zaehlt nur als eigene Zeile (#4000): Zeilenanfang, optional Zitat-`>`,
+# Listenpunkt und vorangestelltes Owner-Zitat `„…" — ` (Form aus #3475). Mitten im
+# Satz oder in Backticks/Anfuehrungszeichen ist er eine Erklaerung, kein Mandat —
+# Realfall #3997: das erklaerende Zitat gab #3999 ein falsches M1.
 FREIGABE_VERMERK = re.compile(
-    r"\**Freigabe\**:\**\s*akzeptiert durch Owner", re.IGNORECASE
+    r"^[ \t]*(?:>[ \t]*)?(?:(?:[-*+]|\d+[.)])[ \t]+)?"
+    r"(?:„[^“\"\n]*[“\"][ \t]*[—–-][ \t]*)?"
+    r"\**Freigabe\**:\**\s*akzeptiert durch Owner",
+    re.IGNORECASE | re.MULTILINE,
 )
 PROD_IM_APPROVAL = re.compile(
     r"\b(deploy|prod|production|publish|release)\b", re.IGNORECASE
