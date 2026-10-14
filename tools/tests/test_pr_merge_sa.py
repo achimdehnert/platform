@@ -1730,7 +1730,8 @@ def test_should_reject_repo_outside_liste_l_with_owner_wort_before_classify(
         "gather",
         lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("kein API-Zugriff")),
     )
-    assert pr_merge_sa.main(["4", "achimdehnert/robo-lab"]) == 2
+    # fiktives Repo: ein echtes kann jederzeit auf Liste L kommen (robo-lab, #3998)
+    assert pr_merge_sa.main(["4", "achimdehnert/nie-in-liste-l"]) == 2
     assert "Positivliste" in capsys.readouterr().err
 
 
