@@ -150,6 +150,8 @@ def test_should_post_bulk_with_token_header_and_exit_zero(tmp_path, monkeypatch,
     req = aufrufe[0]
     assert req.full_url == konfig["routine"]["ledger_url"] and req.get_method() == "POST"
     assert req.get_header("Authorization") == f"Token {TOKEN}"
+    # Cloudflare blockt die urllib-Standardkennung mit 403 — eigene Kennung ist Pflicht.
+    assert req.get_header("User-agent") == alp.USER_AGENT and "urllib" not in alp.USER_AGENT
     body = json.loads(req.data.decode("utf-8"))
     assert isinstance(body, list) and len(body) == 2 and body[0]["quelle"] == "advocatus"
     assert TOKEN not in "".join(capsys.readouterr())
@@ -171,6 +173,7 @@ def test_should_report_reachable_on_probe_even_for_http_error(monkeypatch, capsy
     aus = capsys.readouterr()
     assert rc == alp.RC_OK
     assert aus.out.startswith(alp.PROBE_PRAEFIX) and "erreichbar, HTTP 401, mit Token" in aus.out
+    assert aufrufe[0].get_header("User-agent") == alp.USER_AGENT
     assert len(aufrufe) == 1 and aufrufe[0].get_method() == "GET" and aufrufe[0].data is None
     assert aufrufe[0].get_header("Authorization") == f"Token {TOKEN}"
     assert TOKEN not in aus.out + aus.err and "geheimer body" not in aus.out + aus.err
