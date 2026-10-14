@@ -52,4 +52,4 @@ Gesamturteil:
 
 Jede Regel traegt ihre ID aus `registry/review-regeln.yaml` (Klasse, Geltung, Detektor, Begruendung, Praezision). Diese Datei wird daraus generiert — Aenderungen dort vornehmen und `python3 tools/review_regeln.py --render` ausfuehren.
 
-<!-- MANAGED-BY: platform/tools/review_regeln.py · source=registry/review-regeln.yaml · content_hash=sha256:5b13691fa0a6d696 · do_not_edit -->
+<!-- MANAGED-BY: platform/tools/review_regeln.py · source=registry/review-regeln.yaml · content_hash=sha256:0c036ccc8cd16238 · do_not_edit -->
