@@ -1,0 +1,7 @@
+{
+  "slug": "zwischenstand-trotz-silent-reminder-ausgelassen",
+  "decided": "2026-10-14",
+  "owner": "achim",
+  "ref": "platform#3988, Owner-Entscheid 2026-10-14 („M8 ablehnen“, Retro 161b19-incr, platform#3990)",
+  "reason": "Kein Effekt: Der Silent-Reminder ist bereits der Hinweis der Harness, ein Hook mit derselben Meldung würde ihn nur verdoppeln. Der Befund (9,8 min ohne Text nach dem Reminder um 11:28:46) ist ein Befolgungsfehler, kein Erkennungsfehler. Ob die Lücke wiederkehrt, zählt retro_transkript_kennzahlen.py weiter. Den Entscheid hat der Owner ohne Begründung getroffen; die Begründung hier stammt vom Lotsen."
+}
