@@ -18,11 +18,15 @@ from pathlib import Path
 
 HOOK = Path(__file__).resolve().parent.parent / "issue_anlegen_dubletten_hinweis.py"
 RUN_ID = "38532968320"
+#: Wortlaut von iilgmbh/shared-ci#113 (Titel) und seine Run-ID im Body. #112 nennt
+#: KEINE dieser Run-IDs (gemessen 2026-10-14: #112 = 38563676513 …, #113 = 38532968320 …);
+#: gemeinsam sind nur `startup_failure` und `v1.1.27`.
 REALFALL = (
     "gh issue create -R example-org/shared-ci "
-    f"--title 'v1.1.27: _ci-python.yml scheitert ohne Jobs (Lauf {RUN_ID})' "
-    "--body 'Lauf ohne Jobs nach dem Tag-Bump.'"
+    "--title '_ci-python.yml@v1.1.27: deploy.yml-Aufrufer starten nicht (startup_failure, 0 Jobs)' "
+    f"--body 'Lauf {RUN_ID} ohne Jobs nach dem Tag-Bump.'"
 )
+TITEL_112 = "_ci-python.yml v1.1.27: startup_failure ausser bei pull_request"
 
 
 def _git(cwd: Path, *args: str) -> None:
@@ -44,19 +48,33 @@ def _repo(
     return repo
 
 
-def _fake_gh(tmp_path: Path, issues: list[dict] | None, exit_code: int = 0) -> Path:
-    """PATH-Verzeichnis mit einem `gh`, das die Fixture druckt und seine Argumente mitschreibt."""
+def _fake_gh(
+    tmp_path: Path,
+    issues: list[dict] | None,
+    exit_code: int = 0,
+    nur_bei: str = "",
+) -> Path:
+    """PATH-Verzeichnis mit einem `gh`, das die Fixture druckt und seine Argumente mitschreibt.
+
+    `nur_bei`: Fixture nur fuer Anfragen, die diesen Text enthalten — sonst `[]`. So laesst
+    sich belegen, WELCHE Suchanfrage den Treffer bringt.
+    """
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     fixture = tmp_path / "issues.json"
     fixture.write_text(json.dumps(issues or []), encoding="utf-8")
     protokoll = tmp_path / "gh-aufrufe.log"
     skript = bin_dir / "gh"
+    treffer_zeile = (
+        f'case "$*" in *"{nur_bei}"*) cat "{fixture}";; *) echo "[]";; esac\n'
+        if nur_bei
+        else f'cat "{fixture}"\n'
+    )
     skript.write_text(
         "#!/bin/sh\n"
         f'echo "$@" >> "{protokoll}"\n'
         f'if [ {exit_code} -ne 0 ]; then echo "API rate limit exceeded" >&2; exit {exit_code}; fi\n'
-        f'cat "{fixture}"\n',
+        + treffer_zeile,
         encoding="utf-8",
     )
     skript.chmod(skript.stat().st_mode | stat.S_IXUSR)
@@ -99,19 +117,35 @@ def _issue(nummer: int, titel: str, state: str = "OPEN") -> dict:
 
 
 def test_should_hinweis_zeigen_beim_realfall_shared_ci_112(tmp_path):
-    """Form von shared-ci#113: dasselbe Symptom liegt als #112 schon vor — Treffer per Run-ID."""
+    """Wortlaut von shared-ci#113: #112 liegt schon vor, teilt aber KEINE Run-ID — nur die
+    Titelwort-Suche (`startup_failure …`) trifft; die Marker-Suchen laufen trotzdem."""
     repo = _repo(tmp_path)
-    bin_dir = _fake_gh(
-        tmp_path,
-        [_issue(112, f"v1.1.27 bricht Nicht-PR-Laeufe mit 0 Jobs (Lauf {RUN_ID})")],
-    )
+    bin_dir = _fake_gh(tmp_path, [_issue(112, TITEL_112)], nur_bei="startup_failure")
     res = _lauf(repo, bin_dir, REALFALL)
     assert res.returncode == 0
     text = _kontext(res)
     assert "#112" in text
-    assert RUN_ID in text
+    assert TITEL_112[:60] in text
     assert "Konsumenten-Repos" in text  # Zielrepo heisst shared-ci
-    assert f'"{RUN_ID}"' in _aufrufe(tmp_path)  # exakter Marker, nicht Titelwoerter
+    aufrufe = _aufrufe(tmp_path)
+    assert f'"{RUN_ID}"' in aufrufe  # Run-ID exakt gesucht …
+    assert '"v1.1.27"' in aufrufe  # … Versions-Tag exakt gesucht …
+    assert "startup_failure" in aufrufe  # … und die Titelwoerter als UND-Anfrage
+    assert aufrufe.count("issue list") == 3
+
+
+def test_should_realfall_ohne_titelwortsuche_verfehlen(tmp_path):
+    """Gegenbeweis zur alten Fassung: Marker allein finden #112 nicht."""
+    repo = _repo(tmp_path)
+    bin_dir = _fake_gh(tmp_path, [_issue(112, TITEL_112)], nur_bei="startup_failure")
+    res = _lauf(
+        repo,
+        bin_dir,
+        f"gh issue create -R example-org/shared-ci --title 'Lauf {RUN_ID} rot' --body ''",
+    )
+    assert res.returncode == 0
+    assert res.stdout.strip() == ""
+    assert f'"{RUN_ID}"' in _aufrufe(tmp_path)
 
 
 def test_should_mit_titelwoertern_suchen_wenn_kein_marker(tmp_path):
@@ -213,3 +247,7 @@ def test_should_suchbegriffe_marker_vor_woertern_waehlen():
     assert woerter[0] == "Dependabot-PRs"
     assert "weil" not in woerter and len(woerter) <= modul.MAX_SUCHWOERTER
     assert modul.suchbegriffe("kurz", "") == []
+    # Versions-Tag ist Marker, Titelwoerter kommen immer dazu
+    mit_version = modul.suchbegriffe("_ci-python.yml@v1.1.27: startup_failure", "")
+    assert mit_version[0] == "v1.1.27" and "startup_failure" in mit_version
+    assert modul.ist_marker("v1.1.27") and not modul.ist_marker("startup_failure")

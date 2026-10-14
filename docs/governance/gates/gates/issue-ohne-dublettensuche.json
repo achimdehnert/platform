@@ -13,8 +13,12 @@
   "expires_note": "Drei Monate Messfenster ab Bau. Zur Frist entscheidet gate_wirkung.py: kehrt der Slug in Retros wieder, scharf schalten per eigenem PR nach 0-FP-Kalibrierfenster; bleibt er aus, Ausgang 'still' ohne Frist.",
   "faengt": [
     {
-      "fall": "gh issue create zu einem Lauf, zu dem im Zielrepo schon ein Issue mit derselben Run-ID liegt (Realfall iilgmbh/shared-ci#113 neben #112)",
+      "fall": "gh issue create im Wortlaut von iilgmbh/shared-ci#113, waehrend #112 schon liegt — ohne gemeinsame Run-ID (gemessen 2026-10-14), gefunden ueber die Titelwoerter (startup_failure) neben den exakten Marker-Suchen (Run-ID, v1.1.27)",
       "probe": "realfall_shared_ci_112"
+    },
+    {
+      "fall": "Gegenbeweis: Marker-Suche allein verfehlt #112 — Titelwort-Suche darf nie entfallen",
+      "probe": "realfall_ohne_titelwortsuche_verfehlen"
     },
     {
       "fall": "gh issue create ohne Run-ID oder Nummer im Text — Suche ueber die laengsten Titelwoerter, Treffer auch unter geschlossenen Issues",
@@ -26,8 +30,8 @@
     }
   ],
   "positivkontrolle": {
-    "ref": "tools/claude-hooks/tests/test_issue_anlegen_dubletten_hinweis.py::test_should_hinweis_zeigen_beim_realfall_shared_ci_112 (Form von shared-ci#113: Titel mit Lauf 38532968320, Zielrepo shared-ci, Fixture #112 -> Hinweis mit #112, Run-ID und Konsumenten-Zeile; Suche per exaktem Marker belegt im gh-Protokoll), ::test_should_mit_titelwoertern_suchen_wenn_kein_marker, ::test_should_body_datei_mit_lesen; Gegenproben ::test_should_schweigen_ohne_treffer, ::test_should_schweigen_wenn_suche_schon_im_kommando_steht, ::test_should_andere_kommandos_ignorieren, ::test_should_fail_open_bei_gh_fehler, ::test_should_fail_open_ohne_json",
+    "ref": "tools/claude-hooks/tests/test_issue_anlegen_dubletten_hinweis.py::test_should_hinweis_zeigen_beim_realfall_shared_ci_112 (Wortlaut von shared-ci#113 mit Lauf 38532968320 im Body, Zielrepo shared-ci, Fixture #112 im Original-Titel ohne diese Run-ID, Fake-gh liefert sie nur auf die Titelwort-Anfrage -> Hinweis mit #112 und Konsumenten-Zeile; im gh-Protokoll drei Anfragen: Run-ID exakt, v1.1.27 exakt, Titelwoerter UND), ::test_should_realfall_ohne_titelwortsuche_verfehlen (Marker allein -> kein Hinweis), ::test_should_mit_titelwoertern_suchen_wenn_kein_marker, ::test_should_body_datei_mit_lesen; Gegenproben ::test_should_schweigen_ohne_treffer, ::test_should_schweigen_wenn_suche_schon_im_kommando_steht, ::test_should_andere_kommandos_ignorieren, ::test_should_fail_open_bei_gh_fehler, ::test_should_fail_open_ohne_json",
     "datum": "2026-10-14"
   },
-  "note": "Retro ec3416 Befund 11: shared-ci#113 (15:17Z) wurde 34 min nach #112 (14:43Z, andere Sitzung, gleiches Symptom) ohne Querverweis angelegt, meiki-hub#630 (13:04Z) hatte das Event-Muster schon benannt; zwei Issues trugen konkurrierende Hypothesen. Der Hook sucht beim `gh issue create` im Zielrepo (Argument -R oder origin) mit `gh issue list --state all --search`: exakte Marker (Run-IDs >= 9 Ziffern, #Nummern) einzeln, sonst die laengsten Titelwoerter als UND. Treffer werden gezeigt, bei shared-ci mit dem Hinweis auf die Konsumenten-Repos. Steht im selben Kommando schon `gh issue list`/`gh search issues`, schweigt er. Nur Hinweis, fail-open, Exit 0 immer. Grenze: Suche nur im Zielrepo, Konsumenten-Repos nur als Textzeile; Titelwort-Suche findet Umschreibungen nicht. Wirksam erst nach Eintrag in der aktiven Hook-Konfiguration (ausserhalb des Repos)."
+  "note": "Retro ec3416 Befund 11: shared-ci#113 (15:17Z) wurde 34 min nach #112 (14:43Z, andere Sitzung, gleiches Symptom) ohne Querverweis angelegt, meiki-hub#630 (13:04Z) hatte das Event-Muster schon benannt; zwei Issues trugen konkurrierende Hypothesen. Der Hook sucht beim `gh issue create` im Zielrepo (Argument -R oder origin) mit `gh issue list --state all --search`: exakte Marker (Run-IDs >= 9 Ziffern, #Nummern, Versions-Tags) einzeln UND immer zusaetzlich die laengsten Titelwoerter als UND-Anfrage — die erste Fassung suchte Titelwoerter nur ohne Marker und haette den Realfall verfehlt (#112/#113 ohne gemeinsame Run-ID, platform#4014 korrigiert in der Folge-PR). Treffer werden gezeigt, bei shared-ci mit dem Hinweis auf die Konsumenten-Repos. Steht im selben Kommando schon `gh issue list`/`gh search issues`, schweigt er. Nur Hinweis, fail-open, Exit 0 immer. Grenze: Suche nur im Zielrepo, Konsumenten-Repos nur als Textzeile; Titelwort-Suche findet Umschreibungen nicht. Wirksam erst nach Eintrag in der aktiven Hook-Konfiguration (ausserhalb des Repos)."
 }
