@@ -42,6 +42,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shlex
 import sys
 from pathlib import Path
 
@@ -60,11 +61,13 @@ _SKRIPT = re.compile(
 _CD = re.compile(r"(?:^|&&|;|\|\||\n)\s*cd\s+([^\s;&|]+)")
 _LEASE_PFAD = re.compile(r"\.claude/leases/ressourcen")
 _LEASE_SCHREIBEN = re.compile(
-    r"\b(?:rm|mv|cp|truncate|tee|chmod|ln)\b|>|\bsed\s+-[a-zA-Z]*i"
+    r"\b(?:rm|mv|cp|truncate|tee|chmod|ln)\b|\bsed\s+-[a-zA-Z]*i"
 )
 #: Umleitungen, die nichts schreiben (`2>/dev/null`, `&>/dev/null`, `2>&1`) —
 #: vor der Pruefung entfernt; Realfall-Fehlalarm 2026-10-14 (#3977).
 _HARMLOSE_UMLEITUNG = re.compile(r"&?\d*>>?\s*/dev/null\b|\d*>&\d+")
+#: Shell-Operatoren, die in eine Datei schreiben (shlex-Token mit punctuation_chars).
+_UMLEITUNG_OPS = frozenset({">", ">>", ">|", "&>", "&>>", ">&"})
 _ZUWEISUNG = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 _ERZWINGEN = re.compile(r"ressourcen_lease(?:\.py)?\b[^|;&\n]*--erzwingen")
 MAX_SKRIPT = 512 * 1024
@@ -165,11 +168,34 @@ def umgehung(werkzeug: str, eingabe: dict) -> str | None:
             "`--erzwingen` nimmt einer LAUFENDEN Sitzung ihr Ziel weg — das entscheidet "
             "der Owner mit einem eigenen `!`-Befehl, nicht eine Sitzung."
         )
-    if _LEASE_PFAD.search(befehl) and _LEASE_SCHREIBEN.search(
-        _HARMLOSE_UMLEITUNG.sub(" ", befehl)
+    if _LEASE_PFAD.search(befehl) and (
+        _LEASE_SCHREIBEN.search(befehl) or _schreibende_umleitung(befehl)
     ):
         return "Lease-Dateien schreibt nur `ressourcen_lease.py`, nie rm/mv/Umleitung."
     return None
+
+
+def _schreibende_umleitung(befehl: str) -> bool:
+    """Eine Umleitung ausserhalb von Anfuehrungszeichen, die in eine Datei schreibt.
+
+    `>` in einem String (`python3 -c "…'<x>'…"`) ist keine Umleitung — zweiter
+    Realfall-Fehlalarm 2026-10-14 (#3977). Ziel `/dev/null` und `>&N` schreiben
+    nichts. Nicht zerlegbar (offene Anfuehrungszeichen) => alte Regex, fail-closed.
+    """
+    try:
+        lexer = shlex.shlex(befehl, posix=True, punctuation_chars=True)
+        lexer.whitespace_split = True
+        token = list(lexer)
+    except ValueError:
+        return ">" in _HARMLOSE_UMLEITUNG.sub(" ", befehl)
+    for i, t in enumerate(token):
+        if t not in _UMLEITUNG_OPS:
+            continue
+        ziel = token[i + 1] if i + 1 < len(token) else ""
+        if ziel == "/dev/null" or (t == ">&" and ziel.isdigit()):
+            continue
+        return True
+    return False
 
 
 def _owner_befehl(ressource: str) -> str:

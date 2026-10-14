@@ -137,6 +137,11 @@ def test_should_block_bypass_via_force_and_lease_files(umgebung):
     assert _grund(
         _bash("echo {} > ~/.claude/leases/ressourcen/sevdesk.json 2>/dev/null", A)
     )
+    assert _grund(_bash("echo {} >> ~/.claude/leases/ressourcen/journal.jsonl", A))
+    assert _grund(_bash("cd ~/.claude/leases/ressourcen && echo {}>sevdesk.json", A))
+    assert _grund(_bash("echo '{}' &> ~/.claude/leases/ressourcen/sevdesk.json", A))
+    # nicht zerlegbar (offenes Anfuehrungszeichen) => fail-closed
+    assert _grund(_bash('echo "{ > ~/.claude/leases/ressourcen/sevdesk.json', A))
     assert _grund(_write("/home/u/.claude/leases/ressourcen/sevdesk.json", A))
 
 
@@ -236,6 +241,9 @@ def test_should_grant_a_free_lease_to_exactly_one_of_racing_sessions(umgebung):
         "ls -la ~/.claude/leases/ressourcen/ 2>&1 | head; "
         "tail -3 ~/.claude/leases/ressourcen/journal.jsonl 2>/dev/null | cut -c1-200",
         "cat ~/.claude/leases/ressourcen/journal.jsonl &>/dev/null",
+        # zweiter Realfall-Fehlalarm 2026-10-14: `>` nur im String eines Skripts
+        "grep -n sk- ~/.claude/leases/ressourcen/journal.jsonl | "
+        "python3 -c \"import sys; print(sys.stdin.read().replace('x','<LANG>'))\"",
         "python3 ~/.claude/hooks/ressourcen_lease.py status",
         "python3 tools/pr_merge_sa.py 12 achimdehnert/platform",
     ],
