@@ -30,8 +30,12 @@ Routine: `{{MODELL}}` (Owner-Entscheid O3, 2026-10-13: Opus; Fable nur fuer `nee
 gh api repos/achimdehnert/platform --jq .full_name   # keine Antwort: abbrechen, Grund im Log
 python3 -c "import yaml" || pip install -q pyyaml
 test -n "${{TOKEN_ENV}}" && echo "Ledger-Token: gesetzt" || echo "Ledger-Token: FEHLT (Kommentar ja, Ledger nein)"
+python3 tools/advocatus_ledger_post.py --probe  # Zeile `LEDGER-PROBE: …` wortgleich in die Abschlussmeldung
 python3 tools/review_risiko.py --repos          # Pilot-Repos als owner/name — die einzige Quelle
 ```
+
+Meldet die Probe „nicht erreichbar“, laeuft der Review trotzdem (Kommentar ja, Ledger nein);
+die Zeile in der Abschlussmeldung ist dann der Befund fuer den Betreiber der Umgebung.
 
 ## 3. Auswahl der PRs
 
@@ -151,4 +155,5 @@ Zeitstempel fuer K5.
 
 Eine Tabelle: Repo · PR · head_sha · Entscheid des Klassifikators · Befunde (BLOCK/WARN/HINT) ·
 Ledger (gebucht / nicht beschrieben / Fehler rc). Danach die Zeile `Nicht geprueft:` mit allen
-PRs, die wegen `max_prs_je_lauf` liegen blieben.
+PRs, die wegen `max_prs_je_lauf` liegen blieben, und die Zeile `LEDGER-PROBE: …` aus Schritt 2
+wortgleich — auch in Laeufen ohne Kandidaten, denn nur sie belegt den Ledger-Weg.

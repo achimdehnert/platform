@@ -164,6 +164,41 @@ def test_should_exit_one_on_http_error_without_leaking_body(tmp_path, monkeypatc
     assert "403" in aus.err and "geheimer body" not in aus.err and TOKEN not in aus.err
 
 
+def test_should_report_reachable_on_probe_even_for_http_error(monkeypatch, capsys, konfig):
+    monkeypatch.setenv(konfig["routine"]["token_env"], TOKEN)
+    aufrufe = _mock_urlopen(monkeypatch, fehler=401)
+    rc = alp.main(["--probe"])
+    aus = capsys.readouterr()
+    assert rc == alp.RC_OK
+    assert aus.out.startswith(alp.PROBE_PRAEFIX) and "erreichbar, HTTP 401, mit Token" in aus.out
+    assert len(aufrufe) == 1 and aufrufe[0].get_method() == "GET" and aufrufe[0].data is None
+    assert aufrufe[0].get_header("Authorization") == f"Token {TOKEN}"
+    assert TOKEN not in aus.out + aus.err and "geheimer body" not in aus.out + aus.err
+
+
+def test_should_report_unreachable_on_probe_connection_error(monkeypatch, capsys, konfig):
+    monkeypatch.delenv(konfig["routine"]["token_env"], raising=False)
+
+    def fake(req, timeout=None):
+        raise urllib.error.URLError("Tunnel connection failed: 403 Forbidden")
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake)
+    rc = alp.main(["--probe"])
+    aus = capsys.readouterr().out
+    assert rc == alp.RC_FEHLER
+    assert aus.startswith(alp.PROBE_PRAEFIX) and "nicht erreichbar" in aus
+    assert "Tunnel connection failed" in aus and "ohne Token" in aus
+
+
+def test_should_require_either_file_or_probe(monkeypatch, konfig):
+    aufrufe = _mock_urlopen(monkeypatch)
+    with pytest.raises(SystemExit):
+        alp.main([])
+    with pytest.raises(SystemExit):
+        alp.main(["--probe", "irgendwas.json"])
+    assert aufrufe == []
+
+
 def test_should_exit_one_on_unexpected_status(tmp_path, monkeypatch, capsys, konfig):
     monkeypatch.setenv(konfig["routine"]["token_env"], TOKEN)
     _mock_urlopen(monkeypatch, status=204)
