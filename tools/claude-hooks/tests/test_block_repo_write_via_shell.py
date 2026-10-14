@@ -107,13 +107,13 @@ def test_should_stay_silent_on_read_redirect():
 
 
 @pytest.mark.parametrize("modus", ["advisory", "blocking"])
-def test_should_default_to_advisory_when_state_file_missing(
+def test_should_default_to_blocking_when_state_file_missing(
     monkeypatch, tmp_path, modus
 ):
-    # Umgekehrt zum Evidenz-Scanner: fehlende Datei heisst hier advisory. Das ist
-    # Absicht und wird gemessen, damit es nicht still zur Dauerregel wird.
+    # Seit 2026-10-14 blockt das Gate ohne Modus-Datei (Retro 161b19, „R1 go").
+    # Die Datei mit `advisory` bleibt der Rückweg ohne Code-Änderung.
     monkeypatch.setenv("REPO_WRITE_HOOK_STATE_DIR", str(tmp_path))
-    assert modul._modus() == "advisory"
+    assert modul._modus() == "blocking"
     (tmp_path / "repo_write_hook_mode").write_text(modus, encoding="utf-8")
     assert modul._modus() == modus
 
@@ -143,20 +143,22 @@ def _lauf(monkeypatch, capsys, kommando, cwd, modus=None, tmp_path=None):
     return code, capsys.readouterr().err
 
 
-def test_should_fire_on_the_real_case_through_main(monkeypatch, capsys, tmp_path):
-    code, err = _lauf(monkeypatch, capsys, REALFALL, WORKTREE, tmp_path=tmp_path)
+def test_should_only_warn_on_the_real_case_when_switched_to_advisory(
+    monkeypatch, capsys, tmp_path
+):
+    code, err = _lauf(
+        monkeypatch, capsys, REALFALL, WORKTREE, modus="advisory", tmp_path=tmp_path
+    )
     assert code == 0, "advisory blockt nicht"
     assert "⚠️" in err and "Edit/Write" in err
 
 
-def test_should_block_the_real_case_when_switched_to_blocking(
-    monkeypatch, capsys, tmp_path
-):
-    code, err = _lauf(
-        monkeypatch, capsys, REALFALL, WORKTREE, modus="blocking", tmp_path=tmp_path
-    )
+def test_should_block_the_real_case_by_default(monkeypatch, capsys, tmp_path):
+    code, err = _lauf(monkeypatch, capsys, REALFALL, WORKTREE, tmp_path=tmp_path)
     assert code == 2
     assert "⛔" in err
+    assert "Repo-Dateien nur per Edit/Write" in err
+    assert "keine Ablehnung durch den Nutzer" in err
 
 
 # --- Skript-Heredoc: der zweite Realfall, eine Stunde nach dem ersten --------
@@ -253,3 +255,140 @@ def test_should_stay_silent_on_german_quotes_inside_commit_heredoc():
 def test_should_stay_silent_on_inline_text_without_german_quotes():
     kommando = 'git commit -q -m "fix(x): \\"zitiert\\" ohne deutsche Quotes"'
     assert modul.entscheide(kommando, WORKTREE) is None
+
+
+def test_should_keep_inline_text_advisory_while_writes_block(
+    monkeypatch, capsys, tmp_path
+):
+    # Das Replay vom 2026-10-14 fand beim Inline-Fall Fehlalarme (Text in
+    # einfachen Anführungszeichen, `\"`-Escape) — er darf nicht mitblocken.
+    kommando = 'gh pr comment 1 --body "Owner-Wort „25 go" liegt vor."'
+    code, err = _lauf(monkeypatch, capsys, kommando, REPO, tmp_path=tmp_path)
+    assert code == 0
+    assert "⚠️" in err and "Inline-Text" in err
+
+
+# --- Ausweitung 2026-10-14: Retro 161b19 Befund 1 (platform#3936), „R1 go" -----
+# Der Hook war seit dem 2026-09-23 gebaut, aber nie in settings.json verdrahtet.
+
+CHAT_HUB = str(Path.home() / "github" / "chat-hub")
+CHAT_HUB_184 = str(Path.home() / "github" / "chat-hub-184")
+SCRATCHPAD = "/tmp/claude-1000/sitzung/scratchpad"
+
+#: Wortlaut des Befehls vom 2026-10-13 11:01 UTC (Sitzung 161b19, cwd chat-hub):
+#: Briefing-Text eines Raum-Profils per Python-Heredoc im Worktree geändert.
+BEFUND1 = (
+    "cd /home/devuser/github/chat-hub-184 && python3 - <<'EOF'\n"
+    "from pathlib import Path\n"
+    'p = Path("deploy/raum-sessions/briefing/brief.md")\n'
+    't = p.read_text(encoding="utf-8")\n'
+    'alt1 = "1. `/briefing` ausführen — **nur lesen**"\n'
+    'neu1 = "1. `/raum-briefing:briefing` ausführen — **nur lesen**"\n'
+    "assert alt1 in t\n"
+    "t = t.replace(alt1, neu1)\n"
+    'p.write_text(t, encoding="utf-8")\n'
+    "EOF\n"
+    'grep -n "make -C\\|chat-lotse-watch" deploy/raum-sessions/briefing/brief.md'
+)
+
+
+def test_should_block_befund1_cd_worktree_python_heredoc(monkeypatch, capsys, tmp_path):
+    code, err = _lauf(monkeypatch, capsys, BEFUND1, CHAT_HUB, tmp_path=tmp_path)
+    assert code == 2
+    # Die Meldung nennt den Klon, in den wirklich geschrieben wurde.
+    assert f"{CHAT_HUB_184}/deploy/raum-sessions/briefing/brief.md" in err
+
+
+def test_should_resolve_target_of_last_cd_over_cwd():
+    # Aus dem Scratchpad heraus wäre derselbe Befehl ohne cd-Auflösung durchgefallen.
+    assert modul.entscheide(BEFUND1, SCRATCHPAD) is not None
+
+
+def test_should_resolve_relative_cd_against_cwd():
+    kommando = "cd platform && sed -i 's/a/b/' docs/x.md"
+    grund = modul.entscheide(kommando, str(Path.home() / "github"))
+    assert grund is not None and f"{REPO}/docs/x.md" in grund
+
+
+def test_should_resolve_quoted_cd_target():
+    assert (
+        modul.entscheide(f'cd "{REPO}" && echo a > docs/x.md', SCRATCHPAD) is not None
+    )
+
+
+def test_should_stay_silent_when_cd_leaves_the_repo():
+    kommando = f"cd {SCRATCHPAD} && echo a > out.txt"
+    assert modul.entscheide(kommando, REPO) is None
+
+
+def test_should_stay_silent_after_cd_to_unknown_variable():
+    assert modul.entscheide('cd "$W" && echo a > docs/x.md', REPO) is None
+
+
+def test_should_block_python_dash_c_with_write_text():
+    kommando = (
+        "python3 -c \"from pathlib import Path; Path('docs/x.md').write_text('a')\""
+    )
+    assert modul.entscheide(kommando, REPO) is not None
+
+
+def test_should_block_python_heredoc_appending_via_open():
+    kommando = "python3 - <<'PY'\nopen('CHANGELOG.md', 'a').write('x')\nPY"
+    assert modul.entscheide(kommando, REPO) is not None
+
+
+# Negativfälle aus dem Auftrag: /tmp, Scratchpad, ~/.claude, git, --body-file, Lesen.
+
+
+def test_should_stay_silent_on_tmp_write():
+    assert modul.entscheide("echo a > /tmp/x.txt", REPO) is None
+
+
+def test_should_stay_silent_on_claude_dir_write():
+    assert modul.entscheide("echo a >> ~/.claude/boards/b.md", REPO) is None
+
+
+def test_should_stay_silent_on_python_joining_home_claude_path():
+    # Erster Fehlalarm des Replays: der relative String hängt an Path.home().
+    kommando = (
+        "python3 - <<'PY'\nimport pathlib\n"
+        'p = pathlib.Path.home()/".claude/boards/a.md"\n'
+        "p.write_text('x')\nPY"
+    )
+    assert modul.entscheide(kommando, REPO) is None
+
+
+@pytest.mark.parametrize(
+    "kommando",
+    [
+        "git checkout -- docs/x.md",
+        "git -C ~/github/platform log --oneline -3",
+        f"git show HEAD:docs/x.md > {SCRATCHPAD}/alt.md",
+        "git commit -q -F - <<'MSG' && git push -q\nfix(x): a > b im Text\nMSG",
+    ],
+)
+def test_should_stay_silent_on_git_commands(kommando):
+    assert modul.entscheide(kommando, REPO) is None
+
+
+def test_should_stay_silent_on_reads():
+    kommando = f"cat docs/x.md | head -5; grep -n a docs/x.md > {SCRATCHPAD}/g.txt"
+    assert modul.entscheide(kommando, REPO) is None
+
+
+def test_should_stay_silent_on_quoted_variable_target_before_next_line():
+    # Replay-Fehlalarm: `\s*` lief über den Zeilenumbruch und las `gh` als Ziel.
+    kommando = (
+        f"S={SCRATCHPAD}; cat > \"$S/c.md\" <<'EOF'\nText\nEOF\n"
+        'gh issue comment 1 --body-file "$S/c.md"'
+    )
+    assert modul.entscheide(kommando, REPO) is None
+
+
+def test_should_stay_silent_on_sed_in_place_on_quoted_variable():
+    assert modul.entscheide("sed -i 's/a/b/' \"$R\"", REPO) is None
+
+
+def test_should_stay_silent_on_empty_heredoc_body():
+    kommando = "cat > /dev/null <<'X'\nX\nprintf '%s' \"a > b\""
+    assert modul.entscheide(kommando, REPO) is None

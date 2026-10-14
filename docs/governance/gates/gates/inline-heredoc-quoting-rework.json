@@ -1,0 +1,108 @@
+{
+  "slug": "inline-heredoc-quoting-rework",
+  "mode": "blocking",
+  "owner": "achim",
+  "module": "tools/claude-hooks/block_repo_write_via_shell.py",
+  "drill": "tools/claude-hooks/tests/test_block_repo_write_via_shell.py",
+  "built": "2026-09-23",
+  "revised": "2026-10-14",
+  "covers": [
+    "repo-datei-per-bash-statt-edit"
+  ],
+  "revision_note": "2026-10-14 wiederbelebt und scharf (Retro 161b19 Befund 1, platform#3936, Owner-Wort 'R1 go'): `repo-datei-per-bash-statt-edit` stand in drei Retros (3b46a0, 161b19, 4ce56a) als Slug OHNE Gate, waehrend genau dieses Modul die Form seit 2026-09-23 erkennt. Ursache: der Hook lag in ~/.claude/hooks/, aber kein Eintrag in settings.json rief ihn auf (`grep -c block_repo_write_via_shell ~/.claude/settings.json` = 0; in gate-hits.jsonl 1 Zeile, ein Testartefakt vom Bautag). Die '0 Treffer' hinter der Streichung vom 2026-10-08 waren also fehlende Verdrahtung, keine Messung. Deshalb kein zweites Gate unter neuem Namen (Skill-Regel 5a), sondern dieses Gate zurueck nach `gates` mit dem neuen Slug in `covers`. Erkennung geschaerft: relative Pfade gelten gegen das Ziel des letzten `cd` (Befund 1 lief als `cd <chat-hub-184> && python3 - <<'EOF'` aus dem Klon `chat-hub`), Schreib-Literale in `open(...,'w'|'a')`/`Path(...).write_text(` auch ohne `/`, und vier Fehlalarm-Quellen aus dem Replay beseitigt (Umleitung las ueber den Zeilenumbruch das naechste Wort, Heredoc mit Befehlsrest auf der Startzeile oder leerem Koerper, `sed -i` auf gequotete Variable, `Path.home()/\".claude/…\"`). Modus blocking als Default; der Inline-Text-Fall bleibt advisory (Replay-Fehlalarme). Frist platform#3451 (blocking oder streichen bis 2026-10-21) damit eingeloest. — Vorige Revision 2026-09-24: Rueckfall ausgeweitet (Retro 02b7f5, platform#3545 §5a, Owner-Wort '9 10 go' 2026-09-24): zwei Vorkommen am 2026-09-24 ohne Schreibziel im Repo — `gh issue comment --body \"…„25 go 26 go\": …\"` kam abgeschnitten an, `git commit -m \"…(„26 go\", …)\"` scheiterte. Beide Male beendete das ASCII-Schlusszeichen eines deutschen „…\" den Shell-String. Neue Probe im selben Modul: Inline-Text an --body/--title/--message/-m/-b mit „…\" (ASCII-Schluss); korrekt geschlossenes „…“ und Heredoc-Koerper bleiben frei. Replay gegen alle 150 Bash-Befehle der Sitzung: genau die 2 Realfaelle, 0 Fehlalarme.",
+  "last_drill_pass": "2026-10-14",
+  "ref": "Retro 3bdc4e (platform#3441) §5, Owner-Entscheid '180 -> dein vorschlag' Kapitaens-Kanal 2026-09-23 · gestrichen per Owner-Wort 'M6 streichen' 2026-10-08 (Retro 3b46a0, platform#3848 §7 M6), Frist E4 platform#2606 · wiederbelebt per Owner-Wort 'R1 go' 2026-10-14 (Retro 161b19, platform#3936 Befund 1)",
+  "zustand": "ohne-traeger",
+  "zustand_note": "Modul und Drill sind gruen, aber kein Hook-Eintrag ruft das Modul auf — genau der Befund, der die Streichung vom 2026-10-08 verursacht hat. Die Verdrahtung in ~/.claude/settings.json (PreToolUse, matcher Bash) ist Security-Config und damit Owner-Zug, nicht Teil dieses PRs. Nach der Verdrahtung und einem ersten echten Exit 2 im Zielkontext: zustand -> schranke, erzwungen_seit setzen.",
+  "declined_am": "2026-10-08",
+  "widerrufen_am": "2026-10-14",
+  "widerlegung": "Die Streichung stuetzte sich auf 0 Treffer bei 1203 Bash-Aufrufen (Sitzung 767d40) und 0/10 beurteilbare Zeilen. Beide Zahlen konnte ein unverdrahteter Hook nicht anders liefern. Das Replay derselben Erkennung ueber die Transkripte seit dem Bautag fand 389 Schreibziel-Treffer in 37 078 Bash-Befehlen.",
+  "damalige_begruendung": "Gestrichen nach Liegezeit, nicht nach Probe. Die Frist 2026-10-21 verlangte blocking oder streichen; das Kalibrierfenster war schon am 2026-10-07 aufgegeben (R8, platform#3841), weil gate_wirkung 0/10 beurteilbare Zeilen seit 2026-09-23 meldete und Sitzung 767d40 bei 1203 Bash-Aufrufen 0 Treffer hatte. Blocking ohne gemessene Fehlalarm-Grenze haette legitime Formen riskiert. Der Melder bleibt: Hook und Drill unveraendert, Modus advisory, Warnzeile wie bisher; als Schranke gestrichen. Neue Vorkommen im Retro-Laengsschnitt sind Anlass, die Entscheidung zu ueberpruefen.",
+  "faengt": [
+    {
+      "fall": "Realfall Retro 161b19 Befund 1: `cd <chat-hub-184> && python3 - <<'EOF'` mit `Path(\"deploy/…/brief.md\")` und `p.write_text(...)`, cwd ein anderer Klon — Exit 2, Meldung nennt den Klon des `cd`",
+      "probe": "befund1_cd_worktree_python_heredoc"
+    },
+    {
+      "fall": "relativer Pfad gilt gegen das Ziel des letzten `cd`, nicht gegen das cwd des Payloads",
+      "probe": "target_of_last_cd_over_cwd"
+    },
+    {
+      "fall": "`python3 -c` mit `Path('…').write_text(...)` auf eine Repo-Datei",
+      "probe": "python_dash_c_with_write_text"
+    },
+    {
+      "fall": "Skript-Heredoc mit `open('<datei>', 'a')` auf eine Datei der obersten Repo-Ebene",
+      "probe": "python_heredoc_appending_via_open"
+    },
+    {
+      "fall": "Umleitung in eine Repo-Datei (`echo x > <repo>/docs/y.md`)",
+      "probe": "redirect_into_repo"
+    },
+    {
+      "fall": "Anhaengen in eine Repo-Datei (`>>`)",
+      "probe": "append_into_repo"
+    },
+    {
+      "fall": "In-Place-Editor auf eine Repo-Datei (`sed -i`) — der Realfall vom 2026-09-23",
+      "probe": "sed_in_place_in_repo"
+    },
+    {
+      "fall": "`tee` in eine Repo-Datei",
+      "probe": "tee_into_repo"
+    },
+    {
+      "fall": "relativer Pfad, aufgeloest gegen den Worktree der Sitzung",
+      "probe": "relative_path_resolved_against_cwd"
+    },
+    {
+      "fall": "Schreibziel in einer Befehlskette versteckt (`make test && echo ok > …`)",
+      "probe": "write_hidden_in_a_chain"
+    },
+    {
+      "fall": "Heredoc MIT Schreibziel im Repo (`cat <<'EOF' > <repo>/…`) — die namensgebende Form",
+      "probe": "heredoc_that_writes_a_repo_file"
+    },
+    {
+      "fall": "Skript-Heredoc, das selbst schreibt (`python3 - <<'PY'` mit `p.write_text(...)`) — hier gibt es keine Umleitung zu finden",
+      "probe": "python_heredoc_writing_a_repo_file"
+    },
+    {
+      "fall": "`python3 -c` mit schreibendem `open(..., 'w')` auf eine Repo-Datei",
+      "probe": "python_dash_c_writing_a_repo_file"
+    },
+    {
+      "fall": "Inline-Text an `gh … --body \"…\"` mit „…\" (ASCII-Schluss) — Realfall 2026-09-24, Kommentar abgeschnitten",
+      "probe": "inline_body_with_ascii_closing_quote"
+    },
+    {
+      "fall": "`git commit -m \"…\"` mit „…\" (ASCII-Schluss) — Realfall 2026-09-24, Commit gescheitert",
+      "probe": "commit_message_with_ascii_closing_quote"
+    }
+  ],
+  "positivkontrolle": {
+    "datum": "2026-10-14",
+    "ref": "Realfall Retro 161b19 Befund 1 (platform#3936), 2026-10-13 11:01 UTC, cwd /home/devuser/github/chat-hub: `cd /home/devuser/github/chat-hub-184 && python3 - <<'EOF'` … `p = Path(\"deploy/raum-sessions/briefing/brief.md\")` … `p.write_text(t, encoding=\"utf-8\")` … `EOF`. Gegen die neue Fassung durch `main()` mit echtem Hook-Payload: Exit 2, stderr `⛔ Repo-Dateien nur per Edit/Write: … /home/devuser/github/chat-hub-184/deploy/raum-sessions/briefing/brief.md …` (test_should_block_befund1_cd_worktree_python_heredoc); aus dem Scratchpad als cwd ebenso rot (test_should_resolve_target_of_last_cd_over_cwd) — die alte Fassung haette dort geschwiegen. Durchlaufen muessen die Negativfaelle des Auftrags: /tmp, Scratchpad, ~/.claude, git-Befehle (checkout, log, show in den Scratchpad, commit-Heredoc mit `>` im Text), `gh … --body-file`, Lesen (test_should_stay_silent_on_*). — Ausweitung 2026-09-24: vier weitere Formen muessen DURCHLAUFEN — korrekt geschlossenes „…“, `--body-file`, „…\" im Heredoc-Koerper von `git commit -F -`, Inline-Text ohne deutsche Anfuehrungszeichen (test_should_stay_silent_on_*). Replay gegen 150 echte Bash-Befehle der Sitzung 02b7f5: 2 Treffer = die 2 Realfaelle, 0 Fehlalarme. Stand 2026-09-23: tools/claude-hooks/tests/test_block_repo_write_via_shell.py — acht Befehle muessen ausdruecklich DURCHLAUFEN: `git commit -F - <<'MSG'` (Heredoc an die Standardeingabe, vier davon liefen allein am 2026-09-23), Schreiben in den Scratchpad, Schreiben ausserhalb der Repo-Wurzeln, Pfad mit Variable (`> \"$S/x.json\"`, fail-open), Deskriptor-Umleitungen (`2>&1`, `>&2`), `/dev/null`, ein `>` innerhalb von Anfuehrungszeichen (PR-Text), und eine LESENDE Umleitung (`< datei`). Dazu zwei Laeufe durch `main()` mit echtem Hook-Payload: der Realfall feuert in advisory mit Exit 0 und Warnzeile, derselbe Befehl blockt mit Exit 2, sobald die Modus-Datei auf blocking steht."
+  },
+  "kalibrierfenster_aufgegeben": {
+    "datum": "2026-10-07",
+    "ref": "Retro 767d40 (platform#3839, Streichbahn/R8), Owner-Wort 'R8 streichen' 2026-10-07",
+    "grund": "Liegezeit: gate_wirkung meldete '0/10 beurteilbar seit 2026-09-23, Frist 2026-10-21 — sammelt noch', 14 Tage ohne eine beurteilbare Zeile; in Sitzung 767d40 0 Treffer bei 1203 Bash-Aufrufen. Die eigene Wiedervorlage-Regel unten verlangt genau das: weniger als 10 Zeilen -> Fenster aufgeben statt verlaengern. Das Gate bleibt als Melder (advisory) bestehen; `revised` bleibt unveraendert, die Erkennung ist nicht geaendert. Scharfschalten nur per eigenem PR mit neuer Messgrundlage.",
+    "klasse": "kinds=repo-write-via-shell",
+    "seit": "2026-09-23",
+    "bis": "2026-10-21",
+    "min_beurteilbar": 10,
+    "scharf_per": "Datei ~/.claude/hooks/state/repo_write_hook_mode mit Inhalt 'blocking'",
+    "note": "Startet bewusst als advisory (Warnzeile, kein Block) und bewusst mit umgekehrter Default-Richtung zum Evidenz-Scanner: fehlende Modus-Datei heisst hier advisory. Grund: die Fehlalarm-Grenzen des Hooks sind Hypothesen, bis gate_hits sie gemessen hat — insbesondere die Annahme, dass die acht Positivkontroll-Formen die legitimen Faelle vollstaendig abdecken. Wiedervorlage 2026-10-21: Fehlalarm-Quote unter einem Drittel und mindestens 10 beurteilbare Zeilen -> blocking; weniger als 10 Zeilen -> das ist selbst der Befund, dann gehoert das Fenster aufgegeben statt verlaengert (Vorbild: das Kalibrierfenster von claim-before-cheapest-check, das im ersten Anlauf mit 1 Zeile in 3 Tagen ins Leere lief)."
+  },
+  "kalibrierfenster_abgeschlossen": {
+    "klasse": "Replay Shell-Schreibziel im Repo",
+    "seit": "2026-09-23",
+    "bis": "2026-10-14",
+    "min_beurteilbar": 10,
+    "scharf_per": "Default im Code (fehlende Modus-Datei = blocking); Rueckweg: Datei ~/.claude/hooks/state/repo_write_hook_mode mit Inhalt 'advisory'",
+    "note": "Ersetzt das aufgegebene Fenster: statt auf gate_hits eines unverdrahteten Hooks zu warten, lief die Erkennung ueber alle Bash-Befehle der Claude-Transkripte seit dem Bautag (~/.claude/projects/*/*.jsonl, mtime <= 21 Tage, Stand 2026-10-14). Ergebnis der Endfassung: 37 078 Befehle, 389 Schreibziel-Treffer, 79 Inline-Text-Treffer. Die erste Replay-Fassung hatte 533 Schreibziel-Treffer; die Differenz waren Fehlalarme mit vier benannten Ursachen, alle behoben und je mit Test. Stichprobe 40 aus den verbleibenden Schreibziel-Treffern, von Hand beurteilt: 0 Fehlalarme, 37 echte Schreibvorgaenge per Shell in Repo-Dateien (ueberwiegend `cd <worktree> && python3 - <<'EOF'` mit `p.write_text(...)`), 3 Grenzfaelle = Mutationsproben (`sed -i` bzw. `git show HEAD:x > x` auf eine Repo-Datei, danach Rueckkopie) — nach dem Wortlaut der Hausregel ebenfalls Treffer. Beim Inline-Text-Fall zeigte eine Stichprobe von 12 mehrere Fehlalarme (Text in einfachen Anfuehrungszeichen, `\\\"`-Escape); er bleibt deshalb advisory. GRENZE: das Replay prueft die Erkennung, nicht die Verdrahtung — der erste Exit 2 im Zielkontext steht nach dem Owner-Zug noch aus (zustand_note)."
+  },
+  "note": "Fuenftes Vorkommen des Slugs, davon drei am 2026-09-21 und vier am 2026-09-23 — eines beim Schreiben des Retro-Berichts selbst, eines beim Korrigieren seiner Massnahmen-Zeile per `sed -i`. Der declined-Eintrag vom 2026-09-21 ('R6 weich') hatte fuer genau diesen Fall die Bedingung gesetzt: 'beim naechsten Vorkommen ist die Vorlage ein Gate, nicht mehr eine weiche Regel'. Sie ist eingetreten.\n\nEINE ABWEICHUNG vom dort skizzierten Zuschnitt, bewusst und hier benannt: der declined-Eintrag nannte als Ausloeser `python3 - <<` / `cat <<EOF >` — also das HEREDOC. Der Hook loest stattdessen am SCHREIBZIEL aus. Grund, gemessen an einem einzigen Arbeitstag: vier `git commit -F - <<'MSG'` waeren unter der Heredoc-Regel blockiert worden, obwohl ein Heredoc an die Standardeingabe keine Datei schreibt und nie die Fehlerklasse erzeugt hat, um die es geht (stiller Patch-Kipper durch ein Anfuehrungszeichen oder einen verschobenen Anker). Ein Gate, das viermal taeglich falsch feuert, wird abgeschaltet — die Fehlalarm-Sorge aus dem urspruenglichen Ablehnungsgrund von 2026-09-16 war berechtigt, sie traf nur den falschen Ausloeser.\n\nNACHGESCHAERFT NOCH AM BAUTAG, und zwar am eigenen Fehler: zwanzig Minuten nach dem ersten Entwurf wurde dieser Registry-Eintrag selbst per `python3 - <<'PY'` mit `p.write_text(...)` geschrieben — ein Schreibvorgang OHNE jede Umleitung, den die erste Fassung des Hooks nicht sah. Das war woertlich die Grenze, die unten als (3) notiert war. Neu erkannt wird deshalb auch der Skript-Heredoc: ein Interpreter (python/perl/ruby/node), der seine Quelle per Heredoc oder `-c` bekommt UND darin schreibend zugreift UND einen Repo-Pfad im Text nennt. `git commit -F - <<'MSG'` bleibt ausdruecklich frei, weil git kein Interpreter ist — an dieser Abgrenzung haengt der ganze Zuschnitt, sie hat einen eigenen Test.\n\nNICHT gefangen, deshalb hier benannt statt im Gate behauptet: (1) Pfade mit Variablen oder Kommando-Substitution — zur Pruefzeit unbekannt, fail-open; (2) bei `sed -i` gilt das letzte Token als Ziel, mehrere Dateien in einem Aufruf werden nur teilweise erkannt; (3) ein Schreibvorgang aus einer aufgerufenen Skript-DATEI heraus (`python3 mein_skript.py`) bleibt unsichtbar — der Hook liest den Befehlstext, nicht den Inhalt fremder Dateien.",
+  "vorher_declined": "docs/governance/gates/declined/inline-heredoc-quoting-rework.json (2026-09-16 'r5 verwerfen', 2026-09-21 'R6 weich', 2026-10-08 'M6 streichen' — bis 2026-10-14 unter diesem Pfad)"
+}
