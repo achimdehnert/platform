@@ -120,6 +120,56 @@ def test_should_only_allow_declared_profiles_as_zuordnung_targets():
     assert ziele <= set(PROFILE["profile"])
 
 
+# ── Engine-Profil (Ledger L1, #3903) ────────────────────────────────────────────
+
+
+def test_should_declare_engine_profile_known_to_rule_engine_for_every_profile():
+    """Jedes Registry-Profil nennt ein Engine-Profil aus review_regeln.PROFILE oder null —
+    sonst laeuft die Engine mit einem Profil, das keine Regel kennt (Realfall platform
+    `plattform` → Workflow musste `deployed` raten)."""
+    import review_regeln as rr
+
+    for name, p in PROFILE["profile"].items():
+        assert "engine_profil" in p, name
+        assert p["engine_profil"] is None or p["engine_profil"] in rr.PROFILE, name
+
+
+@pytest.mark.parametrize(
+    ("name", "eintrag", "erwartet"),
+    [
+        ("demo-prod", _eintrag(deployed=True), "deployed"),
+        ("demo-plattform", _eintrag(), "deployed"),
+        ("demo-lib", _eintrag(), "library"),
+        ("demo-business", _eintrag(), "default"),
+        ("demo-archiv", _eintrag(archived=True), None),
+    ],
+)
+def test_should_map_registry_profile_to_engine_profile(name, eintrag, erwartet):
+    canon = _canon(**{name: eintrag})
+    assert reg.review_engine_profil(name, canon, PROFILE) == erwartet
+
+
+def test_should_return_none_engine_profile_for_unknown_repo():
+    assert reg.review_engine_profil("gibt-es-nicht", _canon(), PROFILE) is None
+
+
+def test_should_print_engine_profile_of_platform_via_cli():
+    """review-check.yml ruft genau diese Zeile; platform ist Pilot (O2) und traegt `plattform`."""
+    r = subprocess.run(
+        [sys.executable, str(ROOT / "tools" / "registry_api.py"), "engine-profil", "platform"],
+        capture_output=True,
+        text=True,
+    )
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.strip() == "deployed"
+    r = subprocess.run(
+        [sys.executable, str(ROOT / "tools" / "registry_api.py"), "engine-profil", "gibt-es-nicht"],
+        capture_output=True,
+        text=True,
+    )
+    assert r.returncode == 3
+
+
 # ── Views ───────────────────────────────────────────────────────────────────────
 
 
