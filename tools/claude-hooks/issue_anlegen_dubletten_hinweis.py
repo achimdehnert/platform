@@ -15,8 +15,10 @@ Event-Muster schon 13:04Z benannt. Zwei Issues zu einem Lauf loest niemand auf.
 
 Der Hook wiederholt im Moment des Anlegens die Suche, die vorher fehlte:
 
-  1. exakte Marker aus Titel/Text (Run-IDs mit >= 9 Ziffern, `#123`, `owner/repo#123`),
-  2. sonst die laengsten Woerter des Titels als UND-Suche
+  1. exakte Marker aus Titel/Text (Run-IDs mit >= 9 Ziffern, `#123`, `owner/repo#123`,
+     Versions-Tags wie `v1.1.27`), jeder einzeln in Anfuehrungszeichen,
+  2. IMMER zusaetzlich die laengsten Woerter des Titels als UND-Suche — im Realfall teilten
+     #112 und #113 keine Run-ID, nur `startup_failure` und `v1.1.27` (gemessen 2026-10-14)
 
 per `gh issue list -R <repo> --state all --search …`. Treffer werden gezeigt, mehr nicht:
 die Entscheidung Kommentar-statt-Issue bleibt beim Agenten. Enthaelt dasselbe Kommando
@@ -53,6 +55,8 @@ _ISSUE_CREATE = re.compile(r"(?:^|[;&|\n]|&&)\s*gh\s+issue\s+create\b")
 _SUCHE_IM_KOMMANDO = re.compile(r"\bgh\s+(?:issue\s+list|search\s+issues)\b")
 _RUN_ID = re.compile(r"(?<!\d)\d{%d,}(?!\d)" % MIN_ID_ZIFFERN)
 _ISSUE_REF = re.compile(r"(?<![\w/])(?:[\w.-]+/[\w.-]+)?#(\d{1,6})\b")
+#: Versions-Tags (`v1.1.27`, `@v1.1.27`) — bei Reusable-Workflow-Repos der schaerfste Marker.
+_VERSION = re.compile(r"(?<![\w.])v\d+\.\d+(?:\.\d+)*(?![\w.])")
 _WORT = re.compile(r"[A-Za-zÄÖÜäöüß][\w-]{%d,}" % (MIN_WORTLAENGE - 1))
 _REMOTE = re.compile(r"github\.com[:/]([\w.-]+/[\w.-]+?)(?:\.git)?/?$")
 #: Woerter, die in fast jedem Issue-Titel stehen und darum nichts eingrenzen.
@@ -141,20 +145,34 @@ def default_repo(cwd: str) -> str | None:
     return m.group(1) if m else None
 
 
+def ist_marker(begriff: str) -> bool:
+    """Run-ID, #Nummer oder Versions-Tag — wird einzeln und exakt gesucht."""
+    return (
+        begriff.startswith("#")
+        or begriff.isdigit()
+        or _VERSION.fullmatch(begriff) is not None
+    )
+
+
 def suchbegriffe(titel: str, body: str) -> list[str]:
-    """Exakte Marker zuerst (Run-IDs, Issue-Nummern), sonst die laengsten Titelwoerter."""
+    """Exakte Marker zuerst (Run-IDs, Issue-Nummern, Versions-Tags), dann immer die
+    laengsten Titelwoerter — Marker allein verfehlten den Realfall (#112/#113 ohne
+    gemeinsame Run-ID)."""
     text = f"{titel}\n{body}"
     marker: list[str] = []
-    for m in _RUN_ID.finditer(text):
-        if m.group(0) not in marker:
-            marker.append(m.group(0))
+    for muster in (_RUN_ID, _VERSION):
+        for m in muster.finditer(text):
+            if m.group(0) not in marker:
+                marker.append(m.group(0))
     for m in _ISSUE_REF.finditer(text):
         nummer = f"#{m.group(1)}"
         if nummer not in marker:
             marker.append(nummer)
-    if marker:
-        return marker[:MAX_SUCHWOERTER]
-    woerter = [w for w in _WORT.findall(titel) if w.lower() not in STOPPWOERTER]
+    woerter = [
+        w
+        for w in _WORT.findall(titel)
+        if w.lower() not in STOPPWOERTER and not ist_marker(w)
+    ]
     woerter.sort(key=len, reverse=True)
     gewaehlt: list[str] = []
     for w in woerter:
@@ -162,17 +180,17 @@ def suchbegriffe(titel: str, body: str) -> list[str]:
             gewaehlt.append(w)
         if len(gewaehlt) == MAX_SUCHWOERTER:
             break
-    return gewaehlt
+    return marker[:MAX_SUCHWOERTER] + gewaehlt
 
 
 def issues_suchen(repo: str, begriffe: list[str]) -> list[dict[str, Any]]:
-    """`gh issue list --search` — Marker einzeln (ODER), Woerter gemeinsam (UND)."""
+    """`gh issue list --search` — Marker einzeln und exakt (ODER), Woerter gemeinsam (UND)."""
     if not begriffe:
         return []
-    exakt = all(b.startswith("#") or b.isdigit() for b in begriffe)
-    anfragen = (
-        [f'"{b.lstrip("#")}"' for b in begriffe] if exakt else [" ".join(begriffe)]
-    )
+    anfragen = [f'"{b.lstrip("#")}"' for b in begriffe if ist_marker(b)]
+    woerter = [b for b in begriffe if not ist_marker(b)]
+    if woerter:
+        anfragen.append(" ".join(woerter))
     treffer: dict[int, dict[str, Any]] = {}
     for anfrage in anfragen:
         res = subprocess.run(
