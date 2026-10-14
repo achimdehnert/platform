@@ -39,6 +39,16 @@ def _feld(kopf: str, name: str) -> str:
     return treffer.group(0)
 
 
+#: Ab dieser Version kodiert die Standardbibliothek die lange msg-id nicht mehr
+#: (gemessen in der CI von platform#3329, 2026-10-14). Darunter bleibt der
+#: Fehler, und die Positivkontrolle muss ihn sehen.
+STDLIB_OHNE_FEHLER = (3, 15)
+
+
+@pytest.mark.skipif(
+    sys.version_info >= STDLIB_OHNE_FEHLER,
+    reason="Standardbibliothek kodiert die lange msg-id hier nicht mehr — keine Fehlerquelle",
+)
 def test_should_detect_encoded_word_with_plain_emailmessage():
     # Positivkontrolle: ohne die Richtlinie tritt der Fehler auf — der Test
     # unten kann ihn also sehen.
