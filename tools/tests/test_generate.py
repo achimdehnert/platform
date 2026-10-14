@@ -453,6 +453,82 @@ def test_should_distribute_rule_json_next_to_its_hook(tmp_path):
     assert (out / "regeln.json").is_file()
 
 
+def test_should_ship_rule_json_unchanged_without_footer(tmp_path):
+    """Realfall platform#4010: der Footer machte die Regeldatei unlesbar, der Hook ließ alles durch."""
+    repo = _make_repo(tmp_path / "repo")
+    quelle = '{"regeln": [{"ressource": "x"}]}\n'
+    (repo / "tools" / "claude-hooks" / "regeln.json").write_text(quelle)
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "regeln")
+    out = tmp_path / "out"
+    r = _run(
+        [
+            "--platform",
+            str(repo),
+            "--ref",
+            "HEAD",
+            "--kind",
+            "claude-hooks",
+            "--target",
+            str(out),
+        ]
+    )
+    assert r.returncode == 0, r.stderr
+    verteilt = (out / "regeln.json").read_text()
+    assert verteilt == quelle
+    json.loads(verteilt)
+    assert not os.stat(out / "regeln.json").st_mode & 0o111, "Daten sind kein Hook"
+    eintrag = json.loads((out / ".cc-skill-dist-manifest.json").read_text())["files"]
+    assert "regeln.json" in [e["name"] for e in eintrag], "Herkunft bleibt im Manifest"
+
+
+def test_should_keep_every_real_hook_file_readable_in_its_format(tmp_path):
+    """Invariante über den echten Bestand: jede Datei aus tools/claude-hooks/ ist nach
+    dem Verteilen in ihrem Format lesbar — so, wie der Hook sie liest, mit Footer."""
+    doc_spec = importlib.util.spec_from_file_location(
+        "doctor", _SRC.with_name("doctor.py")
+    )
+    doc = importlib.util.module_from_spec(doc_spec)
+    doc_spec.loader.exec_module(doc)
+    echt = _SRC.parents[1] / "claude-hooks"
+    repo = tmp_path / "repo"
+    ziel = repo / "tools" / "claude-hooks"
+    ziel.mkdir(parents=True)
+    namen = sorted(
+        p.name
+        for p in echt.iterdir()
+        if p.is_file() and p.suffix in gen.LANES["claude-hooks"]["suffixes"]
+    )
+    assert any(n.endswith(".json") for n in namen), (
+        "der Realfall muss im Bestand liegen"
+    )
+    for name in namen:
+        (ziel / name).write_bytes((echt / name).read_bytes())
+    _git(repo, "init", "-b", "main")
+    _git(repo, "config", "user.email", "t@t.t")
+    _git(repo, "config", "user.name", "t")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "bestand")
+    _git(repo, "remote", "add", "origin", str(repo))
+    _git(repo, "fetch", "origin", "main", "-q")
+    out = tmp_path / "out"
+    r = _run(
+        [
+            "--platform",
+            str(repo),
+            "--ref",
+            "HEAD",
+            "--kind",
+            "claude-hooks",
+            "--target",
+            str(out),
+        ]
+    )
+    assert r.returncode == 0, r.stderr
+    kaputt = {n: doc.format_befund(n, (out / n).read_text()) for n in namen}
+    assert {n: g for n, g in kaputt.items() if g} == {}
+
+
 def test_should_distribute_py_and_sh_but_not_other_suffixes(tmp_path):
     repo = _make_repo(tmp_path / "repo")
     out = tmp_path / "out"

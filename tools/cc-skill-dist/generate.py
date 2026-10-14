@@ -101,6 +101,12 @@ LANES = {
 #: `pruefe_swap_ziel`, das aus dessen Anwesenheit auf ein Swap-Lane-Ziel schliesst.
 MERGE_MANIFEST = ".cc-skill-dist-manifest.json"
 
+#: Datenformate ohne Kommentarsyntax: sie reisen unverändert, ohne Footer und ohne
+#: Ausführungsrecht. Ein angehängtes `# MANAGED-BY …` machte die verteilte
+#: `ressourcen_schreibziele.json` unlesbar, und der Hook ließ alles durch
+#: (platform#4010). Die Herkunft steht weiter im Merge-Manifest.
+OHNE_FOOTER = (".json",)
+
 
 def lane_mode(kind):
     return LANES[kind].get("mode", "swap")
@@ -383,7 +389,10 @@ def main():
             f"{MARK} · generated=true · source={path} · "
             f"source_commit={commit[:12]} · content_hash=sha256:{chash[:16]} · do_not_edit"
         )
-        if args.kind in ("hooks", "claude-hooks"):
+        daten = name.endswith(OHNE_FOOTER)
+        if daten:
+            content = src
+        elif args.kind in ("hooks", "claude-hooks"):
             # Skript-Lane: Footer als #-Kommentar. Gilt fuer .sh UND .py — ein
             # HTML-Kommentar waere in beiden ein Syntaxfehler.
             content = src.rstrip("\n") + f"\n\n# {meta}\n"
@@ -395,7 +404,7 @@ def main():
         else:  # commands + hooks: flach
             out = os.path.join(staging, name)
         open(out, "w", encoding="utf-8").write(content)
-        if args.kind in ("hooks", "claude-hooks"):
+        if args.kind in ("hooks", "claude-hooks") and not daten:
             os.chmod(
                 out, 0o755
             )  # Hooks müssen ausführbar sein (REC-6: 0755, kein world-write)

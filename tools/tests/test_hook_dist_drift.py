@@ -57,6 +57,21 @@ class TestBefund:
             "Drift muss einen Fehl-Exit tragen, sonst uebersieht ihn jeder Aufrufer"
         )
 
+    def test_should_report_a_footer_in_json_as_drift(self, tmp_path):
+        """Realfall platform#4010: in JSON ist der Footer der Defekt. Bliebe er hier
+        ausgeblendet, saehe der Melder synchron und die Heilung spraenge nie an."""
+        footer = "\n# MANAGED-BY: platform/tools/cc-skill-dist · do_not_edit\n"
+        rc, aus, _ = _lauf(
+            tmp_path,
+            "--quiet",
+            quelle={"regeln.json": "{}\n", "a.py": "x\n"},
+            aktiv={"regeln.json": "{}\n" + footer, "a.py": "x\n" + footer},
+        )
+        assert "RESULT: DRIFT" in aus
+        assert "regeln.json" in aus
+        assert "a.py" not in aus, "der Footer in .py bleibt ausgeblendet"
+        assert rc == 1
+
     def test_should_name_every_drifted_file_not_just_count_them(self, tmp_path):
         """Eine Zahl allein faellt niemandem auf, wenn sie waechst (Lehre 0.7.1)."""
         _, aus, _ = _lauf(
