@@ -27,7 +27,7 @@ mode: write
 
 ## Phase 0 — Right-Sizing (Footprint **und** erwartete Befund-Dichte)
 
-### 0.0 Wirkungsbilanz lesen — ERSTER Schritt, vor allem anderen (PFLICHT — NEU 2026-09-02, platform#2690 K4)
+### 0.0 Wirkungsbilanz lesen — ERSTER Schritt (PFLICHT — NEU 2026-09-02, platform#2690 K4)
 
 ```bash
 python3 tools/gate_wirkung.py
@@ -37,19 +37,14 @@ python3 tools/gate_wirkung.py
 je Gate: `Gate | Rückfälle seit Bau | Ursache (Ausgang/Quelle) | Konsequenz`.
 
 - **Ursache am Ausgang** (Gate feuert, niemand handelt danach) ⇒ **Modus herabstufen** oder
-  **Sunset** (`declined` mit Grund) — ein Melder ohne Wirkung wird nicht lauter gemacht.
+  **Sunset** (`declined` mit Grund).
 - **Ursache an der Quelle** (Gate sieht den Fall nicht) ⇒ **nachschärfen** oder **Drill
   ergänzen**, wenn der namensgebende Fall ungedrillt ist (`gate_namensdeckung.py`).
 
 Nur diese vier Konsequenzen; „im Report erwähnt" ist keine. Hier wird **entschieden**, in
-Phase 4 (5a) umgesetzt; ein verbuchter Rückfall wird nicht ein zweites Mal als neuer Befund
-aufgemacht. **Ehrlichkeits-Sperre:** `zu-frueh`/`unerprobt` heißt ungeprüft, nicht wirksam —
-kein berichtbarer Erfolg. → LEHREN § Phase 0.0
-
-**Schon entschieden ⇒ Verweis statt Tabelle (NEU 2026-10-14, Owner „R4 go“, Retro 161b19):** Hat
-eine Retro **desselben Tages** über das Gate schon entschieden und hat diese Sitzung **keinen eigenen
-Fall** davon, genügt ein Satz mit Link auf deren §0.0. Eine eigene Zeile braucht es nur bei einem
-eigenen Fall — die Kopie ist eine Dublette, keine Entscheidung.
+Phase 4 (5a) umgesetzt; ein verbuchter Rückfall wird nicht neu aufgemacht. **Schon entschieden**
+(Retro desselben Tages, kein eigener Fall) ⇒ Link auf deren §0.0. **Ehrlichkeits-Sperre:**
+`zu-frueh`/`unerprobt` heißt ungeprüft, nicht wirksam — kein berichtbarer Erfolg. → LEHREN § Phase 0.0
 
 ### 0.1 Footprint + Befund-Dichte
 Footprint messen (PRs / Repos / Prod-Schritte / Migrationen / ADRs) **und** Befund-Dichte

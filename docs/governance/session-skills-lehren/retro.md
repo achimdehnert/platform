@@ -27,7 +27,17 @@
 
 Die vier zulässigen Konsequenzen (nachschärfen · Drill ergänzen · Modus herabstufen ·
 Sunset) und die Ehrlichkeits-Sperre stehen weiterhin im Skill — sie sind Anweisung,
-nicht Begründung.
+nicht Begründung. Warum die Ursache am Ausgang nie zu „schärfer melden" führt: ein Melder
+ohne Wirkung wird nicht lauter gemacht — er wird herabgestuft oder beendet.
+
+**2026-10-14 — schon entschieden ⇒ Verweis statt Tabelle (Owner „R4 go", Retro 161b19).**
+Die Retro 161b19 übernahm die §0.0-Tabelle der Retro 4ce56a vom selben Tag Zeile für Zeile,
+obwohl die Sitzung zu keinem der Gates einen eigenen Fall hatte. Die Kopie entschied nichts
+neu und hätte bei abweichendem Wortlaut zwei Stände derselben Entscheidung erzeugt. Regel:
+Hat eine Retro desselben Tages über das Gate entschieden und hat diese Sitzung keinen eigenen
+Fall davon, genügt ein Satz mit Link auf deren §0.0. Eine eigene Zeile braucht es nur bei
+einem eigenen Fall. `retro_report_check.py` verlangt keine §0.0-Tabelle, der Verweis ist
+damit prüfkonform.
 
 ## Phase 0.1 — 2026-07-31: Skeptiker-Auswahl, Realfall `6bd412`
 
