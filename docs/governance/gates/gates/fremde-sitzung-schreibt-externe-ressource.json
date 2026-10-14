@@ -1,0 +1,46 @@
+{
+  "slug": "fremde-sitzung-schreibt-externe-ressource",
+  "mode": "blocking",
+  "module": "tools/claude-hooks/block_fremde_ressource.py",
+  "drill": "tools/claude-hooks/tests/test_block_fremde_ressource.py",
+  "built": "2026-10-14",
+  "last_drill_pass": "2026-10-14",
+  "owner": "achim",
+  "zustand": "schranke",
+  "covers": [
+    "parallele-sitzung-gleiche-externe-ressource",
+    "board-anhaengen-ohne-lesen-bei-geteiltem-board"
+  ],
+  "faengt": [
+    {
+      "fall": "zweite Sitzung haengt per `cat >>` an das Board der ersten an (Realfall 2026-10-14, Board-Eintrag der Parallelsitzung)",
+      "probe": "realfall_board_append_from_second_session"
+    },
+    {
+      "fall": "zweite Sitzung startet ein Buchungsskript, sevdesk steht nur im Skript-Inhalt",
+      "probe": "second_session_running_sevdesk_script"
+    },
+    {
+      "fall": "alle sevdesk-Aufrufformen: Werkzeug, -m Modul, python -c Import, SEVDESK_MANDANT=, curl auf die API",
+      "probe": "each_sevdesk_command_form"
+    },
+    {
+      "fall": "Write, sed -i und tee -a auf ein fremdes Board",
+      "probe": "write_and_sed_inplace_on_foreign_board"
+    },
+    {
+      "fall": "Umgehung per --erzwingen, rm oder Umleitung auf die Lease-Dateien",
+      "probe": "bypass_via_force_and_lease_files"
+    },
+    {
+      "fall": "gleichzeitiger Zugriff von acht Sitzungen auf eine freie Ressource: genau ein Inhaber",
+      "probe": "grant_a_free_lease_to_exactly_one_of_racing_sessions"
+    }
+  ],
+  "positivkontrolle": {
+    "datum": "2026-10-14",
+    "ref": "Replay aller Bash/Write/Edit-Aufrufe beider Sitzungen vom 2026-10-14 in Zeitfolge durch den Hook (beide lebend wie real): 905 Aufrufe, 34 Treffer der ersten Sitzung durchgelassen (Inhaber), 5 Treffer der zweiten auf ihre eigenen Boards durchgelassen, 45 Aufrufe der zweiten Sitzung gesperrt, davon 44 sevdesk ab 12:59 und der Board-Eintrag um 13:38, der den zweiten Zahlweg ankuendigte. Alle 45 Sperren beruehren sevdesk-Werkzeuge oder das fremde Board (0 Fehlalarme; drei davon sind `--help`-Aufrufe eines sevdesk-Werkzeugs, bewusst streng). Mutationsproben: flock entfernt -> 1 von 26 Drill-Tests rot (Wettlauf, mit Test-Naht RESSOURCEN_LEASE_TESTPAUSE; ohne Naht blieb er gruen, darum die Naht); Lebend-Pruefung des Inhabers entfernt -> 6 von 26 rot. Drill: je Durchlass-Kriterium ein Test (Lesen, grep, git add, make test, Umleitung nach /tmp, status-CLI, Skript ohne Marker, eigenes Board)."
+  },
+  "note": "Owner 2026-10-14: die Trennung paralleler Sitzungen war mehrfach beauftragt (platform#1944, #3549), gebaut nur fuer Git-Worktrees. Zwei Sitzungen bearbeiteten denselben Buchhaltungs-Mandanten und dasselbe Board, ein Owner-Kurzwort landete in der falschen Sitzung. Lease je externem Schreibziel (Regeldatei tools/claude-hooks/ressourcen_schreibziele.json), Inhaber = claude_session, gueltig solange deren Prozess lebt, flock gegen Wettlauf. GRENZEN im Header: bash-Skripte, make-Ziele, Importketten ohne Marker, Postfach und Ablage noch nicht in der Regeldatei. Verdrahtung in ~/.claude/settings.json ist Owner-Recht (Charta Art. 3).",
+  "ref": "platform Session 2026-10-14 (766e8c)"
+}

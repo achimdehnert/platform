@@ -89,7 +89,9 @@ LANES = {
         "src": "tools/claude-hooks/",
         "live": "~/.claude/hooks",
         "mode": "merge",
-        "suffixes": (".py", ".sh"),
+        # `.json` = Regeldateien neben ihrem Hook (z.B. ressourcen_schreibziele.json):
+        # ohne sie liefe der Hook im aktiven Pfad ohne Regeln (platform#3549-Folge).
+        "suffixes": (".py", ".sh", ".json"),
         "top_level_only": True,  # tests/ und __pycache__/ gehören nie in den aktiven Pfad
     },
 }
