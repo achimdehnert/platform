@@ -436,8 +436,10 @@ def ruecknahme(pfad: Path, lauf_id: str) -> list[dict]:
                 # als auch die Graph-messageId werden vom Umzug selbst
                 # entwertet (gemessen 2026-08-19: ID vorher …AAvAxr8eAAA=,
                 # danach …AAwtgyJyAAA=). Wer eine Nachricht zurückholen will,
-                # muss sie am Zielort neu auflösen — über Betreff und Datum.
+                # muss sie am Zielort neu auflösen — über die Message-ID, wo
+                # protokolliert (ablage_lauf.py), sonst über Betreff und Datum.
                 "id": e.get("id"),
+                "message_id": e.get("message_id", ""),
                 "konto": e.get("konto"),
                 "betreff": e.get("betreff", ""),
                 "datum": e.get("datum", ""),
