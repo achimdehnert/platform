@@ -66,6 +66,15 @@ _ohne_footer() {
   grep -v 'MANAGED-BY' "$1" | sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}'
 }
 
+_gleich() {
+  # .json roh vergleichen (platform#4010), alles andere ohne Footer.
+  if [[ "$1" == *.json ]]; then
+    cmp -s "$1" "$2"
+  else
+    diff -q <(_ohne_footer "$1") <(_ohne_footer "$2") >/dev/null 2>&1
+  fi
+}
+
 [[ -d "$SRC_DIR" ]] || { echo "FEHLER: $SRC_DIR nicht gefunden" >&2; exit 2; }
 
 # Vergleichsbasis benennen — und melden, wenn sie selbst veraltet ist.
@@ -132,7 +141,11 @@ for f in "${SRC_FILES[@]}"; do
   # dauerhaft als Drift — zwei Mechanismen, die sich gegenseitig widerlegen, und
   # ein dauerhaft roter Melder meldet nichts mehr (#1508).
   # Der Footer ist generiert und traegt keine Semantik; alles andere zaehlt.
-  if diff -q <(_ohne_footer "$src") <(_ohne_footer "$dst") >/dev/null 2>&1; then
+  # Ausnahme .json: dort IST ein Footer der Defekt (kein Kommentar in JSON, die
+  # Regeldatei wird unlesbar, platform#4010). Der Generator schreibt JSON darum
+  # ohne Footer, und hier zaehlt der rohe Vergleich — sonst saehe dieser Melder
+  # den kaputten Stand als synchron und die Session-Start-Heilung spraenge nie an.
+  if _gleich "$src" "$dst"; then
     SYNCED=$((SYNCED + 1))
     [[ $QUIET -eq 1 ]] || printf '%-40s %s\n' "$f" "✅ synchron"
     continue

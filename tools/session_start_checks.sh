@@ -978,6 +978,8 @@ case "$HOOKDRIFT_OUT" in
       "RESULT: OK"*) record "0.7.5 hook-dist" "PASS" "Drift selbst geheilt — ${NACHHER#RESULT: OK — } (vorher: ${HOOKDRIFT_OUT#RESULT: DRIFT — })" ;;
       # Heilung versucht und NICHT gelungen ist der interessantere Fall: dann ist
       # die Annahme falsch, dass die Lane diesen Pfad bespielt. Das gehoert gesagt.
+      # Oder der Generator meldet TEILWEISE: eine Datei waere unlesbar und blieb auf
+      # dem letzten Stand, der Rest ist verteilt (platform#4010).
       *)             record "0.7.5 hook-dist" "WARN" "Drift NICHT heilbar — ${HOOKDRIFT_OUT#RESULT: DRIFT — } · Verteil-Versuch: ${HEIL_OUT}" ;;
     esac
     ;;

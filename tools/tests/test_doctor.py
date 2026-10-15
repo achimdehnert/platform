@@ -684,6 +684,39 @@ def _verteile(repo, ziel):
     )
 
 
+def test_should_flag_a_rule_json_broken_by_a_footer(tmp_path):
+    """Realfall platform#4010: ohne Footer verglichen galt die Datei als frisch,
+    gelesen hat der Hook sie MIT Footer — und kein JSON mehr gefunden."""
+    repo = _make_claude_hooks_repo(tmp_path / "repo")
+    (repo / "tools" / "claude-hooks" / "regeln.json").write_text('{"a": 1}\n')
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-m", "regeln")
+    ziel = tmp_path / "hooks"
+    _verteile(repo, ziel)
+    sauber = _doctor(repo, ziel)
+    assert "DRIFT-SCORE: 0" in sauber.stdout, sauber.stdout
+    assert "regeln.json" not in sauber.stdout, "kein extra mehr"
+    with open(ziel / "regeln.json", "a", encoding="utf-8") as fh:
+        fh.write("\n# MANAGED-BY: platform/tools/cc-skill-dist · do_not_edit\n")
+    kaputt = _doctor(repo, ziel)
+    assert "[format-kaputt] regeln.json" in kaputt.stdout, kaputt.stdout
+    assert "DRIFT-SCORE: 1" in kaputt.stdout
+
+
+def test_should_flag_a_rule_json_that_is_not_utf8(tmp_path):
+    """Der Hook liest streng UTF-8; der Inhaltsvergleich verschluckt kaputte Bytes."""
+    repo = _make_claude_hooks_repo(tmp_path / "repo")
+    (repo / "tools" / "claude-hooks" / "regeln.json").write_text('{"a": 1}\n')
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-m", "regeln")
+    ziel = tmp_path / "hooks"
+    _verteile(repo, ziel)
+    (ziel / "regeln.json").write_bytes(b'{"a": 1}\n\xff')
+    r = _doctor(repo, ziel)
+    assert "[format-kaputt] regeln.json" in r.stdout, r.stdout
+    assert "kein gültiges UTF-8" in r.stdout
+
+
 def test_should_report_zero_drift_after_a_merge_lane_run(tmp_path):
     repo = _make_claude_hooks_repo(tmp_path / "repo")
     ziel = tmp_path / "hooks"

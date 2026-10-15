@@ -5,13 +5,15 @@ name: CC-Skill-Dist Round-Trip (ADR-230)
 # Fängt Tooling-Regresse (z.B. generate-Footer ≠ doctor-Vergleich) VOR dem
 # gegateten Live-Rollout. Braucht KEIN ~/.claude/commands — rein selbst-konsistent.
 # Deckt ALLE Lanes ab (commands + skills + hooks) — session-retro 2026-06-05 F-A
-# (skills war CI-blind) + 2026-06-29 F2 (hooks-Lane war CI-blind, ein Dir-Swap-Bug erreichte main).
+# (skills war CI-blind) + 2026-06-29 F2 (hooks-Lane war CI-blind, ein Dir-Swap-Bug erreichte main)
+# + platform#4010 (claude-hooks-Lane war CI-blind, ein Footer machte die Regeldatei unlesbar).
 
 on:
   push:
     paths:
       - "tools/cc-skill-dist/**"
       - "tools/hooks/**"
+      - "tools/claude-hooks/**"
       - "tools/tests/test_generate.py"
       - "tools/tests/test_doctor.py"
       - ".windsurf/workflows/**"
@@ -20,6 +22,7 @@ on:
     paths:
       - "tools/cc-skill-dist/**"
       - "tools/hooks/**"
+      - "tools/claude-hooks/**"
       - "tools/tests/test_generate.py"
       - "tools/tests/test_doctor.py"
       - ".windsurf/workflows/**"
@@ -65,6 +68,13 @@ jobs:
           python3 tools/cc-skill-dist/generate.py --kind hooks --platform "$GITHUB_WORKSPACE" --ref HEAD --target /tmp/cc-roundtrip-hooks
           printf '{"hooks":{"SessionEnd":[{"matcher":"","hooks":[{"type":"command","command":"/tmp/cc-roundtrip-hooks/reap_worktrees.sh"}]}]}}' > "$HOME/.claude/settings.json"
           python3 tools/cc-skill-dist/doctor.py --kind hooks --platform "$GITHUB_WORKSPACE" --ref HEAD --hooks-dir /tmp/cc-roundtrip-hooks
+
+      # platform#4010: die Lane, aus der die Session-Start-Heilung ~/.claude/hooks speist.
+      # Der Generator bricht bei unlesbarer Ausgabe ab, der Doctor meldet format-kaputt.
+      - name: Round-Trip claude-hooks-Lane
+        run: |
+          python3 tools/cc-skill-dist/generate.py --kind claude-hooks --platform "$GITHUB_WORKSPACE" --ref HEAD --target /tmp/cc-roundtrip-claude-hooks
+          python3 tools/cc-skill-dist/doctor.py --kind claude-hooks --platform "$GITHUB_WORKSPACE" --ref HEAD --claude-hooks-dir /tmp/cc-roundtrip-claude-hooks
 
       - name: Unit-Tests (generate + doctor, alle Lanes)
         run: |

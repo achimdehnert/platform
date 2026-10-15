@@ -27,6 +27,7 @@ wo der normale Exit-Code dauerhaft 1 ist und deshalb nichts unterscheidet.
 """
 
 import argparse
+import json
 import os
 import re
 import subprocess
@@ -109,6 +110,36 @@ def strip_managed_footer(text):
     idx_sh = text.rfind("# " + MARK)
     idx = max(idx_html, idx_sh)
     return text if idx == -1 else text[:idx]
+
+
+def format_befund(name, text):
+    """Grund, warum eine verteilte Datei in ihrem eigenen Format unlesbar ist — sonst None.
+
+    Der Inhaltsvergleich blendet den Footer aus und kann deshalb nicht sehen, ob der
+    Footer selbst die Datei zerstört hat: die verteilte `ressourcen_schreibziele.json`
+    galt als frisch und war kein JSON mehr (platform#4010). Geprüft wird die Datei so,
+    wie der Hook sie liest — mit Footer.
+    """
+    if name.endswith(".json"):
+        try:
+            json.loads(text)
+        except ValueError as exc:
+            return f"kein gültiges JSON ({exc})"[:80]
+    elif name.endswith(".py"):
+        try:
+            compile(text, name, "exec")
+        except SyntaxError as exc:
+            return f"kein gültiges Python (Zeile {exc.lineno})"
+    elif name.endswith(".sh"):
+        try:
+            lauf = subprocess.run(
+                ["bash", "-n"], input=text, capture_output=True, text=True, timeout=10
+            )
+        except subprocess.TimeoutExpired:
+            return "bash -n ohne Ergebnis nach 10 s"
+        if lauf.returncode:
+            return "bash -n schlägt fehl"
+    return None
 
 
 def enumerate_hooks(root):
@@ -319,7 +350,8 @@ def main():
     elif a.kind == "claude-hooks":
         src_path, suffix, key_of = (
             "tools/claude-hooks/",
-            (".py", ".sh"),
+            # Parität zu generate.py: Regeldateien reisen mit (platform#3549-Folge).
+            (".py", ".sh", ".json"),
             _name_basename,
         )
         target_dir, target_files, rel_guard = (
@@ -372,8 +404,9 @@ def main():
             if not DISTRIBUTE_FALSE.search(canon_content(sha) or "")
         }
 
-    sym_ok = sym_stale = sym_dangling = copy_fresh = copy_stale = extra = 0
+    sym_ok = sym_stale = sym_dangling = copy_fresh = copy_stale = extra = kaputt = 0
     issues = []
+    format_pruefen = a.kind in ("hooks", "claude-hooks")
     for name, path in sorted(target_files.items()):
         # Der Link kann auf der Datei ODER auf dem Skill-Verzeichnis sitzen (ADR-281
         # verlinkt das Verzeichnis). Beide Formen muessen dangling erkennen koennen (#1332).
@@ -409,6 +442,17 @@ def main():
         except Exception as e:
             issues.append(("unlesbar", name, str(e)[:40]))
             continue
+        grund = None
+        if format_pruefen:
+            # Streng lesen wie der Hook: `errors="ignore"` oben ließe kaputte Bytes
+            # verschwinden, und die Datei gälte als lesbar.
+            try:
+                grund = format_befund(name, open(path, encoding="utf-8").read())
+            except UnicodeDecodeError:
+                grund = "kein gültiges UTF-8"
+        if grund:
+            kaputt += 1
+            issues.append(("format-kaputt", name, grund))
         src = canon_content(canon[name]) or "\0"
         same = strip_managed_footer(disk).rstrip("\n") == src.rstrip("\n")
         if is_link:
@@ -450,6 +494,8 @@ def main():
     print(f"  Ziel {target_dir}: {len(target_files)} Einträge")
     print(f"  Symlinks ok={sym_ok}  symlink-stale={sym_stale}  dangling={sym_dangling}")
     print(f"  Kopien fresh={copy_fresh}  copy-stale={copy_stale}")
+    if format_pruefen:
+        print(f"  format-kaputt (im eigenen Format unlesbar)={kaputt}")
     print(
         f"  extra (nicht in Quelle)={extra}  fehlend (in Quelle, nicht im Ziel)={len(missing)}"
     )
@@ -473,6 +519,7 @@ def main():
         sym_stale
         + sym_dangling
         + copy_stale
+        + kaputt
         + extra
         + len(missing)
         + rel_links

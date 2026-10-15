@@ -101,6 +101,18 @@ LANES = {
 #: `pruefe_swap_ziel`, das aus dessen Anwesenheit auf ein Swap-Lane-Ziel schliesst.
 MERGE_MANIFEST = ".cc-skill-dist-manifest.json"
 
+#: Datenformate ohne Kommentarsyntax: sie reisen unverändert, ohne Footer und ohne
+#: Ausführungsrecht. Ein angehängtes `# MANAGED-BY …` machte die verteilte
+#: `ressourcen_schreibziele.json` unlesbar, und der Hook ließ alles durch
+#: (platform#4010). Die Herkunft steht weiter im Merge-Manifest.
+OHNE_FOOTER = (".json",)
+
+# Die Formatprüfung hat genau eine Quelle: der Doctor prüft damit das Ziel, der
+# Generator die Ausgabe VOR dem Schreiben. Eine Endung, die ihren Footer nicht
+# verträgt, bricht so am Generator ab statt erst im aktiven Pfad (platform#4010).
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from doctor import format_befund  # noqa: E402
+
 
 def lane_mode(kind):
     return LANES[kind].get("mode", "swap")
@@ -374,6 +386,7 @@ def main():
         "skill_count": 0,
         "files": [],
     }
+    uebersprungen = []
     for name, (bsha, path) in sorted(blobs.items()):
         src = git(["cat-file", "blob", bsha], args.platform)
         if args.kind == "commands" and DISTRIBUTE_FALSE.search(src):
@@ -383,19 +396,38 @@ def main():
             f"{MARK} · generated=true · source={path} · "
             f"source_commit={commit[:12]} · content_hash=sha256:{chash[:16]} · do_not_edit"
         )
-        if args.kind in ("hooks", "claude-hooks"):
+        daten = name.endswith(OHNE_FOOTER)
+        if daten:
+            content = src
+        elif args.kind in ("hooks", "claude-hooks"):
             # Skript-Lane: Footer als #-Kommentar. Gilt fuer .sh UND .py — ein
             # HTML-Kommentar waere in beiden ein Syntaxfehler.
             content = src.rstrip("\n") + f"\n\n# {meta}\n"
         else:
             content = src.rstrip("\n") + f"\n\n<!-- {meta} -->\n"
+        if args.kind in ("hooks", "claude-hooks"):
+            grund = format_befund(name, content)
+            if grund and lane_mode(args.kind) == "swap":
+                # Der Swap tauscht das ganze Verzeichnis: Abbruch lässt den alten
+                # Stand vollständig stehen.
+                shutil.rmtree(staging)
+                sys.exit(
+                    f"ABBRUCH: {name} wäre nach dem Verteilen unlesbar ({grund}) — "
+                    f"Ziel {target} bleibt unverändert."
+                )
+            if grund:
+                # Merge-Lane: nur diese Datei behält im Ziel ihren letzten Stand. Ein
+                # Abbruch hielte auch jeden lesbaren Schutz-Fix derselben Lane zurück
+                # (Widerlegung Retro 766e8c-incr2).
+                uebersprungen.append(f"{name} ({grund})")
+                continue
         if args.kind == "skills":  # verschachtelt: <name>/SKILL.md
             os.makedirs(os.path.join(staging, name), exist_ok=True)
             out = os.path.join(staging, name, "SKILL.md")
         else:  # commands + hooks: flach
             out = os.path.join(staging, name)
         open(out, "w", encoding="utf-8").write(content)
-        if args.kind in ("hooks", "claude-hooks"):
+        if args.kind in ("hooks", "claude-hooks") and not daten:
             os.chmod(
                 out, 0o755
             )  # Hooks müssen ausführbar sein (REC-6: 0755, kein world-write)
@@ -424,6 +456,13 @@ def main():
         print(f"  Ziel: {target}  (Modus: merge — kein Verzeichnis-Swap)")
         print(f"  geschrieben: {len(manifest['files'])} Datei(en) + {MERGE_MANIFEST}")
         print(f"  Backup ersetzter Dateien: {backup or '— (nichts ersetzt)'}")
+        if uebersprungen:
+            # Laut und als letzte Zeile: die Session-Start-Heilung zeigt nur `tail -2`.
+            sys.stdout.flush()
+            sys.exit(
+                f"TEILWEISE: {len(uebersprungen)} Datei(en) wären unlesbar und bleiben "
+                f"im Ziel auf dem letzten Stand: {'; '.join(uebersprungen)}"
+            )
         return
 
     # Atomarer Swap
