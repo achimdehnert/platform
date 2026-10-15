@@ -22,7 +22,7 @@
     },
     {
       "fall": "gh issue create ohne Run-ID oder Nummer im Text — Suche ueber die laengsten Titelwoerter, Treffer auch unter geschlossenen Issues",
-      "probe": "titelwoerter_wenn_kein_marker"
+      "probe": "mit_titelwoertern_suchen_wenn_kein_marker"
     },
     {
       "fall": "Marker steht nur in der Body-Datei (--body-file), nicht im Titel",
