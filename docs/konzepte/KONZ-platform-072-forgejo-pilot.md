@@ -307,7 +307,7 @@ Beleg fallen:
 
 | Hürde | Frage | Status | Beleg |
 |---|---|---|---|
-| H1 | Reusables über Repo-Grenzen laufen tag-gepinnt | laut Doku ja, Messung G1 offen | C12: `uses: org/repo/<pfad>@<ref>` ist erlaubt, das Ziel-Repo muss öffentlich sein. shared-ci ist öffentlich (C16) |
+| H1 | Reusables über Repo-Grenzen laufen tag-gepinnt | **fällt mit Auflage** (G1 gemessen, Owner-Wort 2026-10-15 „K1A go“): shared-ci braucht für Forgejo artifact v4 und Forge-neutrale Composite-Refs, Kostenposten Stufe 2 | C12: `uses: org/repo/<pfad>@<ref>` ist erlaubt, das Ziel-Repo muss öffentlich sein. shared-ci ist öffentlich (C16) |
 | H2 | PyPI erkennt Forgejo als Trusted Publisher an | **fällt nicht** | C13: PyPI kennt nur GitHub Actions, Google Cloud, ActiveState, GitLab CI/CD. Self-managed-Instanzen sind ausgeschlossen |
 | H3 | Merge Queue oder gleichwertige Serialisierung | **nur Ersatz** | C14: keine Merge Queue in der Oberfläche. Ersatz: „blockiert, weil veraltet“ plus Auto-Merge nach grünen Checks. Das kostet je PR einen Update-Lauf. Genutzt wird `merge_group` heute nur in platform (C17) |
 | H4 | Code-Owner-Review blockiert technisch | laut Doku ja, Testfall G2 offen | C15: Approvals lassen sich auf eine Positivliste beschränken, dazu „Block merge on official review requests“ |
@@ -321,7 +321,7 @@ endet also nicht nach G0, G1 bleibt sinnvoll.
 
 | Kriterium | Status | Beleg |
 |---|---|---|
-| K1: G1 bis 2026-11-15 nicht grün | offen: grün nur mit Kompat-Kopie, Zählung = Owner-Entscheid | [#4018](https://github.com/achimdehnert/platform/issues/4018#issuecomment-6193603822), C18–C20 |
+| K1: G1 bis 2026-11-15 nicht grün | nicht ausgelöst: G1 grün mit Kompat-Kopie, zählt laut Owner-Wort 2026-10-15 „K1A go“. Bestätigt per Push-Lauf 9/9 im Abgleich (FJ8) | [#4018](https://github.com/achimdehnert/platform/issues/4018#issuecomment-6195829170), C18–C20 |
 | K2: SHA-Abdeckung in G2 < 95 % über 14 Tage | offen | — |
 | K3: bis 2027-01-15 keine schriftliche Entscheidung → Abbruch + Rückbau | offen | — |
 | K4: zwei verpasste Wartungsfristen (Forgejo-Patch ≤ 30 Tage; Token-Rotation entfällt seit FJ8) | offen | — |
