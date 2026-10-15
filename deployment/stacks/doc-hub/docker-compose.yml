@@ -190,7 +190,7 @@ services:
         max-file: "3"
 
   dochub_gotenberg:
-    image: docker.io/gotenberg/gotenberg:8.37
+    image: docker.io/gotenberg/gotenberg:8.38
     container_name: iil_dochub_gotenberg
     networks: [dochub_internal]
     command:
