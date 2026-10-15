@@ -25,7 +25,7 @@
     {
       "name": "handover-reconciler-platform",
       "ausgang": {"issue": 1261},
-      "still_stunden": 50,
+      "still_stunden": null,
       "befund": true,
       "kopf_muster": "Handover-Reconciler",
       "ruhe_muster": "[Kk]ein Drift"
