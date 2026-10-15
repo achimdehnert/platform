@@ -869,3 +869,49 @@ def test_should_rearm_form_d_after_a_new_checkpoint(tmp_path, monkeypatch, capsy
     )
     _, antwort = _run(monkeypatch, capsys, zweite_epoche)
     assert "Fehlerform D" in _kontext(antwort)
+
+
+# --- Fehlerform D (Rev 12): Rueckblick ist keine Bitte ----------------------
+# Replay zu #3995, Fehlalarm 13:40:35Z der Sitzung 44073aac (platform#3996).
+
+_RUECKBLICK = (
+    "Die Lotsen-App darf auf news-hub weder Workflows starten noch Issues "
+    "kommentieren. Beides lief deshalb über dein Konto. Das Deployment habe ich "
+    "auf dein Wort gestartet, die Kommentare sind nur Statusnotizen."
+)
+
+
+def test_should_stay_silent_on_form_d_for_prod_word_in_retrospect(
+    tmp_path, monkeypatch, capsys
+):
+    path = _transcript(tmp_path, [_DEPLOY_WORT, _zeile_text(_RUECKBLICK)])
+    _, antwort = _run(monkeypatch, capsys, path)
+    assert "Fehlerform D" not in _kontext(antwort)
+
+
+def test_should_stay_silent_on_form_d_for_done_item(tmp_path, monkeypatch, capsys):
+    text = "- **[MZD]** ✅ Deployment auf dein Wort · news-hub · erledigt"
+    path = _transcript(tmp_path, [_DEPLOY_WORT, _zeile_text(text)])
+    _, antwort = _run(monkeypatch, capsys, path)
+    assert "Fehlerform D" not in _kontext(antwort)
+
+
+def test_should_fire_form_d_when_retrospect_and_request_share_a_line(
+    tmp_path, monkeypatch, capsys
+):
+    text = (
+        "Den Merge habe ich auf dein Wort gemacht. Für den Deploy brauche ich "
+        "noch dein Wort."
+    )
+    path = _transcript(tmp_path, [_OWNER, _zeile_text(text)])
+    _, antwort = _run(monkeypatch, capsys, path)
+    assert "Fehlerform D" in _kontext(antwort)
+
+
+def test_should_fire_form_d_for_present_tense_on_your_word(
+    tmp_path, monkeypatch, capsys
+):
+    text = "- Prod passiert nur auf dein Wort: erst das Deployment, dann das Skript."
+    path = _transcript(tmp_path, [_OWNER, _zeile_text(text)])
+    _, antwort = _run(monkeypatch, capsys, path)
+    assert "Fehlerform D" in _kontext(antwort)

@@ -21,7 +21,7 @@ als ERFUELLUNG, nicht als Ausloeser.
 
 VIER FEHLERFORMEN, GETRENNT GEMELDET
 ------------------------------------
-D ``prod-frage-ohne-checkpoint`` (Rev 9, 2026-09-25; Rev 11) — die Antwort BITTET
+D ``prod-frage-ohne-checkpoint`` (Rev 9, 2026-09-25; Rev 11, 12) — die Antwort BITTET
                         um ein Prod-Wort (Zeile mit Freigabe-Bitte UND Deploy/
                         Prod/Publish/Release/Rollout), und seit dem LETZTEN
                         Checkpoint ist keiner gefallen (Rev 9: „in der Sitzung
@@ -103,6 +103,17 @@ davor): je Epoche eine Meldung, und erst ein neuer Checkpoint schaltet D wieder
 scharf. Benannte Grenzen: ein Owner-Wort ohne vorherige Frage der Sitzung
 erzeugt keine offene Frage (dafuer bleibt C); Prosa, die ein Prod-Wort nur
 zitiert, trifft wie in Rev 9 — jetzt einmal je Epoche statt je Sitzung.
+
+WARUM REV 12 (Fehlalarm im Rueckblick, platform#3996)
+-----------------------------------------------------
+Das Replay zu Rev 11 traf um 13:40:35Z einen reinen Rueckblick: „Das Deployment
+habe ich auf dein Wort gestartet". Die Zeile nennt Prod und „dein Wort", bittet
+aber um nichts. Rev 12 nimmt zwei Formen aus: eine Erledigt-Zeile (✅ ohne 🟢)
+und einen Satz, der „auf dein Wort" mit einem Hilfsverb der Vergangenheit
+verbindet. Eine Bitte in einem anderen Satz derselben Zeile meldet weiter.
+Positivkontrolle bleibt die Bitte von 12:58:31Z („dein Wort ‚deploy 7ba713f'“).
+Benannte Grenze: „Prod habe ich nicht angefasst, das geht nur auf dein Wort" in
+EINEM Satz gilt als Rueckblick und bleibt still.
 
 MESSGROESSE FUER "DRITTES REPO"
 -------------------------------
@@ -250,10 +261,41 @@ _WORT_BITTE = re.compile(
 )
 
 
+#: Rev 12 (#3996): ein Prod-Wort im Rueckblick bittet um nichts. Erledigt-Zeile =
+#: ✅ ohne 🟢. Rueckblick-Satz = „auf dein Wort" plus Hilfsverb der Vergangenheit im
+#: selben Satz („Das Deployment habe ich auf dein Wort gestartet"). „Prod nur auf
+#: dein Wort" bleibt eine Bitte — Praesens, kein Rueckblick.
+_ERLEDIGT = "✅"
+_OFFEN = "🟢"
+_AUF_DEIN_WORT = re.compile(r"\bauf\s+dein(?:em|e)?\s+(?:Wort|Klick|Zug)\b", re.I)
+_VERGANGEN = re.compile(
+    r"\b(?:habe|hat|haben|hatte|hatten|wurde|wurden|lief|liefen)\b", re.I
+)
+_SATZENDE = re.compile(r"(?<=[.!?])\s+")
+
+
+def _rueckblick_satz(satz: str) -> bool:
+    return (
+        _OFFEN not in satz
+        and bool(_AUF_DEIN_WORT.search(satz))
+        and bool(_VERGANGEN.search(satz))
+    )
+
+
+def _bittet(zeile: str) -> bool:
+    """Traegt die Zeile eine Bitte um ein Wort, die kein Rueckblick ist?"""
+    if _ERLEDIGT in zeile and _OFFEN not in zeile:
+        return False
+    return any(
+        _WORT_BITTE.search(satz) and not _rueckblick_satz(satz)
+        for satz in _SATZENDE.split(zeile)
+    )
+
+
 def prod_frage(text: str) -> str:
     """Die erste Zeile, die um ein Prod-Wort bittet, oder ''."""
     for zeile in text.splitlines():
-        if _PROD_WORT.search(zeile) and _WORT_BITTE.search(zeile):
+        if _PROD_WORT.search(zeile) and _bittet(zeile):
             return zeile.strip()
     return ""
 
@@ -599,7 +641,7 @@ def main() -> int:
             "gefallen; ein frueherer deckt diesen Schritt nicht. Den gewachsenen "
             "Scope JETZT mitspiegeln, im selben Board, bevor der Owner antwortet; "
             "danach ist die Wirkung schon da. (Gate "
-            "scope-checkpoint-not-durably-recorded Rev 11, Fehlerform D, advisory.)"
+            "scope-checkpoint-not-durably-recorded Rev 12, Fehlerform D, advisory.)"
         )
         return 0
     if ungedeckt := ev["ungedeckter_prod_schritt"]:
@@ -617,7 +659,7 @@ def main() -> int:
                 "dass zwischen Frage und Schritt ein Scope-Checkpoint fiel. Ein "
                 "Checkpoint danach ist ein Nachtrag, kein Innehalten. Beim naechsten "
                 "Prod-Wort den Scope in DERSELBEN Antwort spiegeln, die darum bittet. "
-                "(Gate scope-checkpoint-not-durably-recorded Rev 11, Fehlerform D, "
+                "(Gate scope-checkpoint-not-durably-recorded Rev 12, Fehlerform D, "
                 "advisory.)"
             )
             return 0
