@@ -135,8 +135,8 @@ oder `ttz-lif`. Kein öffentlich erreichbarer Host.
 |---|---|---|---:|---:|---|---|
 | dieses Konzept | neu | Achim Dehnert | ja | nein | bis Gate 2027-01-15 | Verwaisung (M28) |
 | lokaler Forgejo-Stack (Compose, Daten außerhalb des Repos) | neu | Achim Dehnert | nein | nein | Rückbau am Gate | Patchstand |
-| Pull-Spiegel `shared-ci`, `ausschreibungs-hub` | neu | Achim Dehnert | nein | ja | Rückbau am Gate | Token-Ablauf |
-| fein granuliertes GitHub-Token, nur lesen, 2 Repos | neu | Achim Dehnert | nein | nein | ≤ 90 Tage | neuer Secret |
+| Pull-Spiegel `shared-ci` (öffentlich, ohne Token) | neu | Achim Dehnert | nein | ja | Rückbau am Gate | — |
+| Push-Abgleich `ausschreibungs-hub` (Host-Cron, 10 min, FJ8) | neu | Achim Dehnert | nein | ja | Rückbau am Gate | Cron läuft still nicht mehr |
 | Messprotokoll (Hürdentabelle, SHA-Abdeckung) | neu | Achim Dehnert | ja | teils | bis Gate | — |
 
 **5.7 Prozessmodell.** `idea` (dieses Doc) → `pilot` (Gates G0–G2, §5.9) → Gate 2027-01-15:
@@ -146,8 +146,9 @@ Abbruch + Rückbau **oder** org-weiter ADR für Stufe 2. Ohne Entscheidung gilt 
 
 | Regel | Level | Mechanismus | Owner | Ausnahme? | Ablaufdatum nötig? |
 |---|---|---|---|---:|---:|
-| keine Secrets im Pilot-Stack | Runtime-Guard | Stack startet ohne Secrets-Mount; Spiegel-Token nur in der Forgejo-Mirror-Konfiguration | Owner | nein | nein |
-| Spiegel ist schreibgeschützt | Runtime-Guard | Pull-Mirror (Forgejo erlaubt keinen Push in Pull-Spiegel, H → G0 prüft) | Owner | nein | nein |
+| keine Secrets im Pilot-Stack | Runtime-Guard | Stack startet ohne Secrets-Mount; Forgejo hält kein GitHub-Token, der Host liest GitHub mit seinem vorhandenen Zugang | Owner | nein | nein |
+| Spiegel ist schreibgeschützt | Runtime-Guard | `shared-ci`: Pull-Mirror. `ausschreibungs-hub`: Branch-Schutz auf `main`, nur das Abgleich-Konto schreibt, nur Fast-Forward | Owner | nein | nein |
+| `deploy.yml` läuft nie | Runtime-Guard | Der Abgleich legt `.forgejo/workflows/ci.yml` an. Damit liest Forgejo `.github/workflows` nicht mehr. Belegt im ersten Lauf: nur `ci.yml` wurde ausgelöst | Owner | nein | nein |
 | GitHub bleibt maßgeblich | Governance | Forgejo-Läufe sind nie Required Check; keine Issues/PRs auf Forgejo | Owner | nein | Gate |
 | kein öffentlicher Endpunkt | Runtime-Guard | Bindung an localhost | Owner | nein | nein |
 | Gate-Entscheidung | Review-Gate | `review_by` + Kill-Kriterium „keine Entscheidung = Abbruch“ | Owner | nein | 2027-01-15 |
@@ -168,9 +169,16 @@ Gate-Zeile im Handover, ist also ein Review-Gate und kein Exit-Code.
 - **G2 – Parität, 14 Tage:** Mindestens 95 % der main-Commits haben einen Forgejo-Lauf zum selben
   SHA, und das Ergebnis stimmt mit GitHub überein. Dazu der Testfall: Ein Merge ohne
   Code-Owner-Approve wird abgewiesen (Bot-Konto + Branch-Protection).
+  **Messverfahren (FJ8, Owner-Wort 2026-10-15 „FJ8 go“):** Ein Host-Cron holt GitHub-`main` alle
+  10 Minuten und legt darauf einen Overlay-Commit `fj-overlay: <GitHub-SHA>`. Erster Elternteil ist
+  der GitHub-SHA, zweiter der alte Forgejo-Stand, also ein Fast-Forward. Der Overlay fügt nur
+  `.forgejo/workflows/ci.yml` hinzu: `ci.yml` aus GitHub, mit Push-Trigger und Kompat-Aufruf.
+  Jeder Push löst damit einen Lauf aus. Gezählt wird „GitHub-SHA hat einen Forgejo-Lauf“ über den
+  ersten Elternteil. Der Ersatz für einen Pull-Spiegel war nötig, weil ein privates Repo sonst ein
+  GitHub-Token in Forgejo braucht und `ci.yml` keinen Push-Trigger hat (C20).
 - **Bewusst nicht drin:** Deploy, PyPI-Veröffentlichung, Werkzeug-Umbau, Renovate auf Forgejo.
-- **Rückbau, unter 1 h:** Compose-Stack und Datenvolumen löschen, Spiegel-Token widerrufen. Das
-  Repo bleibt unberührt, weil der Stack außerhalb liegt.
+- **Rückbau, unter 1 h:** Cron-Zeile entfernen, Compose-Stack und Datenvolumen löschen. Ein
+  Token muss nicht widerrufen werden. Das Repo bleibt unberührt, weil der Stack außerhalb liegt.
 
 **5.10 Full Concept, nur nach Gate.** Stufe 2: `shared-ci` wird Forge-neutral.
 Werkzeug-Zwischenschicht für `gh`. Bot-Konto statt App. Renovate auf Forgejo. Eigener
@@ -219,7 +227,8 @@ Rückbau-Runbook ab Tag 1.
 2. **Boundary:** Der Pilot setzt eine neue, lokale Grenze ohne Außenwirkung. Ein Umzug wäre eine
    org-weite Grenze und damit ADR-pflichtig.
 3. **Governance:** Ausnahmen gibt es keine. Jede zweite Pilot-Repo-Aufnahme ist Owner-Wort.
-4. **Security:** Einziger neuer Secret ist ein Token, nur lesend, für 2 Repos, höchstens 90 Tage.
+4. **Security:** Kein neuer Secret. Forgejo hält kein GitHub-Token (FJ8). Gelesen wird mit dem
+   vorhandenen Zugang des Hosts.
    Kein Prod-Secret, kein offener Port.
 5. **Datenschutz:** Gespiegelt werden nur iilgmbh-Repos ohne Personendaten (H, Stichprobe vor G1).
    Keine Repos aus `meiki-lra` oder `ttz-lif`.
@@ -271,8 +280,9 @@ Rückbau-Runbook ab Tag 1.
    Forgejo anerkennt. *Restunsicherheit:* hängt von PyPI ab.
 4. **Governance-Lücke** (AD-3): *Fix:* Testfall in G2. Scheitert er, ist ein Umzug der
    Governance-Repos (platform, Liste L) ausgeschlossen.
-5. **Token-Ablauf / Patchstand** (M28): *Fix:* Token höchstens 90 Tage, Ablaufdatum in der
-   Gate-Zeile. Der lokale Stack ohne Port senkt den Patch-Druck.
+5. **Token-Ablauf / Patchstand** (M28): *Fix:* Seit FJ8 gibt es kein Token mehr. An seine Stelle
+   tritt ein still stehender Abgleich. Den zeigt das Messlog als Lücke (G2). Der lokale Stack ohne
+   Port senkt den Patch-Druck.
 
 ## 12. Empfehlungen
 
@@ -314,7 +324,7 @@ endet also nicht nach G0, G1 bleibt sinnvoll.
 | K1: G1 bis 2026-11-15 nicht grün | offen: grün nur mit Kompat-Kopie, Zählung = Owner-Entscheid | [#4018](https://github.com/achimdehnert/platform/issues/4018#issuecomment-6193603822), C18–C20 |
 | K2: SHA-Abdeckung in G2 < 95 % über 14 Tage | offen | — |
 | K3: bis 2027-01-15 keine schriftliche Entscheidung → Abbruch + Rückbau | offen | — |
-| K4: zwei verpasste Wartungsfristen (Token-Rotation, Forgejo-Patch ≤ 30 Tage) | offen | — |
+| K4: zwei verpasste Wartungsfristen (Forgejo-Patch ≤ 30 Tage; Token-Rotation entfällt seit FJ8) | offen | — |
 
 **G1-Messung (2026-10-15, Forgejo 16.0.6, Runner 13.2.0):** Ein Lauf mit unverändertem
 `shared-ci@v1.1.25` wird auf Forgejo nie grün. Die Tests laufen durch (1097 passed), aber
