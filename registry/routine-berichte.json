@@ -24,11 +24,8 @@
     },
     {
       "name": "handover-reconciler-platform",
-      "ausgang": {"issue": 1261},
-      "still_stunden": null,
-      "befund": true,
-      "kopf_muster": "Handover-Reconciler",
-      "ruhe_muster": "[Kk]ein Drift"
+      "ausgang": null,
+      "grund": "abgeschaltet 2026-10-15 (Owner S7 aus, #1894); Phase 0.7.4 deckt Prio-Referenzen ab"
     },
     {
       "name": "deploy-health-triage",
