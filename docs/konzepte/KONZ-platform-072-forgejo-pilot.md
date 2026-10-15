@@ -21,6 +21,12 @@ evidence_manifest:
   - {claim_id: C9, source_path: "extern: forgejo.org/docs/latest/user/actions/security-openid-connect/", commit_or_pr: "—", opened_in_session: true}
   - {claim_id: C10, source_path: "extern: git.frostfs.info/TrueCloudLab/frostfs-testcases/pulls/339 (CODEOWNERS-Semantik)", commit_or_pr: "—", opened_in_session: true}
   - {claim_id: C11, source_path: "extern: code.forgejo.org/forgejo/runner/issues/63 (Reusable Workflows)", commit_or_pr: "—", opened_in_session: true}
+  - {claim_id: C12, source_path: "extern: forgejo.org/docs/latest/user/actions/reference/ §jobs.<job_id>.uses (Docs v16.0)", commit_or_pr: "—", opened_in_session: true}
+  - {claim_id: C13, source_path: "extern: docs.pypi.org/trusted-publishers/adding-a-publisher/", commit_or_pr: "—", opened_in_session: true}
+  - {claim_id: C14, source_path: "extern: codeberg.org/forgejo/forgejo options/locale/locale_en-US.ini (pulls.blocked_by_outdated_branch, pulls.auto_merge_when_succeed; kein merge-queue-Schlüssel)", commit_or_pr: "Branch forgejo, 2026-10-15", opened_in_session: true}
+  - {claim_id: C15, source_path: "extern: codeberg.org/forgejo/forgejo options/locale/locale_en-US.ini (settings.protect_approvals_whitelist_enabled, settings.block_on_official_review_requests)", commit_or_pr: "Branch forgejo, 2026-10-15", opened_in_session: true}
+  - {claim_id: C16, source_path: "lokal: gh repo view iilgmbh/shared-ci (visibility PUBLIC)", commit_or_pr: "—", opened_in_session: true}
+  - {claim_id: C17, source_path: "lokal: grep merge_group über ~/github/*/.github/workflows/*.y*ml (nur platform, platform-pinned)", commit_or_pr: "—", opened_in_session: true}
 created: 2026-10-15
 ---
 
@@ -28,7 +34,8 @@ created: 2026-10-15
 
 > Externe Quellen (C8–C11) stammen aus einer Websuche vom 2026-10-15. Sie gelten als Suchergebnis
 > (E4, Confidence mittel) und wurden nicht im Volltext gelesen. Vor jeder Umzugsentscheidung
-> werden sie gegen die Primärdoku geprüft (REC-1).
+> werden sie gegen die Primärdoku geprüft (REC-1). Die Prüfung G0 (C12–C17) stützt sich auf die
+> Primärdoku und den Forgejo-Quelltext. Sie ersetzt C9–C11 für die Hürdentabelle in §13.
 
 ## 1. Executive Summary
 
@@ -287,10 +294,15 @@ Beleg fallen:
 
 | Hürde | Frage | Status | Beleg |
 |---|---|---|---|
-| H1 | Reusables über Repo-Grenzen laufen tag-gepinnt | offen | — |
-| H2 | PyPI erkennt Forgejo als Trusted Publisher an | offen | — |
-| H3 | Merge Queue oder gleichwertige Serialisierung | offen | — |
-| H4 | Code-Owner-Review blockiert technisch | offen | — |
+| H1 | Reusables über Repo-Grenzen laufen tag-gepinnt | laut Doku ja, Messung G1 offen | C12: `uses: org/repo/<pfad>@<ref>` ist erlaubt, das Ziel-Repo muss öffentlich sein. shared-ci ist öffentlich (C16) |
+| H2 | PyPI erkennt Forgejo als Trusted Publisher an | **fällt nicht** | C13: PyPI kennt nur GitHub Actions, Google Cloud, ActiveState, GitLab CI/CD. Self-managed-Instanzen sind ausgeschlossen |
+| H3 | Merge Queue oder gleichwertige Serialisierung | **nur Ersatz** | C14: keine Merge Queue in der Oberfläche. Ersatz: „blockiert, weil veraltet“ plus Auto-Merge nach grünen Checks. Das kostet je PR einen Update-Lauf. Genutzt wird `merge_group` heute nur in platform (C17) |
+| H4 | Code-Owner-Review blockiert technisch | laut Doku ja, Testfall G2 offen | C15: Approvals lassen sich auf eine Positivliste beschränken, dazu „Block merge on official review requests“ |
+
+**G0-Ergebnis (2026-10-15):** Höchstens 3 von 4 Hürden fallen, und das nur, wenn der Ersatz für H3
+zählt. H2 fällt auf Forgejo nicht. Damit ist ein Komplettumzug nur als Hybrid denkbar, bei dem die
+PyPI-Veröffentlichung auf GitHub bleibt (§9 „Hybrid dauerhaft“). H1 fällt laut Doku. Das Konzept
+endet also nicht nach G0, G1 bleibt sinnvoll.
 
 **Kill-Gate (jedes Kriterium stoppt allein):**
 
