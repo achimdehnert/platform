@@ -305,7 +305,7 @@ PyPI-Veröffentlichung auf GitHub bleibt (§9 „Hybrid dauerhaft“). H1 fällt
 endet also nicht nach G0, G1 bleibt sinnvoll.
 
 **Tiefenvergleich (2026-10-15, [#4023](https://github.com/achimdehnert/platform/issues/4023)):**
-[Anhang GitHub gegen Forgejo](anhaenge/KONZ-platform-072-vergleich-github-forgejo.md) mit Quellen,
+[Anhang GitHub gegen Forgejo](anhaenge/KONZ-072-vergleich-github-forgejo.md) mit Quellen,
 Urteil je Punkt gegen H1–H4 und den Testfragen T1–T16. Der Anhang bewertet H1 strenger mit
 „teilweise“, weil der Aufrufer `permissions:` ignoriert, dem Context Schlüssel fehlen und Artefakte
 v3 oder einen Fork brauchen. Die Tabelle oben bleibt bis zur Entscheidung des Owners unverändert.
