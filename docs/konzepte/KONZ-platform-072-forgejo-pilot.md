@@ -27,6 +27,9 @@ evidence_manifest:
   - {claim_id: C15, source_path: "extern: codeberg.org/forgejo/forgejo options/locale/locale_en-US.ini (settings.protect_approvals_whitelist_enabled, settings.block_on_official_review_requests)", commit_or_pr: "Branch forgejo, 2026-10-15", opened_in_session: true}
   - {claim_id: C16, source_path: "lokal: gh repo view iilgmbh/shared-ci (visibility PUBLIC)", commit_or_pr: "—", opened_in_session: true}
   - {claim_id: C17, source_path: "lokal: grep merge_group über ~/github/*/.github/workflows/*.y*ml (nur platform, platform-pinned)", commit_or_pr: "—", opened_in_session: true}
+  - {claim_id: C18, source_path: "lokal: Forgejo-Serverlog artifactsv4.go 'unknown field \"mime_type\"' + extern: codeberg.org/forgejo/forgejo routers/api/actions/artifact.proto (Branch forgejo, ohne mime_type)", commit_or_pr: "Branch forgejo, 2026-10-15", opened_in_session: true}
+  - {claim_id: C19, source_path: "lokal: Pilot-Job env (GITHUB_SERVER_URL vor/nach Runner-Adresswechsel)", commit_or_pr: "—", opened_in_session: true}
+  - {claim_id: C20, source_path: "iilgmbh/ausschreibungs-hub: .github/workflows/ci.yml (on: pull_request, workflow_dispatch)", commit_or_pr: "5e047b2c", opened_in_session: true}
 created: 2026-10-15
 ---
 
@@ -308,10 +311,29 @@ endet also nicht nach G0, G1 bleibt sinnvoll.
 
 | Kriterium | Status | Beleg |
 |---|---|---|
-| K1: G1 bis 2026-11-15 nicht grün | offen | — |
+| K1: G1 bis 2026-11-15 nicht grün | offen: grün nur mit Kompat-Kopie, Zählung = Owner-Entscheid | [#4018](https://github.com/achimdehnert/platform/issues/4018#issuecomment-6193603822), C18–C20 |
 | K2: SHA-Abdeckung in G2 < 95 % über 14 Tage | offen | — |
 | K3: bis 2027-01-15 keine schriftliche Entscheidung → Abbruch + Rückbau | offen | — |
 | K4: zwei verpasste Wartungsfristen (Token-Rotation, Forgejo-Patch ≤ 30 Tage) | offen | — |
+
+**G1-Messung (2026-10-15, Forgejo 16.0.6, Runner 13.2.0):** Ein Lauf mit unverändertem
+`shared-ci@v1.1.25` wird auf Forgejo nie grün. Die Tests laufen durch (1097 passed), aber
+`upload-artifact` v7 sendet bei `CreateArtifact` das Feld `mime_type`, und Forgejo antwortet mit
+HTTP 500, weil es das Feld nicht kennt (C18). Auch `artifact.proto` auf Forgejo-`main` enthält das
+Feld nicht. Ein Upgrade hilft also nicht. Mit einer Kopie `shared-ci-kompat@v1.1.25-fj1`, die nur
+auf Forgejo liegt und artifact v4.6.2/v4.3.0 statt v7/v8 nutzt (4 Zeilen), lief `ci.yml` vollständig
+grün: 9/9 Jobs, Coverage-Gate 85,25 % über hochgeladene und wieder geladene Artefakte. Der Aufrufer
+weicht in 1 Zeile ab. Artefakte brauchen damit kein v3, v4 genügt. Drei weitere Befunde:
+
+- Der Runner gibt seine Registrier-Adresse als `GITHUB_SERVER_URL` an die Jobs weiter. Endet sie
+  nicht auf `.localhost`, hält `@actions/artifact` die Instanz für GHES und bricht ab (C19).
+  Für einen Host in Stufe 2 heißt das: v4-Artefakte gehen nur mit Fork oder Patch.
+- Die Composite-Actions in `_ci-python.yml` stehen auf `iilgmbh/shared-ci/…@main` und kommen von
+  github.com, nicht aus dem Spiegel. H1 gilt damit nur für den Reusable selbst. Volle Hoheit
+  braucht ein Forge-neutrales shared-ci (Stufe 2).
+- `ci.yml` in ausschreibungs-hub läuft nur bei `pull_request` und `workflow_dispatch`, nicht bei
+  einem Push auf main (C20). G2 kann die Parität deshalb nicht über „Lauf je main-Commit“ messen
+  und braucht ein anderes Messverfahren.
 
 **Exception-Budget:** Keines. Ein zweites Pilot-Repo vor dem Gate braucht Owner-Wort mit Datum.
 
