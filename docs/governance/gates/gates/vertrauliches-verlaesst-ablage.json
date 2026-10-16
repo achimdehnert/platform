@@ -1,0 +1,46 @@
+{
+  "slug": "vertrauliches-verlaesst-ablage",
+  "mode": "blocking",
+  "module": "tools/claude-hooks/block_vertrauliches_verlassen.py",
+  "drill": "tools/claude-hooks/tests/test_block_vertrauliches_verlassen.py",
+  "built": "2026-10-16",
+  "last_drill_pass": "2026-10-16",
+  "owner": "achim",
+  "zustand": "schranke",
+  "covers": [
+    "kundenvertrauliches-in-repo-oder-gedaechtnis",
+    "kundenvertrauliches-an-fremdes-modell-oder-github"
+  ],
+  "faengt": [
+    {
+      "fall": "Write/Edit/MultiEdit mit Vermerk-Zeile in ein Repo oder ins Gedaechtnis, auch als Zitat (> Vermerk)",
+      "probe": "block_write_of_marked_mail_into_repo"
+    },
+    {
+      "fall": "Tresor plus Ausgang in allen Formen: gh -F -, $(cat), curl -d @, Anbieter-Name, git commit",
+      "probe": "block_each_vault_exit_form"
+    },
+    {
+      "fall": "Tresor an ein Python-Skript, dessen Inhalt den Ausgang traegt",
+      "probe": "block_vault_passed_to_script_with_exit"
+    },
+    {
+      "fall": "markierte Datei per --body-file oder git commit -F, markierte Datei per cp ins Repo, markiertes Heredoc an gh",
+      "probe": "block_marked_body_file_to_github"
+    },
+    {
+      "fall": "MCP-Kommentar mit Vermerk (platform#3862 Fund 1: MCP lief an Shell-Haken vorbei)",
+      "probe": "block_mcp_github_comment_with_marker"
+    },
+    {
+      "fall": "kaputte Regeldatei: fail-closed und als Fehler gezaehlt (platform#3862 Fund 5)",
+      "probe": "count_failures_in_gate_log"
+    }
+  ],
+  "positivkontrolle": {
+    "datum": "2026-10-16",
+    "ref": "Echte Regeldatei, echter Kundenmailtext mit Vermerk: Write ins Repo, Write ins Gedaechtnis, gh --body-file, MCP-Kommentar, Tresor an Anbieter -> 5 von 5 gesperrt; Write in den Tresor und ins Scratchpad durchgelassen. Replay aller erfassten Aufrufe aus 62 Sitzungsprotokollen der letzten drei Tage: 13.357 Aufrufe (Bash 9.173, Edit 2.664, Write 1.385, MCP 80, WebSearch 27, WebFetch 28), 0 Sperren. Fehlalarm-Probe des Vermerk-Musters ueber Gedaechtnis aller Projekte und das platform-Repo: 15.073 Dateien, 4 Treffer, alle vier Werkzeug-Ausgaben mit echtem Kundenmailtext (richtig). Die Positivkontrolle lief ausserhalb pytest und hinterliess 5 Zeilen ohne session (2026-10-16T12:50:46Z) im echten Gate-Protokoll; sie sind Probe, kein Realtreffer."
+  },
+  "note": "Owner-Wort ND go 2026-10-16. Kunde, Vermerk und Tresorpfad stehen in ~/.claude/vertraulich_regeln.json, nicht hier (Repo oeffentlich); Muster: tools/claude-hooks/vertraulich_regeln.beispiel.json. GRENZEN im Header: Inhalt ohne Vermerk, Lesen des Tresors durch die Sitzung selbst (Vertragsfrage), Skripte ausser python <datei>.py, Owner-Befehle mit !. Verdrahtung in ~/.claude/settings.json ist Owner-Recht (Charta Art. 3).",
+  "ref": "platform Session 2026-10-16 (835f30)"
+}
