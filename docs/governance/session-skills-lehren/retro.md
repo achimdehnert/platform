@@ -39,6 +39,14 @@ Fall davon, genügt ein Satz mit Link auf deren §0.0. Eine eigene Zeile braucht
 einem eigenen Fall. `retro_report_check.py` verlangt keine §0.0-Tabelle, der Verweis ist
 damit prüfkonform.
 
+**2026-10-16 — Fenster 7 Tage statt desselben Tages (Owner „WS go", Retro 5c34f2, #4060).**
+Am 2026-10-16 stand die §0.0-Tabelle wortgleich in drei Retros (d9f597, chat-hub c5851a,
+5c34f2), weil alle vier rückfälligen Gates schon entschieden waren (Streichbahn, Belegart
+Dublette). Regel: Sind **alle** `RUECKFAELLIG`-Gates in einer Retro der letzten 7 Tage mit
+Konsequenz geführt, steht in §0.0 der Link darauf plus je Gate die neuen Vorkommen dieser
+Sitzung (oder „kein Fall"). Ein Gate ohne Konsequenz dort braucht die volle Zeile. Die
+Einführung „NEU 2026-09-02“ steht seitdem nur noch hier, nicht in der Überschrift des Skills.
+
 ## Phase 0.1 — 2026-07-31: Skeptiker-Auswahl, Realfall `6bd412`
 
 Realfall `session-retro-2026-07-31-meiki-hub-6bd412`: 5 Inline-Befunde, davon 3 kommandobelegt
