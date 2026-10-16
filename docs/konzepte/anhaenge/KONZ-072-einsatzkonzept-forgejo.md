@@ -221,7 +221,7 @@ ist eine eigene Entscheidung und nicht Teil des Mandats #4018. Sie braucht Owner
 | T22 | Bekommt ein Bot-Konto ohne Passwort-Login per Admin-API ein repo-gebundenes Token, auch bei 2FA-Pflicht für alle? |
 | T23 | Stellt der Restore nach offizieller Anleitung Tokens, 2FA und Pakete wieder her? (ergänzt T14) |
 | T24 | Erkennt ein CVE-Scanner eine Forgejo-Lücke ohne eigene CVE-Nummer? |
-| T25 | Wo genau entsteht der v7-`mime_type`-Fehler? Ein Upstream-Issue darf laut AI-Agreement nur ein Mensch einreichen |
+| T25 | Wo genau entsteht der v7-`mime_type`-Fehler? Ein Upstream-Issue darf laut AI-Agreement nur ein Mensch einreichen. **Gemessen 2026-10-16 auf 17.0.0:** Er entsteht serverseitig in `artifactsv4.go` (`protojson.Unmarshal` ohne `DiscardUnknown`) und besteht in v17 fort (Konzept §13, C23) |
 | T26 | Kill-Tests S1, S4, S3 (§2) und O1, O3 (§3) |
 
 ## 8. Korrekturen zum Anhang vom 2026-10-15
@@ -240,7 +240,7 @@ ist eine eigene Entscheidung und nicht Teil des Mandats #4018. Sie braucht Owner
 
 | Thema | Vorschlag | Frist |
 |---|---|---|
-| Release-Spur | v15 LTS neu aufsetzen (Spur der großen Betreiber) oder v17 Stable mit Upgrade alle ~3 Monate. **Entschieden 2026-10-16: v17** (Owner-Wort „FJ17 V17“, Konzept §13) | vor 2026-10-29 |
+| Release-Spur | v15 LTS neu aufsetzen (Spur der großen Betreiber) oder v17 Stable mit Upgrade alle ~3 Monate. **Entschieden 2026-10-16: v17** (Owner-Wort „FJ17 V17“, Konzept §13), **umgesetzt 2026-10-16 mit 17.0.0** | vor 2026-10-29 |
 | H3-Wortlaut | Umformulieren auf Parität (§3). Dann fällt H3 mit Auflage | vor G2-Ende 2026-10-29 |
 | Paketschnitt | Je Paket der 18 privaten Repos: öffentlich (S1) oder intern (S4) | vor Stufe 5 |
 | Stufe 0 | Zwei Klärungsfragen (§6) | offen |

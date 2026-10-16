@@ -32,6 +32,7 @@ evidence_manifest:
   - {claim_id: C20, source_path: "iilgmbh/ausschreibungs-hub: .github/workflows/ci.yml (on: pull_request, workflow_dispatch)", commit_or_pr: "5e047b2c", opened_in_session: true}
   - {claim_id: C21, source_path: "extern: docs.pypi.org/trusted-publishers/internals/ (home-grown IdP not eligible) + blog.pypi.org/posts/2025-11-10-trusted-publishers-coming-to-orgs/ (GitLab self-managed Beta)", commit_or_pr: "—", opened_in_session: true}
   - {claim_id: C22, source_path: "docs/konzepte/anhaenge/KONZ-072-einsatzkonzept-forgejo.md (Einsatzkonzept, Quellen 2026-10-16)", commit_or_pr: "dieser PR", opened_in_session: true}
+  - {claim_id: C23, source_path: "lokal: Forgejo 17.0.0 Serverlog artifactsv4.go:252 parseProtbufBody 'unknown field \"mime_type\"' (Probe-Repo t25-probe-20261016102031, v7 failure, v4 success) + extern: codeberg.org/forgejo/forgejo tag v17.0.0 routers/api/actions/artifactsv4.go (protojson.Unmarshal ohne DiscardUnknown), artifact.proto ohne mime_type", commit_or_pr: "2026-10-16", opened_in_session: true}
 created: 2026-10-15
 ---
 
@@ -347,6 +348,25 @@ dahin ist die Release-Spur für den Pilot zu wählen (Anhang §9).
 2026-10-29 von 16.0.6 auf v17 Stable, geplant als In-Place-Upgrade mit Sicherung vorab. v17 wird bis 2027-01-28
 gepflegt und deckt damit das Gate am 2027-01-15 ab. Danach folgt das Upgrade etwa alle drei Monate.
 Die LTS-Spur (v15, Neuaufbau) ist verworfen, T17 entfällt.
+
+**Upgrade durchgeführt (2026-10-16):** Der Pilot läuft auf 17.0.0, das Image ist per Digest gepinnt.
+Die Sicherung des Datenverzeichnisses von 16.0.6 liegt neben dem Stack. Die Migrationen liefen ohne
+Fehler, der Runner hat sich neu angemeldet. Vorher und nachher wurden Repos, Spiegel, `main`-SHAs
+und Branch-Schutz verglichen: Bis auf die Versionsnummer ist alles gleich. In v17 braucht
+`/api/v1/version` bei `REQUIRE_SIGNIN_VIEW` eine Anmeldung. Die Pilot-Skripte rufen den Endpunkt
+schon mit Token auf.
+
+**T25 gemessen (2026-10-16, Forgejo 17.0.0, C23):** Der Fehler entsteht in Forgejo selbst, nicht im
+Runner. `artifactsv4.go` dekodiert die Anfrage mit `protojson.Unmarshal`, ohne unbekannte Felder
+zu verwerfen, und `artifact.proto` kennt `mime_type` nicht. Im Probe-Repo scheitert v7 mit
+HTTP 500, die v4-Kontrolle im selben Lauf ist grün. Der Fehler besteht in v17 fort, und upstream
+gibt es weiter kein Issue. K1U bleibt damit sinnvoll (Owner-Zug, siehe #4018).
+
+**Abgleich ehrlich gemacht (2026-10-16):** Beim Upgrade meldete der Lauf um 10:20 „unverändert“,
+obwohl Forgejo gestoppt war. Der Abruf von Forgejo war mit `|| true` stummgeschaltet, also kam der
+SHA aus dem Zwischenspeicher. Für K2 wäre das ein falsches Grün. Jetzt schreibt der Lauf eine
+Fehlerzeile, wenn Forgejo nicht erreichbar ist. Ein Zweig, der noch fehlt, bleibt im Erstlauf erlaubt.
+Beide Fälle sind gegengeprüft: eine unerreichbare Adresse ergibt `FEHLER`, der echte Lauf `unveraendert`.
 
 **Kill-Gate (jedes Kriterium stoppt allein):**
 
