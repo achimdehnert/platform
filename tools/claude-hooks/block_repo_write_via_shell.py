@@ -5,7 +5,7 @@ GATE_HEADER (KONZ-038 D8):
   "slug": "inline-heredoc-quoting-rework"
   "mode": "blocking"
   "owner": "achim"
-  "last_drill_pass": "2026-10-14"
+  "last_drill_pass": "2026-10-16"
   "evidence": "tools/claude-hooks/tests/test_block_repo_write_via_shell.py"
 
 Hintergrund: der Slug steht mit fünf Vorkommen über Retros in der Registry, davon
@@ -30,7 +30,9 @@ FAIL-OPEN (bewusste Grenzen, hier benannt statt im Gate behauptet):
     — der Pfad ist zur Prüfzeit unbekannt, der Hook schweigt.
   * Kein `cwd` im Hook-Payload und relativer Pfad — nicht auflösbar, schweigt.
   * Umleitungen in Dateideskriptoren (`2>&1`, `>&2`) und `/dev/*`.
-  * Der Scratchpad und alles außerhalb der Repo-Wurzeln.
+  * Der Scratchpad und alles außerhalb der Repo-Wurzeln. Ausnahme seit
+    2026-10-16: ein Git-Arbeitsverzeichnis IM Scratchpad (ein Vorfahr trägt
+    `.git`) zählt als Repo — Retro c5851a Befund 1, Owner-Wort „G1-go“.
   * Bei `sed -i` gilt das LETZTE Token des Abschnitts als Ziel. Das trifft die
     reale Form (`sed -i 's/a/b/' datei`); `sed -i -e ... datei1 datei2` erkennt
     nur die zweite Datei.
@@ -66,9 +68,33 @@ _REPO_WURZELN = (
     Path.home() / ".repo-session" / "worktrees",
 )
 
+#: Git-Interna und Abhängigkeiten sind nie ein Ziel dieser Regel.
+_AUSGENOMMEN = re.compile(r"/\.git/|/node_modules/")
+
 #: Der Scratchpad liegt je nach Sitzung woanders; erkannt wird er am Namen.
-#: Wegwerf-Skripte dort sind ausdrücklich erlaubt (Owner-Entscheid 2026-09-21).
-_AUSGENOMMEN = re.compile(r"/scratchpad/|/\.git/|/node_modules/")
+#: Wegwerf-Skripte dort sind ausdrücklich erlaubt (Owner-Entscheid 2026-09-21) —
+#: aber nicht ein Git-Worktree, der dort liegt (Owner-Wort „G1-go“ 2026-10-16).
+#: Realfall Retro c5851a Befund 1: `git worktree add <scratchpad>/wt-181`, danach
+#: `cd <scratchpad>/wt-181 && python3 - <<'EOF'` mit `p.write_text(s)` auf eine
+#: Repo-Datei — Konfliktauflösung per Regex, ungeblockt.
+_SCRATCHPAD = "scratchpad"
+
+
+def _git_worktree_im_scratchpad(p: Path) -> bool:
+    """True, wenn zwischen `p` und dem Scratchpad ein Verzeichnis `.git` trägt.
+
+    Ein Worktree hat `.git` als Datei, ein Klon als Verzeichnis — `exists()` deckt
+    beides. Die Suche endet am Scratchpad selbst: der ist nie das Repo.
+    """
+    for d in (p, *p.parents):
+        if d.name == _SCRATCHPAD:
+            return False
+        try:
+            if (d / ".git").exists():
+                return True
+        except OSError:
+            return False
+    return False
 
 #: Heredoc-Körper: reiner Text, darf Umleitungszeichen enthalten, ohne dass
 #: daraus ein Schreibziel wird (`cat <<'X'` mit `> foo` im Fließtext).
@@ -271,6 +297,8 @@ def _im_repo(pfad: str, cwd: str) -> Path | None:
         return None
     if _AUSGENOMMEN.search(str(p) + "/"):
         return None
+    if f"/{_SCRATCHPAD}/" in str(p) + "/":
+        return p if _git_worktree_im_scratchpad(p) else None
     for wurzel in _REPO_WURZELN:
         try:
             p.relative_to(wurzel)
@@ -292,7 +320,7 @@ def entscheide(kommando: str, cwd: str) -> str | None:
             "Anführungszeichen im Text oder ein verschobener Anker kippt einen "
             "Shell-Patch still, während Edit laut scheitert. Heredocs an die "
             "Standardeingabe (`git commit -F -`) und Wegwerf-Skripte im Scratchpad "
-            "sind nicht gemeint."
+            "sind nicht gemeint — ein Git-Worktree im Scratchpad schon."
         )
     if inline_quote_bricht(kommando):
         return (
