@@ -20,6 +20,8 @@ evidence_manifest:
   - {claim_id: C8, source_path: "docs/konzepte/KONZ-platform-028 (Fach-Reviewer, idea, Kill-Gate review_by 2026-10-23) und KONZ-platform-051 (ux-review, idea)", commit_or_pr: "origin/main 2026-10-13", opened_in_session: true}
   - {claim_id: C9, source_path: "meiki-lra/meiki-hub PRs #607, #588, #536: mergedBy Owner, reviews=0; main ohne Schutz", commit_or_pr: "gh pr view 2026-10-13", opened_in_session: true}
   - {claim_id: C10, source_path: "~/.claude/policies/ssot-vor-individualloesung.md, llm-routing.md, adr-threshold.md, autonomy-gates.md", commit_or_pr: "Stand 2026-10-13", opened_in_session: true}
+  - {claim_id: C11, source_path: "Lange et al., The Agentic Scientist, arXiv:2610.18933 + pub.sakana.ai/agentic-scientist (Evidence-Map, Audit auf unbelegte Zahlen und Overclaiming; Reward Hacking im ALIFE-Fall erst durch einen Menschen gefunden)", commit_or_pr: "gelesen 2026-10-16, Lotse-Analyse", opened_in_session: true}
+  - {claim_id: C12, source_path: "grep evidence_manifest|claim_id in tools/ und .github/: 0 Treffer — kein Werkzeug prüft das Manifest", commit_or_pr: "origin/main cebacd59, 2026-10-16", opened_in_session: true}
 created: 2026-10-13
 ---
 
@@ -82,7 +84,7 @@ Ablage für Befunde, keine Messung, welche Regel trifft. Ein besseres Modell kö
 einer Datenquelle, einen Advocatus-Diaboli-Kommentar je riskantem PR, und jeder Befund landet in einem
 Ledger, aus dem Regeln kalibriert, Wartung vorhergesagt und ein künftiges Modell eingelernt werden.**
 
-## 3. Bauplan — sechs Teile
+## 3. Bauplan — sieben Teile
 
 ### Z1 Review-Regeln als Daten (SSoT)
 
@@ -145,6 +147,24 @@ oder Köpfen; jeder Prompt-Baustein wird aus Z1 generiert und trägt `source_com
 ein quittierter senkt sie nicht unter die Pfad-Regel. Damit wird „Approval“ vom Klick zur geprüften
 Aussage, ohne die bestehenden Gates (Prod = Owner) anzutasten.
 
+### Z7 Beleg-Audit: keine Zahl ohne Quelle
+
+> **Owner-Wort 2026-10-16, Kapitäns-Sitzung:** „V1 go“ — auf den Vorschlag „Beleg-Audit in
+> Review-System“ aus der Lotse-Analyse zu The Agentic Scientist (C11).
+
+Konzepte tragen schon ein `evidence_manifest` mit Marken `C1…Cn`, aber kein Werkzeug prüft es (C12).
+Z7 macht „Evidenz vor Behauptung“ zur Regel in Z1, in zwei Stufen von Z2:
+
+1. **Mechanik** (Detektor-Skript, ohne LLM) — in Dateien mit `evidence_manifest`: jede Marke `(Cn)` im
+   Text hat einen Manifest-Eintrag, jeder Eintrag wird mindestens einmal zitiert, jeder Eintrag hat
+   `source_path` und `commit_or_pr`. Verwaiste Marke ⇒ WARN, unbenutzter Eintrag ⇒ HINT.
+2. **Advocatus-Linse** — feste Frage im Vertrag aus Z2: „Welche Zahl oder Aussage in Diff oder PR-Text
+   hat keinen Beleg, und welche geht über ihren Beleg hinaus?“ Befunde laufen unter einer eigenen
+   `regel_id` ins Ledger (Z3).
+
+Beide starten als HINT; die Aufstufung entscheidet die gemessene Präzision (Z3), nicht dieses Konzept.
+Die Positivkontrolle läuft am Realfall: ein Konzept aus `main`, dem eine Marke entzogen wird.
+
 ## 4. Prüfbare Kriterien
 
 | # | Kriterium | Messung |
@@ -157,6 +177,7 @@ Aussage, ohne die bestehenden Gates (Prod = Owner) anzutasten.
 | K6 | Ledger wird gelesen: Session-Start-Phase (#3887) zeigt neue Befunde; Wartungsprognose 1× monatlich je Pilot-Repo | Runner-Zeile, Issue-Kommentar |
 | K7 | Rekalibrierungslauf einmal durchgeführt (Modellwechsel-Drill) mit PR „Regeln behalten/schärfen/streichen“ | PR-Link |
 | K8 | Merges ohne jedes Review-Urteil in den Pilot-Repos: 0 (Bot zählt, Dependabot-Patch ausgenommen) | Search-Abfrage wie C2 |
+| K9 | Beleg-Audit (Z7) läuft in den Pilot-Repos; Positivkontrolle am Realfall erkannt; Präzision nach 4 Wochen gemessen | Check-Lauf mit Locator, Ledger-Auswertung |
 
 ## 5. Stufenplan
 
