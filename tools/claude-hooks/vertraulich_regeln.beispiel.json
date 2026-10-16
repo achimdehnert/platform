@@ -4,7 +4,10 @@
     "vermerk_muster": "Regex auf den Text; nur am Zeilenanfang (auch nach Zitatzeichen >), damit eine Erwaehnung im Satz nicht anschlaegt",
     "tresore": "Ablagen fuer vertrauliche Inhalte; ausserhalb aller Repos und ausserhalb ~/.claude",
     "geschuetzte_ziele": "Pfade, in die kein Inhalt mit Vermerk geschrieben werden darf",
-    "ausgang_muster": "Regex auf Bash-Befehle und gestartete Python-Skripte, die Daten nach aussen geben (ohne Gross/Klein)"
+    "ausgang_muster": "Regex auf Bash-Befehle und gestartete Python-Skripte, die Daten nach aussen geben (ohne Gross/Klein)",
+    "billig_muster": "Gate kundendaten-an-billiganbieter: Regex auf die Route zu Billiganbietern (Befehl, gestartetes Skript, MCP-/Web-Eingabe; ohne Gross/Klein). Fehlt es, ist das Gate aus",
+    "kunden_muster": "Regex auf Kunden- und Personendaten ohne Vermerk (Kundennamen, Domains, E-Mail, Telefon, IBAN). Protokolliert wird nur der Index, nie der Treffer",
+    "billig_melden_bis": "ISO-Datum, letzter Tag der Meldephase; danach sperrt das Gate. Fehlt es, bleibt es beim Melden"
   },
   "vermerk_muster": [
     "(?mi)^[ \\t>]*ACME\\s+(?:Intern|internal|Vertraulich|confidential|Streng\\s+vertraulich|strictly\\s+confidential)\\b"
@@ -16,5 +19,16 @@
     "\\bgit\\s+(?:commit|push)\\b",
     "https?://(?!(?:localhost|127\\.0\\.0\\.1)[:/])",
     "\\b(?:groq|cerebras|together|openai|openrouter|mistral|gemini|deepseek)\\b"
-  ]
+  ],
+  "billig_muster": [
+    "\\b(?:groq|cerebras|together)\\b"
+  ],
+  "kunden_muster": [
+    "\\bACME\\b",
+    "@acme\\.example\\b",
+    "\\b[\\w.+-]+@[\\w-]+(?:\\.[\\w-]+)+\\b",
+    "\\+49[\\s/-]?\\d{2,5}[\\s/-]?\\d{3,}",
+    "\\bDE\\d{2}(?:\\s?\\d{4}){4}\\s?\\d{2}\\b"
+  ],
+  "billig_melden_bis": "2026-10-23"
 }

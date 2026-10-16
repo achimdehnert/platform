@@ -1,0 +1,43 @@
+{
+  "slug": "kundendaten-an-billiganbieter",
+  "mode": "advisory",
+  "module": "tools/claude-hooks/melde_kundendaten_an_billiganbieter.py",
+  "drill": "tools/claude-hooks/tests/test_melde_kundendaten_an_billiganbieter.py",
+  "built": "2026-10-16",
+  "last_drill_pass": "2026-10-16",
+  "owner": "achim",
+  "zustand": "melder",
+  "expires": "2026-10-30",
+  "expires_note": "Meldephase bis zum Stichtag billig_melden_bis (Owner-Regeldatei, vorgesehen 2026-10-23), danach sperrt der Hook selbst. Bis zur Frist die Meldungen der Woche im Gate-Protokoll auswerten: Fehlalarme -> Muster nachschaerfen und Stichtag verschieben; sonst mode in der Registry auf blocking stellen.",
+  "covers": [
+    "kundendaten-ohne-vermerk-an-billiganbieter"
+  ],
+  "faengt": [
+    {
+      "fall": "Bash mit Anbieter-Route im Befehl, Kundendaten in der genannten Datei",
+      "probe": "melden_bash_route_with_customer_file"
+    },
+    {
+      "fall": "Anbieter-Route im Inhalt des gestarteten Python-Skripts, IBAN im Befehl",
+      "probe": "melden_script_with_route_and_iban_in_command"
+    },
+    {
+      "fall": "MCP-Aufruf an einen Billiganbieter mit Telefonnummer",
+      "probe": "melden_mcp_call_to_cheap_provider_with_phone"
+    },
+    {
+      "fall": "nach dem Stichtag billig_melden_bis: Sperre statt Meldung",
+      "probe": "block_after_cutoff"
+    },
+    {
+      "fall": "kaputte Regeldatei: als Fehler gezaehlt und gemeldet, nicht still (platform#3862 Fund 5)",
+      "probe": "count_failures_as_fehler_not_silence"
+    }
+  ],
+  "positivkontrolle": {
+    "datum": "2026-10-16",
+    "ref": "Hook ausserhalb pytest mit der Beispiel-Regeldatei und eigenem Protokoll: MCP-Aufruf an einen Billiganbieter mit ACME-Adresse -> Meldung (Marker meldung, Beleg nur kunden_muster-Index); derselbe Aufruf mit heute nach dem Stichtag -> deny (Marker treffer); neutraler Text -> stumm. Gemessen 3 von 3 richtig, Protokoll 2 Zeilen (meldung/advisory, treffer/blocking), Beleg `mcp__llm__complete kunden_muster[1]`, 0 Zeilen mit Kundeninhalt. Ersatzweg gemessen: synthetischer Text mit Vermerk aus dem Tresor ueber tools/lokal_modell.py zusammengefasst (qwen2.5:7b, 103 Token, 6,3 s), strace connect nur 127.0.0.1 (2 von 2; Gegenprobe auf 192.0.2.1 sichtbar), Modell danach entladen."
+  },
+  "note": "platform#4049 Punkt 2, externe Empfehlung 33: eine Woche melden, dann sperren. Stichtag billig_melden_bis, Anbieter- und Kundenmuster stehen in ~/.claude/vertraulich_regeln.json, nicht hier (Repo oeffentlich); Muster: tools/claude-hooks/vertraulich_regeln.beispiel.json. Ersatzweg tools/lokal_modell.py. GRENZEN im Header: stdin-Daten, Skripte ausser python <datei>.py, Personendaten ohne Muster. Verdrahtung in ~/.claude/settings.json ist Owner-Recht (Charta Art. 3).",
+  "ref": "https://github.com/achimdehnert/platform/issues/4049"
+}
