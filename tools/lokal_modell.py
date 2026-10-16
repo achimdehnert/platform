@@ -55,13 +55,22 @@ class Fehler(Exception):
 
 
 class Konfig:
-    PFLICHT = ("basis_url", "modell", "num_predict", "timeout_s", "max_zeichen",
-               "standard_anweisung", "verbotene_modelle")
+    PFLICHT = (
+        "basis_url",
+        "modell",
+        "num_predict",
+        "timeout_s",
+        "max_zeichen",
+        "standard_anweisung",
+        "verbotene_modelle",
+    )
 
     def __init__(self, roh: dict) -> None:
         fehlt = [k for k in self.PFLICHT if k not in roh]
         if fehlt:
-            raise Fehler(ABGELEHNT, f"Konfiguration unvollstaendig, fehlt: {', '.join(fehlt)}")
+            raise Fehler(
+                ABGELEHNT, f"Konfiguration unvollstaendig, fehlt: {', '.join(fehlt)}"
+            )
         self.basis_url = str(roh["basis_url"]).rstrip("/")
         self.modell = str(roh["modell"])
         self.num_predict = int(roh["num_predict"])
@@ -71,7 +80,10 @@ class Konfig:
         self.verbotene_modelle = [str(v).lower() for v in roh["verbotene_modelle"]]
         self.tunnel = roh.get("tunnel") or None
         if urlparse(self.basis_url).hostname not in LOOPBACK:
-            raise Fehler(ABGELEHNT, "basis_url zeigt nicht auf localhost — das Werkzeug geht nie direkt nach aussen.")
+            raise Fehler(
+                ABGELEHNT,
+                "basis_url zeigt nicht auf localhost — das Werkzeug geht nie direkt nach aussen.",
+            )
         if self.num_predict <= 0:
             raise Fehler(ABGELEHNT, "num_predict muss begrenzt sein (> 0).")
         pruefe_modell_erlaubt(self.modell, self.verbotene_modelle)
@@ -83,23 +95,33 @@ def konfig_pfad() -> Path:
 
 def lade_konfig(pfad: Path) -> Konfig:
     if not pfad.exists():
-        raise Fehler(ABGELEHNT, f"Konfiguration `{pfad}` fehlt — Muster: tools/lokal_modell.beispiel.json.")
+        raise Fehler(
+            ABGELEHNT,
+            f"Konfiguration `{pfad}` fehlt — Muster: tools/lokal_modell.beispiel.json.",
+        )
     try:
         roh = json.loads(pfad.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
-        raise Fehler(ABGELEHNT, f"Konfiguration `{pfad}` nicht lesbar ({type(exc).__name__}).") from exc
+        raise Fehler(
+            ABGELEHNT, f"Konfiguration `{pfad}` nicht lesbar ({type(exc).__name__})."
+        ) from exc
     return Konfig(roh)
 
 
 def pruefe_modell_erlaubt(modell: str, verboten: list[str]) -> None:
     treffer = [v for v in verboten if v in modell.lower()]
     if treffer:
-        raise Fehler(ABGELEHNT, f"Modell `{modell}` ist fuer Kundenarbeit gesperrt ({treffer[0]}).")
+        raise Fehler(
+            ABGELEHNT,
+            f"Modell `{modell}` ist fuer Kundenarbeit gesperrt ({treffer[0]}).",
+        )
 
 
 def _hole(url: str, timeout: float, nutzlast: dict | None = None) -> dict:
     daten = None if nutzlast is None else json.dumps(nutzlast).encode("utf-8")
-    anfrage = urllib.request.Request(url, data=daten, headers={"Content-Type": "application/json"})
+    anfrage = urllib.request.Request(
+        url, data=daten, headers={"Content-Type": "application/json"}
+    )
     with urllib.request.urlopen(anfrage, timeout=timeout) as antwort:  # noqa: S310 — nur Loopback (Konfig)
         return json.loads(antwort.read().decode("utf-8"))
 
@@ -107,7 +129,10 @@ def _hole(url: str, timeout: float, nutzlast: dict | None = None) -> dict:
 def verfuegbare_modelle(k: Konfig) -> list[str] | None:
     """Modellnamen am Endpunkt, oder None, wenn er nicht antwortet."""
     try:
-        return [m.get("name", "") for m in _hole(f"{k.basis_url}/api/tags", PRUEF_TIMEOUT_S).get("models", [])]
+        return [
+            m.get("name", "")
+            for m in _hole(f"{k.basis_url}/api/tags", PRUEF_TIMEOUT_S).get("models", [])
+        ]
     except (OSError, ValueError, urllib.error.URLError):
         return None
 
@@ -115,13 +140,24 @@ def verfuegbare_modelle(k: Konfig) -> list[str] | None:
 def tunnel_befehl(k: Konfig) -> list[str]:
     t = k.tunnel or {}
     if not t.get("sprung") or not t.get("ziel"):
-        raise Fehler(NICHT_ERREICHBAR, "Kein Tunnel konfiguriert (tunnel.sprung, tunnel.ziel).")
+        raise Fehler(
+            NICHT_ERREICHBAR, "Kein Tunnel konfiguriert (tunnel.sprung, tunnel.ziel)."
+        )
     teile = urlparse(k.basis_url)
     return [
-        "ssh", "-f", "-N",
-        "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
-        "-o", "ExitOnForwardFailure=yes", "-o", "ServerAliveInterval=30",
-        "-L", f"{teile.hostname}:{teile.port}:{t['ziel']}",
+        "ssh",
+        "-f",
+        "-N",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "ConnectTimeout=10",
+        "-o",
+        "ExitOnForwardFailure=yes",
+        "-o",
+        "ServerAliveInterval=30",
+        "-L",
+        f"{teile.hostname}:{teile.port}:{t['ziel']}",
         str(t["sprung"]),
     ]
 
@@ -130,7 +166,9 @@ def erreiche(k: Konfig, tunnel_oeffnen: bool = True) -> list[str]:
     """Modelle am Endpunkt; oeffnet bei Bedarf den Tunnel. Sonst Exit 3."""
     modelle = verfuegbare_modelle(k)
     if modelle is None and tunnel_oeffnen and k.tunnel:
-        lauf = subprocess.run(tunnel_befehl(k), capture_output=True, text=True, timeout=30)
+        lauf = subprocess.run(
+            tunnel_befehl(k), capture_output=True, text=True, timeout=30
+        )
         if lauf.returncode == 0:
             ende = time.monotonic() + TUNNEL_WARTEN_S
             while modelle is None and time.monotonic() < ende:
@@ -143,7 +181,9 @@ def erreiche(k: Konfig, tunnel_oeffnen: bool = True) -> list[str]:
             "Kein Ausweichen nach aussen — Aufgabe liegen lassen oder Owner fragen.",
         )
     if k.modell not in modelle:
-        raise Fehler(MODELL_FEHLT, f"Modell `{k.modell}` ist auf der GX10 nicht vorhanden.")
+        raise Fehler(
+            MODELL_FEHLT, f"Modell `{k.modell}` ist auf der GX10 nicht vorhanden."
+        )
     return modelle
 
 
@@ -160,21 +200,35 @@ def nutzlast(k: Konfig, anweisung: str, text: str) -> dict:
 
 def generiere(k: Konfig, anweisung: str, text: str) -> dict:
     if len(text) > k.max_zeichen:
-        raise Fehler(ABGELEHNT, f"Text hat {len(text)} Zeichen, Grenze {k.max_zeichen} — teilen statt kuerzen.")
+        raise Fehler(
+            ABGELEHNT,
+            f"Text hat {len(text)} Zeichen, Grenze {k.max_zeichen} — teilen statt kuerzen.",
+        )
     try:
-        antwort = _hole(f"{k.basis_url}/api/generate", k.timeout_s, nutzlast(k, anweisung, text))
+        antwort = _hole(
+            f"{k.basis_url}/api/generate", k.timeout_s, nutzlast(k, anweisung, text)
+        )
     except (OSError, ValueError, urllib.error.URLError) as exc:
-        raise Fehler(GENERIERUNG, f"Generierung fehlgeschlagen ({type(exc).__name__}).") from exc
+        raise Fehler(
+            GENERIERUNG, f"Generierung fehlgeschlagen ({type(exc).__name__})."
+        ) from exc
     if antwort.get("error") or not str(antwort.get("response") or "").strip():
-        raise Fehler(GENERIERUNG, f"Leere oder fehlerhafte Antwort: {str(antwort.get('error') or 'leer')[:200]}")
+        raise Fehler(
+            GENERIERUNG,
+            f"Leere oder fehlerhafte Antwort: {str(antwort.get('error') or 'leer')[:200]}",
+        )
     return antwort
 
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("--datei", help="Eingabetext aus Datei (sonst stdin)")
-    p.add_argument("--anweisung", help="Anweisung vor dem Text (Standard aus der Konfiguration)")
-    p.add_argument("--pruefen", action="store_true", help="nur Erreichbarkeit und Modell pruefen")
+    p.add_argument(
+        "--anweisung", help="Anweisung vor dem Text (Standard aus der Konfiguration)"
+    )
+    p.add_argument(
+        "--pruefen", action="store_true", help="nur Erreichbarkeit und Modell pruefen"
+    )
     p.add_argument("--ohne-tunnel", action="store_true", help="keinen Tunnel oeffnen")
     args = p.parse_args(argv)
     try:
@@ -183,7 +237,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.pruefen:
             print(f"GX10 erreichbar, Modell {k.modell} vorhanden.")
             return OK
-        text = Path(args.datei).expanduser().read_text(encoding="utf-8") if args.datei else sys.stdin.read()
+        text = (
+            Path(args.datei).expanduser().read_text(encoding="utf-8")
+            if args.datei
+            else sys.stdin.read()
+        )
         antwort = generiere(k, args.anweisung or k.standard_anweisung, text)
     except Fehler as f:
         print(f"lokal_modell: {f}", file=sys.stderr)

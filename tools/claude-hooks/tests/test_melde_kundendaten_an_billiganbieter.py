@@ -48,11 +48,18 @@ def _regeln() -> hook.BilligRegeln:
 
 
 def _befund(werkzeug: str, eingabe: dict, cwd: str = "/") -> int | None:
-    return hook.befund({"tool_name": werkzeug, "tool_input": eingabe, "cwd": cwd}, _regeln())
+    return hook.befund(
+        {"tool_name": werkzeug, "tool_input": eingabe, "cwd": cwd}, _regeln()
+    )
 
 
 def _lauf(monkeypatch, capsys, werkzeug: str, eingabe: dict, heute: date) -> dict:
-    daten = {"tool_name": werkzeug, "tool_input": eingabe, "cwd": "/", "session_id": "s1"}
+    daten = {
+        "tool_name": werkzeug,
+        "tool_input": eingabe,
+        "cwd": "/",
+        "session_id": "s1",
+    }
     monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(daten)))
     assert hook.main(heute=heute) == 0
     aus = capsys.readouterr().out.strip()
@@ -93,13 +100,17 @@ def test_should_pass_customer_file_without_cheap_route(heim):
 
 
 def test_should_melden_script_with_route_and_iban_in_command(heim):
-    skript = _schreibe(heim / "scratch" / "zusammenfassen.py", "ANBIETER = 'cerebras'\n")
+    skript = _schreibe(
+        heim / "scratch" / "zusammenfassen.py", "ANBIETER = 'cerebras'\n"
+    )
     befehl = f"python3 {skript} 'Gutschrift auf DE12 3456 7890 1234 5678 90'"
     assert _befund("Bash", {"command": befehl}) == 4
 
 
 def test_should_pass_local_script_with_iban(heim):
-    skript = _schreibe(heim / "scratch" / "zusammenfassen.py", "BASIS = 'http://127.0.0.1:11435'\n")
+    skript = _schreibe(
+        heim / "scratch" / "zusammenfassen.py", "BASIS = 'http://127.0.0.1:11435'\n"
+    )
     befehl = f"python3 {skript} 'Gutschrift auf DE12 3456 7890 1234 5678 90'"
     assert _befund("Bash", {"command": befehl}) is None
 
@@ -144,14 +155,26 @@ def test_should_report_without_deny_until_cutoff(monkeypatch, capsys, heim):
 
 
 def test_should_block_after_cutoff(monkeypatch, capsys, heim):
-    aus = _lauf(monkeypatch, capsys, "mcp__llm__complete", {"anbieter": "groq", "text": KUNDE}, NACH_STICHTAG)
+    aus = _lauf(
+        monkeypatch,
+        capsys,
+        "mcp__llm__complete",
+        {"anbieter": "groq", "text": KUNDE},
+        NACH_STICHTAG,
+    )
     assert aus["hookSpecificOutput"]["permissionDecision"] == "deny"
     zeilen = _protokoll(heim)
     assert [(z["marker"], z["modus"]) for z in zeilen] == [("treffer", "blocking")]
 
 
 def test_should_never_log_content_or_pattern_text(monkeypatch, capsys, heim):
-    _lauf(monkeypatch, capsys, "mcp__llm__complete", {"anbieter": "groq", "text": KUNDE}, MELDETAG)
+    _lauf(
+        monkeypatch,
+        capsys,
+        "mcp__llm__complete",
+        {"anbieter": "groq", "text": KUNDE},
+        MELDETAG,
+    )
     roh = (heim / "gate-hits.jsonl").read_text(encoding="utf-8")
     assert "ACME" not in roh and "acme.example" not in roh
     assert "kunden_muster[0]" in roh
@@ -161,7 +184,16 @@ def test_should_stay_silent_without_cheap_patterns(monkeypatch, capsys, heim):
     regeln = json.loads(BEISPIEL.read_text(encoding="utf-8"))
     del regeln["billig_muster"]
     kern.regeln_pfad().write_text(json.dumps(regeln), encoding="utf-8")
-    assert _lauf(monkeypatch, capsys, "mcp__llm__complete", {"anbieter": "groq", "text": KUNDE}, NACH_STICHTAG) == {}
+    assert (
+        _lauf(
+            monkeypatch,
+            capsys,
+            "mcp__llm__complete",
+            {"anbieter": "groq", "text": KUNDE},
+            NACH_STICHTAG,
+        )
+        == {}
+    )
     assert _protokoll(heim) == []
 
 
@@ -169,7 +201,13 @@ def test_should_count_failures_as_fehler_not_silence(monkeypatch, capsys, heim):
     regeln = json.loads(BEISPIEL.read_text(encoding="utf-8"))
     regeln["kunden_muster"] = ["(kaputt"]
     kern.regeln_pfad().write_text(json.dumps(regeln), encoding="utf-8")
-    aus = _lauf(monkeypatch, capsys, "mcp__llm__complete", {"anbieter": "groq", "text": KUNDE}, MELDETAG)
+    aus = _lauf(
+        monkeypatch,
+        capsys,
+        "mcp__llm__complete",
+        {"anbieter": "groq", "text": KUNDE},
+        MELDETAG,
+    )
     assert "permissionDecision" not in aus["hookSpecificOutput"]
     assert "fehlgeschlagen" in aus["systemMessage"]
     assert [z["marker"] for z in _protokoll(heim)] == ["fehler"]

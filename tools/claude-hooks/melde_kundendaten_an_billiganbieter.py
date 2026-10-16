@@ -53,7 +53,9 @@ ERSATZ = "tools/lokal_modell.py (GX10, nur localhost)"
 
 class BilligRegeln:
     def __init__(self, roh: dict) -> None:
-        self.billig = [re.compile(m, re.IGNORECASE) for m in roh.get("billig_muster") or []]
+        self.billig = [
+            re.compile(m, re.IGNORECASE) for m in roh.get("billig_muster") or []
+        ]
         self.kunden = [re.compile(m) for m in roh.get("kunden_muster") or []]
         self.vermerk = [re.compile(m) for m in roh.get("vermerk_muster") or []]
         bis = roh.get("billig_melden_bis")
@@ -126,10 +128,18 @@ def _notiere(marker: str, daten: dict, beleg: str, modus: str = "advisory") -> N
 def _ausgabe(entscheidung: str | None, text: str) -> None:
     spezifisch: dict = {"hookEventName": "PreToolUse"}
     if entscheidung:
-        spezifisch |= {"permissionDecision": entscheidung, "permissionDecisionReason": text}
+        spezifisch |= {
+            "permissionDecision": entscheidung,
+            "permissionDecisionReason": text,
+        }
     else:
         spezifisch["additionalContext"] = text
-    print(json.dumps({"systemMessage": text, "hookSpecificOutput": spezifisch}, ensure_ascii=False))
+    print(
+        json.dumps(
+            {"systemMessage": text, "hookSpecificOutput": spezifisch},
+            ensure_ascii=False,
+        )
+    )
 
 
 def main(heute: date | None = None) -> int:
@@ -139,7 +149,10 @@ def main(heute: date | None = None) -> int:
     except (json.JSONDecodeError, ValueError):
         _notiere("fehler", {}, "stdin")
         return 0
-    if not kern.erfasst(daten) or str(daten.get("tool_name") or "") in kern._DATEI_WERKZEUGE:
+    if (
+        not kern.erfasst(daten)
+        or str(daten.get("tool_name") or "") in kern._DATEI_WERKZEUGE
+    ):
         return 0
     pfad = kern.regeln_pfad()
     if not pfad.exists():
@@ -151,17 +164,26 @@ def main(heute: date | None = None) -> int:
         index = befund(daten, r)
     except Exception as exc:  # noqa: BLE001 — zaehlen und melden, nicht still
         _notiere("fehler", daten, type(exc).__name__)
-        _ausgabe(None, f"⚠ {SLUG}: Pruefung fehlgeschlagen ({type(exc).__name__}) — Regeldatei `{pfad}` pruefen.")
+        _ausgabe(
+            None,
+            f"⚠ {SLUG}: Pruefung fehlgeschlagen ({type(exc).__name__}) — Regeldatei `{pfad}` pruefen.",
+        )
         return 0
     if index is None:
         return 0
     beleg = f"kunden_muster[{index}]"
     if sperrt(r, heute):
         _notiere("treffer", daten, beleg, modus="blocking")
-        _ausgabe("deny", f"⛔ {SLUG}: Aufruf an einen Billiganbieter enthaelt Kunden- oder Personendaten ({beleg}). Ersatz: {ERSATZ}.")
+        _ausgabe(
+            "deny",
+            f"⛔ {SLUG}: Aufruf an einen Billiganbieter enthaelt Kunden- oder Personendaten ({beleg}). Ersatz: {ERSATZ}.",
+        )
     else:
         _notiere("meldung", daten, beleg)
-        _ausgabe(None, f"📣 {SLUG} (Meldephase bis {r.melden_bis or 'offen'}): Aufruf an einen Billiganbieter enthaelt Kunden- oder Personendaten ({beleg}). Ersatz: {ERSATZ}. Nach dem Stichtag wird gesperrt.")
+        _ausgabe(
+            None,
+            f"📣 {SLUG} (Meldephase bis {r.melden_bis or 'offen'}): Aufruf an einen Billiganbieter enthaelt Kunden- oder Personendaten ({beleg}). Ersatz: {ERSATZ}. Nach dem Stichtag wird gesperrt.",
+        )
     return 0
 
 

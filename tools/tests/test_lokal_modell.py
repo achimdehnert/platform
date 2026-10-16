@@ -26,7 +26,11 @@ MODELL = "acme-modell:7b"
 
 
 def _roh(**ueber) -> dict:
-    roh = {k: v for k, v in json.loads(BEISPIEL.read_text(encoding="utf-8")).items() if not k.startswith("_")}
+    roh = {
+        k: v
+        for k, v in json.loads(BEISPIEL.read_text(encoding="utf-8")).items()
+        if not k.startswith("_")
+    }
     roh.pop("tunnel", None)
     roh["modell"] = MODELL
     return roh | ueber
@@ -55,8 +59,16 @@ def fake_ollama():
             self._json({"models": [{"name": MODELL}]})
 
         def do_POST(self):  # noqa: N802
-            nutzlasten.append(json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
-            self._json({"response": "Kurzfassung.", "eval_count": 3, "total_duration": 1_000_000})
+            nutzlasten.append(
+                json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            )
+            self._json(
+                {
+                    "response": "Kurzfassung.",
+                    "eval_count": 3,
+                    "total_duration": 1_000_000,
+                }
+            )
 
         def log_message(self, *args):
             pass
@@ -136,8 +148,12 @@ def test_should_try_only_tunnel_then_fail_without_fallback(tmp_path, monkeypatch
 
     monkeypatch.setattr(lm.subprocess, "run", fake_run)
     port = _freier_port()
-    _konfig(tmp_path, monkeypatch, basis_url=f"http://127.0.0.1:{port}",
-            tunnel={"sprung": "acme-sprung", "ziel": "acme-gx10:11434"})
+    _konfig(
+        tmp_path,
+        monkeypatch,
+        basis_url=f"http://127.0.0.1:{port}",
+        tunnel={"sprung": "acme-sprung", "ziel": "acme-gx10:11434"},
+    )
     assert lm.main(["--pruefen"]) == lm.NICHT_ERREICHBAR
     (befehl,) = aufrufe
     assert befehl[0] == "ssh" and f"127.0.0.1:{port}:acme-gx10:11434" in befehl
