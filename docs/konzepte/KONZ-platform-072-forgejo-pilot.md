@@ -360,7 +360,9 @@ schon mit Token auf.
 Runner. `artifactsv4.go` dekodiert die Anfrage mit `protojson.Unmarshal`, ohne unbekannte Felder
 zu verwerfen, und `artifact.proto` kennt `mime_type` nicht. Im Probe-Repo scheitert v7 mit
 HTTP 500, die v4-Kontrolle im selben Lauf ist grün. Der Fehler besteht in v17 fort, und upstream
-gibt es weiter kein Issue. K1U bleibt damit sinnvoll (Owner-Zug, siehe #4018).
+gibt es weiter kein Issue. **K1U entfällt** (Owner-Wort 2026-10-16 „K1U entfällt“): Der Pilot und
+Stufe 2 kommen mit v4 aus. Eine Meldung durch den Agenten verbietet das Forgejo AI Agreement
+(Punkte 4 und 6, [W6]).
 
 **Abgleich ehrlich gemacht (2026-10-16):** Beim Upgrade meldete der Lauf um 10:20 „unverändert“,
 obwohl Forgejo gestoppt war. Der Abruf von Forgejo war mit `|| true` stummgeschaltet, also kam der
