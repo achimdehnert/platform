@@ -7,7 +7,7 @@ owner: Achim Dehnert
 spec_refs: []   # keine SoR-Spec: Infrastruktur-/Governance-Konzept, kein Fachmodul (ADR-211 greift nicht)
 adr_threshold: kein ADR   # Pilot ist lokal, ohne Secrets, rückbaubar; ein Komplettumzug braucht einen org-weiten ADR (siehe §13)
 review_by: 2027-01-15
-kill_criteria: "Cross-Repo-Reusable aus dem shared-ci-Spiegel läuft bis 2026-11-15 nicht grün ODER < 95 % der main-Commits haben in 14 Tagen einen Forgejo-Lauf zum selben SHA ODER bis 2027-01-15 keine schriftliche Entscheidung (dann gilt Abbruch + Rückbau)"
+kill_criteria: "K1 Cross-Repo-Reusable aus dem shared-ci-Spiegel läuft bis 2026-11-15 nicht grün ODER K2 < 95 % der GitHub-main-Commits haben in 14 Tagen einen Forgejo-Lauf (gezählt über den ersten Elternteil des Overlay-Commits, FJ8) ODER K3 bis 2027-01-15 keine schriftliche Entscheidung (dann gilt Abbruch + Rückbau) ODER K4 zwei verpasste Wartungsfristen (Forgejo-Patch ≤ 30 Tage)"
 superseded_by_spec: null
 evidence_manifest:
   - {claim_id: C1, source_path: "lokal: gh repo list je Org (achimdehnert, iilgmbh, ttz-lif, meiki-lra, iilsandbox)", commit_or_pr: "—", opened_in_session: true}
@@ -302,7 +302,7 @@ Rückbau-Runbook ab Tag 1.
 | REC | Bezug | Änderung | Aufwand | Verifikation / Akzeptanz |
 |---|---|---|---|---|
 | REC-1 | AD-1, AD-2, AD-3 | G0: Hürdentabelle H1–H4 in §13 aus der Primärdoku füllen | S | jede Zeile mit URL der Primärdoku |
-| REC-2 | AD-1, AD-5 | G1: lokaler Compose-Stack, Pull-Spiegel `shared-ci` + `ausschreibungs-hub`, Runner, `ci.yml`-Lauf | M | grüner Lauf, Diff ≤ 10 Zeilen |
+| REC-2 | AD-1, AD-5 | G1: lokaler Compose-Stack, Pull-Spiegel `shared-ci`, Push-Abgleich `ausschreibungs-hub` mit Overlay (FJ8, §5.9), Runner, `ci.yml`-Lauf | M | grüner Lauf, Diff ≤ 10 Zeilen |
 | REC-3 | AD-3 | G2: Bot-Konto + Branch-Protection, Testfall „Merge ohne Approve“ | S | Merge technisch abgewiesen |
 | REC-4 | M28-1 | Gate-Zeile im Handover mit Datum 2027-01-15 und Token-Ablauf | S | Zeile sichtbar im Session-Start |
 | REC-5 | AD-4 | erst nach dem Gate: `gh`-Aufrufe zählen und nach Ersetzbarkeit klassifizieren | M | Tabelle je Datei |
@@ -342,6 +342,11 @@ G1-Messung zeigt, dass v4 genügt. Der Anhang bleibt als Quellenstand vom 2026-1
 S1–S6, H3-Alternativen O1–O7, Ökosystem-Befunden, Optionsraum A–G und Stufenplan „Hoheit in
 Schichten“. Er korrigiert C17 und präzisiert H2 (C21). Fristsache: v16 endet am 2026-10-29, bis
 dahin ist die Release-Spur für den Pilot zu wählen (Anhang §9).
+
+**Release-Spur entschieden (Owner-Wort 2026-10-16 „FJ17 V17“):** Der Pilot wechselt vor dem
+2026-10-29 von 16.0.6 auf v17 Stable, geplant als In-Place-Upgrade mit Sicherung vorab. v17 wird bis 2027-01-28
+gepflegt und deckt damit das Gate am 2027-01-15 ab. Danach folgt das Upgrade etwa alle drei Monate.
+Die LTS-Spur (v15, Neuaufbau) ist verworfen, T17 entfällt.
 
 **Kill-Gate (jedes Kriterium stoppt allein):**
 
