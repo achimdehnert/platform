@@ -2,7 +2,8 @@
 # Merges MIT gesetztem OWNER_WORT durch tools/pr_merge_sa.py.
 #
 # Quelle: platform#3804 Kriterium K7. Owner-Wort 2026-10-08 "D go"; Ausschluss
-# meiki-lra/* und ttz-lif/* nach Owner-Wort 2026-10-06 (kein autonomes Deploy).
+# meiki-lra/* nach Owner-Wort 2026-10-06 (kein autonomes Deploy); ttz-lif/ttz-hub
+# ist seit Owner-Wort 2026-10-15 freigegeben (siehe Eintrag unten).
 #
 # Semantik: Ist die Umgebungsvariable OWNER_WORT gesetzt (die Permission-Regel
 # erlaubt den Aufruf dann ohne Owner-Klick), merged pr_merge_sa.py nur Repos
@@ -21,3 +22,6 @@ repos:
   # freigegeben sind" (robo-lab#277: ci.yml als Governance-Pfad, Autor = Owner,
   # kein Selbst-Approve möglich, Review-Bot nur in platform).
   - achimdehnert/robo-lab
+  # Owner-Wort 2026-10-15 (Ausschluss nur fuer meiki gedacht, eigene Repos frei),
+  # Ausfuehrung "P1 go" 2026-10-16 (ttz-hub#107/#116: ADR-PRs, Autor = Owner).
+  - ttz-lif/ttz-hub

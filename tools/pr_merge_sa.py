@@ -146,8 +146,8 @@ def pruefe_owner_wort_repo(repo: str, env=None, pfad=None) -> str | None:
         return None
     return (
         f"{repo} steht nicht in der Repo-Positivliste fuer Merges mit OWNER_WORT "
-        f"({OWNER_WORT_REPOS.name}, platform#3804 K7) — meiki-lra/* und ttz-lif/* "
-        f"sind ausgeschlossen. Ohne OWNER_WORT aufrufen (normaler Pfad) oder "
+        f"({OWNER_WORT_REPOS.name}, platform#3804 K7) — meiki-lra/* ist "
+        f"ausgeschlossen.Ohne OWNER_WORT aufrufen (normaler Pfad) oder "
         f"Owner fragen."
     )
 

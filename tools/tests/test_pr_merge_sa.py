@@ -1490,9 +1490,11 @@ def test_should_allow_listed_repo_with_owner_wort():
     assert pruefe_owner_wort_repo("achimdehnert/writing-hub", MIT_WORT) is None
     # Owner-Wort 2026-10-13 "LL go" (platform#3903)
     assert pruefe_owner_wort_repo("achimdehnert/platform", MIT_WORT) is None
+    # Owner-Wort 2026-10-15, "P1 go" 2026-10-16 (ttz-hub#116)
+    assert pruefe_owner_wort_repo("ttz-lif/ttz-hub", MIT_WORT) is None
 
 
-@pytest.mark.parametrize("repo", ["meiki-lra/meiki-hub", "ttz-lif/ttz-hub"])
+@pytest.mark.parametrize("repo", ["meiki-lra/meiki-hub", "meiki-lra/buerger-hub"])
 def test_should_reject_excluded_repo_with_owner_wort(repo):
     from pr_merge_sa import pruefe_owner_wort_repo
 
@@ -1549,12 +1551,12 @@ def test_should_journal_positivliste_rejection_as_abort(monkeypatch, tmp_path):
     monkeypatch.setattr(pr_merge_sa, "JOURNAL", ziel)
     monkeypatch.setenv("OWNER_WORT", "RA 2026-10-08 05:00Z")
     monkeypatch.setattr(pr_merge_sa, "regeln", lambda *_a, **_k: REGELN)
-    assert pr_merge_sa.main(["5", "ttz-lif/ttz-hub"]) == 2
+    assert pr_merge_sa.main(["5", "meiki-lra/buerger-hub"]) == 2
 
     zeilen = [json.loads(z) for z in ziel.read_text().splitlines()]
     assert len(zeilen) == 1
     satz = zeilen[0]
-    assert satz["repo"] == "ttz-lif/ttz-hub" and satz["pr"] == 5
+    assert satz["repo"] == "meiki-lra/buerger-hub" and satz["pr"] == 5
     assert satz["erlaubt"] is False and satz["exit"] == 2
     assert satz["ergebnis"] == pr_merge_sa.ERGEBNIS_ABGEWIESEN_POSITIVLISTE
     assert "Positivliste" in satz["grund"]
