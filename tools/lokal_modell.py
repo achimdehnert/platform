@@ -44,6 +44,9 @@ KONFIG_STANDARD = "~/.claude/lokal_modell.json"
 LOOPBACK = frozenset({"127.0.0.1", "localhost", "::1"})
 PRUEF_TIMEOUT_S = 5
 TUNNEL_WARTEN_S = 15
+# Ohne Proxy: die Loopback-Pruefung gilt der URL. Ein http_proxy aus der Umgebung
+# truege die Nutzlast sonst trotzdem zu einem fremden Host (Advocatus-WARN #4055).
+_OHNE_PROXY = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 OK, ABGELEHNT, NICHT_ERREICHBAR, MODELL_FEHLT, GENERIERUNG = 0, 2, 3, 4, 5
 
@@ -122,7 +125,7 @@ def _hole(url: str, timeout: float, nutzlast: dict | None = None) -> dict:
     anfrage = urllib.request.Request(
         url, data=daten, headers={"Content-Type": "application/json"}
     )
-    with urllib.request.urlopen(anfrage, timeout=timeout) as antwort:  # noqa: S310 — nur Loopback (Konfig)
+    with _OHNE_PROXY.open(anfrage, timeout=timeout) as antwort:
         return json.loads(antwort.read().decode("utf-8"))
 
 

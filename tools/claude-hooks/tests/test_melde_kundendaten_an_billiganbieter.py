@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import io
 import json
-import shutil
 import sys
 from datetime import date
 from pathlib import Path
@@ -36,7 +35,12 @@ def heim(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
     regeln = tmp_path / ".claude" / "vertraulich_regeln.json"
     regeln.parent.mkdir()
-    shutil.copy(BEISPIEL, regeln)
+    # Das Beispiel traegt keinen Stichtag (Meldephase bis zur Auswertung); die
+    # Sperr-Proben brauchen einen.
+    roh = json.loads(BEISPIEL.read_text(encoding="utf-8"))
+    regeln.write_text(
+        json.dumps(roh | {"billig_melden_bis": STICHTAG.isoformat()}), encoding="utf-8"
+    )
     monkeypatch.setenv(kern.REGELN_ENV, str(regeln))
     monkeypatch.setattr(hook, "PROTOKOLL", tmp_path / "gate-hits.jsonl")
     (tmp_path / "scratch").mkdir()
@@ -165,6 +169,22 @@ def test_should_block_after_cutoff(monkeypatch, capsys, heim):
     assert aus["hookSpecificOutput"]["permissionDecision"] == "deny"
     zeilen = _protokoll(heim)
     assert [(z["marker"], z["modus"]) for z in zeilen] == [("treffer", "blocking")]
+
+
+def test_should_only_report_without_cutoff(monkeypatch, capsys, heim):
+    regeln = kern.regeln_pfad()
+    roh = json.loads(regeln.read_text(encoding="utf-8"))
+    roh.pop("billig_melden_bis")
+    regeln.write_text(json.dumps(roh), encoding="utf-8")
+    aus = _lauf(
+        monkeypatch,
+        capsys,
+        "mcp__llm__complete",
+        {"anbieter": "groq", "text": KUNDE},
+        date(2027, 1, 1),
+    )
+    assert "permissionDecision" not in aus["hookSpecificOutput"]
+    assert [z["marker"] for z in _protokoll(heim)] == ["meldung"]
 
 
 def test_should_never_log_content_or_pattern_text(monkeypatch, capsys, heim):

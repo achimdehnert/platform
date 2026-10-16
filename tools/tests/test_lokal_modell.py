@@ -163,3 +163,19 @@ def test_should_report_missing_model(tmp_path, monkeypatch, fake_ollama):
     url, _ = fake_ollama
     _konfig(tmp_path, monkeypatch, basis_url=url, modell="acme-anderes:7b")
     assert lm.main(["--pruefen", "--ohne-tunnel"]) == lm.MODELL_FEHLT
+
+
+def test_should_ignore_proxy_from_environment(
+    tmp_path, monkeypatch, capsys, fake_ollama
+):
+    url, nutzlasten = fake_ollama
+    _konfig(tmp_path, monkeypatch, basis_url=url)
+    falle = f"http://127.0.0.1:{_freier_port()}"
+    for name in ("http_proxy", "HTTP_PROXY", "all_proxy", "ALL_PROXY"):
+        monkeypatch.setenv(name, falle)
+    for name in ("no_proxy", "NO_PROXY"):
+        monkeypatch.delenv(name, raising=False)
+    eingabe = tmp_path / "text.txt"
+    eingabe.write_text("ACME Intern\nUmsatz Region Sued.\n", encoding="utf-8")
+    assert lm.main(["--datei", str(eingabe), "--ohne-tunnel"]) == lm.OK
+    assert len(nutzlasten) == 1

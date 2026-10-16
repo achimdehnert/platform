@@ -8,7 +8,7 @@
   "owner": "achim",
   "zustand": "melder",
   "expires": "2026-10-30",
-  "expires_note": "Meldephase bis zum Stichtag billig_melden_bis (Owner-Regeldatei, vorgesehen 2026-10-23), danach sperrt der Hook selbst. Bis zur Frist die Meldungen der Woche im Gate-Protokoll auswerten: Fehlalarme -> Muster nachschaerfen und Stichtag verschieben; sonst mode in der Registry auf blocking stellen.",
+  "expires_note": "Meldephase ohne Stichtag: das Owner-Skript setzt billig_melden_bis bewusst nicht, der Hook meldet nur. Bis zur Frist die Meldungen im Gate-Protokoll auswerten: Fehlalarme -> Muster nachschaerfen; sonst setzt der Owner danach billig_melden_bis und mode in der Registry auf blocking. Scharf erst nach der Auswertung (Retro 835f30 Befund 3, platform#4061).",
   "covers": [
     "kundendaten-ohne-vermerk-an-billiganbieter"
   ],
