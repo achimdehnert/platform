@@ -393,3 +393,68 @@ def test_should_stay_silent_on_sed_in_place_on_quoted_variable():
 def test_should_stay_silent_on_empty_heredoc_body():
     kommando = "cat > /dev/null <<'X'\nX\nprintf '%s' \"a > b\""
     assert modul.entscheide(kommando, REPO) is None
+
+
+# --- Ausweitung 2026-10-16: Git-Worktree im Scratchpad (Retro c5851a, „G1-go") --
+
+
+def _scratchpad_mit_worktree(tmp_path):
+    """Scratchpad mit einem Worktree `wt-181` (`.git` als Datei, wie bei
+    `git worktree add`) und einem Klon `klon` (`.git` als Verzeichnis)."""
+    scratchpad = tmp_path / "sitzung" / "scratchpad"
+    worktree = scratchpad / "wt-181"
+    (worktree / "deploy").mkdir(parents=True)
+    (worktree / ".git").write_text("gitdir: /x/.git/worktrees/wt-181\n")
+    (scratchpad / "klon" / ".git").mkdir(parents=True)
+    return scratchpad, worktree
+
+
+#: Wortlaut vom 2026-10-16 10:49:02 UTC (Sitzung c5851a, cwd chat-hub), gekürzt
+#: um die Regex-Zeilen; die Form — `cd` in den Worktree, Skript-Heredoc,
+#: relativer Pfad, `write_text` — ist vollständig.
+def _befund_c5851a(worktree):
+    return (
+        f"cd {worktree} && python3 - <<'EOF'\n"
+        "import re,pathlib\n"
+        'p=pathlib.Path("deploy/chat_lotse.py"); s=p.read_text()\n'
+        's=s.replace("<<<<<<< HEAD\\n", "")\n'
+        "p.write_text(s)\n"
+        "EOF\n"
+        "grep -n '^<<<<<<<' deploy/chat_lotse.py"
+    )
+
+
+def test_should_block_befund_c5851a_python_heredoc_in_scratchpad_worktree(
+    monkeypatch, capsys, tmp_path
+):
+    _, worktree = _scratchpad_mit_worktree(tmp_path)
+    state = tmp_path / "state"
+    state.mkdir()
+    code, err = _lauf(
+        monkeypatch, capsys, _befund_c5851a(worktree), CHAT_HUB, tmp_path=state
+    )
+    assert code == 2
+    assert f"{worktree}/deploy/chat_lotse.py" in err
+
+
+def test_should_block_redirect_into_clone_in_scratchpad(tmp_path):
+    scratchpad, _ = _scratchpad_mit_worktree(tmp_path)
+    ziel = scratchpad / "klon" / "docs" / "x.md"
+    assert modul.entscheide(f"echo a > {ziel}", REPO) is not None
+
+
+def test_should_stay_silent_on_scratchpad_file_next_to_a_worktree(tmp_path):
+    # Die Owner-Entscheidung vom 2026-09-21 gilt weiter: Wegwerf-Dateien im
+    # Scratchpad bleiben frei, auch wenn daneben ein Worktree liegt.
+    scratchpad, _ = _scratchpad_mit_worktree(tmp_path)
+    kommando = (
+        f"cat <<'EOF' > {scratchpad}/pr-body.md\ntext\nEOF\n"
+        f"python3 - <<'PY'\nopen('{scratchpad}/out.json','w').write('{{}}')\nPY"
+    )
+    assert modul.entscheide(kommando, REPO) is None
+
+
+def test_should_stay_silent_on_git_internals_of_scratchpad_worktree(tmp_path):
+    _, worktree = _scratchpad_mit_worktree(tmp_path)
+    assert modul.entscheide(f"echo a > {worktree}/.git", REPO) is None
+    assert modul.entscheide(f"echo a > {worktree}/.git/x", REPO) is None
