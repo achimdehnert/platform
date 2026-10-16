@@ -72,6 +72,8 @@ Vorfall im April 2026 lief über ein gestohlenes Token [P26].
 
 **Empfehlung.** S1 für öffentliche Pakete, S4 für interne, S7 als Reserve vor S3, S2 höchstens
 als befristete Brücke, S6 nur als Notfall. Kill-Tests in der Reihenfolge S1 → S4 → S7 → S3.
+Abweichung: S7 wurde am 2026-10-16 zuerst gemessen, auf die Owner-Frage nach einer Kompensation
+(§2.1, Owner-Wort „GB go“). S1, S4 und S3 bleiben offen (T26).
 Unabhängig vom Weg: der Release-Melder aus §2.2.
 
 ### 2.1 Nachtrag: S7, die Google-Brücke
@@ -122,9 +124,23 @@ Owner-Wort „GC go“, Belege in [#4018](https://github.com/achimdehnert/platfo
 - **Gewertete Variante (Owner-Wort „SB go“):** Die Google-Bedingung prüft nur `repository` und
   `ref` mit Präfix `refs/tags/v`. Den Schutz trägt allein der Forgejo-Tag-Schutz `v*`. Gemessen:
   Ein Nutzer außerhalb der Whitelist erhält 422, der Lauf auf einem geschützten Tag kommt bis
-  „valid token“, main und fremde Repos werden von Google abgewiesen. Schwäche: Google kann den
-  Tag-Schutz nicht nachprüfen, und ein Repo- oder Instanz-Admin kann ihn abschalten (vgl. FJ11 F3b).
-  Das entspricht etwa einem GitHub-Publisher ohne Environment. Zweite Linie ist der Release-Melder (§2.2).
+  „valid token“, `main` wird von Google abgewiesen. Ein fremdes Repo wurde nur unter der früheren
+  Bedingung abgewiesen. Der Repo-Teil ist unverändert, die Abweisung unter der gewerteten Bedingung
+  ist deshalb eine **Hypothese** ([Nachtrag in #4018](https://github.com/achimdehnert/platform/issues/4018#issuecomment-6219134027)).
+  Schwächen:
+  - Google kann den Tag-Schutz nicht nachprüfen, und ein Repo- oder Instanz-Admin kann ihn abschalten (vgl. FJ11 F3b).
+  - Die Bedingung bindet den Workflow nicht. Der Claim `workflow` ist vorhanden, wird aber nicht
+    geprüft. Jeder Workflow im Repo, der auf einem geschützten Tag läuft, bekommt das Token.
+  - Damit ist die Variante schwächer als ein GitHub-Publisher ohne Environment. PyPI pinnt bei
+    GitHub immer den Workflow-Dateinamen, hier pinnt niemand den Workflow. Abhilfe vor Stufe 2:
+    `workflow` in die Bedingung aufnehmen (ungemessen).
+  - Die Pilot-Jobs sind nicht voneinander isoliert. Sie laufen in einem privilegierten
+    Docker-in-Docker ohne TLS im Netz der Instanz, mit Host-Netz. Ob ein Job das Google-Token
+    eines anderen Jobs sehen kann, ist nicht gemessen. Für Stufe 2 gehört der Publish-Lauf auf
+    einen eigenen, isolierten Runner.
+
+  Zweite Linie ist der Release-Melder (§2.2). Er läuft erst, wenn er als Runner-Phase eingehängt
+  ist. Bis dahin ist er nur ein Werkzeug, das jemand aufrufen muss (Retro [#4060](https://github.com/achimdehnert/platform/pull/4060), Befund 5).
 
 **Gates.** Ein Google-Projekt berührt die Gates Spend und Security-Config. Der Kill-Test braucht
 Owner-Wort und läuft nur gegen TestPyPI mit Wegwerf-Paket.
@@ -299,7 +315,7 @@ ist eine eigene Entscheidung und nicht Teil des Mandats #4018. Sie braucht Owner
 | T23 | Stellt der Restore nach offizieller Anleitung Tokens, 2FA und Pakete wieder her? (ergänzt T14) |
 | T24 | Erkennt ein CVE-Scanner eine Forgejo-Lücke ohne eigene CVE-Nummer? |
 | T25 | Wo genau entsteht der v7-`mime_type`-Fehler? Ein Upstream-Issue darf laut AI-Agreement nur ein Mensch einreichen. **Gemessen 2026-10-16 auf 17.0.0:** Er entsteht serverseitig in `artifactsv4.go` (`protojson.Unmarshal` ohne `DiscardUnknown`) und besteht in v17 fort (Konzept §13, C23) |
-| T26 | Kill-Tests S1, S4, S7, S3 (§2) und O1, O3 (§3). **S7 gemessen 2026-10-16:** schwächere Variante (§2.1 Ergebnis) |
+| T26 | Kill-Tests S1, S4, S7, S3 (§2) und O1, O3 (§3). **S7 gemessen 2026-10-16 bis „valid token“:** schwächere Variante (§2.1 Ergebnis). Publisher-Eintrag und Upload sind ungetestet, ebenso ein fremdes Repo unter der gewerteten Bedingung. S1, S4 und S3 sind offen |
 | T30 | Release-Melder (§2.2): erkennt er eine TestPyPI-Version ohne Tag binnen 2 h? |
 
 ## 8. Korrekturen zum Anhang vom 2026-10-15
