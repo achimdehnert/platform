@@ -169,6 +169,14 @@ Gate-Zeile im Handover, ist also ein Review-Gate und kein Exit-Code.
 - **G2 – Parität, 14 Tage:** Mindestens 95 % der main-Commits haben einen Forgejo-Lauf zum selben
   SHA, und das Ergebnis stimmt mit GitHub überein. Dazu der Testfall: Ein Merge ohne
   Code-Owner-Approve wird abgewiesen (Bot-Konto + Branch-Protection).
+  **Testfall gemessen (FJ11, Owner-Wort 2026-10-16 „FJ11 go“, Forgejo 16.0.6, drei Läufe):**
+  Branch-Schutz mit einem Pflicht-Approve aus einer Positivliste, die nur den Code-Owner enthält,
+  Direkt-Push aus und „Regel gilt auch für Admins“ an. Abgewiesen werden: Direkt-Push (403), Merge
+  durch den Autor (405 „Does not have enough approvals“), durch einen Admin ohne `force_merge`,
+  nach dem Approve eines Nicht-Code-Owners, nach entfernter Review-Anfrage und durch einen
+  Repo-Admin mit `force_merge`. Nach dem Code-Owner-Approve gelingt der Merge (Positivkontrolle).
+  **Durchbruch:** Ein Instanz-Admin mergt mit `force_merge` ohne Approve, trotz „Regel gilt auch
+  für Admins“. `main` bewegt sich dabei. Ob das Absicht von Forgejo ist, ist ungeprüft (Hypothese).
   **Messverfahren (FJ8, Owner-Wort 2026-10-15 „FJ8 go“):** Ein Host-Cron holt GitHub-`main` alle
   10 Minuten und legt darauf einen Overlay-Commit `fj-overlay: <GitHub-SHA>`. Erster Elternteil ist
   der GitHub-SHA, zweiter der alte Forgejo-Stand, also ein Fast-Forward. Der Overlay fügt nur
@@ -279,7 +287,9 @@ Rückbau-Runbook ab Tag 1.
 3. **Security-Rückschritt PyPI** (AD-2): *Fix:* Die Veröffentlichung bleibt auf GitHub, bis PyPI
    Forgejo anerkennt. *Restunsicherheit:* hängt von PyPI ab.
 4. **Governance-Lücke** (AD-3): *Fix:* Testfall in G2. Scheitert er, ist ein Umzug der
-   Governance-Repos (platform, Liste L) ausgeschlossen.
+   Governance-Repos (platform, Liste L) ausgeschlossen. *Gemessen 2026-10-16 (FJ11):* Die Sperre
+   hält gegen alle Rollen außer dem Instanz-Admin mit `force_merge`. Daraus folgt: Kein
+   Alltagskonto und keine Automatisierung darf Instanz-Admin sein. Auch der Abgleich nicht.
 5. **Token-Ablauf / Patchstand** (M28): *Fix:* Seit FJ8 gibt es kein Token mehr. An seine Stelle
    tritt ein still stehender Abgleich. Den zeigt das Messlog als Lücke (G2). Der lokale Stack ohne
    Port senkt den Patch-Druck.
@@ -310,7 +320,7 @@ Beleg fallen:
 | H1 | Reusables über Repo-Grenzen laufen tag-gepinnt | **fällt mit Auflage** (G1 gemessen, Owner-Wort 2026-10-15 „K1A go“): shared-ci braucht für Forgejo artifact v4 und Forge-neutrale Composite-Refs, Kostenposten Stufe 2 | C12: `uses: org/repo/<pfad>@<ref>` ist erlaubt, das Ziel-Repo muss öffentlich sein. shared-ci ist öffentlich (C16) |
 | H2 | PyPI erkennt Forgejo als Trusted Publisher an | **fällt nicht** | C13: PyPI kennt nur GitHub Actions, Google Cloud, ActiveState, GitLab CI/CD. Self-managed-Instanzen sind ausgeschlossen |
 | H3 | Merge Queue oder gleichwertige Serialisierung | **nur Ersatz** | C14: keine Merge Queue in der Oberfläche. Ersatz: „blockiert, weil veraltet“ plus Auto-Merge nach grünen Checks. Das kostet je PR einen Update-Lauf. Genutzt wird `merge_group` heute nur in platform (C17) |
-| H4 | Code-Owner-Review blockiert technisch | laut Doku ja, Testfall G2 offen | C15: Approvals lassen sich auf eine Positivliste beschränken, dazu „Block merge on official review requests“ |
+| H4 | Code-Owner-Review blockiert technisch | **gemessen** (FJ11, 2026-10-16): blockiert alle Rollen außer dem Instanz-Admin mit `force_merge`. Vorschlag „fällt mit Auflage: kein Instanz-Admin im Alltag“, Owner-Entscheid offen | C15: Approvals lassen sich auf eine Positivliste beschränken, dazu „Block merge on official review requests“ |
 
 **G0-Ergebnis (2026-10-15):** Höchstens 3 von 4 Hürden fallen, und das nur, wenn der Ersatz für H3
 zählt. H2 fällt auf Forgejo nicht. Damit ist ein Komplettumzug nur als Hybrid denkbar, bei dem die
