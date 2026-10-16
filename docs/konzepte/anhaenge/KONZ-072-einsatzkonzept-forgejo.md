@@ -240,7 +240,7 @@ ist eine eigene Entscheidung und nicht Teil des Mandats #4018. Sie braucht Owner
 
 | Thema | Vorschlag | Frist |
 |---|---|---|
-| Release-Spur | v15 LTS neu aufsetzen (Spur der großen Betreiber) oder v17 Stable mit Upgrade alle ~3 Monate | vor 2026-10-29 |
+| Release-Spur | v15 LTS neu aufsetzen (Spur der großen Betreiber) oder v17 Stable mit Upgrade alle ~3 Monate. **Entschieden 2026-10-16: v17** (Owner-Wort „FJ17 V17“, Konzept §13) | vor 2026-10-29 |
 | H3-Wortlaut | Umformulieren auf Parität (§3). Dann fällt H3 mit Auflage | vor G2-Ende 2026-10-29 |
 | Paketschnitt | Je Paket der 18 privaten Repos: öffentlich (S1) oder intern (S4) | vor Stufe 5 |
 | Stufe 0 | Zwei Klärungsfragen (§6) | offen |
