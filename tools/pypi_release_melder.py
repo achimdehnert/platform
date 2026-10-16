@@ -146,11 +146,14 @@ def bewerte_version(
 
 
 def pypi_releases(dist: str, timeout: int = 10) -> dict | None:
+    """`None` = unlesbar: fehlendes oder fremdartiges `releases` ist keine Abwesenheit von Versionen."""
     try:
         with urllib.request.urlopen(f"https://pypi.org/pypi/{dist}/json", timeout=timeout) as resp:  # noqa: S310
-            return json.load(resp).get("releases", {})
+            daten = json.load(resp)
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError):
         return None
+    releases = daten.get("releases") if isinstance(daten, dict) else None
+    return releases if isinstance(releases, dict) else None
 
 
 def repo_tags(repo: str) -> set[str] | None:

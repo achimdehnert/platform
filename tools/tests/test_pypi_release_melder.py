@@ -1,12 +1,16 @@
 """Tests für die puren Regeln des PyPI-Release-Melders (KONZ-platform-072 §2.2)."""
 
+import io
 import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+import pypi_release_melder  # noqa: E402
 from pypi_release_melder import (  # noqa: E402
     OHNE_ERWARTUNG,
     OK,
@@ -16,6 +20,7 @@ from pypi_release_melder import (  # noqa: E402
     UNBEKANNT,
     bewerte_version,
     erwartung,
+    lauf,
     pruefe_herkunft,
     pruefe_tag,
     versionen_im_fenster,
@@ -114,3 +119,24 @@ def test_should_have_no_findings_for_expected_release():
         fetch=lambda *_: (200, _bundle("achimdehnert/beispiel", "publish.yml")),
     )
     assert v["befunde"] == []
+
+
+def _lauf_mit_antwort(tmp_path, monkeypatch, antwort) -> dict:
+    fleet = tmp_path / "fleet.yaml"
+    fleet.write_text("packages:\n  beispiel: {}\n")
+    monkeypatch.setattr(
+        pypi_release_melder.urllib.request, "urlopen",
+        lambda *_a, **_k: io.BytesIO(json.dumps(antwort).encode()),
+    )
+    return lauf(fleet, datetime(2026, 10, 1, tzinfo=timezone.utc))
+
+
+def test_should_mark_package_unreadable_when_releases_missing(tmp_path, monkeypatch):
+    bericht = _lauf_mit_antwort(tmp_path, monkeypatch, {"info": {}})
+    assert bericht["pypi_unlesbar"] == ["beispiel"]
+
+
+@pytest.mark.parametrize("antwort", [[], "kaputt", {"releases": []}])
+def test_should_mark_package_unreadable_when_response_is_no_dict(tmp_path, monkeypatch, antwort):
+    bericht = _lauf_mit_antwort(tmp_path, monkeypatch, antwort)
+    assert bericht["pypi_unlesbar"] == ["beispiel"]
