@@ -27,6 +27,9 @@ evidence_manifest:
   - {claim_id: C15, source_path: "extern: codeberg.org/forgejo/forgejo options/locale/locale_en-US.ini (settings.protect_approvals_whitelist_enabled, settings.block_on_official_review_requests)", commit_or_pr: "Branch forgejo, 2026-10-15", opened_in_session: true}
   - {claim_id: C16, source_path: "lokal: gh repo view iilgmbh/shared-ci (visibility PUBLIC)", commit_or_pr: "—", opened_in_session: true}
   - {claim_id: C17, source_path: "lokal: grep merge_group über ~/github/*/.github/workflows/*.y*ml (nur platform, platform-pinned)", commit_or_pr: "—", opened_in_session: true}
+  - {claim_id: C18, source_path: "lokal: Forgejo-Serverlog artifactsv4.go 'unknown field \"mime_type\"' + extern: codeberg.org/forgejo/forgejo routers/api/actions/artifact.proto (Branch forgejo, ohne mime_type)", commit_or_pr: "Branch forgejo, 2026-10-15", opened_in_session: true}
+  - {claim_id: C19, source_path: "lokal: Pilot-Job env (GITHUB_SERVER_URL vor/nach Runner-Adresswechsel)", commit_or_pr: "—", opened_in_session: true}
+  - {claim_id: C20, source_path: "iilgmbh/ausschreibungs-hub: .github/workflows/ci.yml (on: pull_request, workflow_dispatch)", commit_or_pr: "5e047b2c", opened_in_session: true}
 created: 2026-10-15
 ---
 
@@ -132,8 +135,8 @@ oder `ttz-lif`. Kein öffentlich erreichbarer Host.
 |---|---|---|---:|---:|---|---|
 | dieses Konzept | neu | Achim Dehnert | ja | nein | bis Gate 2027-01-15 | Verwaisung (M28) |
 | lokaler Forgejo-Stack (Compose, Daten außerhalb des Repos) | neu | Achim Dehnert | nein | nein | Rückbau am Gate | Patchstand |
-| Pull-Spiegel `shared-ci`, `ausschreibungs-hub` | neu | Achim Dehnert | nein | ja | Rückbau am Gate | Token-Ablauf |
-| fein granuliertes GitHub-Token, nur lesen, 2 Repos | neu | Achim Dehnert | nein | nein | ≤ 90 Tage | neuer Secret |
+| Pull-Spiegel `shared-ci` (öffentlich, ohne Token) | neu | Achim Dehnert | nein | ja | Rückbau am Gate | — |
+| Push-Abgleich `ausschreibungs-hub` (Host-Cron, 10 min, FJ8) | neu | Achim Dehnert | nein | ja | Rückbau am Gate | Cron läuft still nicht mehr |
 | Messprotokoll (Hürdentabelle, SHA-Abdeckung) | neu | Achim Dehnert | ja | teils | bis Gate | — |
 
 **5.7 Prozessmodell.** `idea` (dieses Doc) → `pilot` (Gates G0–G2, §5.9) → Gate 2027-01-15:
@@ -143,8 +146,9 @@ Abbruch + Rückbau **oder** org-weiter ADR für Stufe 2. Ohne Entscheidung gilt 
 
 | Regel | Level | Mechanismus | Owner | Ausnahme? | Ablaufdatum nötig? |
 |---|---|---|---|---:|---:|
-| keine Secrets im Pilot-Stack | Runtime-Guard | Stack startet ohne Secrets-Mount; Spiegel-Token nur in der Forgejo-Mirror-Konfiguration | Owner | nein | nein |
-| Spiegel ist schreibgeschützt | Runtime-Guard | Pull-Mirror (Forgejo erlaubt keinen Push in Pull-Spiegel, H → G0 prüft) | Owner | nein | nein |
+| keine Secrets im Pilot-Stack | Runtime-Guard | Stack startet ohne Secrets-Mount; Forgejo hält kein GitHub-Token, der Host liest GitHub mit seinem vorhandenen Zugang | Owner | nein | nein |
+| Spiegel ist schreibgeschützt | Runtime-Guard | `shared-ci`: Pull-Mirror. `ausschreibungs-hub`: Branch-Schutz auf `main`, nur das Abgleich-Konto schreibt, nur Fast-Forward | Owner | nein | nein |
+| `deploy.yml` läuft nie | Runtime-Guard | Der Abgleich legt `.forgejo/workflows/ci.yml` an. Damit liest Forgejo `.github/workflows` nicht mehr. Belegt im ersten Lauf: nur `ci.yml` wurde ausgelöst | Owner | nein | nein |
 | GitHub bleibt maßgeblich | Governance | Forgejo-Läufe sind nie Required Check; keine Issues/PRs auf Forgejo | Owner | nein | Gate |
 | kein öffentlicher Endpunkt | Runtime-Guard | Bindung an localhost | Owner | nein | nein |
 | Gate-Entscheidung | Review-Gate | `review_by` + Kill-Kriterium „keine Entscheidung = Abbruch“ | Owner | nein | 2027-01-15 |
@@ -165,9 +169,16 @@ Gate-Zeile im Handover, ist also ein Review-Gate und kein Exit-Code.
 - **G2 – Parität, 14 Tage:** Mindestens 95 % der main-Commits haben einen Forgejo-Lauf zum selben
   SHA, und das Ergebnis stimmt mit GitHub überein. Dazu der Testfall: Ein Merge ohne
   Code-Owner-Approve wird abgewiesen (Bot-Konto + Branch-Protection).
+  **Messverfahren (FJ8, Owner-Wort 2026-10-15 „FJ8 go“):** Ein Host-Cron holt GitHub-`main` alle
+  10 Minuten und legt darauf einen Overlay-Commit `fj-overlay: <GitHub-SHA>`. Erster Elternteil ist
+  der GitHub-SHA, zweiter der alte Forgejo-Stand, also ein Fast-Forward. Der Overlay fügt nur
+  `.forgejo/workflows/ci.yml` hinzu: `ci.yml` aus GitHub, mit Push-Trigger und Kompat-Aufruf.
+  Jeder Push löst damit einen Lauf aus. Gezählt wird „GitHub-SHA hat einen Forgejo-Lauf“ über den
+  ersten Elternteil. Der Ersatz für einen Pull-Spiegel war nötig, weil ein privates Repo sonst ein
+  GitHub-Token in Forgejo braucht und `ci.yml` keinen Push-Trigger hat (C20).
 - **Bewusst nicht drin:** Deploy, PyPI-Veröffentlichung, Werkzeug-Umbau, Renovate auf Forgejo.
-- **Rückbau, unter 1 h:** Compose-Stack und Datenvolumen löschen, Spiegel-Token widerrufen. Das
-  Repo bleibt unberührt, weil der Stack außerhalb liegt.
+- **Rückbau, unter 1 h:** Cron-Zeile entfernen, Compose-Stack und Datenvolumen löschen. Ein
+  Token muss nicht widerrufen werden. Das Repo bleibt unberührt, weil der Stack außerhalb liegt.
 
 **5.10 Full Concept, nur nach Gate.** Stufe 2: `shared-ci` wird Forge-neutral.
 Werkzeug-Zwischenschicht für `gh`. Bot-Konto statt App. Renovate auf Forgejo. Eigener
@@ -216,7 +227,8 @@ Rückbau-Runbook ab Tag 1.
 2. **Boundary:** Der Pilot setzt eine neue, lokale Grenze ohne Außenwirkung. Ein Umzug wäre eine
    org-weite Grenze und damit ADR-pflichtig.
 3. **Governance:** Ausnahmen gibt es keine. Jede zweite Pilot-Repo-Aufnahme ist Owner-Wort.
-4. **Security:** Einziger neuer Secret ist ein Token, nur lesend, für 2 Repos, höchstens 90 Tage.
+4. **Security:** Kein neuer Secret. Forgejo hält kein GitHub-Token (FJ8). Gelesen wird mit dem
+   vorhandenen Zugang des Hosts.
    Kein Prod-Secret, kein offener Port.
 5. **Datenschutz:** Gespiegelt werden nur iilgmbh-Repos ohne Personendaten (H, Stichprobe vor G1).
    Keine Repos aus `meiki-lra` oder `ttz-lif`.
@@ -268,8 +280,9 @@ Rückbau-Runbook ab Tag 1.
    Forgejo anerkennt. *Restunsicherheit:* hängt von PyPI ab.
 4. **Governance-Lücke** (AD-3): *Fix:* Testfall in G2. Scheitert er, ist ein Umzug der
    Governance-Repos (platform, Liste L) ausgeschlossen.
-5. **Token-Ablauf / Patchstand** (M28): *Fix:* Token höchstens 90 Tage, Ablaufdatum in der
-   Gate-Zeile. Der lokale Stack ohne Port senkt den Patch-Druck.
+5. **Token-Ablauf / Patchstand** (M28): *Fix:* Seit FJ8 gibt es kein Token mehr. An seine Stelle
+   tritt ein still stehender Abgleich. Den zeigt das Messlog als Lücke (G2). Der lokale Stack ohne
+   Port senkt den Patch-Druck.
 
 ## 12. Empfehlungen
 
@@ -294,7 +307,7 @@ Beleg fallen:
 
 | Hürde | Frage | Status | Beleg |
 |---|---|---|---|
-| H1 | Reusables über Repo-Grenzen laufen tag-gepinnt | laut Doku ja, Messung G1 offen | C12: `uses: org/repo/<pfad>@<ref>` ist erlaubt, das Ziel-Repo muss öffentlich sein. shared-ci ist öffentlich (C16) |
+| H1 | Reusables über Repo-Grenzen laufen tag-gepinnt | **fällt mit Auflage** (G1 gemessen, Owner-Wort 2026-10-15 „K1A go“): shared-ci braucht für Forgejo artifact v4 und Forge-neutrale Composite-Refs, Kostenposten Stufe 2 | C12: `uses: org/repo/<pfad>@<ref>` ist erlaubt, das Ziel-Repo muss öffentlich sein. shared-ci ist öffentlich (C16) |
 | H2 | PyPI erkennt Forgejo als Trusted Publisher an | **fällt nicht** | C13: PyPI kennt nur GitHub Actions, Google Cloud, ActiveState, GitLab CI/CD. Self-managed-Instanzen sind ausgeschlossen |
 | H3 | Merge Queue oder gleichwertige Serialisierung | **nur Ersatz** | C14: keine Merge Queue in der Oberfläche. Ersatz: „blockiert, weil veraltet“ plus Auto-Merge nach grünen Checks. Das kostet je PR einen Update-Lauf. Genutzt wird `merge_group` heute nur in platform (C17) |
 | H4 | Code-Owner-Review blockiert technisch | laut Doku ja, Testfall G2 offen | C15: Approvals lassen sich auf eine Positivliste beschränken, dazu „Block merge on official review requests“ |
@@ -308,16 +321,36 @@ endet also nicht nach G0, G1 bleibt sinnvoll.
 [Anhang GitHub gegen Forgejo](anhaenge/KONZ-072-vergleich-github-forgejo.md) mit Quellen,
 Urteil je Punkt gegen H1–H4 und den Testfragen T1–T16. Der Anhang bewertet H1 strenger mit
 „teilweise“, weil der Aufrufer `permissions:` ignoriert, dem Context Schlüssel fehlen und Artefakte
-v3 oder einen Fork brauchen. Die Tabelle oben bleibt bis zur Entscheidung des Owners unverändert.
+v3 oder einen Fork brauchen. Entschieden per „K1A go“ (2026-10-15): H1 fällt mit Auflage, denn die
+G1-Messung zeigt, dass v4 genügt. Der Anhang bleibt als Quellenstand vom 2026-10-15 so stehen.
 
 **Kill-Gate (jedes Kriterium stoppt allein):**
 
 | Kriterium | Status | Beleg |
 |---|---|---|
-| K1: G1 bis 2026-11-15 nicht grün | offen | — |
+| K1: G1 bis 2026-11-15 nicht grün | nicht ausgelöst: G1 grün mit Kompat-Kopie, zählt laut Owner-Wort 2026-10-15 „K1A go“. Bestätigt per Push-Lauf 9/9 im Abgleich (FJ8) | [#4018](https://github.com/achimdehnert/platform/issues/4018#issuecomment-6195829170), C18–C20 |
 | K2: SHA-Abdeckung in G2 < 95 % über 14 Tage | offen | — |
 | K3: bis 2027-01-15 keine schriftliche Entscheidung → Abbruch + Rückbau | offen | — |
-| K4: zwei verpasste Wartungsfristen (Token-Rotation, Forgejo-Patch ≤ 30 Tage) | offen | — |
+| K4: zwei verpasste Wartungsfristen (Forgejo-Patch ≤ 30 Tage; Token-Rotation entfällt seit FJ8) | offen | — |
+
+**G1-Messung (2026-10-15, Forgejo 16.0.6, Runner 13.2.0):** Ein Lauf mit unverändertem
+`shared-ci@v1.1.25` wird auf Forgejo nie grün. Die Tests laufen durch (1097 passed), aber
+`upload-artifact` v7 sendet bei `CreateArtifact` das Feld `mime_type`, und Forgejo antwortet mit
+HTTP 500, weil es das Feld nicht kennt (C18). Auch `artifact.proto` auf Forgejo-`main` enthält das
+Feld nicht. Ein Upgrade hilft also nicht. Mit einer Kopie `shared-ci-kompat@v1.1.25-fj1`, die nur
+auf Forgejo liegt und artifact v4.6.2/v4.3.0 statt v7/v8 nutzt (4 Zeilen), lief `ci.yml` vollständig
+grün: 9/9 Jobs, Coverage-Gate 85,25 % über hochgeladene und wieder geladene Artefakte. Der Aufrufer
+weicht in 1 Zeile ab. Artefakte brauchen damit kein v3, v4 genügt. Drei weitere Befunde:
+
+- Der Runner gibt seine Registrier-Adresse als `GITHUB_SERVER_URL` an die Jobs weiter. Endet sie
+  nicht auf `.localhost`, hält `@actions/artifact` die Instanz für GHES und bricht ab (C19).
+  Für einen Host in Stufe 2 heißt das: v4-Artefakte gehen nur mit Fork oder Patch.
+- Die Composite-Actions in `_ci-python.yml` stehen auf `iilgmbh/shared-ci/…@main` und kommen von
+  github.com, nicht aus dem Spiegel. H1 gilt damit nur für den Reusable selbst. Volle Hoheit
+  braucht ein Forge-neutrales shared-ci (Stufe 2).
+- `ci.yml` in ausschreibungs-hub läuft nur bei `pull_request` und `workflow_dispatch`, nicht bei
+  einem Push auf main (C20). G2 kann die Parität deshalb nicht über „Lauf je main-Commit“ messen
+  und braucht ein anderes Messverfahren.
 
 **Exception-Budget:** Keines. Ein zweites Pilot-Repo vor dem Gate braucht Owner-Wort mit Datum.
 
