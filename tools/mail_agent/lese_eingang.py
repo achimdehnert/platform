@@ -73,6 +73,10 @@ MAX_LINKTEXT = 120
 # Das Lesezeichen schickt mehr Kandidaten als MAX_LINKS, weil die
 # Normalisierung Doppelte und Nicht-http-Links noch herausnimmt.
 MAX_LINKS_ROH = 3 * MAX_LINKS
+# Inhaltswahl, Vertrag mit chat-hub deploy/lotse_lesen.py (gleicher Wert): das
+# erste article/main zaehlt nur, wenn es diesen Anteil des Seitentexts traegt,
+# sonst body. Das erste article war auf pub.sakana.ai ein Folienkasten (2026-10-16).
+INHALT_ANTEIL = 0.5
 HERKUENFTE = frozenset(
     {
         "https://lotse.iil.pet",
@@ -198,7 +202,9 @@ def lesezeichen(basis: str) -> str:
     ziel = json.dumps(basis + "/lesen?knopf=1" + FRAGMENT)
     return (
         "javascript:(()=>{"
-        "const a=document.querySelector('article')||document.body;"
+        "const b=document.body,n=b.innerText.length;"
+        "const a=[...document.querySelectorAll('article,main')]"
+        f".find(x=>x.innerText.length>={INHALT_ANTEIL}*n)||b;"
         "const l=[...a.querySelectorAll('a[href]')]"
         ".filter(x=>!x.closest('nav,header,footer,aside'))"
         f".slice(0,{MAX_LINKS_ROH})"
@@ -255,7 +261,7 @@ body.uebergabe .karte{{display:none}}
 <li>Den blauen Knopf mit der Maus <b>in die Lesezeichenleiste ziehen</b>:<br>
 <a class="knopf" id="knopf" href="{knopf}">📎 An Lotse</a></li>
 </ol>
-<p class="klein">Knopf vor dem 30.09.2026 eingerichtet? Den alten löschen und diesen neu hineinziehen — der alte scheitert an manchen Seiten ohne Meldung.</p>
+<p class="klein">Knopf vor dem 16.10.2026 eingerichtet? Den alten löschen und diesen neu hineinziehen — der alte liest auf manchen Seiten nur einen Vorschaukasten statt des Artikels.</p>
 <p><b>Danach, bei jedem Artikel:</b></p>
 <ol>
 <li>Artikel wie gewohnt öffnen.</li>

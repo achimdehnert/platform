@@ -258,6 +258,39 @@ def test_should_store_the_article_although_the_page_cuts_the_opener(
     assert "navi.example" not in inhalt
 
 
+ARTIKEL_VORSCHAU = "https://vorschau.example/projekt"
+
+
+def test_should_store_the_page_text_when_the_first_article_is_a_preview(
+    browser_seite, tmp_path
+):
+    # Realfall pub.sakana.ai 2026-10-16: das erste article war eine Folienleiste,
+    # der Text stand ausserhalb — abgelegt wurden 461 Bytes.
+    basis, kontext = browser_seite
+    langtext = "Langer Projekttext. " * 50
+    kontext.route(
+        "https://vorschau.example/**",
+        lambda route: route.fulfill(
+            status=200,
+            headers={"Content-Type": "text/html; charset=utf-8"},
+            body=(
+                "<title>Vorschau</title>"
+                "<article>Folie 1/10</article>"
+                f"<div><p>{langtext}<a href='https://quelle.example/pdf'>PDF</a></p></div>"
+            ),
+        ),
+    )
+    artikel = kontext.new_page()
+    artikel.goto(ARTIKEL_VORSCHAU)
+    with kontext.expect_page() as neu:
+        artikel.evaluate(le.lesezeichen(basis)[len("javascript:") :])
+    assert _ergebnis(neu.value).startswith("ok: ✓ Abgelegt: Vorschau")
+    ablage = tmp_path / "lesen" / f"{le.ablage_schluessel(ARTIKEL_VORSCHAU)}.md"
+    inhalt = ablage.read_text(encoding="utf-8")
+    assert "Langer Projekttext." in inhalt
+    assert "- https://quelle.example/pdf — PDF" in inhalt
+
+
 def test_should_report_a_knopf_call_that_lost_its_article(browser_seite, tmp_path):
     basis, kontext = browser_seite
     seite = kontext.new_page()
