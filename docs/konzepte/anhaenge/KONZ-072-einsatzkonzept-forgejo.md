@@ -16,6 +16,7 @@
 2. **H2 blockiert nicht den Forge-Umzug, sondern nur den Publish-Pfad.** Empfohlen: öffentliche
    Pakete über einen GitHub-Spiegel als Publish-Fassade (S1), interne Pakete in die
    Forgejo-Registry (S4), ein eigener Token-Broker als Reserve (S3). H2 bleibt „fällt nicht“.
+   Nachtrag: S7 (Google-Brücke) als Reserve vor S3, plus Release-Melder für jeden Weg (§2.1, §2.2).
 3. **H3 lässt sich als Parität formulieren.** Auf GitHub laufen heute Auto-Merge und
    Pflicht-Checks ohne Up-to-date-Zwang. Das bildet Forgejo nativ ab. Mit zwei Meldern fiele H3
    mit Auflage (O1). Eine externe Queue (gitea-mq) bleibt Reserve für platform.
@@ -67,9 +68,69 @@ Vorfall im April 2026 lief über ein gestohlenes Token [P26].
 | **S4** Interne Pakete in die Forgejo-Registry | für interne Pakete höher (nicht mehr öffentlich). Pflicht: expliziter Index, nie `--extra-index-url` | mittel / gering | maximal | `uv sync` mit Lese-Token aus der Registry scheitert im Docker-Build eines Hubs |
 | **S5** Warten auf PyPI | gleich | keiner | keine | Antrag Codeberg bis 2027-03-31 ohne inhaltlichen Fortschritt |
 | **S6** Manuell durch den Owner | gemischt, ohne Attestations | gering / hoch für den Owner | voll | > 2 Releases pro Woche. Stichprobe: ein Paket allein 7 Releases seit 2026-07-18 [P27] |
+| **S7** Google-Brücke (Nachtrag 2026-10-16, §2.1) | ≈ S1: kurzlebig, ohne Secret. Attestations möglich (Hypothese) | mittel / gering, je Paket ein Dienstkonto | Publish-Pfad bei Google statt GitHub | TestPyPI nimmt den Upload eines Forgejo-Workflows von einem geschützten Tag nicht an, oder nimmt ihn von einem ungeschützten Branch an |
 
-**Empfehlung.** S1 für öffentliche Pakete, S4 für interne, S3 als Reserve, S2 höchstens als
-befristete Brücke, S6 nur als Notfall. Kill-Tests in der Reihenfolge S1 → S4 → S3.
+**Empfehlung.** S1 für öffentliche Pakete, S4 für interne, S7 als Reserve vor S3, S2 höchstens
+als befristete Brücke, S6 nur als Notfall. Kill-Tests in der Reihenfolge S1 → S4 → S7 → S3.
+Unabhängig vom Weg: der Release-Melder aus §2.2.
+
+### 2.1 Nachtrag: S7, die Google-Brücke
+
+Owner-Frage 2026-10-16: „pypi -> github ist ein problem mit forgejo.. gibt es möglichkeiten die
+schwachstellen zu kompensieren ?“ S1–S6 kompensieren über GitHub, einen langlebigen Token oder
+einen eigenen Dienst. S7 nutzt einen vierten, von PyPI bereits zugelassenen Aussteller.
+
+**Bausteine.**
+- PyPI akzeptiert Google Cloud als Trusted Publisher. Pflicht-Claims sind `email` und
+  `email_verified`, `sub` ist optional. Der Publisher liefert eine eigene Attestations-Identität
+  (`attestation_identity`) [P28] ✔.
+- Forgejo-Workflows erhalten mit `enable-openid-connect` ein OIDC-Token. Issuer
+  `<Instanz>/api/actions`, Claims u. a. `repository`, `ref`, `workflow`, `ref_protected` [P29].
+  Auf Codeberg praktisch abgerufen [P30].
+- Google Workload Identity Federation nimmt OIDC-Anbieter an und prüft Claims per CEL-Bedingung
+  [P31]. Die Schlüssel des Anbieters lassen sich als Datei hinterlegen (`--jwk-json-path`) [P32].
+- Die offizielle Google-Auth-Action erzeugt per Föderation ID-Tokens mit frei wählbarer
+  Zielgruppe und optional `email`-Claim [P33].
+
+**Kette.** Forgejo-Workflow holt OIDC-Token → Google prüft `repository`, Tag-Ref und
+`ref_protected == true` → Google stellt für das Dienstkonto des Pakets ein ID-Token mit
+Zielgruppe `pypi` und `email` aus → PyPI mintet daraus ein kurzlebiges Upload-Token.
+
+| Punkt | Bewertung |
+|---|---|
+| Sicherheit | Kein langlebiges Secret. Die Bindung an Repo und Tag sitzt bei Google, nicht bei PyPI. Fehler in der CEL-Bedingung öffnen den Pfad. Daher ein Dienstkonto je Paket |
+| Attestations | Im Warehouse-Code vorgesehen. Ob die Werkzeuge außerhalb von GitHub mit Google-Identität signieren: **Hypothese** |
+| Betrieb | Ein Google-Projekt, je Paket ein Dienstkonto plus PyPI-Eintrag. Kein eigener Dienst |
+| Hoheit | Zweiter US-Anbieter im Pfad. PyPI ist ohnehin US. Für Lesart A schlechter als S1, für Lesart B gleich |
+| Kosten | Föderation selbst vermutlich kostenfrei: **Hypothese**, ungeprüft |
+
+**Offene Punkte (Hypothesen, im Kill-Test zu klären).**
+- Nötige Rolle für ID-Tokens per Föderation (vermutlich Token Creator am Dienstkonto).
+- Ob hinterlegte Schlüssel eine nicht öffentlich erreichbare Instanz tragen. Folge: Schlüsselwechsel
+  in Forgejo verlangt Nachpflege bei Google.
+- Ob `ref_protected` für Tags so gesetzt wird wie für Branches.
+
+**Gates.** Ein Google-Projekt berührt die Gates Spend und Security-Config. Der Kill-Test braucht
+Owner-Wort und läuft nur gegen TestPyPI mit Wegwerf-Paket.
+
+### 2.2 Release-Melder (für jeden Publish-Weg)
+
+Ausgleich für fehlende oder schwächere Attestations (S2, S6) und zweite Linie für S1, S7: Jede
+Version auf PyPI muss zu einem erwarteten Release passen. Skizze, kein Code.
+
+| Baustein | Inhalt |
+|---|---|
+| Eingabe | Paketliste mit Quell-Repo und erwartetem Publisher als Datendatei, nicht im Code |
+| PyPI-Seite | JSON-API je Paket (Versionen, Dateien, Upload-Zeit) [P34] ✔. Integrity-API je Datei: Herkunft mit `kind`, `repository`, `workflow` [P35] ✔ |
+| Forge-Seite | Tags des Quell-Repos samt SHA, bei S1 zusätzlich der Spiegel |
+| Regeln | R1 jede Version hat einen gleichnamigen Tag. R2 Upload nach Tag-Erstellung. R3 Herkunft passt zum erwarteten Publisher (Art, Repo, Workflow). R4 ohne Herkunft nur bei S2/S6 erlaubt, dann Pflicht-Meldung |
+| Lauf | Stündlich, zustandslos bis auf die zuletzt gesehenen Versionen |
+| Meldung | Verstoß gegen R1–R3 sofort an den bestehenden Meldekanal, R4 als Tagesmeldung |
+| Kill-Kriterium | Eine Testversion auf TestPyPI ohne passenden Tag wird nicht binnen 2 h gemeldet |
+
+Der Melder wirkt schon heute auf GitHub und hängt nicht an Forgejo. Er erkennt einen Missbrauch,
+verhindert ihn aber nicht. Gegenmittel nach Meldung: Version auf PyPI zurückziehen (yank), Token
+oder Föderation sperren.
 
 **Schnittfrage.** 18 private Repos veröffentlichen auf das öffentliche PyPI. Ihr Code ist über
 die Paketdateien faktisch öffentlich (Hypothese je Paket, hängt am sdist). Für jedes Paket ist zu
@@ -222,7 +283,8 @@ ist eine eigene Entscheidung und nicht Teil des Mandats #4018. Sie braucht Owner
 | T23 | Stellt der Restore nach offizieller Anleitung Tokens, 2FA und Pakete wieder her? (ergänzt T14) |
 | T24 | Erkennt ein CVE-Scanner eine Forgejo-Lücke ohne eigene CVE-Nummer? |
 | T25 | Wo genau entsteht der v7-`mime_type`-Fehler? Ein Upstream-Issue darf laut AI-Agreement nur ein Mensch einreichen. **Gemessen 2026-10-16 auf 17.0.0:** Er entsteht serverseitig in `artifactsv4.go` (`protojson.Unmarshal` ohne `DiscardUnknown`) und besteht in v17 fort (Konzept §13, C23) |
-| T26 | Kill-Tests S1, S4, S3 (§2) und O1, O3 (§3) |
+| T26 | Kill-Tests S1, S4, S7, S3 (§2) und O1, O3 (§3) |
+| T30 | Release-Melder (§2.2): erkennt er eine TestPyPI-Version ohne Tag binnen 2 h? |
 
 ## 8. Korrekturen zum Anhang vom 2026-10-15
 
@@ -263,6 +325,14 @@ ist eine eigene Entscheidung und nicht Teil des Mandats #4018. Sie braucht Owner
 - [P25] forgejo/forgejo#5806: https://codeberg.org/forgejo/forgejo/issues/5806
 - [P26] PyPI-Blog 2026-04-02, Incident Report: https://blog.pypi.org/posts/2026-04-02-incident-report-litellm-telnyx-supply-chain-attack/
 - [P27] PyPI-JSON-API, Release-Zählung je Paket (Messung 2026-10-16)
+- [P28] pypi/warehouse, `warehouse/oidc/models/google.py`: https://github.com/pypi/warehouse/blob/main/warehouse/oidc/models/google.py ✔
+- [P29] Forgejo v17, Security OpenID Connect: https://forgejo.org/docs/v17.0/user/actions/security-openid-connect/
+- [P30] openpubkey/opkssh#519 (JWT auf Codeberg): https://github.com/openpubkey/opkssh/issues/519
+- [P31] Google, Workload Identity Federation: https://docs.cloud.google.com/iam/docs/workload-identity-federation · https://docs.cloud.google.com/iam/docs/workload-identity-federation-with-deployment-pipelines
+- [P32] gcloud `workload-identity-pools providers create-oidc`: https://docs.cloud.google.com/sdk/gcloud/reference/iam/workload-identity-pools/providers/create-oidc
+- [P33] google-github-actions/auth, README (`token_format: id_token`): https://github.com/google-github-actions/auth
+- [P34] PyPI JSON API: https://docs.pypi.org/api/json/ ✔ (abgerufen am Beispiel `sampleproject`)
+- [P35] PyPI Integrity API: https://docs.pypi.org/api/integrity/ ✔ (abgerufen am Beispiel `sampleproject`)
 
 **Merge Queue (H3)**
 - [Q1] Messung platform: GitHub-API (GraphQL `mergeQueue`, Ruleset, Läufe mit `merge_group`, PR-Liste 01.–16.10.), [ADR-270](../../adr/ADR-270-merge-automation-fleet-tiered.md) ✔
