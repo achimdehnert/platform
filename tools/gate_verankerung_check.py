@@ -48,6 +48,8 @@ Aufrufe:
   gate_verankerung_check.py --neu [--basis origin/main]
       Nur Eintraege, die gegenueber der Basis NEU oder GEAENDERT sind.
       Exit 1, wenn einem davon etwas fehlt. Das ist das Verankerungs-Gate.
+      Ein NEUER Eintrag muss zudem `mode: advisory` tragen (Meldephase,
+      platform#4061); scharf schaltet ein eigener PR nach der Auswertung.
       Exit 2 = Werkzeugfehler (Basis nicht lesbar) — ein Melder, der beim
       Ausfall gruen meldet, ist schlimmer als keiner.
 
@@ -92,6 +94,11 @@ EIGENES_REPO = "platform"
 SLUG_FORM = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)+")
 
 ISO_DATUM = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+#: Modus, mit dem ein neu verankertes Gate startet. Retro 835f30 Befund 3:
+#: #4048 ging direkt `blocking` und sperrte am ersten Tag neunmal faelschlich
+#: (#4053) — die Fehlalarm-Gegenprobe hatte die Zielpopulation nicht enthalten.
+START_MODUS = "advisory"
 
 #: Felder, deren Aenderung KEINE Neu-Verankerung ist: Prosa, Protokoll,
 #: Kalibrier-Notizen. Ohne diese Abgrenzung wuerde eine Tippfehler-Korrektur im
@@ -323,6 +330,14 @@ def lauf_neu(gates: list[dict], basis: list[dict], repo: str) -> int:
     rot = 0
     for grund, gate in treffer:
         ergebnis = pruefe_gate(gate, repo)
+        if grund == "neu" and gate.get("mode") != START_MODUS:
+            ergebnis["maengel"].append(
+                (
+                    "Meldephase",
+                    f"neues Gate startet `{START_MODUS}`, nicht `{gate.get('mode')}` — "
+                    "scharf erst per eigenem PR nach Auswertung der Meldungen (platform#4061)",
+                )
+            )
         if ergebnis["maengel"]:
             rot += 1
         _melde(ergebnis, grund)
