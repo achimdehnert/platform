@@ -68,7 +68,7 @@ Vorfall im April 2026 lief über ein gestohlenes Token [P26].
 | **S4** Interne Pakete in die Forgejo-Registry | für interne Pakete höher (nicht mehr öffentlich). Pflicht: expliziter Index, nie `--extra-index-url` | mittel / gering | maximal | `uv sync` mit Lese-Token aus der Registry scheitert im Docker-Build eines Hubs |
 | **S5** Warten auf PyPI | gleich | keiner | keine | Antrag Codeberg bis 2027-03-31 ohne inhaltlichen Fortschritt |
 | **S6** Manuell durch den Owner | gemischt, ohne Attestations | gering / hoch für den Owner | voll | > 2 Releases pro Woche. Stichprobe: ein Paket allein 7 Releases seit 2026-07-18 [P27] |
-| **S7** Google-Brücke (Nachtrag 2026-10-16, §2.1) | ≈ S1: kurzlebig, ohne Secret. Attestations möglich (Hypothese) | mittel / gering, je Paket ein Dienstkonto | Publish-Pfad bei Google statt GitHub | TestPyPI nimmt den Upload eines Forgejo-Workflows von einem geschützten Tag nicht an, oder nimmt ihn von einem ungeschützten Branch an |
+| **S7** Google-Brücke (Nachtrag 2026-10-16, §2.1) | ≈ S1: kurzlebig, ohne Secret. Attestations möglich (Hypothese) | mittel / gering, je Paket ein Dienstkonto | Publish-Pfad bei Google statt GitHub | TestPyPI nimmt den Upload eines Forgejo-Workflows von einem geschützten Tag nicht an, oder nimmt ihn von einem ungeschützten Branch an. **Gemessen 2026-10-16 (§2.1 Ergebnis):** in der geplanten Form rot, weil Forgejo `ref_protected` nie setzt. Gewertet als schwächere Variante ohne `ref_protected` (Owner-Wort „SB go“) |
 
 **Empfehlung.** S1 für öffentliche Pakete, S4 für interne, S7 als Reserve vor S3, S2 höchstens
 als befristete Brücke, S6 nur als Notfall. Kill-Tests in der Reihenfolge S1 → S4 → S7 → S3.
@@ -104,11 +104,27 @@ Zielgruppe `pypi` und `email` aus → PyPI mintet daraus ein kurzlebiges Upload-
 | Hoheit | Zweiter US-Anbieter im Pfad. PyPI ist ohnehin US. Für Lesart A schlechter als S1, für Lesart B gleich. Entschieden ist B (2026-10-16), also gleichwertig |
 | Kosten | Föderation selbst vermutlich kostenfrei: **Hypothese**, ungeprüft |
 
-**Offene Punkte (Hypothesen, im Kill-Test zu klären).**
-- Nötige Rolle für ID-Tokens per Föderation (vermutlich Token Creator am Dienstkonto).
-- Ob hinterlegte Schlüssel eine nicht öffentlich erreichbare Instanz tragen. Folge: Schlüsselwechsel
-  in Forgejo verlangt Nachpflege bei Google.
-- Ob `ref_protected` für Tags so gesetzt wird wie für Branches.
+**Ergebnis Kill-Test (2026-10-16, Pilot Forgejo 17.0.0, Google-Testprojekt ohne Abrechnungskonto,
+Owner-Wort „GC go“, Belege in [#4018](https://github.com/achimdehnert/platform/issues/4018)).**
+- **Nicht öffentliche Instanz:** Google nimmt den Issuer `https://forgejo.localhost:3443/api/actions`
+  mit hochgeladenem JWKS an (STS 200). Ein öffentlicher Hostname ist nicht nötig. Folge bleibt:
+  Ein Schlüsselwechsel in Forgejo verlangt Nachpflege bei Google.
+- **Rolle:** `roles/iam.serviceAccountOpenIdTokenCreator` am Dienstkonto für die Principal-Menge des
+  Repos genügt. Die Bindung wirkte erst nach rund 5 Minuten (vorher 403).
+- **PyPI:** TestPyPI prüft das Google-ID-Token und meldet „valid token, but no corresponding
+  publisher“. Publisher-Eintrag und Upload sind nicht getestet, weil kein TestPyPI-Konto vorhanden
+  ist. Beides holt der erste Release in Stufe 2 nach (Owner-Wort „SG go“).
+- **`ref_protected`:** Forgejo 17 liefert den Claim als String und setzt ihn nie auf `'true'`,
+  weder bei wirksam geschützten Tags noch bei geschützten Branches. Die Kette mit
+  `ref_protected == true` weist damit jeden Lauf ab und ist in der geplanten Form rot. Ob der Claim
+  in Forgejo nicht implementiert ist, ist eine **Hypothese**. Eine Upstream-Meldung darf laut
+  AI-Agreement nur ein Mensch einreichen.
+- **Gewertete Variante (Owner-Wort „SB go“):** Die Google-Bedingung prüft nur `repository` und
+  `ref` mit Präfix `refs/tags/v`. Den Schutz trägt allein der Forgejo-Tag-Schutz `v*`. Gemessen:
+  Ein Nutzer außerhalb der Whitelist erhält 422, der Lauf auf einem geschützten Tag kommt bis
+  „valid token“, main und fremde Repos werden von Google abgewiesen. Schwäche: Google kann den
+  Tag-Schutz nicht nachprüfen, und ein Repo- oder Instanz-Admin kann ihn abschalten (vgl. FJ11 F3b).
+  Das entspricht etwa einem GitHub-Publisher ohne Environment. Zweite Linie ist der Release-Melder (§2.2).
 
 **Gates.** Ein Google-Projekt berührt die Gates Spend und Security-Config. Der Kill-Test braucht
 Owner-Wort und läuft nur gegen TestPyPI mit Wegwerf-Paket.
@@ -283,7 +299,7 @@ ist eine eigene Entscheidung und nicht Teil des Mandats #4018. Sie braucht Owner
 | T23 | Stellt der Restore nach offizieller Anleitung Tokens, 2FA und Pakete wieder her? (ergänzt T14) |
 | T24 | Erkennt ein CVE-Scanner eine Forgejo-Lücke ohne eigene CVE-Nummer? |
 | T25 | Wo genau entsteht der v7-`mime_type`-Fehler? Ein Upstream-Issue darf laut AI-Agreement nur ein Mensch einreichen. **Gemessen 2026-10-16 auf 17.0.0:** Er entsteht serverseitig in `artifactsv4.go` (`protojson.Unmarshal` ohne `DiscardUnknown`) und besteht in v17 fort (Konzept §13, C23) |
-| T26 | Kill-Tests S1, S4, S7, S3 (§2) und O1, O3 (§3) |
+| T26 | Kill-Tests S1, S4, S7, S3 (§2) und O1, O3 (§3). **S7 gemessen 2026-10-16:** schwächere Variante (§2.1 Ergebnis) |
 | T30 | Release-Melder (§2.2): erkennt er eine TestPyPI-Version ohne Tag binnen 2 h? |
 
 ## 8. Korrekturen zum Anhang vom 2026-10-15
