@@ -1,0 +1,20 @@
+{
+  "_zweck": "Muster fuer ~/.claude/vertraulich_regeln.json (Gate vertrauliches-verlaesst-ablage). Die echte Datei liegt NIE in einem Repo: schon der Vermerk nennt den Kunden. Neuer Kunde = neues Muster und neuer Tresor dort, kein Code.",
+  "_felder": {
+    "vermerk_muster": "Regex auf den Text; nur am Zeilenanfang (auch nach Zitatzeichen >), damit eine Erwaehnung im Satz nicht anschlaegt",
+    "tresore": "Ablagen fuer vertrauliche Inhalte; ausserhalb aller Repos und ausserhalb ~/.claude",
+    "geschuetzte_ziele": "Pfade, in die kein Inhalt mit Vermerk geschrieben werden darf",
+    "ausgang_muster": "Regex auf Bash-Befehle und gestartete Python-Skripte, die Daten nach aussen geben (ohne Gross/Klein)"
+  },
+  "vermerk_muster": [
+    "(?mi)^[ \\t>]*ACME\\s+(?:Intern|internal|Vertraulich|confidential|Streng\\s+vertraulich|strictly\\s+confidential)\\b"
+  ],
+  "tresore": ["~/vertraulich/acme"],
+  "geschuetzte_ziele": ["~/github", "~/.claude"],
+  "ausgang_muster": [
+    "\\bgh\\s+(?:issue|pr|api|gist|release|repo)\\b",
+    "\\bgit\\s+(?:commit|push)\\b",
+    "https?://(?!(?:localhost|127\\.0\\.0\\.1)[:/])",
+    "\\b(?:groq|cerebras|together|openai|openrouter|mistral|gemini|deepseek)\\b"
+  ]
+}
