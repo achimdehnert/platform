@@ -26,10 +26,12 @@ evidence_manifest:
   - {claim_id: C14, source_path: "extern: codeberg.org/forgejo/forgejo options/locale/locale_en-US.ini (pulls.blocked_by_outdated_branch, pulls.auto_merge_when_succeed; kein merge-queue-Schlüssel)", commit_or_pr: "Branch forgejo, 2026-10-15", opened_in_session: true}
   - {claim_id: C15, source_path: "extern: codeberg.org/forgejo/forgejo options/locale/locale_en-US.ini (settings.protect_approvals_whitelist_enabled, settings.block_on_official_review_requests)", commit_or_pr: "Branch forgejo, 2026-10-15", opened_in_session: true}
   - {claim_id: C16, source_path: "lokal: gh repo view iilgmbh/shared-ci (visibility PUBLIC)", commit_or_pr: "—", opened_in_session: true}
-  - {claim_id: C17, source_path: "lokal: grep merge_group über ~/github/*/.github/workflows/*.y*ml (nur platform, platform-pinned)", commit_or_pr: "—", opened_in_session: true}
+  - {claim_id: C17, source_path: "lokal: grep merge_group über ~/github/*/.github/workflows/*.y*ml (2 Dateien in platform, doppelt gezählt über Klon platform-pinned); korrigiert 2026-10-16: GraphQL mergeQueue(main) = null, Ruleset ohne Merge-Queue-Regel, 0 Läufe mit merge_group — verdrahtet, nie aktiv", commit_or_pr: "—", opened_in_session: true}
   - {claim_id: C18, source_path: "lokal: Forgejo-Serverlog artifactsv4.go 'unknown field \"mime_type\"' + extern: codeberg.org/forgejo/forgejo routers/api/actions/artifact.proto (Branch forgejo, ohne mime_type)", commit_or_pr: "Branch forgejo, 2026-10-15", opened_in_session: true}
   - {claim_id: C19, source_path: "lokal: Pilot-Job env (GITHUB_SERVER_URL vor/nach Runner-Adresswechsel)", commit_or_pr: "—", opened_in_session: true}
   - {claim_id: C20, source_path: "iilgmbh/ausschreibungs-hub: .github/workflows/ci.yml (on: pull_request, workflow_dispatch)", commit_or_pr: "5e047b2c", opened_in_session: true}
+  - {claim_id: C21, source_path: "extern: docs.pypi.org/trusted-publishers/internals/ (home-grown IdP not eligible) + blog.pypi.org/posts/2025-11-10-trusted-publishers-coming-to-orgs/ (GitLab self-managed Beta)", commit_or_pr: "—", opened_in_session: true}
+  - {claim_id: C22, source_path: "docs/konzepte/anhaenge/KONZ-072-einsatzkonzept-forgejo.md (Einsatzkonzept, Quellen 2026-10-16)", commit_or_pr: "dieser PR", opened_in_session: true}
 created: 2026-10-15
 ---
 
@@ -66,7 +68,7 @@ Orgs und Actions ist. Pilot-Kandidaten des Owners: bieterpilot und die Org ttz-l
 | Workflow-Dateien auf gehosteten `ubuntu`-Runnern / `self-hosted` | 337 / 31 |
 | Aufrufe von `iilgmbh/shared-ci`-Reusables | 167 |
 | Workflows mit `id-token: write` / mit `pypa/gh-action-pypi-publish` | 28 / 29 |
-| `workflow_call` / `actions/create-github-app-token` / `merge_group` | 59 / 6 / 4 |
+| `workflow_call` / `actions/create-github-app-token` / `merge_group` | 59 / 6 / 2 (korrigiert 2026-10-16: 4 war doppelt gezählt, aktiv ist keine Merge Queue, C17) |
 | Dependabot / Renovate / CODEOWNERS | 30 / 25 / 12 |
 | Werkzeugdateien mit `gh`-CLI oder `api.github.com` | 133 |
 
@@ -204,7 +206,8 @@ Diabolus und Maintainer-2028.
 (2) Fällt PyPI Trusted Publishing weg, kehren 28 Workflows zu langlebigen Tokens zurück. Das ist
 ein Security-Rückschritt. *Neuer Failure-Mode.*
 (3) Der Governance-Kern hat kein belegtes Gegenstück: das Ruleset mit `lotse-autor` und
-Owner-Approve, die Merge Queue und ein blockierender Code-Owner-Review. *Governance-Lücke.*
+Owner-Approve und ein blockierender Code-Owner-Review. *Governance-Lücke.* (Korrigiert
+2026-10-16: Die ursprünglich mitgenannte Merge Queue ist auf GitHub nicht aktiv, C17.)
 (4) Der Pilot misst womöglich nur, ob der Spiegel auslöst, nicht ob die CI gleichwertig ist (H).
 (5) Parallelbetrieb verdoppelt die Hook-Pflege. *Operationalisierungsrisiko.*
 Dazu zwei Punkte: „GitHub führend“ setzt sich nicht von selbst durch. Und ein Spiegel mit eigenen
@@ -318,8 +321,8 @@ Beleg fallen:
 | Hürde | Frage | Status | Beleg |
 |---|---|---|---|
 | H1 | Reusables über Repo-Grenzen laufen tag-gepinnt | **fällt mit Auflage** (G1 gemessen, Owner-Wort 2026-10-15 „K1A go“): shared-ci braucht für Forgejo artifact v4 und Forge-neutrale Composite-Refs, Kostenposten Stufe 2 | C12: `uses: org/repo/<pfad>@<ref>` ist erlaubt, das Ziel-Repo muss öffentlich sein. shared-ci ist öffentlich (C16) |
-| H2 | PyPI erkennt Forgejo als Trusted Publisher an | **fällt nicht** | C13: PyPI kennt nur GitHub Actions, Google Cloud, ActiveState, GitLab CI/CD. Self-managed-Instanzen sind ausgeschlossen |
-| H3 | Merge Queue oder gleichwertige Serialisierung | **nur Ersatz** | C14: keine Merge Queue in der Oberfläche. Ersatz: „blockiert, weil veraltet“ plus Auto-Merge nach grünen Checks. Das kostet je PR einen Update-Lauf. Genutzt wird `merge_group` heute nur in platform (C17) |
+| H2 | PyPI erkennt Forgejo als Trusted Publisher an | **fällt nicht** | C13: PyPI kennt nur GitHub Actions, Google Cloud, ActiveState, GitLab CI/CD. Präzisiert 2026-10-16 (C21): Selbst betriebene IdPs ohne Sicherheitsteam sind „not eligible“, GitLab self-managed nur als Beta über PyPI-Organisationen. H2 blockiert den Publish-Pfad, nicht den Forge-Umzug. Szenarien S1–S6 im Einsatzkonzept §2 (C22) |
+| H3 | Merge Queue oder gleichwertige Serialisierung | **nur Ersatz** | C14: keine Merge Queue in der Oberfläche. Ersatz: „blockiert, weil veraltet“ plus Auto-Merge nach grünen Checks. Das kostet je PR einen Update-Lauf. Korrigiert 2026-10-16 (C17): Auf GitHub ist keine Merge Queue aktiv, `merge_group` ist nur verdrahtet. **Vorschlag (nicht entschieden):** H3 auf „Parität zum GitHub-Ist“ umformulieren, dann fällt H3 mit Auflage (Einsatzkonzept §3, C22) |
 | H4 | Code-Owner-Review blockiert technisch | **fällt mit Auflage** (FJ11 gemessen 2026-10-16, Owner-Wort 2026-10-16 „FJ15 go“): blockiert alle Rollen außer dem Instanz-Admin mit `force_merge`. Auflage: kein Alltagskonto und keine Automatisierung ist Instanz-Admin, das Admin-Konto dient nur Einrichtung und Notfall (für den Abgleich umgesetzt mit FJ14) | C15: Approvals lassen sich auf eine Positivliste beschränken, dazu „Block merge on official review requests“ |
 
 **G0-Ergebnis (2026-10-15):** Höchstens 3 von 4 Hürden fallen, und das nur, wenn der Ersatz für H3
@@ -333,6 +336,12 @@ Urteil je Punkt gegen H1–H4 und den Testfragen T1–T16. Der Anhang bewertet H
 „teilweise“, weil der Aufrufer `permissions:` ignoriert, dem Context Schlüssel fehlen und Artefakte
 v3 oder einen Fork brauchen. Entschieden per „K1A go“ (2026-10-15): H1 fällt mit Auflage, denn die
 G1-Messung zeigt, dass v4 genügt. Der Anhang bleibt als Quellenstand vom 2026-10-15 so stehen.
+
+**Einsatzkonzept (2026-10-16, Owner-Auftrag in [#4018](https://github.com/achimdehnert/platform/issues/4018)):**
+[Anhang Einsatzkonzept Forgejo](anhaenge/KONZ-072-einsatzkonzept-forgejo.md) mit H2-Szenarien
+S1–S6, H3-Alternativen O1–O7, Ökosystem-Befunden, Optionsraum A–G und Stufenplan „Hoheit in
+Schichten“. Er korrigiert C17 und präzisiert H2 (C21). Fristsache: v16 endet am 2026-10-29, bis
+dahin ist die Release-Spur für den Pilot zu wählen (Anhang §9).
 
 **Kill-Gate (jedes Kriterium stoppt allein):**
 
