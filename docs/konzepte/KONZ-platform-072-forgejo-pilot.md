@@ -33,6 +33,7 @@ evidence_manifest:
   - {claim_id: C21, source_path: "extern: docs.pypi.org/trusted-publishers/internals/ (home-grown IdP not eligible) + blog.pypi.org/posts/2025-11-10-trusted-publishers-coming-to-orgs/ (GitLab self-managed Beta)", commit_or_pr: "—", opened_in_session: true}
   - {claim_id: C22, source_path: "docs/konzepte/anhaenge/KONZ-072-einsatzkonzept-forgejo.md (Einsatzkonzept, Quellen 2026-10-16)", commit_or_pr: "dieser PR", opened_in_session: true}
   - {claim_id: C23, source_path: "lokal: Forgejo 17.0.0 Serverlog artifactsv4.go:252 parseProtbufBody 'unknown field \"mime_type\"' (Probe-Repo t25-probe-20261016102031, v7 failure, v4 success) + extern: codeberg.org/forgejo/forgejo tag v17.0.0 routers/api/actions/artifactsv4.go (protojson.Unmarshal ohne DiscardUnknown), artifact.proto ohne mime_type", commit_or_pr: "2026-10-16", opened_in_session: true}
+  - {claim_id: C24, source_path: "docs/konzepte/anhaenge/KONZ-072-alternativen-zu-forgejo.md (Alternativen zu Forgejo, Quellen 2026-10-16, adversarial gegengeprüft)", commit_or_pr: "dieser PR", opened_in_session: true}
 created: 2026-10-15
 ---
 
@@ -369,6 +370,13 @@ obwohl Forgejo gestoppt war. Der Abruf von Forgejo war mit `|| true` stummgescha
 SHA aus dem Zwischenspeicher. Für K2 wäre das ein falsches Grün. Jetzt schreibt der Lauf eine
 Fehlerzeile, wenn Forgejo nicht erreichbar ist. Ein Zweig, der noch fehlt, bleibt im Erstlauf erlaubt.
 Beide Fälle sind gegengeprüft: eine unerreichbare Adresse ergibt `FEHLER`, der echte Lauf `unveraendert`.
+
+**Alternativen zu Forgejo (2026-10-16, Owner-Auftrag in [#4018](https://github.com/achimdehnert/platform/issues/4018), C24):**
+[Anhang Alternativen](anhaenge/KONZ-072-alternativen-zu-forgejo.md). Keine Alternative löst H2,
+außer selbst betriebenem GitLab Premium als PyPI-Beta. Sinnvoll sind drei: Gitea 28 (schließt
+Admin-Bypass, Code-Owner-Blockade, Audit-Log, Bot-Konten), STACKIT Git (Forgejo als deutscher
+Dienst) und GitLab Premium nur bei zwingendem H2. Welche passt, hängt an der Lesart von „Hoheit“.
+Er präzisiert §8 A2 und Einsatzkonzept §5 D.
 
 **Kill-Gate (jedes Kriterium stoppt allein):**
 
