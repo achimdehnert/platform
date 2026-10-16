@@ -34,7 +34,13 @@ import subprocess
 import sys
 from collections import defaultdict
 
-KONZ_RE = re.compile(r"(?:^|/)(KONZ-platform-(\d{3})-[^/]+\.md)$", re.IGNORECASE)
+# Nur die oberste Ebene von docs/konzepte/ vergibt Nummern — wie
+# `konz_number_check.py` (glob ohne Unterordner). Anhaenge unter
+# `docs/konzepte/anhaenge/KONZ-platform-NNN-*.md` tragen die Nummer ihres
+# Konzepts und sind keine eigene Vergabe (Realfall #4027/#4028, platform#1944).
+KONZ_RE = re.compile(
+    r"^docs/konzepte/(KONZ-platform-(\d{3})-[^/]+\.md)$", re.IGNORECASE
+)
 
 
 def gh(*args: str) -> subprocess.CompletedProcess:

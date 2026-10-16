@@ -61,6 +61,36 @@ def test_should_ignore_paths_that_are_not_konz_documents():
     assert kpg.claims_from_files(["docs/adr/ADR-300-x.md", "tools/y.py"]) == {}
 
 
+def test_should_ignore_annex_of_konz_in_subfolder():
+    # Anhang traegt die Nummer seines Konzepts — keine eigene Vergabe (#4027/#4028).
+    paths = [
+        "docs/konzepte/KONZ-platform-072-a.md",
+        "docs/konzepte/anhaenge/KONZ-platform-072-b.md",
+    ]
+    assert kpg.claims_from_files(paths) == {72: "KONZ-platform-072-a.md"}
+
+
+def test_should_pass_when_one_pr_edits_konz_and_other_adds_its_annex(
+    monkeypatch, capsys
+):
+    monkeypatch.setenv("GITHUB_REPOSITORY", "achimdehnert/platform")
+    monkeypatch.setenv("PR_NUMBER", "42")
+    monkeypatch.setattr(
+        kpg,
+        "gh",
+        _make_fake_gh(
+            open_prs=[42, 43],
+            views={
+                42: [_p("docs/konzepte/KONZ-platform-072-a.md")],
+                43: [_p("docs/konzepte/anhaenge/KONZ-platform-072-b.md")],
+            },
+        ),
+    )
+
+    assert kpg.main() == 0
+    assert "no in-flight KONZ-number collisions" in capsys.readouterr().out
+
+
 # --- main -------------------------------------------------------------------
 
 
