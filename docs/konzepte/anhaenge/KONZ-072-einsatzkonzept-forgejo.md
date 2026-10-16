@@ -101,7 +101,7 @@ Zielgruppe `pypi` und `email` aus → PyPI mintet daraus ein kurzlebiges Upload-
 | Sicherheit | Kein langlebiges Secret. Die Bindung an Repo und Tag sitzt bei Google, nicht bei PyPI. Fehler in der CEL-Bedingung öffnen den Pfad. Daher ein Dienstkonto je Paket |
 | Attestations | Im Warehouse-Code vorgesehen. Ob die Werkzeuge außerhalb von GitHub mit Google-Identität signieren: **Hypothese** |
 | Betrieb | Ein Google-Projekt, je Paket ein Dienstkonto plus PyPI-Eintrag. Kein eigener Dienst |
-| Hoheit | Zweiter US-Anbieter im Pfad. PyPI ist ohnehin US. Für Lesart A schlechter als S1, für Lesart B gleich |
+| Hoheit | Zweiter US-Anbieter im Pfad. PyPI ist ohnehin US. Für Lesart A schlechter als S1, für Lesart B gleich. Entschieden ist B (2026-10-16), also gleichwertig |
 | Kosten | Föderation selbst vermutlich kostenfrei: **Hypothese**, ungeprüft |
 
 **Offene Punkte (Hypothesen, im Kill-Test zu klären).**

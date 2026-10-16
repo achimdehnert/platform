@@ -378,6 +378,11 @@ Admin-Bypass, Code-Owner-Blockade, Audit-Log, Bot-Konten), STACKIT Git (Forgejo 
 Dienst) und GitLab Premium nur bei zwingendem H2. Welche passt, hängt an der Lesart von „Hoheit“.
 Er präzisiert §8 A2 und Einsatzkonzept §5 D.
 
+**Lesart Hoheit = B (Owner-Wort 2026-10-16 13:35 UTC „AH B“):** Hoheit heißt Kontrolle über die
+Software (Updates, Logs, Admin-Rechte, Backups), nicht Rechtsträger und Speicherort. Damit zählt
+nur Eigenbetrieb (Forgejo oder Gitea), STACKIT Git entfällt als Alternative. Lesart A greift nur
+für Aufträge, die sie ausdrücklich verlangen. Details: [Anhang §6](anhaenge/KONZ-072-alternativen-zu-forgejo.md#6-zwei-lesarten-von-hoheit).
+
 **Kill-Gate (jedes Kriterium stoppt allein):**
 
 | Kriterium | Status | Beleg |

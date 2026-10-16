@@ -208,6 +208,12 @@ Registry) und S3 (Token-Broker) aus dem Einsatzkonzept §2 gelten für jede Forg
 | Fällt durch | GHE.com, GitLab Dedicated, Gitea Cloud (US-Mutter, CLOUD Act [R2]) | jeder gemanagte Dienst |
 | Preis | Monatsgebühr, kein Audit-Ersatz | Patch-Disziplin (Forgejo 11 Sicherheitsreleases in 2026) |
 
+**Entschieden: Lesart B** (Owner-Wort 2026-10-16 13:35 UTC „AH B“, [#4018](https://github.com/achimdehnert/platform/issues/4018)).
+Die gemessenen Schwächen des Pilots sind Kontrollfragen: Admin-Bypass (FJ11 F3b), Audit-Log,
+Update-Takt. PyPI als Ziel liegt ohnehin bei einem US-Betreiber. Gemanagte Dienste zählen damit
+nicht als Hoheitsgewinn, STACKIT Git fällt als Option 2 in §7 weg. Lesart A wird erst Pflicht,
+wenn ein Auftrag sie verlangt; dann gilt sie für die Repos dieses Auftrags, nicht pauschal.
+
 **Rechtsrahmen, knapp:** Das EU-US-Datenrahmenabkommen ist vor dem EuGH angefochten (C-703/25 P),
 eine Entscheidung steht aus [R1]. Quellcode ist meist nicht personenbezogen, Commit-Metadaten,
 Issues und Reviews sind es. Jeder Hoster braucht also einen AVV, ein US-Hoster zusätzlich den
@@ -223,8 +229,8 @@ Es gibt **drei sinnvolle Alternativen**, und jede passt zu einer anderen Lage:
 1. **Gitea 28 statt Forgejo**, wenn der Pilot weiterläuft und Lesart B gilt. Gleiche API-Familie,
    gleiche Werkzeuge (gitea-mcp, `tea`), aber H4 ohne Auflage, Audit-Log und Bot-Konten. Preis:
    keine LTS, US-Firmenträger, erneuter Umbau des Pilots. Messbar mit einer Parallelprobe (T27).
-2. **STACKIT Git**, wenn Lesart A gilt und der Betrieb nicht selbst getragen werden soll. Gleiche
-   Software wie der Pilot, Ergebnisse übertragbar. Preis: kein Audit-Ersatz, keine Update-Hoheit.
+2. ~~**STACKIT Git**, wenn Lesart A gilt~~ — entfällt mit Lesart B (§6). Bleibt Rückfall für
+   einzelne Aufträge, die Lesart A verlangen.
 3. **GitLab Premium selbst betrieben**, nur wenn H2 ohne GitHub zwingend wird. Bedingung ist das
    PyPI-Onboarding. Preis: Lizenzbindung an einen US-Hersteller und die schwerste Betriebslast.
 
@@ -235,7 +241,7 @@ Spiegel), wie im Konzept §8.
 
 | Thema | Vorschlag | Frist |
 |---|---|---|
-| Lesart Hoheit | A oder B festlegen (§6). Davon hängt ab, ob ein gemanagter Dienst überhaupt zählt | vor Stufe 1 |
+| ~~Lesart Hoheit~~ | **entschieden: B** (2026-10-16, §6) | erledigt |
 | Gitea-Parallelprobe | T27 auf derselben Pilot-Maschine, lokal, ohne Secrets, rückbaubar | vor dem Gate 2027-01-15 |
 | GitLab-H2 | Nur falls H2 ohne GitHub zwingend wird: PyPI-Onboarding anfragen. Die Anfrage stellt ein Mensch | offen |
 
