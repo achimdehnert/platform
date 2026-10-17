@@ -93,7 +93,7 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
 | `0.7.32 pr-bestand` | Bestand wächst, Timer steht | `SAMMELPHASE` | Treiber deckeln (#3823) |
 | `0.7.33 routine-berichte` | neuer Fund, Routine still | — | in Artefakt (#3887) |
 | `0.7.34 review-profil-drift` | main-Schutz < Profil | — | Befehl = Owner-Zug (#3903) |
-| `0.7.35 pypi-release` | PyPI-Version ohne Tag/Herkunft, fremde Org, Inventar-Lücke | `nicht auf PyPI` | Issue im Paket-Repo; Yank = Owner (#4018) |
+| `0.7.35 pypi-release` | Tag/Herkunft fehlt, fremde Org | `nicht auf PyPI` | Issue im Paket-Repo; Yank = Owner |
 
 **`◌`/`nicht messbar`/`SAMMELPHASE` = Lücke, kein Pass — ins Board.** `ℹ️ HINWEIS` = Melder
 selbst herabgestuft, der **Melder** ist der Befund. Block „⏳ > 14 d" = Entscheidung fehlt.
@@ -122,9 +122,7 @@ cd "$wt"   # Branch session/<date>/<owner>/<slug> von origin/main + Lease
 - **`--ziel`** optional, gleich über alle Aufgaben der Sitzung.
 - **`--befund <phase::repo>`** sperrt einen Journal-Befund atomar, je Befund ein Aufruf;
   Kollision → `exit 3`. Runner-Zeile `⛔ in Arbeit von <lease>` → nicht selbst starten.
-  → `LEHREN#befund-sperre`
-- Aufräumen: `python3 platform/tools/worktree-reaper.py` (dry-run). Verstöße:
-  `bash platform/tools/main-tree-guard.sh report`. → `LEHREN#worktree-ziel`
+  → `LEHREN#befund-sperre` · Aufräumen: `LEHREN#worktree-ziel`
 
 ### 0.8 Modell-Tier für die Session wählen (policies/session-routing.md)
 
@@ -214,7 +212,6 @@ Arbeitsbeginn sauberziehen. Die Diskrepanz IST der Fund. → `LEHREN#handover-me
 | 2i | `0.7.4`: Prio-Referenzen **vor** dem ersten Schritt nachgezogen | ☐ |
 | 2j | `0.7.33`: Routine-Funde in Artefakt überführt | ☐ |
 | 2k | `0.7.34`: Drift-Befehl im Owner-Zug, nichts angewendet | ☐ |
-| 2l | `0.7.35`: Release-Fund als Issue im Paket-Repo, Yank nur als Owner-Zug | ☐ |
 | 3 | Architecture Context geladen (ex-0.4.2) | ☐ |
 | 4 | Modell-Tier bewusst gewählt (0.8) | ☐ |
 | 5 | Repo-Kontext + Memory-Warm-Start geladen (Phase 1/2) | ☐ |
