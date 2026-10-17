@@ -1,0 +1,18 @@
+{
+  "_zweck": "Muster fuer ~/.claude/lokal_modell.json (tools/lokal_modell.py, platform#4049). Die echte Datei liegt nie in einem Repo: Sprung-Host und Zieladresse sind Infrastruktur.",
+  "_felder": {
+    "basis_url": "nur localhost; der Tunnel legt den Port dorthin",
+    "tunnel.sprung": "SSH-Alias des Sprung-Hosts aus ~/.ssh/config",
+    "tunnel.ziel": "Adresse:Port von Ollama aus Sicht des Sprung-Hosts",
+    "num_predict": "Obergrenze der Antwort in Token (Pflicht, sonst laeuft ein Aufruf endlos)",
+    "verbotene_modelle": "Teilstrings, die fuer Kundenarbeit gesperrt sind"
+  },
+  "basis_url": "http://127.0.0.1:11999",
+  "tunnel": {"sprung": "<ssh-alias>", "ziel": "<adresse>:11434"},
+  "modell": "qwen2.5:7b",
+  "num_predict": 800,
+  "timeout_s": 180,
+  "max_zeichen": 24000,
+  "standard_anweisung": "Fasse den folgenden Text sachlich auf Deutsch in hoechstens fuenf Saetzen zusammen. Nenne keine Namen von Personen.",
+  "verbotene_modelle": ["abliterated"]
+}

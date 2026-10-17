@@ -320,6 +320,24 @@ def test_should_neues_gate_neben_rotem_altbestand_gruen_melden(repo, tmp_path):
     )
 
 
+def test_should_neues_blocking_gate_rot_melden(repo, tmp_path, capsys):
+    """Retro 835f30 Befund 3: neue Schranken starten mit Meldephase (platform#4061)."""
+    reg = _schreibe(tmp_path / "r.json", [_gate(mode="blocking")])
+    basis = _schreibe(tmp_path / "b.json", [])
+    rc = _lauf(["--registry", reg, "--repo", str(repo), "--neu", "--basis", basis])
+    assert rc == 1
+    assert "Meldephase" in capsys.readouterr().out
+
+
+def test_should_umschalten_auf_blocking_bei_bestehendem_gate_erlauben(repo, tmp_path):
+    """Der eigene Scharfschalt-PR nach der Auswertung bleibt moeglich."""
+    basis = _schreibe(tmp_path / "b.json", [_gate()])
+    reg = _schreibe(tmp_path / "r.json", [_gate(mode="blocking")])
+    assert (
+        _lauf(["--registry", reg, "--repo", str(repo), "--neu", "--basis", basis]) == 0
+    )
+
+
 def test_should_bei_unlesbarer_basis_exit_2_melden(repo, tmp_path, capsys):
     """Kein Verdikt ohne Vergleichsbasis — Werkzeugfehler ist nicht gruen."""
     reg = _schreibe(tmp_path / "r.json", [_gate()])

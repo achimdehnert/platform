@@ -27,7 +27,7 @@ mode: write
 
 ## Phase 0 — Right-Sizing (Footprint **und** erwartete Befund-Dichte)
 
-### 0.0 Wirkungsbilanz lesen — ERSTER Schritt (PFLICHT — NEU 2026-09-02, platform#2690 K4)
+### 0.0 Wirkungsbilanz lesen — ERSTER Schritt (PFLICHT, platform#2690 K4)
 
 ```bash
 python3 tools/gate_wirkung.py
@@ -43,8 +43,8 @@ je Gate: `Gate | Rückfälle seit Bau | Ursache (Ausgang/Quelle) | Konsequenz`.
 
 Nur diese vier Konsequenzen; „im Report erwähnt" ist keine. Hier wird **entschieden**, in
 Phase 4 (5a) umgesetzt; ein verbuchter Rückfall wird nicht neu aufgemacht. **Schon entschieden**
-(Retro desselben Tages, kein eigener Fall) ⇒ Link auf deren §0.0. **Ehrlichkeits-Sperre:**
-`zu-frueh`/`unerprobt` heißt ungeprüft, nicht wirksam — kein berichtbarer Erfolg. → LEHREN § Phase 0.0
+(alle Gates in einer Retro ≤7 Tage mit Konsequenz) ⇒ Link auf deren §0.0 + neue Vorkommen je Gate.
+**Ehrlichkeits-Sperre:** `zu-frueh`/`unerprobt` = ungeprüft, kein berichtbarer Erfolg. → LEHREN § Phase 0.0
 
 ### 0.1 Footprint + Befund-Dichte
 Footprint messen (PRs / Repos / Prod-Schritte / Migrationen / ADRs) **und** Befund-Dichte

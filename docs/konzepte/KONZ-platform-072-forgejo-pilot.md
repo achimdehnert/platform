@@ -5,7 +5,7 @@ pipeline_status: idea
 tier: T3
 owner: Achim Dehnert
 spec_refs: []   # keine SoR-Spec: Infrastruktur-/Governance-Konzept, kein Fachmodul (ADR-211 greift nicht)
-adr_threshold: kein ADR   # Pilot ist lokal, ohne Secrets, rückbaubar; ein Komplettumzug braucht einen org-weiten ADR (siehe §13)
+adr_threshold: kein ADR   # Pilot ist lokal und rückbaubar (seit S7 mit einem Google-Testprojekt ohne Abrechnung, Rückbau §5.9); ein Komplettumzug braucht einen org-weiten ADR (siehe §13)
 review_by: 2027-01-15
 kill_criteria: "K1 Cross-Repo-Reusable aus dem shared-ci-Spiegel läuft bis 2026-11-15 nicht grün ODER K2 < 95 % der GitHub-main-Commits haben in 14 Tagen einen Forgejo-Lauf (gezählt über den ersten Elternteil des Overlay-Commits, FJ8) ODER K3 bis 2027-01-15 keine schriftliche Entscheidung (dann gilt Abbruch + Rückbau) ODER K4 zwei verpasste Wartungsfristen (Forgejo-Patch ≤ 30 Tage)"
 superseded_by_spec: null
@@ -142,6 +142,10 @@ oder `ttz-lif`. Kein öffentlich erreichbarer Host.
 | Pull-Spiegel `shared-ci` (öffentlich, ohne Token) | neu | Achim Dehnert | nein | ja | Rückbau am Gate | — |
 | Push-Abgleich `ausschreibungs-hub` (Host-Cron, 10 min, FJ8) | neu | Achim Dehnert | nein | ja | Rückbau am Gate | Cron läuft still nicht mehr |
 | Messprotokoll (Hürdentabelle, SHA-Abdeckung) | neu | Achim Dehnert | ja | teils | bis Gate | — |
+| Pilot-CA und HTTPS-Front vor Forgejo (seit 2026-10-16, Owner-Wort „GH go“) | neu | Achim Dehnert | nein | nein | Rückbau am Gate | CA ohne Name Constraints |
+| Probe- und Demo-Repos im Pilot (S7, Code-Owner-Handtest) | neu | Achim Dehnert | nein | nein | Rückbau am Gate | — |
+| Google-Testprojekt für S7 mit Föderations-Pool, Anbieter und Dienstkonto, ohne Abrechnung (Owner-Wort „GC go“) | neu | Achim Dehnert | nein | nein | Rückbau am Gate | Föderation bleibt offen, solange das Projekt lebt |
+| Release-Melder `tools/pypi_release_melder.py` | neu | Achim Dehnert | nein | nein | unabhängig vom Pilot | läuft nur als Runner-Phase |
 
 **5.7 Prozessmodell.** `idea` (dieses Doc) → `pilot` (Gates G0–G2, §5.9) → Gate 2027-01-15:
 Abbruch + Rückbau **oder** org-weiter ADR für Stufe 2. Ohne Entscheidung gilt Abbruch.
@@ -189,8 +193,12 @@ Gate-Zeile im Handover, ist also ein Review-Gate und kein Exit-Code.
   ersten Elternteil. Der Ersatz für einen Pull-Spiegel war nötig, weil ein privates Repo sonst ein
   GitHub-Token in Forgejo braucht und `ci.yml` keinen Push-Trigger hat (C20).
 - **Bewusst nicht drin:** Deploy, PyPI-Veröffentlichung, Werkzeug-Umbau, Renovate auf Forgejo.
-- **Rückbau, unter 1 h:** Cron-Zeile entfernen, Compose-Stack und Datenvolumen löschen. Ein
-  Token muss nicht widerrufen werden. Das Repo bleibt unberührt, weil der Stack außerhalb liegt.
+- **Rückbau, unter 1 h:** Cron-Zeile entfernen, Compose-Stack, Datenvolumen, HTTPS-Front und
+  Pilot-CA löschen; wurde die CA in einen Trust-Store eingetragen, dort entfernen. Die Tokens der
+  Pilot-Konten (z. B. `fj-abgleich`) verfallen mit dem Stack. Ein für den Spiegel angelegtes
+  GitHub-Token wird auf GitHub widerrufen (Token-Regel im Ledger vom 2026-10-15). Das
+  Google-Testprojekt aus S7 wird gelöscht, das entfernt Föderations-Pool, Anbieter und Dienstkonto.
+  Das Repo bleibt unberührt, weil der Stack außerhalb liegt.
 
 **5.10 Full Concept, nur nach Gate.** Stufe 2: `shared-ci` wird Forge-neutral.
 Werkzeug-Zwischenschicht für `gh`. Bot-Konto statt App. Renovate auf Forgejo. Eigener
