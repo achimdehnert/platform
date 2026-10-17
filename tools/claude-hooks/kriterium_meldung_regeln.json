@@ -1,0 +1,36 @@
+{
+  "_doc": "Regeln fuer melde_kriterium_ohne_beleg.py (Gate kriterium-teilerfuellt-als-erfuellt-gemeldet, Mandat #4018 KG). mandats_issues: Ziel-Issues mit Mandat, Auftrag oder Kill-Kriterium, je 'owner/repo#nummer'; neue Mandate hier nachtragen. Alle *_muster sind Python-Regex. signal_muster: Text meldet ein Kriterium als bestanden/erfuellt oder empfiehlt go; zaehlt nur in einer Zeile, die auch bezug_muster trifft (Kriteriumskuerzel wie K4, G1, S7, das Wort Kriterium oder Teil N). kriterium_muster: Zeile, die ein Kriterium einleitet; das Zitat steht als Blockzitat (> ...) direkt darunter oder in Anfuehrungszeichen in derselben Zeile. teil_im_zitat_muster: Listenpunkt im Blockzitat = ein Teil. teil_muster: Zeile ausserhalb des Zitats, die einen Teil per Nummer belegt. beleg_muster: Link oder Messwert.",
+  "mandats_issues": [
+    "achimdehnert/platform#4018",
+    "achimdehnert/platform#3903",
+    "achimdehnert/platform#3804",
+    "achimdehnert/platform#3367",
+    "achimdehnert/platform#3234",
+    "achimdehnert/platform#3079",
+    "achimdehnert/platform#3575",
+    "achimdehnert/platform#3414",
+    "achimdehnert/platform#2020",
+    "achimdehnert/platform#2581",
+    "achimdehnert/platform#4072"
+  ],
+  "signal_muster": [
+    "(?i)(?<!nicht )(?<!nicht als )(?<!kein )(?<![^\\w]\\d )(?<![^\\w]\\d\\d )(?<![^\\w]\\d\\d\\d )(?<![^\\w]\\d\\d\\d\\d )\\b(?:bestanden|erfüllt|erfuellt)\\b(?!\\s+(?:sind|ist|wird|werden)\\b)",
+    "(?i)\\bempf(?:ehl\\w*|iehlt|ohlen)\\b[^\\n]{0,240}\\bgo\\b",
+    "(?i)\\bgo\\b[“\"]?[^\\n]{0,40}\\bempfohlen\\b"
+  ],
+  "bezug_muster": "(?i)\\b(?:[KGSO]\\d+[A-Z]?|kriteri\\w*|teil\\s+\\d+)\\b",
+  "kriterium_muster":"(?i)\\b(?:[\\w]+-)?kriteri(?:um|en)\\b",
+  "zitat_inline_muster": "[„“\"]([^„“”\"\\n]{12,})[“”\"]",
+  "teil_im_zitat_muster": "^\\s*>\\s*(?:[-*]|\\d+[.)])\\s+\\S",
+  "teil_muster": "(?i)\\bTeil\\s+(\\d+)\\b",
+  "beleg_muster": [
+    "https?://\\S+",
+    "(?<![\\w/])#\\d{2,}\\b",
+    "\\b(?=[0-9a-f]*\\d)(?=[0-9a-f]*[a-f])[0-9a-f]{7,40}\\b",
+    "(?i)\\b\\d+(?:[.,]\\d+)?\\s?(?:%|ms|s|min|h|byte|kb|mb|gb|token|zeilen|treffer|läufe|lauf|fälle)(?!\\w)",
+    "\\b\\d+\\s*(?:von|/)\\s*\\d+\\b",
+    "\\b[1-5]\\d{2}\\b",
+    "(?i)\\bexit(?:-code)?\\s*\\d+\\b",
+    "→\\s*\\d+"
+  ]
+}

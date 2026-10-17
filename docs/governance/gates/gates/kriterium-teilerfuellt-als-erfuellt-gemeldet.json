@@ -1,0 +1,39 @@
+{
+  "slug": "kriterium-teilerfuellt-als-erfuellt-gemeldet",
+  "mode": "advisory",
+  "module": "tools/claude-hooks/melde_kriterium_ohne_beleg.py",
+  "drill": "tools/claude-hooks/tests/test_melde_kriterium_ohne_beleg.py",
+  "built": "2026-10-17",
+  "last_drill_pass": "2026-10-17",
+  "owner": "achim",
+  "zustand": "melder",
+  "expires": "2026-10-31",
+  "expires_note": "Meldephase: bis zur Frist die Meldungen im Gate-Protokoll auswerten (platform#4076). Fehlalarme -> Muster in der Regeldatei nachschaerfen, sonst mode per eigenem PR auf blocking.",
+  "covers": [
+    "kriterium-teilerfuellt-als-erfuellt-gemeldet"
+  ],
+  "faengt": [
+    {
+      "fall": "Realfall #4018: S7 als bestanden empfohlen, Kriterium nicht zitiert",
+      "probe": "report_the_real_recommendation_from_body_file"
+    },
+    {
+      "fall": "Kriterium zitiert, Teil 2 ohne Beleg, trotzdem bestanden",
+      "probe": "report_quoted_criterion_with_unmeasured_part"
+    },
+    {
+      "fall": "derselbe Text ueber das GitHub-MCP (Kommentar und Body-Bearbeitung)",
+      "probe": "report_mcp_comment_and_body_edit"
+    },
+    {
+      "fall": "kaputte Regeldatei: als Fehler gezaehlt und gemeldet, nicht still (platform#3862 Fund 5)",
+      "probe": "count_broken_rules_file_as_failure"
+    }
+  ],
+  "positivkontrolle": {
+    "datum": "2026-10-17",
+    "ref": "Hook als Prozess ausserhalb pytest, eigenes Protokoll, Befehl gh issue comment 4018 --repo achimdehnert/platform -F <Kommentar>: Realfall-Kommentar 6218686626 roh -> Meldung `Kriterium nicht im Wortlaut zitiert`, keine permissionDecision; Vorgaenger 6218623044 (`bis vor TestPyPI bestanden`) -> Meldung; Korrektur 6218785683 -> stumm; belegter Gegentext (Zitat mit zwei Teilen, je Teil Link oder Messwert) -> stumm. 4 von 4 richtig, Protokoll 2 Zeilen meldung/advisory. Fehlalarm-Gegenprobe Zielpopulation: alle 154 Kommentare der 11 Mandats-Issues -> 10 Meldungen, davon 7 echte Kriteriumsmeldungen ohne Zitat und 3 Fehlalarme. Fixture = Realfall ohne Fusszeile, Kontrollprobe Kennungen roh 2 -> bereinigt 0."
+  },
+  "note": "Retro 5c34f2 Befund 1 (§6 M5), Mandat platform#4018 „KG go“. Meldet Texte an Mandats-Issues, die ein Kriterium als bestanden/erfuellt melden oder go empfehlen, ohne das Kriterium im Wortlaut zu zitieren und je Teil einen Beleg zu nennen. Mandats-Issues, Signal-, Bezug- und Beleg-Muster in tools/claude-hooks/kriterium_meldung_regeln.json. GRENZEN im Header: Kette gilt als Ganzes, Beleg nur auf Vorhandensein geprueft. Verdrahtung in ~/.claude/settings.json ist Owner-Recht (Charta Art. 3). Scharf erst per eigenem PR nach Auswertung der Meldungen (platform#4076, Regel platform#4061).",
+  "ref": "https://github.com/achimdehnert/platform/issues/4018"
+}
