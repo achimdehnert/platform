@@ -430,17 +430,19 @@ hosts:
 runners:
   prod-server:
     host: prod                         # 88.198.191.108
-    status: online                     # Stand 2026-06-17
+    status: online                     # Stand 2026-10-17 (gh api: 14/14 online)
     labels: [self-hosted, Linux, X64, prod, prod-server]
     scope: per-repo
     install: /opt/actions-runner-<repo>
     service: actions.runner.achimdehnert-<repo>.prod-server.service
     note: >
       Ein dedizierter Runner pro Repo (risk-hub, billing-hub, trading-hub,
-      platform, … alle 23 Repos). Verarbeitet alles mit `runs-on: self-hosted`.
+      platform, …). Verarbeitet alles mit `runs-on: self-hosted`.
       Ein Runner pro Repo → Jobs eines PRs laufen sequenziell.
       ADR-257: für CI/Build deprecated (Migration läuft; Deploy bleibt hier, ADR-156).
-    verified: 2026-06-17
+      Stand 2026-10-17 (gh api runners über alle nicht archivierten Repos): 14 Repos,
+      10 in achimdehnert + 4 in iilgmbh, alle online (2026-06-17 waren es 23 Repos).
+    verified: 2026-10-17                # gh api actions/runners, beide Orgs
 
   staging-ci:
     host: dev-desktop                  # 88.99.38.75 (Key bis 2026-08-30: staging)
@@ -502,7 +504,7 @@ runners:
       ALLE risk-hub-Merges (die toten Labels `hetzner`/`dev` zeigten nur auf ihn).
       Am 2026-06-17 dereg. (`gh api -X DELETE …/actions/runners/23` auf risk-hub;
       auf keinem anderen Repo registriert). Eintrag bleibt als Lehre/Historie.
-    verified: 2026-06-17
+    verified: 2026-10-17                # gh api: in keinem nicht archivierten Repo von achimdehnert/iilgmbh registriert
 
 # Workflows mit toten Labels — alle bereinigt (2026-06-17). Neue Workflows: runs-on: self-hosted.
 dead_label_refs:
