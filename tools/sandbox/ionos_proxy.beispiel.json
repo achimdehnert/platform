@@ -1,0 +1,11 @@
+{
+  "datacenter": "<datacenter-id>",
+  "server": "<server-id>",
+  "volume": "<root-volume-id>",
+  "benutzer": "<agenten-nutzer-email>",
+  "passwort_datei": "~/.secrets/ionos_cloud_agent_password",
+  "snapshot_praefix": "agent-",
+  "max_eigene_snapshots": 1,
+  "geschuetzte_snapshots": ["<id-des-ersten-snapshots>"],
+  "mindestabstand_s": {"/neustart": 300, "/start": 60, "/konsole": 60, "/snapshot": 3600, "/zurueckspielen": 3600}
+}
