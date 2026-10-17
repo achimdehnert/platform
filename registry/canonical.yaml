@@ -77,6 +77,21 @@ meta:
     nl2iot-hub: iilgmbh
     risk-hub: iilgmbh
     tax-hub: iilgmbh
+    # 2026-10-17: elf Bibliotheken liegen seit dem Umzug (#3878) unter iilgmbh;
+    # rich.github zeigt das seit #3915, die Overrides fehlten — Melder rot seit
+    # 2026-10-13 ("registry-intern uneins"). Verifiziert ueber
+    # `gh api repos/iilgmbh/<repo> -q .owner.login`.
+    aifw: iilgmbh
+    authoringfw: iilgmbh
+    iil-codeguard: iilgmbh
+    iil-django-commons: iilgmbh
+    iil-reflex: iilgmbh
+    iil-testkit: iilgmbh
+    learn-hub: iilgmbh
+    learnfw: iilgmbh
+    outlinefw: iilgmbh
+    promptfw: iilgmbh
+    weltenfw: iilgmbh
     # bahn-hub ist der Gegenfall: die Praefix-Regel `bahn-` -> bahn-sqf schickte
     # jede Anfrage nach bahn-sqf/bahn-hub (404), waehrend das Repo unter
     # achimdehnert liegt. Der 404 tarnte die Drift als "nicht pruefbar" — deshalb
