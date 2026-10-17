@@ -420,6 +420,32 @@ hosts:
     hosts_runners: []
     verified: 2026-08-30                # Vollmessung 13 Agenten + Nachmessung, KONZ-054
 
+  ionos-sandbox:
+    ip: 87.106.239.66                  # IONOS-IP-Block iil-sandbox-ip (feste IPv4)
+    ssh: root@87.106.239.66            # Key dehnert@bfagent-wsl; PasswordAuthentication no (sshd -T 2026-10-17)
+    hostname: ubuntu
+    provider: IONOS Cloud (de/fra)     # eigener Cloud-Vertrag, eigene Rechnung; Datacenter iil-sandbox
+    server_type: Basic Cube L (8 vCPU / 16 GB / 480 GB NVMe)
+    arch: amd64                        # uname -m 2026-10-17: x86_64
+    os: Ubuntu 24.04.4 LTS, Kernel 6.8.0-100-generic
+    status: geplant
+    role: >
+      Sandbox-Werkstatt der Org iilsandbox (ADR-308), Arbeitsflaeche fuer einen
+      autonomen Agenten. Der Agent haelt keinen IONOS-Token; er spricht nur mit einem
+      Proxy mit Allowlist (Snapshot, Restore eigener Snapshots, Neustart, Konsole, lesen).
+      Backup: IONOS-Snapshot des Root-Volumes, Rotation im Proxy; kein Offsite, weil
+      keine schutzwuerdigen Daten. Wiederanlauf: Snapshot-Restore oder Neuaufsetzen aus
+      Ubuntu-Image. Owner-Freigaben 2026-10-17: cube-l, agent-user, snapshot, limits.
+    auflage:
+      datenklassen_verboten: [personenbezogen, gov-sozialdaten]
+      prod_container: false
+      runner: false
+      oeffentlicher_ingress: false
+      grund: "ADR-308 Sandbox-Werkstatt; Owner 2026-10-17: nichts Privates, kein Datenschutz noetig"
+    hosts_runners: []
+    verified: false
+    verified_bis: 2026-11-16
+
 # ─────────────────────────────────────────────────────────────────────────────
 # GitHub-Actions Self-Hosted Runner
 # ─────────────────────────────────────────────────────────────────────────────
