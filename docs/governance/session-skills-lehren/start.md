@@ -243,6 +243,20 @@ Herleitungen mit Realfällen, Zahlen und Daten.
     Branch-Schutz Security-Config ist (autonomy-gates). Weicht das Soll von der
     Wirklichkeit ab, ändert man die Deklaration per PR, nicht den Schutz still.
 
+### 0.7.35 pypi-release
+
+  - `0.7.35 pypi-release` (NEU 2026-10-16, [#4018](https://github.com/achimdehnert/platform/issues/4018)):
+    prüft neue PyPI-Versionen der Flotte auf Tag im Heim-Repo (R1), Herkunft aus
+    der erwarteten Org (R3, Org aus `registry/canonical.yaml`, während einer
+    Migration zusätzlich `publisher_current`), Attestierung (R4) und Lücken im
+    Inventar (`ohne Erwartung`). Tag-Formen je Paket stehen in
+    `registry/pypi-release-melder.yaml`. `nicht auf PyPI` ist kein Befund, sondern
+    ein Paket ohne Veröffentlichung. Gedrosselt über die Ergebnisdatei (6 h).
+    Fund → Issue im Paket-Repo mit Link zur Version; Rückzug/Yank ist Owner-Zug.
+    Checkliste: Release-Fund als Issue, nie selbst yanken. Die eigene Zeile 2l in der
+    Abschluss-Checkliste des Skills entfiel wegen des Byte-Deckels (Owner „DV go“, 2026-10-17);
+    Zeile 2 (jede WARN als Befund) deckt den Fund mit.
+
 ### Vierte Lautstärke `ℹ️ HINWEIS`
 
   - **Vierte Lautstärke `ℹ️ HINWEIS` (NEU 2026-09-02, #2690 K3):** eine Phase, deren
@@ -305,6 +319,10 @@ Alt-Phasen — gelten unverändert)".
 ## worktree-ziel
 
 **Ursprung:** `session-start.md`, Phase 0.4.3, Absatz zu `--ziel` (Stand 2026-08-04).
+
+- **Aufräumen und Verstöße** (aus dem Skill hierher verschoben 2026-10-17, Owner „DV go“, #4068):
+  `python3 platform/tools/worktree-reaper.py` (dry-run) räumt verwaiste Worktrees;
+  `bash platform/tools/main-tree-guard.sh report` listet Verstöße gegen das Worktree-Ziel.
 
 - **`--ziel` ist optional, aber die Antwort auf zwei Fragen, die sonst geraten werden:**
   „warum existiert dieser Branch?" (Wildwuchs) und „welche PRs gehören zu dieser Sitzung?"

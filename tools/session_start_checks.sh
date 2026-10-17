@@ -680,6 +680,8 @@ vorlauf umgebung     timeout 90  python3 "$PLATFORM_DIR/tools/umgebung.py" --rep
 vorlauf staging      _staging_probe
 vorlauf routine-berichte timeout 60 python3 "$PLATFORM_DIR/tools/routine_berichte.py"
 vorlauf review-profil-drift timeout 90 python3 "$PLATFORM_DIR/tools/branch_protection_meter.py" --pilot --kurz
+vorlauf pypi-release timeout 120 python3 "$PLATFORM_DIR/tools/pypi_release_melder.py" --kurz \
+                       --ergebnis-datei "$MELDER_DIR/pypi-release.json" --frisch-stunden 6
 
 _vorlauf_loslegen
 # ══ Ende Vorlauf-Start ══════════════════════════════════════════════════════
@@ -1563,6 +1565,24 @@ if [ -f "$PLATFORM_DIR/tools/branch_protection_meter.py" ]; then
   esac
 else
   record "0.7.34 review-profil-drift" "SKIP" "tools/branch_protection_meter.py fehlt"
+fi
+
+# ── 0.7.35 PyPI-Release: liegt auf PyPI nur, was die Flotte erwartet? ───────────
+# KONZ-platform-072 §2.2, Retro 5c34f2 Befund 5 (#4060): der Melder aus #4045 hatte
+# keinen Aufrufer. Ins Netz (PyPI, Integrity-API, gh tags; gemessen ~5 s) geht er
+# hoechstens alle 6 Stunden, dazwischen liest er $MELDER_DIR/pypi-release.json.
+# Exit 1 = Befund (R1/R3/R4/ohne Erwartung), Exit 2 = nicht pruefbar (beides WARN).
+if [ -f "$PLATFORM_DIR/tools/pypi_release_melder.py" ]; then
+  warte_auf pypi-release
+  PRM_RC="$ERNTE_RC"
+  PRM_OUT=$(ernte pypi-release | tail -n 1)
+  [ -n "$PRM_OUT" ] || PRM_OUT="nicht pruefbar: Melder ohne Ausgabe (rc=$PRM_RC)"
+  case "$PRM_RC" in
+    0) record "0.7.35 pypi-release" "PASS" "$PRM_OUT" ;;
+    *) record "0.7.35 pypi-release" "WARN" "$PRM_OUT" ;;
+  esac
+else
+  record "0.7.35 pypi-release" "SKIP" "tools/pypi_release_melder.py fehlt"
 fi
 
 # ── 0.7.31 Hintergrund-Wache dev-hub: Status geschrieben, aber nie gelesen ──────

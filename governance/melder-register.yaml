@@ -419,6 +419,12 @@ melder:
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.7.34"
+  - phase: "0.7.35 pypi-release"
+    leser: "Session-Start-Board → Agent (R1/R3/R4 → Issue im Paket-Repo mit Link zur PyPI-Version, Rueckzug/Yank ist Owner-Zug; ohne Erwartung → pypi_fleet_inventory.py neu erzeugen; unbekannt → `pypi_release_melder.py` ohne Drosselung wiederholen) (KONZ-072 §2.2, platform#4018)"
+    wiedervorlage_tage: 7
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.35"
   - phase: "0.7.26 ci-deckung"
     leser: "Session-Start-Board → Agent (Ziel gedeckt/verzichtet nachziehen, dann `make <ziel>` in den Workflow oder Grund in governance/ci-deckung-verzicht.yaml); Owner bei Scope-Fragen ueber Repo-Grenzen"
     wiedervorlage_tage: 14

@@ -1,0 +1,36 @@
+# registry/pypi-release-melder.yaml — Erwartungsdaten fuer tools/pypi_release_melder.py
+#
+# Retro 5c34f2 Befund 11 (platform#4060), Owner „RP go" 2026-10-16 (Mandat #4018).
+# registry/pypi-fleet.yaml ist ein generierter Scan ("nicht von Hand editieren");
+# was der Melder darueber hinaus erwartet, steht hier statt als Literal im Code.
+#
+# Org-Bindung steht NICHT hier, sondern kommt aus den beiden SSoTs:
+#   - Heimat-Org des Quell-Repos: registry/canonical.yaml (registry_api.owner)
+#   - waehrend einer Migration zusaetzlich `publisher_current` aus
+#     registry/iil-migration.yaml (ADR-255) — Attestationen von vor dem Umzug
+#     tragen noch die alte Org (gemessen 2026-10-16: iil-outlinefw 0.4.0).
+# Eine Attestation aus einer anderen Org ist R3, auch wenn der Repo-Name passt.
+#
+# Schema:
+#   publisher_remote.kind   Publisher-Art aus pypi-fleet.yaml, bei der nicht das
+#                           Paket-Repo publiziert, sondern publisher_remote.repo
+#                           (Remote-Checkout, pypi_fleet_inventory.py).
+#   publisher_remote.repo   Repo, das fuer diese Art publiziert.
+#   tag_formen              Standard-Tag-Formen je Paket; Platzhalter {version}, {dist}.
+#   pakete.<name>.tag_formen  ersetzt den Standard fuer ein Paket (<name> = Schluessel
+#                           in pypi-fleet.yaml). Gemessen 2026-10-16 per
+#                           `gh api repos/<org>/<repo>/tags` ueber alle 23 Pakete:
+#                           18 nur `v{version}`, 2 ohne Tags, die drei unten
+#                           abweichend, keins mit nacktem `{version}`.
+publisher_remote:
+  kind: platform-remote
+  repo: platform
+tag_formen:
+  - "v{version}"
+pakete:
+  authoringfw:
+    tag_formen: ["v{version}", "{dist}@{version}"]
+  nl2cad:
+    tag_formen: ["{dist}@{version}"]
+  researchfw:
+    tag_formen: ["v{version}", "{dist}@{version}"]
