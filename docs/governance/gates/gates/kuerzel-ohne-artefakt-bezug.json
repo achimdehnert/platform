@@ -1,0 +1,36 @@
+{
+  "slug": "kuerzel-ohne-artefakt-bezug",
+  "mode": "advisory",
+  "owner": "achim",
+  "module": "tools/claude-hooks/kuerzel_ohne_gegenzeile_scanner.py",
+  "drill": "tools/claude-hooks/tests/test_kuerzel_ohne_gegenzeile_scanner.py",
+  "built": "2026-10-17",
+  "last_drill_pass": "2026-10-17",
+  "zustand": "melder",
+  "expires": "2026-10-31",
+  "expires_note": "Meldephase (platform#4061): zwei Wochen Meldungen im Gate-Protokoll auswerten. Fehlalarme -> Muster nachschaerfen; echte Treffer -> eigener PR entscheidet ueber blocking. Ein Stop-Hook kann den Zug nicht nachtraeglich verhindern, scharf hiesse hier: Turn-Ende anhalten, bis die Zeile steht.",
+  "faengt": [
+    {
+      "fall": "Owner-Kuerzel mit go, danach kein Schreibzugriff, der es nennt",
+      "probe": "test_should_flag_kuerzel_without_any_artifact_write"
+    },
+    {
+      "fall": "mehrere Kuerzel, nur eines im Artefakt",
+      "probe": "test_should_flag_only_the_kuerzel_missing_from_the_artifact"
+    },
+    {
+      "fall": "Memory per Shell ergaenzt ist eine Gegenzeile, kein Fehlalarm",
+      "probe": "test_should_not_flag_when_memory_appended_via_shell"
+    },
+    {
+      "fall": "aeltere Owner-Nachrichten werden nicht jeden Turn neu gemeldet",
+      "probe": "test_should_only_judge_the_last_owner_message"
+    }
+  ],
+  "positivkontrolle": {
+    "ref": "Funktion offene_kuerzel ohne Gate-Protokoll gegen das Transkript der Sitzung 835f30, je Owner-Zug bis zur naechsten Owner-Nachricht abgeschnitten: 11 Zuege mit Kuerzel-go, gemeldet MA und FR (Retro 835f30 Befund 18), 9 stumm. Erster Lauf meldete zusaetzlich 2 Fehlalarme (Memory per printf >> ergaenzt); Shell-Schreibweg in Artefakt-Pfade vor dem Commit aufgenommen, zweiter Lauf 2 von 2 Treffern, 0 Fehlalarme.",
+    "datum": "2026-10-17"
+  },
+  "note": "Charta Art. 10: jede Freigabe bekommt im selben Zug ein durables Artefakt. Stop-Hook liest nur die letzte getippte Owner-Nachricht, sucht `<KUERZEL> go` und danach gh/lotse-gh issue|pr create|comment|edit|review, gh api auf Issues/PRs (Befehl plus per Name genannte, vorher geschriebene Datei), GitHub-MCP-Schreibwerkzeuge oder Write/Edit/Shell-Schreiben in Memory, docs/handover.d, docs/retros. Prueft Nennung, nicht Inhalt. Abschalten: KUERZEL_GATE=aus. Verdrahtung in ~/.claude/settings.json ist Owner-Recht (Charta Art. 3).",
+  "ref": "https://github.com/achimdehnert/platform/issues/4062"
+}
