@@ -12,6 +12,13 @@
 
 ---
 
+## neuer-computer
+
+**Ursprung:** Kopf von `session-start.md` (verschoben 2026-10-17, Owner „DV2 go“).
+
+`git clone https://github.com/achimdehnert/platform` → `bash platform/bootstrap.sh` →
+`source ~/.bashrc`; ohne `$GITHUB_DIR` gilt `$HOME/github`.
+
 ## runner-motiv
 
 **Ursprung:** `session-start.md`, Präambel zu Phase 0, Stand 2026-07-18 (platform#1167).
@@ -253,9 +260,10 @@ Herleitungen mit Realfällen, Zahlen und Daten.
     `registry/pypi-release-melder.yaml`. `nicht auf PyPI` ist kein Befund, sondern
     ein Paket ohne Veröffentlichung. Gedrosselt über die Ergebnisdatei (6 h).
     Fund → Issue im Paket-Repo mit Link zur Version; Rückzug/Yank ist Owner-Zug.
-    Checkliste: Release-Fund als Issue, nie selbst yanken. Die eigene Zeile 2l in der
-    Abschluss-Checkliste des Skills entfiel wegen des Byte-Deckels (Owner „DV go“, 2026-10-17);
-    Zeile 2 (jede WARN als Befund) deckt den Fund mit.
+    Checkliste: Release-Fund als Issue, nie selbst yanken — Zeile 2l im Skill.
+    #4068 hatte 2l wegen des Byte-Deckels gestrichen. Owner „DV go“ deckte aber nur
+    die Reaper-Zeile, und „Neue Pflicht-Phase ⇒ Checklisten-Zeile“ gilt weiter. Deshalb
+    kam 2l am 2026-10-17 zurück (Owner „DV2 go“), bezahlt mit `#neuer-computer`.
 
 ### Vierte Lautstärke `ℹ️ HINWEIS`
 
